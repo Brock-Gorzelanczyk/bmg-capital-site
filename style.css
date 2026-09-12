@@ -1,0 +1,196 @@
+:root {
+  --bg: #fafaf7;
+  --ink: #1a1a1a;
+  --ink-soft: #555;
+  --accent: #0a3d62;
+  --pos: #0a7d38;
+  --neg: #b3261e;
+  --line: #dcdcd6;
+  --code-bg: #f0efe8;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.55;
+  font-size: 16px;
+}
+header {
+  border-bottom: 1px solid var(--line);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--accent);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+nav a {
+  color: var(--ink);
+  text-decoration: none;
+  margin-left: 1.25rem;
+  border-bottom: 2px solid transparent;
+  padding-bottom: 2px;
+}
+nav a:hover { border-color: var(--accent); color: var(--accent); }
+main { max-width: 900px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
+h1 { font-size: 1.75rem; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.25rem; margin: 2rem 0 0.5rem; }
+h3 { font-size: 1.05rem; margin: 1.25rem 0 0.35rem; }
+p, ul, ol { margin: 0 0 0.9rem; }
+code {
+  background: var(--code-bg);
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+  font-size: 0.92em;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+}
+.hero { padding: 1.5rem 0 0; }
+.lede { font-size: 1.15rem; color: var(--ink-soft); }
+.page-lede { color: var(--ink-soft); margin-bottom: 1.5rem; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.5rem; }
+.cta {
+  display: inline-block;
+  padding: 0.6rem 1rem;
+  background: var(--accent);
+  color: white;
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: 500;
+}
+.cta:hover { background: #072d47; }
+
+/* tables */
+.calls-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  margin: 0.5rem 0 2rem;
+}
+.calls-table th, .calls-table td {
+  padding: 0.55rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.calls-table th { font-weight: 600; background: rgba(0,0,0,0.02); }
+.calls-table tbody tr { cursor: pointer; }
+.calls-table tbody tr:hover { background: rgba(10,61,98,0.04); }
+.calls-table td.ticker { font-weight: 600; }
+.calls-table .thesis-cell { max-width: 320px; color: var(--ink-soft); }
+.calls-table .empty { text-align: center; color: var(--ink-soft); padding: 2rem; }
+.dir-BUY  { color: var(--pos); font-weight: 600; }
+.dir-SELL { color: var(--neg); font-weight: 600; }
+.dir-HOLD { color: var(--ink-soft); font-weight: 600; }
+.pos { color: var(--pos); font-weight: 600; }
+.neg { color: var(--neg); font-weight: 600; }
+
+.status {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+  font-weight: 600;
+  background: #eee;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.status-OPEN { background: #d5efd5; color: #1c5a1c; }
+.status-CLOSED_TARGET { background: #cde5f5; color: #073a5f; }
+.status-CLOSED_KILL { background: #f5d5d5; color: #7a1414; }
+.status-CLOSED_HORIZON { background: #eee; color: #333; }
+.status-CLOSED_MANUAL { background: #f5efd5; color: #6b4a00; }
+
+.attrib { font-size: 0.85rem; padding: 0.15rem 0.4rem; border-radius: 3px; font-weight: 500; }
+.attrib-THESIS_CORRECT { background: #d5efd5; color: #1c5a1c; }
+.attrib-RIGHT_WRONG_REASON { background: #f5e6cf; color: #7a3f00; }
+.attrib-WRONG { background: #f5d5d5; color: #7a1414; }
+.attrib-UNRESOLVED { background: #eee; color: #333; }
+
+.backfill-tag {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  background: #f5e6cf;
+  color: #7a3f00;
+  border-radius: 3px;
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+.headline-box {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  background: rgba(0,0,0,0.02);
+  margin-bottom: 1rem;
+}
+.headline-box p { margin: 0.25rem 0; }
+.headline-box .attrib-line { font-size: 0.9rem; color: var(--ink-soft); }
+.fetched-at { font-size: 0.9rem; color: var(--ink-soft); margin: 0.75rem 0 1.5rem; }
+
+/* note page */
+.note-header { border-bottom: 1px solid var(--line); padding-bottom: 1rem; margin-bottom: 1.5rem; }
+.crumb { font-size: 0.9rem; margin-bottom: 0.5rem; }
+.crumb a { color: var(--accent); text-decoration: none; }
+.thesis-hero { font-size: 1.05rem; color: var(--ink-soft); }
+.fact-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.3rem 1.25rem;
+  padding: 0.75rem 0;
+}
+.fact-grid dt { font-weight: 600; color: var(--ink-soft); }
+.fact-grid dd { margin: 0; }
+.backfill-banner {
+  border: 1px solid #d1a35a;
+  background: #fbf3e2;
+  padding: 0.65rem 1rem;
+  border-radius: 5px;
+  margin: 1rem 0;
+  font-size: 0.95rem;
+}
+.kill-block h3 { margin-top: 1.25rem; }
+.commit-line { font-size: 0.9rem; color: var(--ink-soft); }
+.commit-line a { color: var(--accent); }
+.note-body { line-height: 1.65; }
+.note-body h1 { display: none; }  /* the first h1 comes from the md file; hide in favor of note-header */
+.note-body h2 { margin-top: 1.75rem; }
+.note-body table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; font-size: 0.92rem; }
+.note-body th, .note-body td { padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--line); text-align: left; }
+.note-body pre { background: var(--code-bg); padding: 0.65rem 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.9rem; }
+
+/* process page */
+.process ul li { margin-bottom: 0.35rem; }
+
+/* footer */
+footer {
+  border-top: 1px solid var(--line);
+  padding: 1rem 1.25rem 1.5rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  max-width: 900px;
+  margin: 3rem auto 0;
+}
+.disclaimer { font-style: italic; }
+.build-meta { margin-top: 0.35rem; font-size: 0.78rem; }
+
+/* mobile */
+@media (max-width: 720px) {
+  main { padding: 1rem 0.75rem 2rem; }
+  header { padding: 0.75rem 0.75rem; }
+  nav a { margin-left: 0.75rem; font-size: 0.95rem; }
+  .calls-table { font-size: 0.85rem; }
+  .calls-table th, .calls-table td { padding: 0.4rem 0.3rem; }
+  .calls-table .thesis-cell { max-width: 180px; }
+  .fact-grid { grid-template-columns: 1fr; gap: 0.1rem 0; }
+  .fact-grid dt { margin-top: 0.5rem; }
+  h1 { font-size: 1.4rem; }
+}

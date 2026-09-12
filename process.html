@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Process — BMG Capital</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <a class="brand" href="/">BMG Capital</a>
+  <nav>
+    <a href="/library.html">Library</a>
+    <a href="/track-record.html">Track Record</a>
+    <a href="/process.html">Process</a>
+  </nav>
+</header>
+<main>
+
+<article class="process">
+<h1>Process</h1>
+<p class="page-lede">
+How every note here gets made. Explicit because it is what makes the calls reviewable.
+Any reader can read a note plus this page and reconstruct what was checked and what was not.
+</p>
+
+<h2>1. The screen</h2>
+<p>
+Universe: Russell 2000 constituents pulled from the current index membership file. Market cap
+band $300M–$5B. From that universe, four hard filters:
+</p>
+<ul>
+  <li><strong>ROIC > 8% (LTM, reported).</strong> Return on invested capital, taken from filed
+    fundamentals, not analyst estimates. Estimate-based ROIC introduces circular logic — the
+    screen would end up buying analyst optimism.</li>
+  <li><strong>Free cash flow > 0 (LTM).</strong> Also from reported statements. A negative FCF
+    with a high trailing P/E is often a capex-heavy asset builder — a different thesis, out of
+    scope for this screen.</li>
+  <li><strong>Total Debt / Operating EBITDA < 3.0×.</strong> Reported figure, not consensus.</li>
+  <li><strong>Currently traded, non-financial, not a REIT.</strong> Financials and REITs use
+    different accounting conventions for leverage and returns; the same filter reads differently
+    for them, so they are excluded from the ranking pool rather than gate-forced into it.</li>
+</ul>
+
+<p>
+Post-filter, the pool is ranked by a peer-adjusted P/E residual against sector median, layered
+with a quality composite (ROIC + inverse leverage + FCF/Sales). No momentum tiebreaker.
+The screen produces a candidate list, not a recommendation list.
+</p>
+
+<h2>2. The source hierarchy</h2>
+<p>
+Every quantitative claim in every note has a tier attached to it. The tiers exist because a
+number's credibility depends on where it came from.
+</p>
+<ul>
+  <li><strong>TIER 1</strong> — SEC filings, earnings releases, transcripts, company IR materials,
+    exchange or broker records. Fact.</li>
+  <li><strong>TIER 2</strong> — named third-party research with a dated document (Valens tearsheet,
+    sell-side, rating agency). Cite as opinion, with attribution. Never cite as fact.</li>
+  <li><strong>TIER 3</strong> — aggregators (stockanalysis.com, Yahoo Finance). Usable only to
+    locate a Tier 1 figure. A claim that survives only on a Tier 3 citation gets cut.</li>
+  <li><strong>BANNED</strong> — any prior vault document, model summary, or note. Prior work
+    holds methods, not facts. If a prior note contains a number, the correct move is to go read
+    the filing that number came from.</li>
+</ul>
+
+<h2>3. The trap library</h2>
+<p>
+Patterns the screen produces that <em>look</em> like value but are not.
+Read this before every deep-dive.
+</p>
+<ul>
+  <li><strong>Melting ice cube.</strong> High ROIC and low trailing P/E on a pharmaceutical or
+    royalty-collection business with a defined-end-date cash stream. A trailing multiple cannot
+    price a finite annuity. Check for composition-of-matter or method-of-use patents expiring
+    inside five years; check for royalty streams above 20% of revenue. Fix: pull the 10-K's
+    Item 1 patent section and the ASC 606 revenue disaggregation footnote.</li>
+  <li><strong>Earnings with a known end date.</strong> Same shape as the above but for
+    non-pharma: a customer contract, a captive concession, a legacy product. If more than half
+    of earnings depend on something with a stated end date within the horizon, the P/E discount
+    is the market pricing the finite duration.</li>
+  <li><strong>Optically cheap on a broken denominator.</strong> P/E, EV/EBIT, and ROIC all
+    break for banks, insurers, and REITs. Ranking financials against industrials on these
+    metrics produces false positives — hence the sector exclusion in the screen.</li>
+  <li><strong>Value-trap-post-guidance-cut.</strong> A stock down more than 40% in the last
+    twelve months while screening cheap on trailing earnings often has forward earnings about
+    to reset. Check the consensus estimate trajectory before spending a week on a DCF.</li>
+</ul>
+
+<h2>4. The provenance discipline</h2>
+<p>
+Every note ships with a companion sources file (<code>&lt;note&gt;-sources.md</code>). Each
+quantitative claim in the note carries an inline marker like <code>[S14]</code>. The sources
+file has one row per marker, with a tier field. A checked script (<code>vault_provenance_check.py</code>)
+verifies as a hard set-equality condition:
+</p>
+<ul>
+  <li>every marker in the note resolves to a row</li>
+  <li>every row is referenced at least once</li>
+  <li>no <strong>BANNED</strong> tier is present</li>
+  <li>no <strong>TIER 3</strong> is present without a paired TIER 1 confirmation</li>
+</ul>
+<p>
+The check has to exit clean before the note is publishable. Notes that ship as DRAFT status
+have failed the check — that failure is surfaced in the note header rather than hidden.
+</p>
+
+<h2>5. Kill criteria — written before the position exists</h2>
+<p>
+Every published call ships with a list of kill criteria in the frontmatter. Each is a specific
+observation that would flip the thesis: LPI decelerating below X, a specific customer notice, a
+patent challenge outcome. If a criterion is triggered while a call is open, the fact of the
+firing goes on the record along with whether it was obeyed. Non-obedience is the most
+signal-heavy record in the whole track record — a thesis-invalidating event that got ignored is
+the failure mode that ends careers, and it stays visible here.
+</p>
+<p>
+Kill criteria are what separates a call from a hope. Publishing an entry price and a target
+without them is essentially a bet without a stop.
+</p>
+
+<h2>6. What is not measured here</h2>
+<p>
+No Sharpe ratio, no t-statistic, no information ratio, no significance test. With a small number
+of calls, those numbers are meaningless — computing them would be the exact error that made the
+prior systematic version of this project unreliable. Instead: honest counts of what has closed,
+what beat its benchmark, and what didn't. When the count of closed calls reaches double digits,
+some of those measures become meaningful, and this page will add them then. Not before.
+</p>
+
+<h2>7. What the reader is expected to do with this</h2>
+<p>
+Read a note. Cross-check the sources file against the SEC filings for the claim tiers. Judge
+whether the reasoning holds independently of the outcome. The point is the reasoning trail. A
+call that pays off for a reason the analyst identified explicitly is one type of evidence. A
+call that pays off for a reason the analyst did not identify is a different type — and it is
+recorded as such in the thesis-attribution field on close (RIGHT_WRONG_REASON, meaning luck).
+</p>
+
+</article>
+
+</main>
+<footer>
+<p class="disclaimer">Research published for demonstration purposes by an individual student analyst. No capital is deployed against these calls and no positions are held. Nothing here is investment advice or a recommendation to buy or sell any security.</p>
+<p class="build-meta">Built 2026-09-12T23:00:41.139326+00:00. Static site. Source: <a href="https://github.com/Brock-Gorzelanczyk/bmg-capital">github.com/Brock-Gorzelanczyk/bmg-capital</a>.</p>
+</footer>
+</body>
+</html>
