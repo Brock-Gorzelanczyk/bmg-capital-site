@@ -194,3 +194,10 @@ footer {
   .fact-grid dt { margin-top: 0.5rem; }
   h1 { font-size: 1.4rem; }
 }
+
+/* Kill-criteria status column */
+.kill-fired   { color: #b3261e; font-weight: 600; }
+.kill-pending { color: #c17817; font-weight: 500; }
+.kill-never   { color: #666;    font-style: italic; }
+.kill-stale   { color: #b3261e; font-style: italic; }
+.kill-clear   { color: #0a7d38; }
