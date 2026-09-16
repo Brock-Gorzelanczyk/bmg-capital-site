@@ -163,6 +163,15 @@ footer code { font-size: 11px; }
 .badge-buy { background: #e6f3eb; color: #0f7d47; }
 .badge-sell { background: #f8e6e6; color: #a02020; }
 .badge-hold { background: #f4ecdc; color: #b58105; }
+.badge-withdrawn { background: #efe6ea; color: #7a2020; letter-spacing: 0.06em; font-weight: 700; }
+.strike-note { font-size: 12px; color: #5a5a5a; }
+.strike-note s { color: #7a2020; }
+.withdrawn-callout {
+  border-left: 4px solid #a02020; background: #faf1f1;
+  padding: 18px 22px; margin: 20px 0 28px; font-size: 14.5px;
+  border-radius: 3px;
+}
+.withdrawn-callout strong { color: #7a2020; }
 
 /* Gate badges */
 .gate-summary { font-size: 13px; margin-bottom: 10px; color: #5a5a5a; }
