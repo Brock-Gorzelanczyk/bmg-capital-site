@@ -2,22 +2,35 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gates — BMG Capital</title>
 <link rel="stylesheet" href="/site.css">
 </head>
 <body>
-<header class="site-nav">
-  <a href="/">BMG Capital</a>
+<div class="mast">
+  <div class="mast-left">
+    <span class="mark">
+      <svg width="20" height="20" viewBox="0 0 32 32" aria-label="BMG Capital"><rect width="32" height="32" rx="7" fill="#141414"/><polyline points="7,22.5 13,16.5 18,19.5 24.5,10" fill="none" stroke="#3ddc84" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24.5" cy="10" r="2.7" fill="#3ddc84"/></svg>
+      <span class="wm">BMG CAPITAL</span>
+    </span>
+    <span class="mast-sep">|</span>
+    <span class="mast-tagline">EQUITY RESEARCH</span>
+  </div>
+  <div class="mast-right">Brock Gorzelanczyk &middot; UW-Milwaukee IMCP</div>
+</div>
+<div class="mast-rule"></div>
+<nav class="site-nav">
+  <a href="/">Home</a>
   <a href="/process">Process</a>
-  <a href="/gates">Gates</a>
+  <a href="/gates" class="current">Gates</a>
   <a href="/corrections">Corrections</a>
   <a href="/method">Method</a>
   <a href="/review">Review</a>
   <a href="/calibration">Calibration</a>
   <a href="/research">Research</a>
-</header>
-<main>
-<h1>Gates — 11 checks run before any note can ship</h1>
+</nav>
+<main class="container">
+<h1>Gates — 16 checks run before any note can ship</h1>
 <p>Each gate below has a real catch documented. Where the catch was in a mutation test, that is stated. <strong>Gate 6 is the load-bearing evidence:</strong> a rule filed days before, a check built today, and it immediately caught a real gap in all three published notes without a mutation.</p>
 <table><tr><th>Gate</th><th>Checks</th><th>Real catch</th></tr>
 <tr><td><strong>Gate 0</strong></td><td>position disclosure (M17)</td><td>ORCL: caught 'position_disclosed_since = UNVERIFIED' mutation test 2026-09-15</td></tr>
@@ -31,14 +44,16 @@
 <tr><td><strong>Gate 3.5</strong></td><td>artifact consistency (M19)</td><td>GATX v5 one-pager PRICE cell $178.53 vs calls.yaml — mismatch caught via mutation to $189.99</td></tr>
 <tr><td><strong>Gate 4</strong></td><td>adversarial review (M29)</td><td>TRN LTV challenge C1 caught — resolved to book-basis via 2020 8-K primary source</td></tr>
 <tr><td><strong>Gate 5</strong></td><td>link-sync (M33)</td><td>Stale Connections block regenerates and re-checks on every ship</td></tr>
-<tr><td><strong>Gate 6</strong></td><td>earnings cycle position (M04)</td><td>**Real catch, no mutation.** Built 2026-09-15. All 3 published notes failed immediately — none had stated where in the cycle earnings sit before applying a multiple.</td></tr>
+<tr><td><strong>Gate 6</strong></td><td>earnings cycle position (M04)</td><td><strong>Real catch, no mutation.</strong> Built 2026-09-15. All 3 published notes failed immediately — none had stated where in the cycle earnings sit before applying a multiple.</td></tr>
 <tr><td><strong>Gate 7</strong></td><td>valuation method pre-commit (M31)</td><td>GATX: no question file — exempted with permanent disclosure. TRN + ORCL: question files predate M31 — exempted same shape.</td></tr>
 <tr><td><strong>Gate 8</strong></td><td>comp rationale (M32)</td><td>GATX + TRN comp files: 9 entries, all with business-characteristics rationale</td></tr>
+<tr><td><strong>Gate 9</strong></td><td>style conformance (M35)</td><td>Gate 9's own scope defect caught 2026-09-15: prior scope missed gatx-initiation.html which still carried an inline style attr. Broadened to deliverables/**/*.html.</td></tr>
+<tr><td><strong>Gate 10</strong></td><td>site rebuild (M36)</td><td>Every ship rebuilds this site. A note that breaks the site build cannot commit.</td></tr>
 </table>
 </main>
 <footer class="site-footer">
-  <p class="disclosure"><strong>Position status.</strong> 1 of 3 open call(s) has a position held (ORCL); the other 2 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14 at $146.70.</p>
-  <p class="build-meta">Built from vault commit <code>467a242a84ee</code> at 2026-09-16 04:56 UTC.</p>
+  <p class="disclosure"><strong>Position status.</strong> 1 of 3 open call(s) has a position held (ORCL); the other 2 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14.</p>
+  <p class="build-meta">Built from vault commit <code>467a242a84ee</code> at 2026-09-16 05:09 UTC.</p>
 </footer>
 </body>
 </html>

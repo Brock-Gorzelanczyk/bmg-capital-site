@@ -1,0 +1,89 @@
+/* house-style.css — extracted verbatim from GATX-one-pager-v5.html.
+   These values were measured against a real research product (Baird),
+   not chosen. Do not re-derive, improve, or adjust spacing. */
+
+@page { size: letter; margin: 0; }
+* { box-sizing: border-box; }
+:root{
+  --navy:#0f7d47; --rust:#0f7d47; --green:#0f7d47;
+  --gray:#5a5a5a; --body:#2a2a2a; --rule:#8f959d;
+  --thead:#f0f2f6; --trule:#cdd1d6;
+  --sans:"DejaVu Sans", Verdana, Geneva, Tahoma, sans-serif;
+  --serif:"Liberation Serif", "Times New Roman", Times, serif;
+}
+body {
+  font-family: var(--sans); font-size: 6.4pt; line-height: 1.38; color: var(--body);
+  width: 612pt; margin: 0 auto; padding: 15pt 26.2pt 20pt; background:#fff;
+}
+.mast { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3pt; }
+.mast .l { font-size:9pt; font-weight:700; color:var(--navy); letter-spacing:.01em; }
+.mast .r { font-size:6.9pt; color:var(--gray); display:flex; align-items:center; gap:4pt; }
+.bmgmark { display:inline-flex; align-items:center; gap:3pt; white-space:nowrap; }
+.bmgmark svg { display:block; }
+.bmgmark .wm { font-size:7pt; font-weight:700; letter-spacing:.06em; color:#111; }
+.mast .sep { color:#c0c0c0; }
+.navybar { height:1.5pt; background:var(--navy); margin-bottom:7pt; }
+.top { display:flex; gap:24pt; align-items:stretch; margin-bottom:10pt; }
+.top .name { flex:0 0 324pt; display:flex; flex-direction:column; }
+.top .facts { flex:1; padding-top:2pt; }
+.thesis { font-size:7pt; line-height:1.42; color:var(--body); margin-top:7pt; padding-left:6pt; border-left:1.5pt solid var(--rust); }
+h1 { font-family:var(--serif); font-size:13.8pt; font-weight:700; color:#000; margin:0; display:inline; }
+.tick { font-size:8.7pt; font-weight:700; color:var(--gray); margin-left:4pt; }
+/* Initiation-format ticker span next to the larger H1. Extracted from
+   gatx-initiation.html 2026-09-15 so no inline style survives Gate 9. */
+.tick-init { color:#666; font-size:14pt; }
+.rate { font-size:9.7pt; font-weight:700; color:#000; margin-top:4pt; }
+.rate .buy { color:var(--green); }
+.rate .sell { color:var(--green); }
+.rate .hold { color:var(--green); }
+.rate .under-review { color:var(--green); }
+.rate .pt  { color:var(--rust); }
+.rate .no-target { color:var(--gray); font-style:italic; }
+.sector { font-size:7.4pt; font-style:italic; color:var(--gray); margin-top:2pt; }
+table.facts { border-collapse:collapse; width:100%; }
+table.facts td { padding:1.2pt 0; vertical-align:top; line-height:1.3; }
+table.facts td.k { font-size:5.9pt; color:var(--gray); width:57pt; padding-right:6pt; letter-spacing:.01em; }
+table.facts td.v { font-size:7.2pt; color:var(--body); }
+table.stats { border-collapse:collapse; width:100%; border:0.75pt solid var(--rule); margin-top:auto; }
+table.stats td { padding:3.5pt 7pt 4pt; text-align:left; vertical-align:bottom; white-space:nowrap; border-right:0.75pt solid var(--rule); }
+table.stats td:last-child { border-right:none; }
+table.stats .lbl { font-size:5.4pt; color:var(--gray); line-height:1; margin-bottom:3pt; }
+table.stats .val { font-size:7pt; font-weight:700; color:#000; line-height:1; }
+h2 { font-family:var(--serif); font-size:8.1pt; font-weight:700; color:var(--rust); margin:0 0 5pt; padding-bottom:2.5pt; border-bottom:0.75pt solid var(--rule); letter-spacing:.01em; }
+.sec { margin-bottom:9pt; }
+.cols { display:flex; gap:26pt; }
+.col { flex:1; min-width:0; }
+p { margin:0 0 4pt; }
+ul { margin:0; padding-left:9pt; list-style:none; }
+li { margin-bottom:4.5pt; position:relative; padding-left:0; }
+li:before { content:"\25AA"; position:absolute; left:-9pt; color:#000; font-size:7pt; top:-0.5pt; }
+b, strong { color:#000; }
+table.d { width:100%; border-collapse:collapse; font-size:6.5pt; }
+table.d th { font-size:6.2pt; font-weight:700; color:var(--gray); text-align:right; padding:2.5pt 3pt; border-bottom:0.75pt solid var(--trule); background:var(--thead); }
+table.d th.l, table.d td.l { text-align:left; }
+table.d td { padding:2.5pt 3pt; border-bottom:0.75pt solid var(--trule); text-align:right; }
+table.d td .sub { display:block; font-size:6.3pt; color:var(--gray); font-weight:400; }
+table.d tr.tot td { font-weight:700; border-bottom:none; }
+.cap { font-size:6.3pt; color:var(--gray); line-height:1.35; margin-top:3.5pt; }
+table.scen th { border-top:0.75pt solid var(--rust); }
+table.scen td.l { font-weight:700; color:#000; }
+table.scen td.w { text-align:left; color:var(--body); }
+.pos { color:var(--green); font-weight:700; }
+.neg { color:#a02020; font-weight:700; }
+footer { margin-top:8pt; font-size:6.1pt; font-style:italic; color:var(--gray); display:flex; justify-content:space-between; gap:20pt; }
+
+/* Utility classes — added to accept the per-cell layout tweaks that
+   the canonical GATX one-pager used inline. Named for what they do,
+   not for where they're used. */
+.subtle { color:#8a8a8a; }
+.thin-weight { font-weight:400; }
+.no-wrap { white-space:nowrap; }
+.text-left { text-align:left; }
+.mt-5 { margin-top:5pt; }
+.mt-6 { margin-top:6pt; }
+.scen-col-scenario { width:96.8pt; }
+.scen-col-eps { width:42.8pt; }
+.scen-col-multiple { width:43.4pt; }
+.scen-col-price { width:30pt; }
+.scen-col-upside { width:35.3pt; }
+.disclosure { font-size:6.1pt; font-style:italic; color:var(--gray); margin-top:4pt; padding-top:3pt; border-top:0.5pt solid var(--trule); }

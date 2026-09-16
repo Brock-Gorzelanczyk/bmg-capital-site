@@ -2,12 +2,25 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>What this is — BMG Capital</title>
 <link rel="stylesheet" href="/site.css">
 </head>
 <body>
-<header class="site-nav">
-  <a href="/">BMG Capital</a>
+<div class="mast">
+  <div class="mast-left">
+    <span class="mark">
+      <svg width="20" height="20" viewBox="0 0 32 32" aria-label="BMG Capital"><rect width="32" height="32" rx="7" fill="#141414"/><polyline points="7,22.5 13,16.5 18,19.5 24.5,10" fill="none" stroke="#3ddc84" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24.5" cy="10" r="2.7" fill="#3ddc84"/></svg>
+      <span class="wm">BMG CAPITAL</span>
+    </span>
+    <span class="mast-sep">|</span>
+    <span class="mast-tagline">EQUITY RESEARCH</span>
+  </div>
+  <div class="mast-right">Brock Gorzelanczyk &middot; UW-Milwaukee IMCP</div>
+</div>
+<div class="mast-rule"></div>
+<nav class="site-nav">
+  <a href="/" class="current">Home</a>
   <a href="/process">Process</a>
   <a href="/gates">Gates</a>
   <a href="/corrections">Corrections</a>
@@ -15,42 +28,37 @@
   <a href="/review">Review</a>
   <a href="/calibration">Calibration</a>
   <a href="/research">Research</a>
-</header>
-<main>
+</nav>
+<main class="container">
 
 <h1>BMG Capital — one-person equity research operation</h1>
-<p><em>A one-person operation has no supervisory analyst, no compliance review,
-no source-substantiation requirement, and nobody to say the argument is
-backwards, so those were built.</em></p>
+<p class="lede">A one-person operation has no supervisory analyst, no compliance review,
+no source-substantiation requirement, and nobody to say the argument is backwards.
+So those were built.</p>
 
-<p>Three counts:</p>
-<ul>
-  <li><strong>22</strong> method rules mechanically enforced by gates
-      (<a href="/method">method</a>)</li>
-  <li><strong>11</strong> ship gates run on every research note before it can be committed
-      (<a href="/gates">gates</a>)</li>
-  <li><strong>10</strong> falsified claims caught and documented, each with the
-      rule it produced (<a href="/corrections">corrections</a>)</li>
-</ul>
+<div class="stats">
+  <div><a href="/method"><div class="lbl">Method rules enforced</div><div class="val">17</div></a></div>
+  <div><a href="/gates"><div class="lbl">Gates per note</div><div class="val">16</div></a></div>
+  <div><a href="/corrections"><div class="lbl">Falsified claims documented</div><div class="val">10</div></a></div>
+</div>
 
-<div class="example-box">
+<div class="callout">
 <p><strong>Example.</strong> A published note claimed a railcar order recovery
 was happening in a car type the company doesn't compete in. The company's own
-disclosure showed that type is 40.2% of its fleet — the largest single
-exposure it has. The claim was falsified. The falsified ledger caught it after
-an outside review pointed at it; the adversarial-review gate (Gate 4) now runs
-before ship so a future claim of this class fails at commit time, not after
-publication.</p>
+disclosure showed that type is 40.2% of its fleet — the largest single exposure
+it has. The claim was falsified. The falsified ledger caught it after an outside
+review pointed at it; the adversarial-review gate (Gate 4) now runs before ship
+so a future claim of this class fails at commit time, not after publication.</p>
 </div>
 
 <p>See <a href="/process">how a note is made</a>, <a href="/gates">what stops bad
-work from shipping</a>, and <a href="/corrections">every error the system has
-caught and documented</a>.</p>
+work from shipping</a>, and <a href="/corrections">every error the system has caught
+and documented</a>.</p>
 
 </main>
 <footer class="site-footer">
-  <p class="disclosure"><strong>Position status.</strong> 1 of 3 open call(s) has a position held (ORCL); the other 2 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14 at $146.70.</p>
-  <p class="build-meta">Built from vault commit <code>467a242a84ee</code> at 2026-09-16 04:56 UTC.</p>
+  <p class="disclosure"><strong>Position status.</strong> 1 of 3 open call(s) has a position held (ORCL); the other 2 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14.</p>
+  <p class="build-meta">Built from vault commit <code>467a242a84ee</code> at 2026-09-16 05:09 UTC.</p>
 </footer>
 </body>
 </html>

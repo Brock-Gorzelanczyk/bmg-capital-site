@@ -1,18 +1,140 @@
+/* Site chrome — screen scale. Design language matches the one-pager
+   without linking house-style.css (which is 6.4pt print scale). */
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: #fff; color: #1a1a1a;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px; line-height: 1.6;
+}
+.container { max-width: 760px; margin: 0 auto; padding: 48px 24px; }
 
-body { font-family: system-ui, -apple-system, sans-serif; max-width: 780px; margin: 0 auto; padding: 2rem 1rem; line-height: 1.55; color: #222; }
-.site-nav { display: flex; gap: 1.25rem; margin-bottom: 2rem; padding-bottom: 0.5rem; border-bottom: 2px solid #0f7d47; font-weight: 600; }
-.site-nav a { color: #0f7d47; text-decoration: none; }
-.site-nav a:hover { text-decoration: underline; }
-h1 { font-size: 1.75rem; color: #000; margin-bottom: 0.5rem; }
-h2 { color: #0f7d47; border-bottom: 1px solid #ccc; padding-bottom: 0.25rem; margin-top: 2rem; }
-h3 { color: #333; margin-top: 1.5rem; }
-table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; }
-th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
-th { background: #f0f2f6; }
-.status-ok { color: #0f7d47; font-weight: bold; }
-.status-fail { color: #a02020; font-weight: bold; }
+/* --- Masthead --- */
+.mast {
+  max-width: 760px; margin: 0 auto; padding: 24px 24px 6px;
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.mast-left { display: flex; align-items: center; gap: 10px; }
+.mast .mark { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.mast .mark svg { display: block; }
+.mast .wm {
+  font-size: 13px; font-weight: 700; letter-spacing: 0.06em; color: #111;
+}
+.mast-sep { color: #c0c0c0; }
+.mast-tagline {
+  font-size: 12px; color: #5a5a5a; letter-spacing: 0.04em;
+}
+.mast-right {
+  font-size: 11px; color: #5a5a5a;
+}
+.mast-rule {
+  max-width: 760px; margin: 0 auto; height: 2px; background: #0f7d47;
+  margin-top: 4px;
+}
+
+/* --- Nav --- */
+.site-nav {
+  max-width: 760px; margin: 14px auto 0; padding: 0 24px;
+  display: flex; gap: 18px; font-size: 13px; color: #5a5a5a;
+}
+.site-nav a {
+  color: #5a5a5a; text-decoration: none; padding-bottom: 4px;
+  border-bottom: 2px solid transparent;
+}
+.site-nav a:hover { color: #0f7d47; }
+.site-nav a.current {
+  color: #0f7d47; font-weight: 700; border-bottom-color: #0f7d47;
+}
+
+/* --- Typography --- */
+h1 {
+  font-family: Georgia, "Liberation Serif", "Times New Roman", serif;
+  font-size: 30px; font-weight: 700; color: #000;
+  margin: 0 0 12px;
+}
+h2 {
+  font-family: Georgia, "Liberation Serif", "Times New Roman", serif;
+  font-size: 19px; font-weight: 700; color: #0f7d47;
+  border-bottom: 1px solid #dcdcdc; padding-bottom: 6px;
+  margin: 36px 0 14px;
+}
+h3 { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-top: 20px; }
+.lede { font-size: 16px; font-style: italic; color: #3a3a3a; margin-bottom: 28px; }
+p, li { font-size: 15px; line-height: 1.6; }
+li { margin-bottom: 6px; }
+
+/* --- Links (kill default blue everywhere in main content) --- */
+main a {
+  color: #0f7d47; text-decoration: none;
+  border-bottom: 1px solid rgba(15, 125, 71, 0.28);
+}
+main a:hover {
+  border-bottom-color: #0f7d47;
+  background: rgba(15, 125, 71, 0.06);
+}
+
+/* --- Stat strip (three counts on landing) --- */
+.stats {
+  display: flex; border: 1px solid #d5d5d5; margin: 24px 0;
+}
+.stats > div {
+  flex: 1; padding: 14px 18px; border-right: 1px solid #d5d5d5;
+}
+.stats > div:last-child { border-right: none; }
+.stats .lbl {
+  font-size: 10px; text-transform: uppercase; color: #5a5a5a;
+  letter-spacing: 0.06em; margin-bottom: 6px;
+}
+.stats .val {
+  font-size: 24px; font-weight: 700; color: #000; line-height: 1;
+}
+.stats a {
+  color: inherit; text-decoration: none; border-bottom: none;
+  background: transparent;
+}
+.stats a:hover .val { color: #0f7d47; }
+
+/* --- Callouts --- */
+.callout {
+  border-left: 3px solid #0f7d47; background: #f6f9f7;
+  padding: 16px 20px; margin: 24px 0; font-size: 14.5px;
+}
+/* Backwards-compat alias */
+.example-box { border-left: 3px solid #0f7d47; background: #f6f9f7;
+  padding: 16px 20px; margin: 24px 0; font-size: 14.5px; }
+
+/* --- Code --- */
+code {
+  font-size: 11px; background: #f0f0f0; padding: 2px 5px; border-radius: 3px;
+  font-family: SFMono-Regular, Menlo, Consolas, monospace;
+}
+pre {
+  background: #f5f5f5; padding: 14px; border-radius: 4px;
+  overflow-x: auto; font-size: 12px;
+}
+
+/* --- Tables --- */
+table {
+  width: 100%; border-collapse: collapse; font-size: 13.5px;
+  margin: 18px 0;
+}
+th {
+  font-size: 11px; text-transform: uppercase; color: #5a5a5a;
+  letter-spacing: 0.04em; text-align: left; background: #f4f6f5;
+  border-bottom: 1px solid #cdd1d6; padding: 8px 10px; font-weight: 700;
+}
+td { padding: 8px 10px; border-bottom: 1px solid #e6e6e6; }
+tr:last-child td { border-bottom: none; }
+
+.status-ok { color: #0f7d47; font-weight: 700; }
+.status-fail { color: #a02020; font-weight: 700; }
 .status-warn { color: #b58105; }
-code { background: #f5f5f5; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85em; }
-pre { background: #f5f5f5; padding: 1rem; overflow-x: auto; font-size: 0.85em; }
-.site-footer { margin-top: 4rem; padding-top: 1rem; border-top: 1px solid #ddd; color: #666; font-size: 0.85rem; }
-.example-box { border-left: 3px solid #0f7d47; padding: 0.75rem 1rem; background: #f8fbf9; margin: 1rem 0; }
+
+/* --- Footer --- */
+footer {
+  max-width: 760px; margin: 48px auto 32px; padding: 16px 24px 0;
+  border-top: 1px solid #dcdcdc; font-size: 12px; color: #5a5a5a;
+}
+footer p { margin: 6px 0; font-size: 12px; line-height: 1.5; }
+footer strong { color: #1a1a1a; }
+footer a { color: #0f7d47; text-decoration: none; border-bottom: 1px solid rgba(15,125,71,.28); }
+footer code { font-size: 11px; }
