@@ -138,3 +138,123 @@ footer p { margin: 6px 0; font-size: 12px; line-height: 1.5; }
 footer strong { color: #1a1a1a; }
 footer a { color: #0f7d47; text-decoration: none; border-bottom: 1px solid rgba(15,125,71,.28); }
 footer code { font-size: 11px; }
+
+/* ============================================================
+   NOTE-PAGE STYLES — /research/<note-id>.html only.
+   Isolated from house-style.css (which lives in an iframe).
+   ============================================================ */
+
+.container-wide { max-width: 900px; }
+.crumbs { font-size: 12px; color: #5a5a5a; margin: 0 0 20px; }
+.crumbs a { color: #0f7d47; border-bottom: none; }
+
+/* Header strip */
+.note-header { border-bottom: 1px solid #dcdcdc; padding-bottom: 16px; margin-bottom: 28px; }
+.note-header h1 { font-size: 26px; margin: 0 0 4px; }
+.note-header .note-id { font-size: 16px; font-weight: 400; color: #5a5a5a; }
+.rating-line { font-size: 14px; margin-bottom: 4px; }
+.meta-line { font-size: 12px; color: #5a5a5a; margin-bottom: 14px; }
+
+.badge-rating {
+  display: inline-block; padding: 2px 8px; font-size: 12px;
+  font-weight: 700; letter-spacing: 0.04em; border-radius: 3px;
+  background: #f0f2f6; color: #0f7d47;
+}
+.badge-buy { background: #e6f3eb; color: #0f7d47; }
+.badge-sell { background: #f8e6e6; color: #a02020; }
+.badge-hold { background: #f4ecdc; color: #b58105; }
+
+/* Gate badges */
+.gate-summary { font-size: 13px; margin-bottom: 10px; color: #5a5a5a; }
+.gate-summary strong { color: #1a1a1a; }
+.gate-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px; margin-top: 8px;
+}
+.gate-badge {
+  padding: 10px 12px; border-radius: 4px; font-size: 12px;
+  border-left: 3px solid #d5d5d5; background: #f8f9fa;
+}
+.gate-badge .gate-name { font-weight: 700; color: #1a1a1a; font-size: 12px; }
+.gate-badge .gate-what { color: #5a5a5a; font-size: 11px; margin-top: 2px; }
+.gate-badge .gate-reason {
+  margin-top: 6px; font-size: 11px; color: #7a2020; line-height: 1.4;
+  word-break: break-word;
+}
+.gate-ok { border-left-color: #0f7d47; background: #f2f8f5; }
+.gate-fail { border-left-color: #a02020; background: #faf1f1; }
+.gate-ok .gate-name { color: #0f7d47; }
+.gate-fail .gate-name { color: #a02020; }
+
+/* Paper embed — iframe holding the print-scale one-pager */
+.note-paper-section { margin-top: 28px; }
+.paper-wrap { overflow-x: auto; margin: 16px 0; }
+.paper {
+  width: 612pt; min-height: 792pt; margin: 0 auto;
+  background: #fff; border: 1px solid #d5d5d5;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  overflow: hidden;
+}
+.paper-iframe {
+  width: 612pt; height: 792pt; border: 0; display: block;
+}
+@media (max-width: 700px) {
+  .paper {
+    transform: scale(0.55); transform-origin: top left;
+    width: 612pt; height: 435pt;
+  }
+}
+
+/* Body markers */
+a.marker {
+  color: #0f7d47; text-decoration: none; border-bottom: 1px dotted rgba(15,125,71,.5);
+  font-size: 0.85em; padding: 0 1px; background: transparent;
+}
+a.marker:hover { background: rgba(15,125,71,.08); border-bottom-style: solid; }
+.marker-broken { color: #a02020; font-weight: 700; }
+
+/* Sources table */
+.note-sources { margin-top: 36px; }
+.sources-table { font-size: 12.5px; }
+.sources-table th:nth-child(2), .sources-table td:nth-child(2) { min-width: 300px; }
+.sources-table code { background: #f0f0f0; padding: 2px 5px; font-size: 11px; }
+.sources-table tr:target { background: #fff8e0; }
+.sources-table tr:target code { background: #ffefb0; }
+
+.tier-badge {
+  display: inline-block; padding: 2px 7px; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.04em; border-radius: 3px; text-transform: uppercase;
+}
+.tier-1 { background: #e6f3eb; color: #0f7d47; }
+.tier-2 { background: #eee; color: #5a5a5a; }
+.tier-3 { background: #fbecc4; color: #8b6100; }
+.tier-banned { background: #f8e6e6; color: #a02020; }
+
+.derivations-table { font-size: 12.5px; }
+.derivations-table code { font-size: 11px; }
+
+/* KV table (calibration) */
+.kv-table { max-width: 560px; font-size: 13px; }
+.kv-table th { width: 200px; }
+
+/* Red team file — hand-written narrative, keep it readable */
+.note-redteam { margin-top: 36px; }
+.redteam-file h3 { font-size: 14px; color: #5a5a5a; }
+.redteam-body { font-size: 14px; line-height: 1.65; }
+.redteam-body h3 { color: #0f7d47; margin-top: 24px; }
+.redteam-body h4 { color: #1a1a1a; margin-top: 20px; font-size: 14px; }
+
+.empty-section { color: #7a7a7a; font-style: italic; }
+
+/* Overt redaction marker in note bodies */
+.redacted {
+  background: #f4ecdc; color: #7a5a10; font-style: normal;
+  font-weight: 600; padding: 0 4px; border-radius: 2px; font-size: 0.92em;
+}
+.body-redact-note {
+  font-size: 12px; font-weight: 400; color: #5a5a5a; font-style: italic;
+}
+.body-redact-note a { color: #0f7d47; border-bottom: 1px dotted rgba(15,125,71,.5); }
+
+.held-row { color: #7a2020; font-style: italic; font-size: 0.92em; }
+.held-count { color: #b58105; font-size: 13px; font-weight: 400; }

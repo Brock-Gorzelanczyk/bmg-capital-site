@@ -7,11 +7,10 @@ __pycache__/
 node_modules/
 .env
 .env.*
-# Vault artifacts must never land here:
-research/
-calibration/
-deliverables/
-reference/
-postmortems/
-context/
+# Vault-artifact file types (rendered HTML/CSS/JS are the only things
+# the site should contain; markdown / yaml here means a publish-script
+# bug leaked vault source).
+*.md
+*.yaml
+*.yml
 CLAUDE.md
