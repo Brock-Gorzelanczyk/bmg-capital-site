@@ -23,6 +23,20 @@
     <!-- prose-must-not-contain: "visibility call rather than a re-rating call" -->
     <!-- prose-must-not-contain: "visibility call, not a re-rating call" -->
     <!-- prose-source-note: research/001-GATX.md thesis paragraph (M38-corrected 2026-09-16) -->
+    <!--
+      Marker quirk (verification note): the prose-must-not-contain
+      markers above literally contain the forbidden substrings as
+      their own arguments. Gate 3.5 (`check_prose_musts`) operates
+      on the STRIPPED-TEXT layer with HTML comments removed, so the
+      marker's own content does not trigger itself. However, a raw
+      grep across this file for "visibility call rather than a re-rating call"
+      or "visibility call, not a re-rating call" WILL return hits
+      on this file even after the correction landed, from the marker
+      declarations themselves. When verifying by text search, either
+      (a) exclude comment lines (`grep -v "prose-must"`), or (b) run
+      the gate check directly. The gate is authoritative; grep is
+      approximate.
+    -->
     <div class="thesis"><b>The thesis.</b> Half of GATX's North American revenue comes from chemicals and petroleum &mdash; the tank car commodities &mdash; and the industry tank car backlog sits near a two-decade low. Today's price capitalizes 2027 consensus EPS at 15.87&times;, below the company's own five-year median of 17.0&times; and its ten-year median of 16.3&times;, so <b>this is a modest re-rating call anchored to GATX's own history</b> &mdash; and <b>my target of $200 sits below all three published Street targets.</b> The free option is Brookfield: the market carries GATX's right to buy the other 70% of a 101,000-car fleet at zero.</div>
     <table class="stats"><tr>
       <td><div class="lbl">PRICE</div><div class="val">$178.53</div></td>
