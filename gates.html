@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gates — BMG Capital</title>
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<header class="site-nav">
+  <a href="/">BMG Capital</a>
+  <a href="/process">Process</a>
+  <a href="/gates">Gates</a>
+  <a href="/corrections">Corrections</a>
+  <a href="/method">Method</a>
+  <a href="/review">Review</a>
+  <a href="/calibration">Calibration</a>
+  <a href="/research">Research</a>
+</header>
+<main>
+<h1>Gates — 11 checks run before any note can ship</h1>
+<p>Each gate below has a real catch documented. Where the catch was in a mutation test, that is stated. <strong>Gate 6 is the load-bearing evidence:</strong> a rule filed days before, a check built today, and it immediately caught a real gap in all three published notes without a mutation.</p>
+<table><tr><th>Gate</th><th>Checks</th><th>Real catch</th></tr>
+<tr><td><strong>Gate 0</strong></td><td>position disclosure (M17)</td><td>ORCL: caught 'position_disclosed_since = UNVERIFIED' mutation test 2026-09-15</td></tr>
+<tr><td><strong>Gate 0b</strong></td><td>calibration parameters (M22, M23)</td><td>GATX: caught entry_price_date ≠ benchmark_entry_date on first run</td></tr>
+<tr><td><strong>Gate 1</strong></td><td>provenance (Rule 7)</td><td>GATX: 122 markers, 122 rows, all resolved</td></tr>
+<tr><td><strong>Gate 1b</strong></td><td>credibility ledger (M25)</td><td>GATX $200M disposition guide — factor_applied:false with insufficient_sample_n<4 rationale</td></tr>
+<tr><td><strong>Gate 1c</strong></td><td>contradiction check (M26)</td><td>TRN Rail Products margin 1.66%/6.20% same-as_of — caught via period_covered enforcement</td></tr>
+<tr><td><strong>Gate 1d</strong></td><td>capital-intensive balance sheet (M30)</td><td>GATX + TRN both required to carry balance sheet + cash flow structure</td></tr>
+<tr><td><strong>Gate 2</strong></td><td>falsified audit</td><td>3 FALS patterns injected in mutation test — all fired: FALS-01 verbatim phrase caught in body</td></tr>
+<tr><td><strong>Gate 3</strong></td><td>derivation arithmetic</td><td>Built after a shipped note carried $0.17 divergence where subtraction was $1.17</td></tr>
+<tr><td><strong>Gate 3.5</strong></td><td>artifact consistency (M19)</td><td>GATX v5 one-pager PRICE cell $178.53 vs calls.yaml — mismatch caught via mutation to $189.99</td></tr>
+<tr><td><strong>Gate 4</strong></td><td>adversarial review (M29)</td><td>TRN LTV challenge C1 caught — resolved to book-basis via 2020 8-K primary source</td></tr>
+<tr><td><strong>Gate 5</strong></td><td>link-sync (M33)</td><td>Stale Connections block regenerates and re-checks on every ship</td></tr>
+<tr><td><strong>Gate 6</strong></td><td>earnings cycle position (M04)</td><td>**Real catch, no mutation.** Built 2026-09-15. All 3 published notes failed immediately — none had stated where in the cycle earnings sit before applying a multiple.</td></tr>
+<tr><td><strong>Gate 7</strong></td><td>valuation method pre-commit (M31)</td><td>GATX: no question file — exempted with permanent disclosure. TRN + ORCL: question files predate M31 — exempted same shape.</td></tr>
+<tr><td><strong>Gate 8</strong></td><td>comp rationale (M32)</td><td>GATX + TRN comp files: 9 entries, all with business-characteristics rationale</td></tr>
+</table>
+</main>
+<footer class="site-footer">
+  <p class="disclosure"><strong>Position status.</strong> 1 of 3 open call(s) has a position held (ORCL); the other 2 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14 at $146.70.</p>
+  <p class="build-meta">Built from vault commit <code>467a242a84ee</code> at 2026-09-16 04:56 UTC.</p>
+</footer>
+</body>
+</html>

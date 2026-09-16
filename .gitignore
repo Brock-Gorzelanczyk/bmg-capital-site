@@ -1,0 +1,17 @@
+# bmg-capital-site — generated static site, published by
+# scripts/local/site_publish.py from the vault. Do not edit by hand.
+.DS_Store
+*.pyc
+__pycache__/
+.venv/
+node_modules/
+.env
+.env.*
+# Vault artifacts must never land here:
+research/
+calibration/
+deliverables/
+reference/
+postmortems/
+context/
+CLAUDE.md

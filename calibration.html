@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Calibration — BMG Capital</title>
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<header class="site-nav">
+  <a href="/">BMG Capital</a>
+  <a href="/process">Process</a>
+  <a href="/gates">Gates</a>
+  <a href="/corrections">Corrections</a>
+  <a href="/method">Method</a>
+  <a href="/review">Review</a>
+  <a href="/calibration">Calibration</a>
+  <a href="/research">Research</a>
+</header>
+<main>
+
+<h1>Calibration — how calls get scored</h1>
+
+<h2>Conviction-to-probability mapping</h2>
+<table>
+<tr><th>Conviction</th><th>Implied probability</th></tr>
+<tr><td>1</td><td>55%</td></tr>
+<tr><td>2</td><td>62%</td></tr>
+<tr><td>3</td><td>70%</td></tr>
+<tr><td>4</td><td>78%</td></tr>
+<tr><td>5</td><td>85%</td></tr>
+</table>
+
+<h2>Nothing has been scored yet</h2>
+<p>First evaluation date is 2027-09-13. Three open calls, all opened around 2026-09-11 to 2026-09-14, all with parameters set retroactively (flagged on every entry in the ledger).</p>
+
+<p>That last point is the load-bearing one. The parameters were committed on 2026-09-14, but the calls opened before that. Every entry in <code>calibration/calls.yaml</code> carries <code>parameters_set_retroactively: true</code> — the calibration record will always show that the first three calls' parameters were fixed after the calls existed, permanently.</p>
+
+<h2>Withdrawal classes (added 2026-09-15)</h2>
+<p>A call retracted BEFORE its evaluation date because a load-bearing assumption was found unsupported is recorded as <code>WITHDRAWN-THESIS-ERROR</code>. It scores as a MISS on direction against conviction-implied probability. Detection is the process working — it is not grounds to erase the forecast.</p>
+<p>A call retracted for reasons unrelated to the thesis is <code>WITHDRAWN-COVERAGE-DROPPED</code> and is EXCLUDED from the aggregate.</p>
+
+</main>
+<footer class="site-footer">
+  <p class="disclosure"><strong>Position status.</strong> 1 of 3 open call(s) has a position held (ORCL); the other 2 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14 at $146.70.</p>
+  <p class="build-meta">Built from vault commit <code>467a242a84ee</code> at 2026-09-16 04:56 UTC.</p>
+</footer>
+</body>
+</html>

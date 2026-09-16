@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Review — BMG Capital</title>
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<header class="site-nav">
+  <a href="/">BMG Capital</a>
+  <a href="/process">Process</a>
+  <a href="/gates">Gates</a>
+  <a href="/corrections">Corrections</a>
+  <a href="/method">Method</a>
+  <a href="/review">Review</a>
+  <a href="/calibration">Calibration</a>
+  <a href="/research">Research</a>
+</header>
+<main>
+
+<h1>Adversarial review — Gate 4</h1>
+
+<h2>Mandate</h2>
+<p>Every rated note passes a structured challenge from a reviewer that does not share the author's framing, BEFORE ship. Verbatim mandate published in the vault.</p>
+
+<h2>Isolation rules</h2>
+<p>The sub-agent receives the note, its sources, and the primary documents cited. It does NOT receive:</p>
+<ul>
+  <li><code>reference/method/</code> — would load the author's framing</li>
+  <li><code>research/coverage/*/falsified.md</code> — would let it plagiarize known errors</li>
+  <li><code>research/redteam/</code> — prior challenge outputs on any note</li>
+  <li><code>CLAUDE.md</code>, <code>state/current.md</code></li>
+</ul>
+
+<h2>Anti-gaming rule</h2>
+<p>The tool refuses to run a second time on the same note until every prior challenge has a recorded response. Without this, a weak review is obtainable by re-rolling.</p>
+
+<h2>Structural caveat — verbatim</h2>
+<div class="example-box">
+<p>The author, the adversary, and the judge are currently the same system. Claude Code wrote the notes, invoked the red team, and decided every disposition. Withholding the falsified ledger from the sub-agent doesn't fix that — it's the same model with the same priors, and the party deciding whether a challenge lands is the party being challenged.</p>
+<p>The 21-of-22-decided (95%) acceptance rate is DIAGNOSTIC, not calibration data. Three fixes are required before the number means anything:</p>
+<ol>
+  <li>Reviewer must be a different model when possible.</li>
+  <li>Ledger-wide minimum rejection rate (15% at n≥40) enforced.</li>
+  <li>REJECT reasons must cite a primary source, a named human, or a specific method rule ID.</li>
+</ol>
+</div>
+
+<h2>Worked case — Trinity</h2>
+<p>The Trinity red-team review produced 11 challenges. Challenge C1 argued the load-bearing "70.8% LTV as third-party fair-value mark" thesis rested on an unverified reading of a disclosed metric. The author DEFERRED with a work order. The work order was closed by pulling the 2020 Trinity 8-K exhibit that defines the LTV denominator as "Equipment on Lease" — a balance-sheet line item (book value). Under that definition, the "$920M lender mark-up" the shipped BUY thesis relies on is not supported.</p>
+
+<p>The finding stands as PROBABLE, not sourced against the current disclosure (Trinity dropped the defining footnote from the 2026 investor deck). The definitive close via the TRL indenture is not achievable — Trinity's ABS uses Rule 144A / private placement structures that don't require public SEC filing.</p>
+
+<p>Rating unchanged. The record now carries three independent findings pointing at the call: consensus track record (3 beats/4 misses/-3.54% mean), red team, and the SOTP under the resolved LTV definition ($26.09 per-share Scenario B vs shipped $35 target).</p>
+
+</main>
+<footer class="site-footer">
+  <p class="disclosure"><strong>Position status.</strong> 1 of 3 open call(s) has a position held (ORCL); the other 2 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14 at $146.70.</p>
+  <p class="build-meta">Built from vault commit <code>467a242a84ee</code> at 2026-09-16 04:56 UTC.</p>
+</footer>
+</body>
+</html>
