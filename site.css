@@ -267,3 +267,15 @@ a.marker:hover { background: rgba(15,125,71,.08); border-bottom-style: solid; }
 
 .held-row { color: #7a2020; font-style: italic; font-size: 0.92em; }
 .held-count { color: #b58105; font-size: 13px; font-weight: 400; }
+
+/* --- Files block (deliverables on note page) --- */
+.note-files { margin: 20px 0 24px; }
+.note-files h2 { margin-top: 0; }
+.note-files ul { padding-left: 20px; margin: 0; }
+.note-files li { margin-bottom: 4px; font-size: 14px; }
+
+/* --- Muted history line below note header --- */
+.muted-history {
+  color: #5a5a5a; font-size: 13px; margin: 4px 0 20px;
+  font-style: italic;
+}
