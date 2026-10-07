@@ -3,62 +3,105 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>What this is — BMG Capital</title>
+<title>Brock Gorzelanczyk — Equity Research — BMG Capital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/site.css">
 </head>
 <body>
-<div class="mast">
-  <div class="mast-left">
-    <span class="mark">
-      <svg width="20" height="20" viewBox="0 0 32 32" aria-label="BMG Capital"><rect width="32" height="32" rx="7" fill="#141414"/><polyline points="7,22.5 13,16.5 18,19.5 24.5,10" fill="none" stroke="#3ddc84" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24.5" cy="10" r="2.7" fill="#3ddc84"/></svg>
-      <span class="wm">BMG CAPITAL</span>
-    </span>
-    <span class="mast-sep">|</span>
-    <span class="mast-tagline">EQUITY RESEARCH</span>
-  </div>
-  <div class="mast-right">Brock Gorzelanczyk &middot; UW-Milwaukee IMCP</div>
-</div>
-<div class="mast-rule"></div>
-<nav class="site-nav">
-  <a href="/" class="current">Home</a>
-  <a href="/process">Process</a>
-  <a href="/gates">Gates</a>
-  <a href="/corrections">Corrections</a>
-  <a href="/method">Method</a>
-  <a href="/review">Review</a>
-  <a href="/calibration">Calibration</a>
-  <a href="/research">Research</a>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="brand" href="/" aria-label="BMG Capital home">
+      <span class="brand-mark">
+        <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden="true"><polyline points="5,23 12,15 18,19 27,8" fill="none" stroke="#3ddc84" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+      </span>
+      <span class="brand-wm">BMG CAPITAL</span>
+    </a>
+    <nav aria-label="Main" class="site-nav">
+  <a href="#reports">Reports</a>
+  <a href="#about">About</a>
+  <a href="/resume.pdf" class="nav-resume">Resume</a>
 </nav>
+  </div>
+</header>
 <main class="container">
 
-<h1>BMG Capital — one-person equity research operation</h1>
-<p class="lede">A one-person operation has no supervisory analyst, no compliance review,
-no source-substantiation requirement, and nobody to say the argument is backwards.
-So those were built.</p>
+<section class="home-hero">
+  <div class="eyebrow">EQUITY RESEARCH</div>
+  <h1>Brock Gorzelanczyk</h1>
+  <p class="lede">Finance senior at UW-Milwaukee in the Investment Management Certificate Program. I build company models from the filings, make a call, and publish the math behind it.</p>
+  <div class="home-hero-actions">
+    <a class="primary" href="/research/gatx/">Read the GATX report</a>
+    <a class="secondary" href="#about">About me</a>
+  </div>
+</section>
 
-<div class="stats">
-  <div><a href="/method"><div class="lbl">Method rules enforced</div><div class="val">14</div></a></div>
-  <div><a href="/gates"><div class="lbl">Gates per note</div><div class="val">16</div></a></div>
-  <div><a href="/corrections"><div class="lbl">Falsified claims documented</div><div class="val">11</div></a></div>
-</div>
+<section id="reports">
+  <div class="home-section-head">
+    <h2>Reports</h2>
+    <span class="featured">Featured</span>
+  </div>
 
-<div class="callout">
-<p><strong>Example.</strong> A published note claimed a railcar order recovery
-was happening in a car type the company doesn't compete in. The company's own
-disclosure showed that type is 40.2% of its fleet — the largest single exposure
-it has. The claim was falsified. The falsified ledger caught it after an outside
-review pointed at it; the adversarial-review gate (Gate 4) now runs before ship
-so a future claim of this class fails at commit time, not after publication.</p>
-</div>
+  <a class="gatx-feature" href="/research/gatx/">
+    <div class="gatx-feature-image">
+      <img src="/research/gatx/gatx-lpi-chart.png" alt="GATX Lease Price Index and renewal term, 2007 to Q2 2026">
+      <span class="caption">Renewal pricing through two full cycles, 2007 to Q2 2026</span>
+    </div>
+    <div class="gatx-feature-body">
+      <div class="gatx-feature-title-row">
+        <div class="gatx-logo-wrap"><img src="/assets/logos/gatx.png" alt="GATX logo"></div>
+        <div>
+          <div class="gatx-feature-title">GATX Corporation</div>
+          <div class="gatx-feature-subtitle">NYSE: GATX &middot; Railcar leasing &middot; October 2026</div>
+        </div>
+      </div>
+      <p class="gatx-feature-summary">A good railcar business at a full price. My model gets 2027 earnings of $10.47 a share against a Street at $11.27; the gap is interest on the debt that came with the Wells Fargo fleet.</p>
+      <div class="gatx-stat-strip">
+        <div>
+          <div class="stat-lbl">RATING</div>
+          <div class="stat-rating">HOLD</div>
+        </div>
+        <div>
+          <div class="stat-lbl">TARGET</div>
+          <div class="stat-num">$165.54</div>
+        </div>
+        <div>
+          <div class="stat-lbl">PRICE AT CALL</div>
+          <div class="stat-num">$172.27</div>
+        </div>
+      </div>
+      <div class="gatx-feature-tags">
+        <span>Presentation</span>
+        <span>One-pager</span>
+        <span>Financial model</span>
+      </div>
+      <span class="gatx-feature-cta">Open the report &rarr;</span>
+    </div>
+  </a>
 
-<p>See <a href="/process">how a note is made</a>, <a href="/gates">what stops bad
-work from shipping</a>, and <a href="/corrections">every error the system has caught
-and documented</a>.</p>
+  <p class="home-reports-more">More reports in progress.</p>
+</section>
+
+<section id="about">
+  <img class="headshot" src="/assets/headshot.png" alt="Brock Gorzelanczyk">
+  <div class="about-body">
+    <h2>About me</h2>
+    <p>I'm a finance senior at UW-Milwaukee's Lubar College of Business, in the Investment Management Certificate Program, graduating in May 2027. I'm working toward a career in equity research and plan to sit for CFA Level I after graduation.</p>
+    <p>I'm a technology sector analyst in UWM's Student Investment Club and spent this summer as an Area Manager Intern at Amazon. Since I was 17 I've run 920 Window Pros, an exterior cleaning business serving Green Bay and Milwaukee. Running it taught me to read a business from the numbers up, which is how I approach research.</p>
+    <div class="about-actions">
+      <a class="primary" href="/resume.pdf">Download resume</a>
+      <a class="secondary" href="https://www.linkedin.com/in/brock-gorzelanczyk-997333290">LinkedIn</a>
+      <a class="secondary" href="mailto:Gorzela2@uwm.edu">Gorzela2@uwm.edu</a>
+    </div>
+  </div>
+</section>
 
 </main>
 <footer class="site-footer">
+  <p>Student research for educational purposes. Nothing here is investment advice or a recommendation to buy or sell any security.</p>
   <p class="disclosure"><strong>Position status.</strong> 1 of 2 open call(s) has a position held (ORCL); the other 1 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14.</p>
-  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-07 16:04 UTC.</p>
+  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-07 16:26 UTC.</p>
 </footer>
 </body>
 </html>

@@ -7,30 +7,23 @@
 <link rel="stylesheet" href="/site.css">
 </head>
 <body>
-<div class="mast">
-  <div class="mast-left">
-    <span class="mark">
-      <svg width="20" height="20" viewBox="0 0 32 32" aria-label="BMG Capital"><rect width="32" height="32" rx="7" fill="#141414"/><polyline points="7,22.5 13,16.5 18,19.5 24.5,10" fill="none" stroke="#3ddc84" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24.5" cy="10" r="2.7" fill="#3ddc84"/></svg>
-      <span class="wm">BMG CAPITAL</span>
-    </span>
-    <span class="mast-sep">|</span>
-    <span class="mast-tagline">EQUITY RESEARCH</span>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="brand" href="/" aria-label="BMG Capital home">
+      <span class="brand-mark">
+        <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden="true"><polyline points="5,23 12,15 18,19 27,8" fill="none" stroke="#3ddc84" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+      </span>
+      <span class="brand-wm">BMG CAPITAL</span>
+    </a>
+    <nav aria-label="Main" class="site-nav">
+      <a href="/#reports">Reports</a>
+      <a href="/#about">About</a>
+      <a href="/resume.pdf" class="nav-resume">Resume</a>
+    </nav>
   </div>
-  <div class="mast-right">Brock Gorzelanczyk &middot; UW-Milwaukee IMCP</div>
-</div>
-<div class="mast-rule"></div>
-<nav class="site-nav">
-  <a href="/">Home</a>
-  <a href="/process">Process</a>
-  <a href="/gates">Gates</a>
-  <a href="/corrections">Corrections</a>
-  <a href="/method">Method</a>
-  <a href="/review">Review</a>
-  <a href="/calibration">Calibration</a>
-  <a href="/research" class="current">Research</a>
-</nav>
+</header>
 <main class="container container-wide">
-  <p class="crumbs"><a href="/research">&larr; All research</a></p>
+  <p class="crumbs"><a href="/#reports">&larr; All reports</a></p>
   
 <section class="note-header">
   <h1>ORCL <span class="note-id">— ORCL</span></h1>
@@ -1084,7 +1077,7 @@ work_order: ORCL-CONDITIONAL-CALL-FRAMEWORK — the challenge argues the M15 fin
 </main>
 <footer>
   <p class="disclosure"><strong>Position status.</strong> 1 of 2 open call(s) has a position held (ORCL); the other 1 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14.</p>
-  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-07 16:04 UTC. Render: 47 markers resolved, 0 unresolved. Gates: 7/7 pass.</p>
+  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-07 16:26 UTC. Render: 47 markers resolved, 0 unresolved. Gates: 7/7 pass.</p>
 </footer>
 </body>
 </html>
