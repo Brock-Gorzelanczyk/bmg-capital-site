@@ -279,3 +279,202 @@ a.marker:hover { background: rgba(15,125,71,.08); border-bottom-style: solid; }
   color: #5a5a5a; font-size: 13px; margin: 4px 0 20px;
   font-style: italic;
 }
+
+/* ============================================================
+   RATING COLOR CLASSES — driven from rating field. Used everywhere
+   a rating label appears (stat box, showcase badge, any rating text).
+   ============================================================ */
+.rating-buy { color: #0f7d47; }
+.rating-sell { color: #b42318; }
+.rating-hold { color: #7a5200; }
+.rating-withdrawn { color: #5a5a5a; text-decoration: line-through; }
+
+/* ============================================================
+   /research TEARSHEET LAYOUT — three rows, three columns each.
+   Mobile-first wrap at ~640px: stat box collapses below the body text.
+   ============================================================ */
+
+/* Research page uses a wider container than the rest of the site. */
+.container-research { max-width: 1120px; margin: 0 auto; padding: 48px 24px; }
+
+.research-head {
+  display: flex; flex-wrap: wrap; justify-content: space-between;
+  align-items: flex-end; gap: 12px; margin: 24px 0 24px;
+}
+.research-head-eyebrow {
+  font-size: 12px; letter-spacing: 0.1em; color: #4a4a4a;
+}
+.research-head-h1 {
+  font-family: Georgia, "Liberation Serif", "Times New Roman", serif;
+  font-size: 40px; margin: 4px 0 0; font-weight: 700; color: #000;
+}
+.research-head-legend {
+  display: flex; flex-wrap: wrap; gap: 18px; font-size: 12px;
+  color: #4a4a4a; align-items: center;
+}
+.legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.legend-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.legend-dot-price { background: #141414; }
+.legend-dot-target {
+  background: #ffffff; border: 3px solid #141414; box-sizing: border-box;
+}
+
+.research-rows {
+  display: flex; flex-direction: column; gap: 14px; margin-bottom: 48px;
+  max-width: 100%; overflow-x: hidden;
+}
+
+.research-row {
+  display: flex; flex-wrap: wrap; align-items: stretch;
+  background: #ffffff; border: 1px solid #dcdcdc; border-radius: 10px;
+  overflow: hidden; text-decoration: none; color: #141414;
+  border-bottom: 1px solid #dcdcdc;  /* override main a underline */
+  max-width: 100%;
+}
+main a.research-row { border-bottom: 1px solid #dcdcdc; background: #ffffff; }
+main a.research-row:hover {
+  background: #fafafa; border-color: #c5c5c5;
+}
+.research-row-logo {
+  flex: 0 0 120px; display: flex; align-items: center;
+  justify-content: center; background: #fafaf8;
+  border-right: 1px solid #ececec; padding: 18px;
+}
+.research-row-logo-img {
+  width: 80px; height: 80px; display: block;
+  border-radius: 12px; background: #ffffff;
+}
+.research-row-logo-ticker {
+  width: 80px; height: 80px; display: flex;
+  align-items: center; justify-content: center;
+  border-radius: 12px; background: #ffffff;
+  font-family: SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 600; font-size: 15px; color: #1a1a1a;
+}
+
+.research-row-body {
+  flex: 999 1 380px; min-width: 0; padding: 20px 28px;
+}
+.research-row-title {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline;
+}
+.research-row-title .company-name {
+  font-family: Georgia, "Liberation Serif", "Times New Roman", serif;
+  font-size: 24px; font-weight: 700;
+}
+.research-row-title .exchange-ticker {
+  font-size: 13px; color: #5a5a5a;
+}
+.research-row-desc {
+  margin: 6px 0 0; font-size: 14px; line-height: 1.55; color: #333;
+}
+.research-row-meta {
+  margin-top: 6px; font-size: 12px; color: #5a5a5a;
+}
+
+/* Price-vs-target bar */
+.research-row-bar {
+  margin-top: 18px; position: relative; height: 62px;
+}
+.research-row-bar.withdrawn { opacity: 0.55; }
+.research-row-bar .bar-track {
+  position: absolute; left: 0; right: 0; top: 26px; height: 6px;
+  border-radius: 3px; background: #ececec;
+}
+.research-row-bar .bar-segment {
+  position: absolute; top: 26px; height: 6px;
+}
+.research-row-bar .bar-label-above {
+  position: absolute; top: 0; transform: translateX(-50%);
+  font-size: 12px; color: #4a4a4a; white-space: nowrap;
+}
+.research-row-bar .bar-label-below {
+  position: absolute; top: 42px; transform: translateX(-50%);
+  font-size: 12px; color: #4a4a4a; white-space: nowrap;
+}
+.research-row-bar .bar-dot-target {
+  position: absolute; top: 22px; width: 14px; height: 14px;
+  margin-left: -7px; border-radius: 50%;
+  background: #ffffff; border: 3px solid #141414; box-sizing: border-box;
+}
+.research-row-bar .bar-dot-price {
+  position: absolute; top: 22px; width: 14px; height: 14px;
+  margin-left: -7px; border-radius: 50%; background: #141414;
+}
+.research-row-no-target {
+  margin-top: 18px; padding: 12px 14px; border: 1px dashed #c8c8c8;
+  border-radius: 8px; font-size: 13px; color: #4a4a4a;
+}
+.research-row-no-target .mono { color: #141414; }
+
+/* Stat box (right column) — three cells arranged in a 2x2+1 pattern:
+   RATING spans both columns on top; TARGET and PRICE share the second
+   row; the fourth cell (TO TARGET / POSITION) spans both columns. */
+.research-row-stats {
+  flex: 1 0 280px;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  background: #f3f8f5; color: #141414; border-left: 1px solid #d5e6dc;
+}
+.research-row-stats.withdrawn {
+  background: #f2f2f0; color: #4a4a4a; border-left: 1px solid #dcdcdc;
+}
+.research-row-stats .stat-cell { padding: 18px; }
+.research-row-stats .stat-cell-rating { grid-column: span 2;
+  border-bottom: 1px solid #d5e6dc; }
+.research-row-stats .stat-cell-target {
+  border-right: 1px solid #d5e6dc; border-bottom: 1px solid #d5e6dc; }
+.research-row-stats .stat-cell-price {
+  border-bottom: 1px solid #d5e6dc; }
+.research-row-stats .stat-cell-fourth { grid-column: span 2; }
+.research-row-stats.withdrawn .stat-cell-rating,
+.research-row-stats.withdrawn .stat-cell-target,
+.research-row-stats.withdrawn .stat-cell-price {
+  border-color: #dcdcdc;
+}
+.research-row-stats .stat-lbl {
+  font-size: 11px; letter-spacing: 0.1em; color: #3f5a4b;
+}
+.research-row-stats.withdrawn .stat-lbl { color: #5a5a5a; }
+.research-row-stats .stat-rating {
+  font-size: 28px; font-weight: 700;
+}
+.research-row-stats .stat-val {
+  font-size: 20px; font-weight: 600;
+}
+.research-row-stats .stat-sm { font-size: 18px; font-weight: 600; }
+.research-row-stats .stat-sm-note {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px; font-weight: 400; color: #3f5a4b;
+}
+.research-row-stats .stat-neg { color: #9a3412; }
+.research-row-stats .stat-pos { color: #0f7d47; }
+
+/* Monospace for prices + percents */
+.research-row-stats .mono,
+.research-row-bar .mono,
+.research-row-no-target .mono {
+  font-family: SFMono-Regular, Menlo, Consolas, monospace;
+}
+.research-row-stats .mono { color: #141414; }
+.research-row-stats.withdrawn .mono { color: #5a5a5a; }
+
+/* Rating-text helpers inside the body (not the big stat cell) */
+.rating-text { font-weight: 700; }
+
+/* Phone-width collapse: stat box drops below. The research-row is a
+   flex container with flex-wrap: wrap and the stat box has flex-basis
+   280px, so once total width < 120 + 380 + 280 = 780px the stat box
+   wraps automatically. Add explicit mobile styling for 390px wide. */
+@media (max-width: 640px) {
+  .research-row { flex-direction: column; }
+  .research-row-logo {
+    flex: 0 0 auto; border-right: none; border-bottom: 1px solid #ececec;
+  }
+  .research-row-body { flex: 1 1 auto; padding: 16px 18px; }
+  .research-row-stats {
+    flex: 1 0 auto; border-left: none; border-top: 1px solid #d5e6dc;
+  }
+  .research-row-stats.withdrawn { border-top-color: #dcdcdc; }
+  .research-head-h1 { font-size: 32px; }
+  .research-row-bar { height: 68px; }
+}

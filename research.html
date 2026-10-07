@@ -29,19 +29,126 @@
   <a href="/calibration">Calibration</a>
   <a href="/research" class="current">Research</a>
 </nav>
-<main class="container">
-<h1>Research</h1>
-<p class="lede">Three rated calls. Click a note to read it in the print format at screen scale.</p>
-<table><tr><th>Note</th><th>Ticker</th><th>Rating</th><th>Status</th><th>Conviction</th><th>Target</th><th>Cycle position (M04)</th></tr>
-<tr><td><a href="/research/gatx/">001-GATX</a> <span class="muted-history">(<a href="/research/001-GATX.html">full note</a>)</span></td><td>GATX</td><td>SELL</td><td><span class="status-ok">OPEN</span></td><td>4/5</td><td>$165.54</td><td>LATE_CYCLE</td></tr>
-<tr><td><a href="/research/004-TRN-BUY.html">004-TRN-BUY</a></td><td>TRN</td><td><s>BUY</s></td><td><span class="status-fail">WITHDRAWN-THESIS-ERROR</span></td><td>3/5</td><td><s>$35.0</s></td><td>UNCERTAIN</td></tr>
-<tr><td><a href="/research/005-ORCL-HOLD.html">005-ORCL-HOLD</a></td><td>ORCL</td><td>HOLD</td><td><span class="status-ok">OPEN</span></td><td>2/5</td><td>no target</td><td>UNCERTAIN</td></tr>
-</table>
-<p>Each note renders in the print format's design language (<code>house-style.css</code>). The print PDF and the on-site render share the same stylesheet.</p>
+<main class="container-research">
+<div class="research-head">
+  <div class="research-head-left">
+    <div class="research-head-eyebrow">COVERAGE LIST</div>
+    <h1 class="research-head-h1">Research</h1>
+  </div>
+  <div class="research-head-legend">
+    <span class="legend-item"><span class="legend-dot legend-dot-price"></span>Price at call</span>
+    <span class="legend-item"><span class="legend-dot legend-dot-target"></span>Target</span>
+    <span>3 calls &middot; 2 open &middot; 1 withdrawn</span>
+  </div>
+</div>
+<div class="research-rows">
+
+<a class="research-row" href="/research/gatx/">
+  <div class="research-row-logo">
+    <div class="research-row-logo-ticker">GATX</div>
+  </div>
+  <div class="research-row-body">
+    <div class="research-row-title">
+      <span class="company-name">GATX Corporation</span>
+      <span class="exchange-ticker">NYSE: GATX &middot; Railcar leasing</span>
+    </div>
+    <p class="research-row-desc">Chicago-based railcar lessor. Owns and leases about 278,000 railcars on multi-year full-service leases, plus aircraft-engine leasing through a joint venture with Rolls-Royce.</p>
+    <div class="research-row-bar"><div class="bar-track"></div><div class="bar-segment" style="left: 40.9%; width: 16.6%; background: #c2410c;"></div><div class="bar-label-above" style="left: 40.9%;">Target <strong class="mono">$165.54</strong></div><div class="bar-dot-target" style="left: 40.9%;"></div><div class="bar-label-below" style="left: 57.5%;"><strong class="mono">$172.27</strong> at call</div><div class="bar-dot-price" style="left: 57.5%;"></div></div>
+    <div class="research-row-meta">Finalized 2026-10-06 &middot; Conviction 4/5 &middot; Open</div>
+  </div>
+  <div class="research-row-stats open">
+    <div class="stat-cell stat-cell-rating">
+      <div class="stat-lbl">RATING</div>
+      <div class="stat-rating rating-hold">HOLD</div>
+    </div>
+    <div class="stat-cell stat-cell-target">
+      <div class="stat-lbl">TARGET</div>
+      <div class="stat-val"><span class="mono">$165.54</span></div>
+    </div>
+    <div class="stat-cell stat-cell-price">
+      <div class="stat-lbl">PRICE AT CALL</div>
+      <div class="stat-val"><span class="mono">$172.27</span></div>
+    </div>
+    <div class="stat-cell stat-cell-fourth">
+      <div class="stat-lbl">TO TARGET</div>
+      <div class="stat-val"><span class="mono stat-neg">-3.9%</span> <span class="stat-sm-note">(-2.4% with dividend)</span></div>
+    </div>
+  </div>
+</a>
+
+
+<a class="research-row" href="/research/004-TRN-BUY.html">
+  <div class="research-row-logo">
+    <div class="research-row-logo-ticker">TRN</div>
+  </div>
+  <div class="research-row-body">
+    <div class="research-row-title">
+      <span class="company-name">Trinity Industries</span>
+      <span class="exchange-ticker">NYSE: TRN &middot; Railcar manufacturing and leasing</span>
+    </div>
+    <p class="research-row-desc">Dallas-based railcar builder and lessor. Manufactures freight railcars and leases them through its TrinityRail fleet.</p>
+    <div class="research-row-bar withdrawn"><div class="bar-track"></div><div class="bar-segment" style="left: 22.2%; width: 50.6%; background: #8a8a8a;"></div><div class="bar-label-above" style="left: 72.8%;">Target <strong class="mono" style="text-decoration: line-through;">$35.00</strong></div><div class="bar-dot-target" style="left: 72.8%;"></div><div class="bar-label-below" style="left: 22.2%;"><strong class="mono">$28.50</strong> at call</div><div class="bar-dot-price" style="left: 22.2%;"></div></div>
+    <div class="research-row-meta"><span style="color:#a1260d; font-weight:600;">Withdrawn 2026-09-16: thesis error. Kept as a record.</span></div>
+  </div>
+  <div class="research-row-stats withdrawn">
+    <div class="stat-cell stat-cell-rating">
+      <div class="stat-lbl">RATING</div>
+      <div class="stat-rating rating-withdrawn">BUY</div>
+    </div>
+    <div class="stat-cell stat-cell-target">
+      <div class="stat-lbl">TARGET</div>
+      <div class="stat-val"><span class="mono rating-withdrawn">$35.00</span></div>
+    </div>
+    <div class="stat-cell stat-cell-price">
+      <div class="stat-lbl">PRICE AT CALL</div>
+      <div class="stat-val"><span class="mono">$28.50</span></div>
+    </div>
+    <div class="stat-cell stat-cell-fourth">
+      <div class="stat-lbl">TO TARGET, AS SHIPPED</div>
+      <div class="stat-val"><span class="mono rating-withdrawn">+22.8%</span></div>
+    </div>
+  </div>
+</a>
+
+
+<a class="research-row" href="/research/005-ORCL-HOLD.html">
+  <div class="research-row-logo">
+    <div class="research-row-logo-ticker">ORCL</div>
+  </div>
+  <div class="research-row-body">
+    <div class="research-row-title">
+      <span class="company-name">Oracle Corporation</span>
+      <span class="exchange-ticker">NYSE: ORCL &middot; Software and cloud</span>
+    </div>
+    <p class="research-row-desc">Database and enterprise software company building out Oracle Cloud Infrastructure (OCI), its cloud computing business.</p>
+    <div class="research-row-no-target">No price target: this is a HOLD without a target, so there is no bar. Price at call <strong class="mono">$150.28</strong>.</div>
+    <div class="research-row-meta">Called 2026-09-11 &middot; Conviction 2/5 &middot; Open &middot; Position held</div>
+  </div>
+  <div class="research-row-stats open">
+    <div class="stat-cell stat-cell-rating">
+      <div class="stat-lbl">RATING</div>
+      <div class="stat-rating rating-hold">HOLD</div>
+    </div>
+    <div class="stat-cell stat-cell-target">
+      <div class="stat-lbl">TARGET</div>
+      <div class="stat-val"><span class="mono">None</span></div>
+    </div>
+    <div class="stat-cell stat-cell-price">
+      <div class="stat-lbl">PRICE AT CALL</div>
+      <div class="stat-val"><span class="mono">$150.28</span></div>
+    </div>
+    <div class="stat-cell stat-cell-fourth">
+      <div class="stat-lbl">POSITION</div>
+      <div class="stat-val"><span class="stat-sm">Held since 2026-09-14</span></div>
+    </div>
+  </div>
+</a>
+
+</div>
 </main>
 <footer class="site-footer">
   <p class="disclosure"><strong>Position status.</strong> 1 of 2 open call(s) has a position held (ORCL); the other 1 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14.</p>
-  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-04 18:22 UTC.</p>
+  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-07 16:04 UTC.</p>
 </footer>
 </body>
 </html>

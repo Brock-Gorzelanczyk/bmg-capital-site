@@ -34,18 +34,18 @@
   
 <section class="note-header">
   <h1>GATX <span class="note-id">— GATX</span></h1>
-  <div class="rating-line"><span class="badge-rating badge-sell">SELL</span> &middot; Target $165.54 &middot; 18-month horizon</div>
+  <div class="rating-line"><span class="badge-rating rating-hold">HOLD</span> &middot; Target $165.54 &middot; 18-month horizon</div>
   <div class="meta-line">Opened 2026-09-11 &middot; Evaluation 2027-09-13 &middot; Benchmark XLI &middot; Conviction 4 (implied probability 78%)</div>
   <div class="gate-summary">Gate status: <strong>7/7</strong> pass</div><div class="gate-grid"><div class="gate-badge gate-ok"><div class="gate-name">Gate 1</div><div class="gate-what">provenance (Rule 7)</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 1d</div><div class="gate-what">capital-intensive (M30)</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 2</div><div class="gate-what">falsified audit</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 3</div><div class="gate-what">derivation arithmetic</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 4</div><div class="gate-what">adversarial (M29)</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 6</div><div class="gate-what">earnings cycle (M04)</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 7</div><div class="gate-what">valuation pre-commit (M31)</div></div></div>
 </section>
 
-  <p class="muted-history">Opened BUY $200 on 2026-09-11; revised SELL 2026-09-28; target method revised 2026-10-01; growth input corrected 2026-10-02.</p>
+  <p class="muted-history">Opened BUY $200 on 2026-09-11; revised SELL 2026-09-28; target method revised 2026-10-01; growth input corrected 2026-10-02; revised HOLD 2026-10-06 on price, target unchanged.</p>
   <p class="muted-history">Short version: <a href="/research/gatx/">/research/gatx/</a></p>
   
 <section class="note-files">
   <h2>Files</h2>
   <ul>
-  <li><a href="/research/gatx/GATX-BMG-presentation-2026-10-01.pdf">Presentation (PDF, 34 slides)</a> &middot; <a href="/research/gatx/GATX-BMG-presentation-2026-10-01.pptx">PowerPoint</a> &middot; as of 2026-10-01</li>
+  <li><a href="/research/gatx/GATX-BMG-presentation-2026-10-06.pdf">Presentation (PDF, 34 slides)</a> &middot; <a href="/research/gatx/GATX-BMG-presentation-2026-10-06.pptx">PowerPoint</a> &middot; as of 2026-10-06</li>
   <li><a href="/research/gatx/GATX-one-pager.html">One-page note (HTML)</a> &middot; as of 2026-10-03</li>
   <li><a href="/research/gatx/index.html">GATX showcase page</a> &middot; as of 2026-10-04</li>
   <li><a href="/research/gatx/GATX-FSM-v32.xlsx">Financial model (Excel, GATX-FSM-v32)</a> &middot; as of 2026-10-02</li>
@@ -1028,9 +1028,9 @@ reason: the "one fifth of the fleet" line is in the superseded section and is no
 <p>status: REJECT
 reason: the ~65 bps consolidated spread calculation sits in the superseded section and is not load-bearing for the current view, which does not use a consolidated ROIC spread. The current rating rests on Valuation Section H (justified P/B on 2027E ROE 12.2% vs Ke 9.0%, NAV, P/E) and the interest build in Debt &amp; Interest. The basis mismatch the challenge describes is real for the old calculation and is one reason that calculation was retired; the RRPF stake is valued on its own line (equity method, dividends) in the current model.</p>
 <h3>Response to C5</h3>
-<p>status: DEFER
-work_order: models/GATX/WORK-ORDER.md v33, item "industry supply block" (lessor-model-benchmark-2026-09-28 item 3: industry fleet roll, ARCI orders and backlog, AAR cars-in-storage percentage, with a demand-vs-supply read). The current view does not rest on the supply story; it appears only in the one-pager's "what would make me wrong" list. The challenge is right that stacking deliveries from different fiscal periods does not settle whether the shortfall is demand-driven; the v33 block will carry the series on one calendar.
-work-order: models/GATX/WORK-ORDER.md v33 industry supply block</p>
+<p>status: ACCEPT
+diff: v33 adds a new <code>Industry Supply</code> sheet (deliverables/GATX-FSM-v33.xlsx) between <code>Peer P-B vs ROE</code> and <code>FSM Complete</code>. Columns: Quarter, ARCI_orders, ARCI_deliveries, ARCI_backlog, AAR_cars_in_storage_pct, Railinc_fleet_count, Trinity_FLRD, GATX_LPI, Net_fleet_change (derived), Book_to_bill (derived), Quarter_read (derived), Source. Six quarters populated (Q1 2025 - Q2 2026), each cell source-cited in col M. Latest read Q2 2026 is "supply-led" at 21.8% storage (sheet row 13, Summary line sheet row 5). Historical rows only; no forecasts. Source files per 03-industry-data-and-drivers.md.
+reason: red-team C5 noted the supply claim was unsourced on the deck; the sheet now carries the series on one calendar from the vault files cited in the lessor benchmark.</p>
 <h3>Response to C6</h3>
 <p>status: ACCEPT
 diff: pending. The current view states the refinancing assumption (2026 maturities at 3.04% refinance near 5.30% to 5.95%; 2027 interest $616M) but not the floating-rate assumption. Next revision: add one sentence stating the base-rate assumption used in Debt &amp; Interest (floating balances including the GABX term loan held at the current SOFR-based rate, no cuts assumed; the sensitivity is symmetric) and remove "rate cuts are the mirror image" from any live text. The symmetric per-100bp figure will be read from the model, not restated from the superseded note.</p>
@@ -1044,9 +1044,9 @@ reason: the maintenance-synergy claim and its Wells Fargo regulatory rationale a
 <p>status: ACCEPT
 diff: pending. The scenario and stress tables the challenge compares are all in the superseded section and were produced before the model existed. The current scenarios come from the full model with one switch (GATX-FSM-v32, Valuation Section C1): bear 2027E EPS $10.12 at 14.78x = $149.56; base $10.43 at 16.34x = $170.47; bull $10.66 at 17.69x = $188.53; probability-weighted 25/50/25 into the P/E leg. The old compound-stress trough ($3.87) is not a case the current rating uses. Next revision: add these three lines to the current view so the bear case on the page is the one the model produces, and label the old tables as superseded in place.</p>
 <h3>Response to C10</h3>
-<p>status: DEFER
-work_order: models/GATX/WORK-ORDER.md v33, item "renewal term check and sensitivity": confirm the Drivers renewal-term input equals the latest print (54 months, Q2 2026, down from 60) rather than a five-year average; add a 48 / 54 / 60 month sensitivity on cars renewing, 2027E EPS and the Section H target; report whether any value moves the rating. The current view already describes the renewing share as about a quarter a year, consistent with a 48 to 54 month term, and the "locked for the full term" language is in the superseded section only. The challenge is correct that lock length is the single input that moves 2027 EPS most after interest, which is why it gets a model order rather than a text edit.
-work-order: models/GATX/WORK-ORDER.md v33 renewal term check and sensitivity</p></div></div>
+<p>status: ACCEPT
+diff: v35 — Drivers term-by-signing-year block (2019-2025 disclosed terms, 2026 fwd = 54 mo per Q2 2026 release; rows 788-828 at <code>deliverables/GATX-FSM-v35.xlsx</code>); flat 2/3 : 1/3 straddle from v34 replaced with exact fractional share computed from each cohort's term (T/12 = N + f; share in Y+N = 1−f, share in Y+N+1 = f). Per-cohort helpers added at Drivers rows 800-804 cols G-N (N_R1, f_R1, N_R2fwd, f_R2fwd, share_R1_Y+N, share_R1_Y+N+1, share_R2_Y+N, share_R2_Y+N+1); zero typed fractions in timing formulas. 2025A modeled cars renewing = 20,000 vs disclosed 21,500 (delta −6.98%, within 15% target — a tighter fit than v34's −37.98%). New 2027E EPS = $10.35 (unchanged); 2026E EPS = $10.64 (unchanged); 2029E EPS lifted $11.13 → $11.26; Section H weighted target = $164.62 (was $164.66); expected return = −8.91% (was −8.89%). Rating stays SELL. Reference: <code>models/GATX/reports/v35-report.md</code> gate lines.
+reason: C10 charge accepted in full and refined. The v34 flat 2/3 : 1/3 was a simplification; v35 uses the exact fraction straight from the term. Cohort 2021 (47 mo, N=3, f=0.9167) now puts 8% in 2024 and 92% in 2025 (not 67/33 across 2025/2026 as v34 had), which pulls the modeled 2025A renewal volume closer to disclosed. Cohort 2022 (52 mo, N=4, f=0.3333) still splits 67/33 across 2026/2027 — close to v34 — so 2026E/2027E EPS are nearly identical. The jump comes in 2029 where three cohort renewals pile up (2023 R1 42%, 2024 R1 100%, 2025 R1 17%, plus 2021 R2 50%): 40,775 cars renew, lifting 2029E EPS by $0.13/sh. Weighted target falls $0.04/sh, expected return widens 2bp, SELL unchanged.</p></div></div>
 </section>
   
 <section class="note-calibration">
@@ -1058,14 +1058,14 @@ work-order: models/GATX/WORK-ORDER.md v33 renewal term check and sensitivity</p>
 </section>
 
   <section class="note-supporting"><h2>Supporting artifacts</h2><ul>
-<li><strong>Model directory</strong> — <code>models/GATX/</code> (51 files)</li>
+<li><strong>Model directory</strong> — <code>models/GATX/</code> (66 files)</li>
 <li><strong>Comp set</strong> — <code>reference/comps/GATX.yaml</code></li>
 <li><strong>Credibility ledger</strong> — <code>research/credibility/GATX-consensus.yaml</code></li>
 </ul></section>
 </main>
 <footer>
   <p class="disclosure"><strong>Position status.</strong> 1 of 2 open call(s) has a position held (ORCL); the other 1 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14.</p>
-  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-04 18:22 UTC. Render: 139 markers resolved, 0 unresolved. Gates: 7/7 pass.</p>
+  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-07 16:04 UTC. Render: 139 markers resolved, 0 unresolved. Gates: 7/7 pass.</p>
 </footer>
 </body>
 </html>
