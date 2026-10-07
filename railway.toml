@@ -1,0 +1,17 @@
+# bmg-capital-site — Railway build + deploy config.
+# Written by scripts/local/site_publish.py. Do not edit by hand.
+#
+# Switched from Caddy static builder (site-v6) to Python/FastAPI
+# (tool-v1) so /api/snapshot can be served from the same container
+# as the static site. FastAPI mounts the repo root as StaticFiles,
+# so every static URL served by Caddy before continues to work.
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "uvicorn server:app --host 0.0.0.0 --port $PORT --log-level info"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

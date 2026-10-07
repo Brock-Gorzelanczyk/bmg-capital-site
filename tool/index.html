@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research tool — BMG Capital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/site.187e1258.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="brand" href="/" aria-label="BMG Capital home">
+      <span class="brand-mark">
+        <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden="true"><polyline points="5,23 12,15 18,19 27,8" fill="none" stroke="#3ddc84" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+      </span>
+      <span class="brand-wm">BMG CAPITAL</span>
+    </a>
+    <nav aria-label="Main" class="site-nav">
+  <a href="#reports">Reports</a>
+  <a href="/tool/">Research tool</a>
+  <a href="#about">About</a>
+  <a href="/resume.pdf" class="nav-resume">Resume</a>
+</nav>
+  </div>
+</header>
+<main class="container">
+
+<style>
+.tool-page { padding: 32px 0 48px; }
+.tool-page h1 { font-family: 'Source Serif 4', Georgia, serif; font-size: 36px; margin: 0 0 8px; color: #141414; }
+.tool-page > p.lede { margin: 0 0 24px; font-size: 17px; color: #4a4a4a; max-width: 640px; }
+#tool-search-form { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 8px; }
+#tool-search-form label { position: absolute; left: -9999px; }
+#tool-ticker { height: 44px; padding: 0 14px; font: 500 16px/1.2 'IBM Plex Mono', monospace;
+  border: 1px solid #c9c9c4; border-radius: 8px; width: 220px; box-sizing: border-box; }
+#tool-ticker:focus { border-color: #0f7d47; outline: 2px solid rgba(15,125,71,.15); }
+.tool-submit { height: 44px; padding: 0 20px; background: #0f7d47; color: #fff;
+  border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.tool-submit:hover { background: #0a5c34; }
+.tool-chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 24px; font-size: 13px; }
+.tool-chips > span { color: #4a4a4a; }
+.tool-chip { padding: 6px 12px; border-radius: 999px; background: #f0f0ec; color: #141414;
+  text-decoration: none; font-weight: 500; cursor: pointer; }
+.tool-chip:hover { background: #e3e3dc; }
+
+.tool-loading, .tool-error, .tool-note { padding: 14px 16px; border-radius: 8px; margin: 16px 0;
+  font-size: 15px; }
+.tool-loading { background: #f6f6f3; color: #4a4a4a; }
+.tool-error { background: #fef2f1; color: #b42318; border: 1px solid #f4c7c3; }
+.tool-note { background: #fff8e9; color: #7a5200; border: 1px solid #f1dca2; }
+
+.tool-header { padding: 20px 0 8px; }
+.tool-header h2 { margin: 0 0 4px; font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 26px; color: #141414; }
+.tool-header .tool-sub { margin: 0 0 6px; color: #4a4a4a; font-size: 14px; }
+.tool-header .tool-price { margin: 2px 0; font-family: 'IBM Plex Mono', monospace; font-size: 14px; }
+.tool-header .tool-mcap { margin: 2px 0; font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #4a4a4a; }
+
+.tool-val-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px; background: #d5e6dc; border: 1px solid #d5e6dc; border-radius: 10px;
+  overflow: hidden; margin: 12px 0 24px; }
+.tool-val-cell { background: #f3f8f5; padding: 12px 14px; }
+.tool-val-lbl { font-size: 11px; letter-spacing: 0.08em; color: #3f5a4b; text-transform: uppercase; cursor: help; }
+.tool-val-num { font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; margin-top: 2px; }
+
+.tool-section { margin: 28px 0; }
+.tool-section h3 { font-family: 'Source Serif 4', Georgia, serif; font-size: 20px;
+  margin: 0 0 10px; color: #141414; border: none; padding: 0; }
+.tool-growth { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #4a4a4a; margin: 0 0 10px; }
+.tool-chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px; margin: 10px 0 20px; }
+.tool-chart-card { border: 1px solid #e3e3e0; border-radius: 10px; padding: 10px 12px; background: #fff; }
+.tool-chart-lbl { font-size: 12px; color: #3f5a4b; font-weight: 600; }
+.tool-chart-latest { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #141414; margin: 2px 0 4px; }
+.tool-spark { display: block; width: 100%; height: auto; }
+.tool-table-wrap { overflow-x: auto; }
+.tool-table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 13px; }
+.tool-table th, .tool-table td { padding: 8px 10px; border-bottom: 1px solid #e3e3e0; text-align: right; font-family: 'IBM Plex Mono', monospace; }
+.tool-table th { background: #f6f6f3; font-weight: 600; color: #141414; }
+.tool-table th:first-child, .tool-table td:first-child { text-align: left; }
+
+.tool-filings { list-style: none; padding: 0; margin: 0; }
+.tool-filings li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid #f0f0ec; font-size: 14px; }
+.tool-badge { padding: 2px 8px; border-radius: 4px; background: #f0f0ec; color: #141414; font-weight: 600; font-size: 12px; }
+.tool-badge.badge-10k, .tool-badge.badge-10ka { background: #e2eef9; color: #0b3b74; }
+.tool-badge.badge-10q, .tool-badge.badge-10qa { background: #e9f5ec; color: #0f5c34; }
+.tool-badge.badge-8k, .tool-badge.badge-8ka { background: #fdf2d7; color: #7a5200; }
+.tool-badge.badge-4 { background: #f4e9f7; color: #572a73; }
+.tool-filing-date { font-family: 'IBM Plex Mono', monospace; font-size: 13px; min-width: 90px; }
+.tool-filings a { color: #0f7d47; text-decoration: none; }
+
+.tool-insider { font-family: 'IBM Plex Mono', monospace; }
+.tool-questions ul { padding-left: 20px; font-size: 15px; color: #333; }
+.tool-questions li { margin: 4px 0; }
+
+.tool-disclaimer { font-size: 12px; color: #6a6a6a; margin: 24px 0 8px; }
+.tool-tags-used { font-size: 11px; color: #6a6a6a; font-family: 'IBM Plex Mono', monospace;
+  word-break: break-all; }
+
+@media (max-width: 500px) {
+  .tool-val-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tool-page h1 { font-size: 28px; }
+  .tool-page { padding: 20px 0 36px; }
+  #tool-ticker { width: 100%; }
+  .tool-submit { width: 100%; }
+}
+</style>
+
+<section class="tool-page">
+  <h1>Research tool</h1>
+  <p class="lede">Type a US ticker. Get a one-page snapshot built only from free public data — SEC filings (XBRL), SEC filings feed, and Stooq daily close. Nothing paid, nothing scraped.</p>
+  <form id="tool-search-form" autocomplete="off">
+    <label for="tool-ticker">Ticker</label>
+    <input id="tool-ticker" type="text" placeholder="e.g. GATX" maxlength="10" inputmode="latin" autocapitalize="characters" spellcheck="false">
+    <button type="submit" class="tool-submit">Load snapshot</button>
+  </form>
+  <div class="tool-chips">
+    <span>Try:</span>
+    <a class="tool-chip" data-ticker="GATX" href="?ticker=GATX">GATX</a>
+    <a class="tool-chip" data-ticker="TRN" href="?ticker=TRN">TRN</a>
+    <a class="tool-chip" data-ticker="ORCL" href="?ticker=ORCL">ORCL</a>
+  </div>
+  <div id="tool-snapshot"></div>
+</section>
+<script>
+
+(function() {
+  const $ = (sel) => document.querySelector(sel);
+  const create = (tag, attrs = {}, children = []) => {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') el.className = v;
+      else if (k === 'text') el.textContent = v;
+      else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+      else if (v !== null && v !== undefined) el.setAttribute(k, v);
+    }
+    for (const c of children) {
+      if (c === null || c === undefined) continue;
+      el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    }
+    return el;
+  };
+  const fmtM = (v) => v === null || v === undefined ? '—' :
+    Math.abs(v) >= 1000 ? '$' + (v / 1000).toFixed(2) + 'B' :
+    '$' + v.toFixed(1) + 'M';
+  const fmtEps = (v) => v === null || v === undefined ? '—' : '$' + v.toFixed(2);
+  const fmtPct = (v) => v === null || v === undefined ? '—' : (v * 100).toFixed(1) + '%';
+  const fmtNum = (v, d = 2) => v === null || v === undefined ? '—' : v.toFixed(d);
+
+  function sparkline(values, width = 240, height = 80) {
+    const vals = values.map(v => (v === null || v === undefined) ? null : v);
+    const nums = vals.filter(v => v !== null);
+    if (nums.length < 2) return null;
+    const min = Math.min(...nums), max = Math.max(...nums);
+    const range = (max - min) || 1;
+    const padX = 6, padY = 10;
+    const xStep = (width - 2 * padX) / Math.max(1, vals.length - 1);
+    const pts = [];
+    vals.forEach((v, i) => {
+      if (v === null) return;
+      const x = padX + i * xStep;
+      const y = height - padY - ((v - min) / range) * (height - 2 * padY);
+      pts.push([x, y]);
+    });
+    if (pts.length < 2) return null;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+    svg.setAttribute('class', 'tool-spark');
+    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    poly.setAttribute('points', pts.map(p => p.join(',')).join(' '));
+    poly.setAttribute('fill', 'none');
+    poly.setAttribute('stroke', '#0f7d47');
+    poly.setAttribute('stroke-width', '2');
+    svg.appendChild(poly);
+    const last = pts[pts.length - 1];
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('cx', last[0]); dot.setAttribute('cy', last[1]);
+    dot.setAttribute('r', 3); dot.setAttribute('fill', '#0f7d47');
+    svg.appendChild(dot);
+    return svg;
+  }
+
+  async function loadTicker(t) {
+    const out = $('#tool-snapshot');
+    out.innerHTML = '';
+    out.appendChild(create('div', { class: 'tool-loading', text: `Loading ${t}…` }));
+    let r;
+    try {
+      r = await fetch('/api/snapshot?ticker=' + encodeURIComponent(t));
+    } catch (e) {
+      out.innerHTML = '';
+      out.appendChild(create('div', { class: 'tool-error', text: 'Network error — ' + e.message }));
+      return;
+    }
+    const data = await r.json().catch(() => ({ error: 'bad json' }));
+    out.innerHTML = '';
+    if (!r.ok) {
+      const msg = data.message || data.error || `HTTP ${r.status}`;
+      out.appendChild(create('div', { class: 'tool-error', text: msg }));
+      return;
+    }
+    render(out, data);
+  }
+
+  function render(out, d) {
+    // Header
+    const header = create('div', { class: 'tool-header' });
+    header.appendChild(create('h2', { text: d.name + ' (' + d.ticker + ')' }));
+    const sub = [];
+    if (d.exchange) sub.push(d.exchange);
+    if (d.sic_description) sub.push(d.sic_description);
+    header.appendChild(create('p', { class: 'tool-sub', text: sub.join(' · ') }));
+    if (d.price) {
+      header.appendChild(create('p', { class: 'tool-price',
+        text: 'Last: $' + d.price.last.toFixed(2) + ' (' + d.price.date + ', ' + d.price.source + ')' }));
+    } else if (d.price_error) {
+      header.appendChild(create('p', { class: 'tool-note',
+        text: 'Price unavailable — ' + d.price_error }));
+    }
+    if (d.market_cap) {
+      header.appendChild(create('p', { class: 'tool-mcap',
+        text: 'Market cap: $' + d.market_cap.toFixed(0) + 'M · ' + (d.shares_diluted_latest || '—') + 'M diluted shares' }));
+    }
+    out.appendChild(header);
+
+    // Valuation strip
+    const v = d.valuation || {};
+    const vs = create('div', { class: 'tool-val-strip' });
+    [
+      ['P/E (TTM)', fmtNum(v.pe_ttm), v.tooltips?.pe_ttm],
+      ['P/B', fmtNum(v.pb), v.tooltips?.pb],
+      ['Dividend yield', v.div_yield !== null ? fmtPct(v.div_yield) : '—', v.tooltips?.div_yield],
+      ['Net debt / equity', fmtNum(v.net_debt_to_equity), v.tooltips?.net_debt_to_equity],
+    ].forEach(([lbl, val, tip]) => {
+      const cell = create('div', { class: 'tool-val-cell' });
+      cell.appendChild(create('div', { class: 'tool-val-lbl', text: lbl, title: tip || '' }));
+      cell.appendChild(create('div', { class: 'tool-val-num', text: val }));
+      vs.appendChild(cell);
+    });
+    out.appendChild(vs);
+
+    // Warnings
+    (d.warnings || []).forEach(w => {
+      out.appendChild(create('div', { class: 'tool-note', text: w }));
+    });
+    if (d.xbrl === null && d.message) {
+      out.appendChild(create('div', { class: 'tool-note', text: d.message }));
+    }
+
+    // Ten-year table + sparkline charts
+    const fy = d.fy_series || [];
+    if (fy.length) {
+      const section = create('section', { class: 'tool-section' });
+      section.appendChild(create('h3', { text: '10-year fundamentals' }));
+      // Growth summary
+      const g = d.growth || {};
+      const growthRow = create('p', { class: 'tool-growth' });
+      const parts = [];
+      if (g.revenue_1y !== undefined) parts.push('Rev 1y: ' + fmtPct(g.revenue_1y));
+      if (g.revenue_3y_cagr !== undefined) parts.push('Rev 3y CAGR: ' + fmtPct(g.revenue_3y_cagr));
+      if (g.revenue_5y_cagr !== undefined) parts.push('Rev 5y CAGR: ' + fmtPct(g.revenue_5y_cagr));
+      growthRow.textContent = parts.join(' · ');
+      section.appendChild(growthRow);
+
+      // Chart grid
+      const chartGrid = create('div', { class: 'tool-chart-grid' });
+      [
+        ['Revenue ($M)', 'revenue', fmtM],
+        ['Net income ($M)', 'net_income', fmtM],
+        ['Diluted EPS', 'eps_diluted', fmtEps],
+        ['Equity ($M)', 'equity', fmtM],
+        ['Long-term debt ($M)', 'debt', fmtM],
+        ['Operating cash flow ($M)', 'cfo', fmtM],
+      ].forEach(([lbl, key, fmt]) => {
+        const vals = fy.map(r => r[key]);
+        const nums = vals.filter(v => v !== null && v !== undefined);
+        if (!nums.length) return;
+        const card = create('div', { class: 'tool-chart-card' });
+        card.appendChild(create('div', { class: 'tool-chart-lbl', text: lbl }));
+        const latest = vals[vals.length - 1];
+        card.appendChild(create('div', { class: 'tool-chart-latest',
+          text: 'latest: ' + fmt(latest) }));
+        const spark = sparkline(vals);
+        if (spark) card.appendChild(spark);
+        chartGrid.appendChild(card);
+      });
+      section.appendChild(chartGrid);
+
+      // Table
+      const tableWrap = create('div', { class: 'tool-table-wrap' });
+      const table = create('table', { class: 'tool-table' });
+      const thead = create('thead');
+      const hdr = create('tr');
+      ['Year', 'Revenue', 'Net income', 'EPS diluted', 'ROE', 'Debt', 'CFO'].forEach(h =>
+        hdr.appendChild(create('th', { text: h })));
+      thead.appendChild(hdr);
+      table.appendChild(thead);
+      const tbody = create('tbody');
+      fy.forEach(r => {
+        const tr = create('tr');
+        tr.appendChild(create('td', { text: r.year }));
+        tr.appendChild(create('td', { text: fmtM(r.revenue) }));
+        tr.appendChild(create('td', { text: fmtM(r.net_income) }));
+        tr.appendChild(create('td', { text: fmtEps(r.eps_diluted) }));
+        tr.appendChild(create('td', { text: r.roe !== null ? fmtPct(r.roe) : '—' }));
+        tr.appendChild(create('td', { text: fmtM(r.debt) }));
+        tr.appendChild(create('td', { text: fmtM(r.cfo) }));
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      tableWrap.appendChild(table);
+      section.appendChild(tableWrap);
+      out.appendChild(section);
+    }
+
+    // Quarterly
+    const q = d.quarterly_series || [];
+    if (q.length) {
+      const section = create('section', { class: 'tool-section' });
+      section.appendChild(create('h3', { text: 'Last 8 quarters' }));
+      const wrap = create('div', { class: 'tool-table-wrap' });
+      const t = create('table', { class: 'tool-table' });
+      const thead = create('thead');
+      const hdr = create('tr');
+      ['Period', 'Revenue', 'EPS diluted', 'Interest expense'].forEach(h =>
+        hdr.appendChild(create('th', { text: h })));
+      thead.appendChild(hdr);
+      t.appendChild(thead);
+      const tbody = create('tbody');
+      q.forEach(r => {
+        const tr = create('tr');
+        tr.appendChild(create('td', { text: r.period }));
+        tr.appendChild(create('td', { text: fmtM(r.revenue) }));
+        tr.appendChild(create('td', { text: fmtEps(r.eps_diluted) }));
+        tr.appendChild(create('td', { text: fmtM(r.interest_expense) }));
+        tbody.appendChild(tr);
+      });
+      t.appendChild(tbody);
+      wrap.appendChild(t);
+      section.appendChild(wrap);
+      out.appendChild(section);
+    }
+
+    // Filings
+    const f = d.filings || [];
+    if (f.length) {
+      const section = create('section', { class: 'tool-section' });
+      section.appendChild(create('h3', { text: 'Recent filings' }));
+      const ul = create('ul', { class: 'tool-filings' });
+      f.forEach(r => {
+        const li = create('li');
+        li.appendChild(create('span', { class: 'tool-badge badge-' + r.form.replace(/\W+/g, '').toLowerCase(), text: r.form }));
+        li.appendChild(create('span', { class: 'tool-filing-date', text: r.filed }));
+        const a = create('a', { href: r.url, target: '_blank', rel: 'noopener', text: 'view on SEC' });
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+      section.appendChild(ul);
+      out.appendChild(section);
+    }
+
+    // Insider
+    const section = create('section', { class: 'tool-section' });
+    section.appendChild(create('h3', { text: 'Insider activity (90 days)' }));
+    section.appendChild(create('p', { class: 'tool-insider',
+      text: 'Form 4 filings in the last 90 days: ' + (d.insider_count_90d ?? 0) }));
+    out.appendChild(section);
+
+    // Questions to answer
+    const q2 = create('section', { class: 'tool-section tool-questions' });
+    q2.appendChild(create('h3', { text: 'Questions to answer' }));
+    const qUl = create('ul');
+    [
+      'What drives revenue — pricing, volume, mix?',
+      'What could break the thesis in the next 12 months?',
+      'What is the market pricing in — is current P/E inside or outside its 10-year range?',
+      'Is the balance sheet carrying the business through a slowdown?',
+    ].forEach(x => qUl.appendChild(create('li', { text: x })));
+    q2.appendChild(qUl);
+    out.appendChild(q2);
+
+    // Footer disclaimer
+    out.appendChild(create('p', { class: 'tool-disclaimer',
+      text: 'Built from SEC filings (XBRL) and public price data. Figures as reported; check the filing before relying on them. Not investment advice.' }));
+
+    // Tags used
+    const tags = d.tags_used || {};
+    const tu = Object.entries(tags).filter(([k, v]) => v).map(([k, v]) => k + '=' + v);
+    if (tu.length) {
+      out.appendChild(create('p', { class: 'tool-tags-used', text: 'XBRL tags: ' + tu.join(', ') }));
+    }
+  }
+
+  // Wire up search
+  function wire() {
+    const form = $('#tool-search-form');
+    const input = $('#tool-ticker');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const t = (input.value || '').trim().toUpperCase();
+      if (!t) return;
+      history.replaceState({}, '', '/tool/?ticker=' + encodeURIComponent(t));
+      loadTicker(t);
+    });
+    document.querySelectorAll('.tool-chip').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        const t = el.dataset.ticker;
+        input.value = t;
+        history.replaceState({}, '', '/tool/?ticker=' + encodeURIComponent(t));
+        loadTicker(t);
+      });
+    });
+    // Deep link
+    const params = new URLSearchParams(location.search);
+    const dl = params.get('ticker');
+    if (dl) {
+      input.value = dl.toUpperCase();
+      loadTicker(dl.toUpperCase());
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wire);
+  } else {
+    wire();
+  }
+})();
+
+</script>
+
+</main>
+<footer class="site-footer">
+  <p>Student research for educational purposes. Nothing here is investment advice or a recommendation to buy or sell any security.</p>
+  <p class="disclosure"><strong>Position status.</strong> 1 of 2 open call(s) has a position held (ORCL); the other 1 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14.</p>
+  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-07 21:05 UTC.</p>
+</footer>
+</body>
+</html>
