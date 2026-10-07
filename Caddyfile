@@ -5,7 +5,7 @@
 	file_server
 
 	@html {
-		path *.html /
+		path *.html / */
 	}
 	header @html Cache-Control "no-cache"
 
