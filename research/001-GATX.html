@@ -40,6 +40,7 @@
   <ul>
   <li><a href="/research/gatx/GATX-BMG-presentation-2026-10-06.pdf">Presentation (PDF, 34 slides)</a> &middot; <a href="/research/gatx/GATX-BMG-presentation-2026-10-06.pptx">PowerPoint</a> &middot; as of 2026-10-06</li>
   <li><a href="/research/gatx/GATX-one-pager.html">One-page note (HTML)</a> &middot; as of 2026-10-03</li>
+  <li><a href="/research/gatx/tracker/index.html">GATX thesis tracker</a> &middot; as of 2026-10-07</li>
   <li><a href="/research/gatx/GATX-FSM-v32.xlsx">Financial model (Excel, GATX-FSM-v32)</a> &middot; as of 2026-10-02</li>
   </ul>
 </section>
@@ -1037,8 +1038,8 @@ reason: the maintenance-synergy claim and its Wells Fargo regulatory rationale a
 diff: pending. The scenario and stress tables the challenge compares are all in the superseded section and were produced before the model existed. The current scenarios come from the full model with one switch (GATX-FSM-v32, Valuation Section C1): bear 2027E EPS $10.12 at 14.78x = $149.56; base $10.43 at 16.34x = $170.47; bull $10.66 at 17.69x = $188.53; probability-weighted 25/50/25 into the P/E leg. The old compound-stress trough ($3.87) is not a case the current rating uses. Next revision: add these three lines to the current view so the bear case on the page is the one the model produces, and label the old tables as superseded in place.</p>
 <h3>Response to C10</h3>
 <p>status: ACCEPT
-diff: v35 — Drivers term-by-signing-year block (2019-2025 disclosed terms, 2026 fwd = 54 mo per Q2 2026 release; rows 788-828 at <code>deliverables/GATX-FSM-v35.xlsx</code>); flat 2/3 : 1/3 straddle from v34 replaced with exact fractional share computed from each cohort's term (T/12 = N + f; share in Y+N = 1−f, share in Y+N+1 = f). Per-cohort helpers added at Drivers rows 800-804 cols G-N (N_R1, f_R1, N_R2fwd, f_R2fwd, share_R1_Y+N, share_R1_Y+N+1, share_R2_Y+N, share_R2_Y+N+1); zero typed fractions in timing formulas. 2025A modeled cars renewing = 20,000 vs disclosed 21,500 (delta −6.98%, within 15% target — a tighter fit than v34's −37.98%). New 2027E EPS = $10.35 (unchanged); 2026E EPS = $10.64 (unchanged); 2029E EPS lifted $11.13 → $11.26; Section H weighted target = $164.62 (was $164.66); expected return = −8.91% (was −8.89%). Rating stays SELL. Reference: <code>models/GATX/reports/v35-report.md</code> gate lines.
-reason: C10 charge accepted in full and refined. The v34 flat 2/3 : 1/3 was a simplification; v35 uses the exact fraction straight from the term. Cohort 2021 (47 mo, N=3, f=0.9167) now puts 8% in 2024 and 92% in 2025 (not 67/33 across 2025/2026 as v34 had), which pulls the modeled 2025A renewal volume closer to disclosed. Cohort 2022 (52 mo, N=4, f=0.3333) still splits 67/33 across 2026/2027 — close to v34 — so 2026E/2027E EPS are nearly identical. The jump comes in 2029 where three cohort renewals pile up (2023 R1 42%, 2024 R1 100%, 2025 R1 17%, plus 2021 R2 50%): 40,775 cars renew, lifting 2029E EPS by $0.13/sh. Weighted target falls $0.04/sh, expected return widens 2bp, SELL unchanged.</p></div></div>
+diff: v36 — Legacy renewal engine replaced in <code>deliverables/GATX-FSM-v36.xlsx</code> (<code>Legacy Cohort Model</code> rows 55-68). Cars renewing per year now come straight from the 10-K scheduled-expiration disclosure: 19,400 for 2024A (10-K FY2023 p.6), 21,500 for 2025A (10-K FY2024 p.6), 13,700 for 2026E (10-K FY2025 p.33). From 2027E on the engine uses Drivers!C5 × 12 ÷ Drivers!C785 (legacy ex-boxcar fleet × 12 ÷ 54-month forward term) = 22,354 cars/year. Uplift $M = renewed_cars × expiring_rate × LPI (expiring_rate per car = prior-year legacy revenue ÷ cars on lease; this is the LPI definition — count-weighted change in rate on renewal vs expiring rate). Renewals spread evenly through the year so half the uplift lands in year t and half in t+1 (carryover). The v34/v35 approach was REVERTED and the v34 term-by-signing-year block at Drivers rows 788-828 is now reference only. Reason reverted: assigning every lease signed in a given year that year's average term produces LUMPY expirations (v35 modeled 1,667 for 2024, 12,333 for all of 2026, 6,167 for 2027), which directly contradicts GATX's own disclosures of smooth expirations (19,400 in 2024, 21,500 in 2025, 23,008 tank+freight cars combined for H2 2026 alone per Q2 2026 10-Q p.28). Terms within a year carry a dispersion, not a single value. Drivers!C23 (calibration factor 1.2387) retired. 2025A legacy revenue (Legacy Cohort Model!D43) now ties to Drivers!C45 = 954.2 exactly (new audit check "Legacy 2025A revenue ties to target" PASS at tol ±$0.5M). Outputs: 2026E EPS 10.64 → 10.59, 2027E EPS 10.35 → 10.47, 2028E EPS 10.67 → 10.96, 2029E EPS 11.26 → 11.44, 2030E EPS 11.38 → 11.38; Section H weighted target 164.62 → 165.94 (+1.32); expected return −8.91% → −8.19%; Rating SELL unchanged. Reference: <code>models/GATX/reports/v36-report.md</code> gate lines.
+reason: C10 charge accepted in full. v34 and v35 approaches reverted because single-term-per-signing-year timing produces lumpy expirations that contradict the smooth disclosed scheduled-expiration profile; the engine is now driven directly off the 10-K count disclosures, with uplift computed by the LPI definition rather than by cohort-level pre-rate guesses.</p></div></div>
 </section>
   
 <section class="note-calibration">
@@ -1050,14 +1051,14 @@ reason: C10 charge accepted in full and refined. The v34 flat 2/3 : 1/3 was a si
 </section>
 
   <section class="note-supporting"><h2>Supporting artifacts</h2><ul>
-<li><strong>Model directory</strong> — <code>models/GATX/</code> (69 files)</li>
+<li><strong>Model directory</strong> — <code>models/GATX/</code> (74 files)</li>
 <li><strong>Comp set</strong> — <code>reference/comps/GATX.yaml</code></li>
 <li><strong>Credibility ledger</strong> — <code>research/credibility/GATX-consensus.yaml</code></li>
 </ul></section>
 </main>
 <footer>
   <p class="disclosure"><strong>Position status.</strong> 1 of 2 open call(s) has a position held (ORCL); the other 1 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14.</p>
-  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-07 16:37 UTC. Render: 139 markers resolved, 0 unresolved. Gates: 7/7 pass.</p>
+  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-07 17:24 UTC. Render: 139 markers resolved, 0 unresolved. Gates: 7/7 pass.</p>
 </footer>
 </body>
 </html>

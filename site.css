@@ -923,3 +923,161 @@ main a.research-row:hover {
   .research-head-h1 { font-size: 32px; }
   .research-row-bar { height: 68px; }
 }
+
+/* ============================================================
+   GATX TRACKER + PREVIEW PAGES (site-v5)
+   ============================================================ */
+.tracker-hero { padding: 32px 0 24px; max-width: 760px; }
+.tracker-hero .eyebrow {
+  font-size: 13px; letter-spacing: 0.12em; color: #0f7d47;
+  font-weight: 600;
+}
+.tracker-hero h1 {
+  margin: 6px 0 10px;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 42px; line-height: 1.1; color: #141414; font-weight: 700;
+}
+.tracker-hero p.lede {
+  margin: 0; font-size: 18px; line-height: 1.55; color: #3a3a3a;
+}
+.tracker-crumbs { padding: 20px 0 0; font-size: 14px; }
+.tracker-crumbs a { color: #0f7d47; text-decoration: none; }
+.tracker-crumbs .sep { color: #6a6a6a; }
+
+.tracker-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px; margin: 24px 0 40px;
+}
+.tracker-card {
+  padding: 20px 22px; border: 1px solid #e3e3e0; border-radius: 12px;
+  background: #ffffff; display: flex; flex-direction: column; gap: 10px;
+}
+.tracker-card h3 {
+  margin: 0;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 20px; font-weight: 700; color: #141414;
+  border: none; padding: 0;
+}
+.tracker-card .plain {
+  margin: 0; font-size: 14px; line-height: 1.5; color: #4a4a4a;
+}
+.tracker-card .latest {
+  font-family: 'IBM Plex Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 26px; font-weight: 600; color: #141414;
+}
+.tracker-card .latest .unit {
+  font-size: 15px; color: #6a6a6a; font-weight: 500;
+}
+.tracker-card .thesis {
+  margin: 4px 0 0; font-size: 14px; line-height: 1.55; color: #333;
+}
+.tracker-card svg.chart {
+  display: block; width: 100%; max-width: 320px; height: auto;
+}
+.tracker-card .chart-wrap {
+  border: 1px solid #ececec; border-radius: 8px; padding: 8px;
+  background: #fbfbf9;
+}
+.tracker-card .quarters-line {
+  font-size: 11px; color: #6a6a6a; margin-top: 2px;
+  display: flex; justify-content: space-between; gap: 4px;
+}
+.tracker-other-table, .tracker-consensus-table {
+  width: 100%; border-collapse: collapse; font-size: 14px;
+  margin: 10px 0 24px;
+}
+.tracker-other-table th, .tracker-consensus-table th {
+  text-align: left; background: #f6f6f3; padding: 10px 12px;
+  font-weight: 600; font-size: 12px; color: #3a3a3a;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  border-bottom: 1px solid #e3e3e0;
+}
+.tracker-other-table td, .tracker-consensus-table td {
+  padding: 10px 12px; border-bottom: 1px solid #ececec;
+  vertical-align: top;
+}
+.tracker-consensus-table .mono {
+  font-family: 'IBM Plex Mono', SFMono-Regular, Menlo, Consolas, monospace;
+}
+.tracker-consensus-wrap {
+  display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px;
+  align-items: start;
+}
+.tracker-consensus-wrap > div { overflow-x: auto; max-width: 100%; }
+.tracker-bmg {
+  padding: 18px 20px; border: 1px solid #d5e6dc; border-radius: 12px;
+  background: #f3f8f5;
+}
+.tracker-bmg h3 {
+  margin: 0 0 10px;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 18px; color: #141414; border: none; padding: 0;
+}
+.tracker-bmg table {
+  width: 100%; border-collapse: collapse; font-size: 14px;
+  margin: 0;
+}
+.tracker-bmg td {
+  padding: 6px 0; border-bottom: 1px solid #d5e6dc;
+}
+.tracker-bmg td:first-child {
+  color: #3f5a4b; font-size: 12px; text-transform: uppercase;
+  letter-spacing: 0.04em; width: 44%;
+}
+.tracker-bmg td:last-child {
+  text-align: right;
+  font-family: 'IBM Plex Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 600;
+}
+.tracker-bmg tr:last-child td { border-bottom: none; }
+.tracker-footer-note {
+  margin: 24px 0 32px; font-size: 13px; color: #6a6a6a;
+}
+.tracker-section-h2 {
+  margin: 36px 0 10px;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 24px; color: #141414; border: none; padding: 0;
+}
+
+/* --- Preview page (markdown-rendered research note) --- */
+.preview-wrap { padding: 24px 0 48px; max-width: 760px; }
+.preview-wrap .muted {
+  color: #6a6a6a; font-size: 13px; margin-bottom: 20px;
+}
+.preview-wrap h1 {
+  margin: 0 0 14px;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 36px; line-height: 1.15; color: #141414; font-weight: 700;
+  border: none; padding: 0;
+}
+.preview-wrap h2 {
+  margin: 32px 0 10px;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 22px; color: #141414; border: none; padding: 0;
+}
+.preview-wrap h3 {
+  margin: 24px 0 8px; font-size: 16px; color: #141414;
+}
+.preview-wrap p, .preview-wrap li {
+  font-size: 16px; line-height: 1.65; color: #333;
+}
+.preview-wrap table {
+  width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;
+  display: block; overflow-x: auto;
+}
+.preview-wrap th {
+  background: #f6f6f3; text-align: left; padding: 10px 12px;
+  font-weight: 600; font-size: 12px; color: #3a3a3a;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  border-bottom: 1px solid #e3e3e0;
+}
+.preview-wrap td {
+  padding: 10px 12px; border-bottom: 1px solid #ececec; vertical-align: top;
+}
+
+@media (max-width: 640px) {
+  .tracker-consensus-wrap { grid-template-columns: 1fr; }
+  .tracker-grid { grid-template-columns: 1fr; }
+  .tracker-hero h1 { font-size: 32px; }
+  .preview-wrap h1 { font-size: 28px; }
+}
