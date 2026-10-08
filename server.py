@@ -583,8 +583,15 @@ def _resolve_metric(facts_gaap: dict, metric: str
                     for fy in sorted(set(fy_nc) | set(fy_cu)):
                         n = fy_nc.get(fy, {}).get("val") or 0
                         c = fy_cu.get(fy, {}).get("val") or 0
-                        fy_combined.append({"fy": fy, "end":
-                            fy_nc.get(fy, fy_cu[fy])["end"],
+                        # Pick end-date from whichever series has this FY.
+                        # Eager-eval of fy_cu[fy] as the .get() default
+                        # crashed on tickers where fy exists in nc but
+                        # not cu (e.g. AMD FY2016). Use explicit lookup.
+                        if fy in fy_nc:
+                            end_date = fy_nc[fy]["end"]
+                        else:
+                            end_date = fy_cu[fy]["end"]
+                        fy_combined.append({"fy": fy, "end": end_date,
                             "val": n + c, "unit": "USD"})
                     if fy_combined:
                         return fy_combined[-10:], [], tag
@@ -1062,10 +1069,23 @@ async def snapshot(ticker: str = Query(..., min_length=1,
 
     if submissions is None:
         return JSONResponse(status_code=502, content={
-            "error": "sec submissions fetch failed"})
+            "error": "sec unreachable",
+            "message": "SEC EDGAR submissions endpoint did not respond. "
+                        "Try again in a moment."})
 
-    snap = _build_snapshot(t, cik_padded, submissions, companyfacts,
-                            price, price_error)
+    try:
+        snap = _build_snapshot(t, cik_padded, submissions, companyfacts,
+                                price, price_error)
+    except Exception as exc:
+        import traceback as _tb
+        _tb.print_exc()
+        return JSONResponse(status_code=500, content={
+            "error": "snapshot build failed",
+            "ticker": t,
+            "message": (f"Server could not assemble a snapshot for {t}. "
+                         f"Cause: {type(exc).__name__}. SEC data may be "
+                         f"malformed for this ticker; others still work."),
+        })
     return JSONResponse(content=snap)
 
 
