@@ -100,6 +100,17 @@
 .tool-tags-used { font-size: 11px; color: #6a6a6a; font-family: 'IBM Plex Mono', monospace;
   word-break: break-all; }
 
+.tool-manual-price { margin: 12px 0 16px; padding: 12px 14px; background: #f6f6f3;
+  border: 1px solid #e3e3e0; border-radius: 8px; }
+.tool-manual-price-lbl { margin: 0 0 8px; font-size: 13px; color: #4a4a4a; }
+.tool-manual-price-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.tool-manual-price-input { height: 40px; padding: 0 12px; width: 160px;
+  font: 500 15px/1.2 'IBM Plex Mono', monospace;
+  border: 1px solid #c9c9c4; border-radius: 8px; box-sizing: border-box; }
+.tool-manual-price-input:focus { border-color: #0f7d47; outline: 2px solid rgba(15,125,71,.15); }
+.tool-manual-price-btn { height: 40px; padding: 0 16px; }
+.tool-user-price-note { font-style: italic; color: #4a4a4a; margin: -8px 0 12px; font-size: 13px; }
+
 @media (max-width: 500px) {
   .tool-val-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tool-page h1 { font-size: 28px; }
@@ -111,7 +122,7 @@
 
 <section class="tool-page">
   <h1>Research tool</h1>
-  <p class="lede">Type a US ticker. Get a one-page snapshot built only from free public data — SEC filings (XBRL), SEC filings feed, and Stooq daily close. Nothing paid, nothing scraped.</p>
+  <p class="lede">Type a US ticker. Get a one-page snapshot built only from free public data — SEC filings (XBRL), SEC filings feed, and a delayed Finnhub quote (Yahoo/Stooq as fallbacks). Nothing paid, nothing scraped.</p>
   <form id="tool-search-form" autocomplete="off">
     <label for="tool-ticker">Ticker</label>
     <input id="tool-ticker" type="text" placeholder="e.g. GATX" maxlength="10" inputmode="latin" autocapitalize="characters" spellcheck="false">
@@ -224,6 +235,89 @@
     }
   }
 
+  // Render the four-cell valuation strip. If `userPrice` is a number
+  // the cells show ratios recomputed against that price with the
+  // 'using your price $X' label; otherwise the live-data ratios from
+  // d.valuation render as before.
+  function renderValStrip(out, d, userPrice) {
+    const v = d.valuation || {};
+    const inputs = d.inputs || { ttm_eps: d.ttm_eps, bvps: d.bvps,
+      ttm_dps: d.ttm_dps, shares_diluted_latest: d.shares_diluted_latest };
+    const vs = create('div', { class: 'tool-val-strip' });
+    let pe = v.pe_ttm, pb = v.pb, divY = v.div_yield;
+    let note = null;
+    if (typeof userPrice === 'number' && userPrice > 0) {
+      pe = (inputs.ttm_eps != null && inputs.ttm_eps !== 0)
+        ? +(userPrice / inputs.ttm_eps).toFixed(2) : null;
+      pb = (inputs.bvps != null && inputs.bvps !== 0)
+        ? +(userPrice / inputs.bvps).toFixed(2) : null;
+      divY = (inputs.ttm_dps != null && userPrice !== 0)
+        ? +(inputs.ttm_dps / userPrice).toFixed(4) : null;
+      note = 'using your price $' + userPrice.toFixed(2);
+    }
+    [
+      ['P/E (TTM)', fmtNum(pe), v.tooltips?.pe_ttm],
+      ['P/B', fmtNum(pb), v.tooltips?.pb],
+      ['Dividend yield', divY != null ? fmtPct(divY) : '—', v.tooltips?.div_yield],
+      ['Net debt / equity', fmtNum(v.net_debt_to_equity), v.tooltips?.net_debt_to_equity],
+    ].forEach(([lbl, val, tip]) => {
+      const cell = create('div', { class: 'tool-val-cell' });
+      cell.appendChild(create('div', { class: 'tool-val-lbl', text: lbl, title: tip || '' }));
+      cell.appendChild(create('div', { class: 'tool-val-num', text: val }));
+      vs.appendChild(cell);
+    });
+    out.appendChild(vs);
+    if (note) {
+      out.appendChild(create('p', { class: 'tool-mcap tool-user-price-note',
+        text: note }));
+    }
+    // Market-cap derivation when live price is null but user supplied one.
+    if (typeof userPrice === 'number' && userPrice > 0 &&
+        inputs.shares_diluted_latest != null && !d.market_cap) {
+      const mc = userPrice * inputs.shares_diluted_latest;
+      out.appendChild(create('p', { class: 'tool-mcap',
+        text: 'Market cap (user price): $' + mc.toFixed(0) + 'M · '
+          + inputs.shares_diluted_latest + 'M diluted shares' }));
+    }
+  }
+
+  // Manual-price input panel shown ONLY when price.last is null.
+  function renderManualPricePanel(out, d) {
+    const panel = create('div', { class: 'tool-manual-price' });
+    panel.appendChild(create('p', { class: 'tool-manual-price-lbl',
+      text: 'Enter a price to fill in the ratios' }));
+    const row = create('div', { class: 'tool-manual-price-row' });
+    const input = create('input', { type: 'number', step: '0.01', min: '0',
+      class: 'tool-manual-price-input', id: 'tool-manual-price',
+      placeholder: 'e.g. 172.27' });
+    const btn = create('button', { type: 'button',
+      class: 'tool-submit tool-manual-price-btn', text: 'Fill' });
+    btn.addEventListener('click', () => {
+      const raw = (input.value || '').trim();
+      const px = Number(raw);
+      if (!(px > 0) || !isFinite(px)) return;
+      // Replace the existing valuation strip with the user-priced one.
+      const existingStrip = out.querySelector('.tool-val-strip');
+      const existingNote = out.querySelector('.tool-user-price-note');
+      const existingMc = out.querySelectorAll('.tool-mcap');
+      if (existingStrip) existingStrip.remove();
+      if (existingNote) existingNote.remove();
+      existingMc.forEach(n => { if (n.textContent.indexOf('user price') >= 0) n.remove(); });
+      // Build a tiny holder to render into, then move the children up.
+      const tmp = document.createElement('div');
+      renderValStrip(tmp, d, px);
+      // Insert after the manual-price panel.
+      const after = panel.nextSibling;
+      while (tmp.firstChild) {
+        out.insertBefore(tmp.firstChild, after);
+      }
+    });
+    row.appendChild(input);
+    row.appendChild(btn);
+    panel.appendChild(row);
+    out.appendChild(panel);
+  }
+
   function render(out, d) {
     // Header
     const header = create('div', { class: 'tool-header' });
@@ -245,21 +339,13 @@
     }
     out.appendChild(header);
 
-    // Valuation strip
-    const v = d.valuation || {};
-    const vs = create('div', { class: 'tool-val-strip' });
-    [
-      ['P/E (TTM)', fmtNum(v.pe_ttm), v.tooltips?.pe_ttm],
-      ['P/B', fmtNum(v.pb), v.tooltips?.pb],
-      ['Dividend yield', v.div_yield !== null ? fmtPct(v.div_yield) : '—', v.tooltips?.div_yield],
-      ['Net debt / equity', fmtNum(v.net_debt_to_equity), v.tooltips?.net_debt_to_equity],
-    ].forEach(([lbl, val, tip]) => {
-      const cell = create('div', { class: 'tool-val-cell' });
-      cell.appendChild(create('div', { class: 'tool-val-lbl', text: lbl, title: tip || '' }));
-      cell.appendChild(create('div', { class: 'tool-val-num', text: val }));
-      vs.appendChild(cell);
-    });
-    out.appendChild(vs);
+    // Manual-price fallback input — only when live price is unavailable.
+    if (!d.price || d.price.last == null) {
+      renderManualPricePanel(out, d);
+    }
+
+    // Valuation strip — live (userPrice undefined -> uses d.valuation).
+    renderValStrip(out, d, undefined);
 
     // Warnings
     (d.warnings || []).forEach(w => {
@@ -454,7 +540,7 @@
 <footer class="site-footer">
   <p>Student research for educational purposes. Nothing here is investment advice or a recommendation to buy or sell any security.</p>
   <p class="disclosure"><strong>Position status.</strong> 1 of 2 open call(s) has a position held (ORCL); the other 1 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14.</p>
-  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-08 13:56 UTC.</p>
+  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-08 17:19 UTC.</p>
 </footer>
 </body>
 </html>

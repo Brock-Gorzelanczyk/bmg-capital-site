@@ -186,6 +186,76 @@ BROWSER_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                "Chrome/126.0.0.0 Safari/537.36")
 
 
+async def _finnhub_fetch_price(ticker: str,
+                                client: httpx.AsyncClient
+                                ) -> tuple[Optional[dict], Optional[str]]:
+    """Finnhub free-tier quote endpoint. Needs FINNHUB_API_KEY env var.
+    Never commit, never log, never send to the browser. If the env var
+    is missing, skip Finnhub silently without constructing the URL and
+    return a 'finnhub key missing' reason.
+    Cache successes 15 minutes; cache failures 10 minutes.
+    """
+    key = os.environ.get("FINNHUB_API_KEY", "").strip()
+    if not key:
+        # Do NOT construct the URL; do NOT contact the service. Return
+        # a reason containing the exact phrase 'finnhub key missing' so
+        # operators detect WAITING-ON-KEY state from the response body
+        # (which never contains the key itself).
+        return None, "finnhub key missing"
+    # Cache key is keyed on ticker only — URL contains the secret and
+    # must never be persisted to disk.
+    cache_key = f"finnhub-quote::{ticker.upper()}"
+    cached = _cache_read(cache_key, 15 * 60)
+    if cached is not None:
+        log.info("CACHE HIT finnhub %s", ticker)
+        return cached, None
+    neg = _neg_cache_read(cache_key, TTL_PRICES_FAIL)
+    if neg is not None:
+        log.info("NEG-CACHE HIT finnhub %s (%s)", ticker, neg)
+        return None, neg
+    log.info("CACHE MISS finnhub %s", ticker)
+    url = f"https://finnhub.io/api/v1/quote?symbol={ticker}&token={key}"
+    try:
+        r = await client.get(url, headers={"User-Agent": BROWSER_UA})
+    except httpx.HTTPError as e:
+        # Scrub the key out of any error string in case httpx echoed
+        # the URL — belt-and-braces so the key never reaches a log.
+        msg = str(e).replace(key, "<redacted>") if key else str(e)
+        reason = f"finnhub fetch failed: {e.__class__.__name__}: {msg}" \
+            if msg else f"finnhub timeout after {PRICE_TIMEOUT_S}s"
+        _neg_cache_write(cache_key, reason)
+        return None, reason
+    if r.status_code != 200:
+        reason = f"finnhub http {r.status_code}"
+        _neg_cache_write(cache_key, reason)
+        return None, reason
+    try:
+        obj = r.json()
+    except Exception as e:
+        reason = f"finnhub json parse error: {e}"
+        _neg_cache_write(cache_key, reason)
+        return None, reason
+    price_val = obj.get("c")
+    ts = obj.get("t")
+    if price_val is None or price_val == 0:
+        # Finnhub returns c=0 for unknown tickers instead of 404.
+        reason = "finnhub returned no price (c=0 or missing)"
+        _neg_cache_write(cache_key, reason)
+        return None, reason
+    import datetime as _dt
+    try:
+        if ts:
+            date_s = _dt.datetime.utcfromtimestamp(int(ts)).strftime("%Y-%m-%d")
+        else:
+            date_s = _dt.date.today().isoformat()
+    except (ValueError, TypeError, OSError):
+        date_s = _dt.date.today().isoformat()
+    body = {"last": float(price_val), "date": date_s,
+             "source": "Finnhub (delayed)"}
+    _cache_write(cache_key, body)
+    return body, None
+
+
 async def _yahoo_fetch_price(ticker: str,
                               client: httpx.AsyncClient
                               ) -> tuple[Optional[dict], Optional[str]]:
@@ -304,25 +374,31 @@ async def _stooq_fetch_price(ticker: str,
 
 async def _fetch_price(ticker: str
                         ) -> tuple[Optional[dict], Optional[str]]:
-    """Fetch latest price. Yahoo first (less rate-limited, more reliable
-    recently), Stooq second. Uses its OWN httpx client with a 4s per-call
-    timeout — never reuses the SEC client because SEC fetches may take
-    much longer and we must not block the overall request on a dead
-    price source. Negative-cached on failure for 10 minutes.
+    """Fetch latest price. Finnhub first (needs FINNHUB_API_KEY env),
+    Yahoo second, Stooq third. Uses its OWN httpx client with a 4s
+    per-call timeout — never reuses the SEC client because SEC fetches
+    may take much longer and we must not block the overall request on
+    a dead price source. Negative-cached on failure for 10 minutes.
     """
     timeout = httpx.Timeout(PRICE_TIMEOUT_S)
     async with httpx.AsyncClient(timeout=timeout,
                                    follow_redirects=True) as client:
+        price, finnhub_err = await _finnhub_fetch_price(ticker, client)
+        if price is not None:
+            return price, None
         price, yahoo_err = await _yahoo_fetch_price(ticker, client)
         if price is not None:
             return price, None
         price, stooq_err = await _stooq_fetch_price(ticker, client)
         if price is not None:
             return price, None
-    # Both failed — return a combined reason.
+    # All failed — return a combined reason so callers can see which
+    # sources were tried. The "finnhub key missing" phrase (if present)
+    # is the detect-signal for operators that the env var is unset.
+    finnhub_err = finnhub_err or "finnhub: no result"
     yahoo_err = yahoo_err or "yahoo: no result"
     stooq_err = stooq_err or "stooq: no result"
-    return None, f"{yahoo_err}; {stooq_err}"
+    return None, f"{finnhub_err}; {yahoo_err}; {stooq_err}"
 
 
 # ----------------------------------------------------------------------
@@ -788,6 +864,77 @@ def _build_snapshot(ticker: str, cik_padded: str, submissions: dict,
     growth = _growth_rates([{"fy": r["year"], "val": r.get("revenue")}
                             for r in fy_list if r.get("revenue") is not None])
 
+    # --- Inputs block for manual-price frontend fallback -----------------
+    # When price.last is null the browser offers an "enter a price" input
+    # and recomputes P/E / P/B / yield / market_cap client-side. These
+    # fields are the raw inputs that math needs; they are also useful as
+    # evidence for the live-data path.
+    #
+    # ttm_eps: sum of last 4 quarterly diluted EPS, or null if < 4.
+    # bvps:    latest equity (dollars) / latest diluted shares (shares).
+    #          Cites which quarter the equity came from.
+    # ttm_dps: sum of last 4 quarterly DPS; else trailing-12mo-from-FY.
+    inputs_ttm_eps: Optional[float] = None
+    if q_list:
+        eps_vals_full = [q.get("eps_diluted") for q in q_list
+                         if q.get("eps_diluted") is not None]
+        if len(eps_vals_full) >= 4:
+            inputs_ttm_eps = round(sum(eps_vals_full[-4:]), 4)
+
+    # BVPS: use raw (unscaled) equity + raw diluted shares from the
+    # underlying q_series_out / fy_series_out so dollars-per-share is
+    # computed correctly. fy_list stores both in millions, which cancels
+    # fine arithmetically, but we also want to report the "basis quarter"
+    # so cite the latest quarter equity if available, else latest FY.
+    inputs_bvps: Optional[float] = None
+    inputs_bvps_basis: Optional[str] = None
+    # Prefer the newest quarter that has BOTH equity AND diluted shares.
+    sorted_qkeys = sorted(q_series_out.keys(),
+                           key=lambda k: q_series_out[k].get("end") or "")
+    for k in reversed(sorted_qkeys):
+        row = q_series_out[k]
+        eq_q = row.get("equity")
+        sh_q = row.get("shares_diluted")
+        if eq_q is not None and sh_q:
+            inputs_bvps = round(eq_q / sh_q, 4)
+            inputs_bvps_basis = (f"{row.get('period','')} "
+                                   f"(end {row.get('end','')})").strip()
+            break
+    if inputs_bvps is None and fy_list:
+        # Fall back to latest FY from the raw dicts.
+        last_year = sorted_years[-1] if sorted_years else None
+        if last_year is not None:
+            raw = fy_series_out.get(last_year, {})
+            eq_fy = raw.get("equity")
+            sh_fy = raw.get("shares_diluted")
+            if eq_fy is not None and sh_fy:
+                inputs_bvps = round(eq_fy / sh_fy, 4)
+                inputs_bvps_basis = f"FY{last_year}"
+
+    # TTM DPS: trailing 4 quarterly DPS if we have them; else latest FY
+    # DPS as a 12-month proxy.
+    inputs_ttm_dps: Optional[float] = None
+    q_dps_vals = []
+    for k in sorted_qkeys:
+        row = q_series_out[k]
+        dps_q = row.get("dps")
+        if dps_q is not None:
+            q_dps_vals.append(dps_q)
+    if len(q_dps_vals) >= 4:
+        inputs_ttm_dps = round(sum(q_dps_vals[-4:]), 4)
+    elif fy_list:
+        last_fy_dps = fy_list[-1].get("dps")
+        if last_fy_dps is not None:
+            inputs_ttm_dps = round(float(last_fy_dps), 4)
+
+    inputs = {
+        "ttm_eps": inputs_ttm_eps,
+        "bvps": inputs_bvps,
+        "bvps_basis": inputs_bvps_basis,
+        "ttm_dps": inputs_ttm_dps,
+        "shares_diluted_latest": shares_latest,
+    }
+
     out = {
         "ticker": ticker,
         "cik": cik_padded,
@@ -800,6 +947,10 @@ def _build_snapshot(ticker: str, cik_padded: str, submissions: dict,
         "shares_diluted_latest": shares_latest,
         "market_cap": market_cap,
         "valuation": val,
+        "inputs": inputs,
+        "ttm_eps": inputs_ttm_eps,
+        "bvps": inputs_bvps,
+        "ttm_dps": inputs_ttm_dps,
         "fy_series": fy_list,
         "quarterly_series": q_list,
         "filings": filings,
