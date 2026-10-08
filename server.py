@@ -875,6 +875,7 @@ def _build_snapshot(ticker: str, cik_padded: str, submissions: dict,
 
     latest_debt = fy_list[-1].get("debt") if fy_list else None
     latest_cash = fy_list[-1].get("cash") if fy_list else None
+    latest_eq = fy_list[-1].get("equity") if fy_list else None
     if (latest_debt is not None and latest_eq):
         nd = (latest_debt or 0) - (latest_cash or 0)
         val["net_debt_to_equity"] = round(nd / latest_eq, 2) if latest_eq else None
