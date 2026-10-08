@@ -188,15 +188,26 @@
   async function loadTicker(t) {
     const out = $('#tool-snapshot');
     out.innerHTML = '';
-    out.appendChild(create('div', { class: 'tool-loading', text: `Loading ${t}…` }));
+    out.appendChild(create('div', { class: 'tool-loading',
+      text: `Pulling SEC filings for ${t}… first load of a new ticker can take 10 to 15 seconds.` }));
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     let r;
     try {
-      r = await fetch('/api/snapshot?ticker=' + encodeURIComponent(t));
+      r = await fetch('/api/snapshot?ticker=' + encodeURIComponent(t),
+        { signal: controller.signal });
     } catch (e) {
+      clearTimeout(timeoutId);
       out.innerHTML = '';
-      out.appendChild(create('div', { class: 'tool-error', text: 'Network error — ' + e.message }));
+      if (e.name === 'AbortError') {
+        out.appendChild(create('div', { class: 'tool-error',
+          text: 'Request timed out after 30s. SEC may be slow — try again.' }));
+      } else {
+        out.appendChild(create('div', { class: 'tool-error', text: 'Network error — ' + e.message }));
+      }
       return;
     }
+    clearTimeout(timeoutId);
     const data = await r.json().catch(() => ({ error: 'bad json' }));
     out.innerHTML = '';
     if (!r.ok) {
@@ -204,7 +215,13 @@
       out.appendChild(create('div', { class: 'tool-error', text: msg }));
       return;
     }
-    render(out, data);
+    try {
+      render(out, data);
+    } catch (e) {
+      out.innerHTML = '';
+      out.appendChild(create('div', { class: 'tool-error',
+        text: 'Render error: ' + (e && e.message ? e.message : String(e)) }));
+    }
   }
 
   function render(out, d) {
@@ -437,7 +454,7 @@
 <footer class="site-footer">
   <p>Student research for educational purposes. Nothing here is investment advice or a recommendation to buy or sell any security.</p>
   <p class="disclosure"><strong>Position status.</strong> 1 of 2 open call(s) has a position held (ORCL); the other 1 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14.</p>
-  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-07 21:05 UTC.</p>
+  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-08 13:56 UTC.</p>
 </footer>
 </body>
 </html>

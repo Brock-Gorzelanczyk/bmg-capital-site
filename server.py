@@ -50,7 +50,9 @@ CACHE_DIR.mkdir(parents=True, exist_ok=True)
 TTL_TICKER_MAP = 24 * 3600   # 24h
 TTL_SUBMISSIONS = 6 * 3600   # 6h
 TTL_COMPANYFACTS = 24 * 3600  # 24h
-TTL_PRICES = 1 * 3600         # 1h
+TTL_PRICES = 1 * 3600         # 1h — success
+TTL_PRICES_FAIL = 10 * 60     # 10 min — negative cache for failed source
+PRICE_TIMEOUT_S = 4.0         # per-call price fetch timeout (hard cap)
 
 STATIC_ROOT = Path(__file__).parent
 
@@ -133,6 +135,30 @@ def _cache_write(url: str, body: Any) -> None:
     p.write_text(json.dumps({"__fetched_at__": time.time(), "body": body}))
 
 
+# Negative cache for failed price sources. Keyed by a synthetic
+# "neg:<url>" string so success and failure cache rows do not collide.
+def _neg_cache_read(url: str, ttl: int) -> Optional[str]:
+    p = _cache_path("neg:" + url)
+    if not p.exists():
+        return None
+    try:
+        obj = json.loads(p.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+    fetched = obj.get("__fetched_at__", 0)
+    if time.time() - fetched > ttl:
+        return None
+    reason = obj.get("reason")
+    return reason if isinstance(reason, str) else None
+
+
+def _neg_cache_write(url: str, reason: str) -> None:
+    p = _cache_path("neg:" + url)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps({"__fetched_at__": time.time(),
+                              "reason": reason}))
+
+
 # ----------------------------------------------------------------------
 # SEC/Stooq fetchers
 # ----------------------------------------------------------------------
@@ -155,6 +181,77 @@ async def _sec_fetch_json(url: str, ttl: int,
     return body
 
 
+BROWSER_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+               "AppleWebKit/537.36 (KHTML, like Gecko) "
+               "Chrome/126.0.0.0 Safari/537.36")
+
+
+async def _yahoo_fetch_price(ticker: str,
+                              client: httpx.AsyncClient
+                              ) -> tuple[Optional[dict], Optional[str]]:
+    """Fetch latest regularMarketPrice from Yahoo chart endpoint. Delayed
+    15 minutes but free and keyless. Negative-cached on failure for
+    TTL_PRICES_FAIL so a dead source does not slow every subsequent
+    request."""
+    url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+            f"?range=5d&interval=1d")
+    cached = _cache_read(url, TTL_PRICES)
+    if cached is not None:
+        log.info("CACHE HIT %s", url)
+        return cached, None
+    neg = _neg_cache_read(url, TTL_PRICES_FAIL)
+    if neg is not None:
+        log.info("NEG-CACHE HIT %s (%s)", url, neg)
+        return None, neg
+    log.info("CACHE MISS %s", url)
+    try:
+        r = await client.get(url, headers={"User-Agent": BROWSER_UA})
+    except httpx.HTTPError as e:
+        reason = f"yahoo fetch failed: {e.__class__.__name__}: {e}" \
+            if str(e) else f"yahoo timeout after {PRICE_TIMEOUT_S}s"
+        _neg_cache_write(url, reason)
+        return None, reason
+    if r.status_code != 200:
+        reason = f"yahoo http {r.status_code}"
+        _neg_cache_write(url, reason)
+        return None, reason
+    try:
+        obj = r.json()
+    except Exception as e:
+        reason = f"yahoo json parse error: {e}"
+        _neg_cache_write(url, reason)
+        return None, reason
+    try:
+        result = obj["chart"]["result"][0]
+        meta = result["meta"]
+        price_val = meta.get("regularMarketPrice")
+        timestamps = result.get("timestamp") or []
+        if price_val is None:
+            reason = "yahoo returned no regularMarketPrice"
+            _neg_cache_write(url, reason)
+            return None, reason
+        import datetime as _dt
+        if timestamps:
+            ts = int(timestamps[-1])
+            date_s = _dt.datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d")
+        else:
+            # Fallback: use regularMarketTime from meta
+            mt = meta.get("regularMarketTime")
+            if mt:
+                date_s = _dt.datetime.utcfromtimestamp(int(mt)).strftime(
+                    "%Y-%m-%d")
+            else:
+                date_s = _dt.date.today().isoformat()
+    except (KeyError, IndexError, TypeError) as e:
+        reason = f"yahoo payload shape error: {e}"
+        _neg_cache_write(url, reason)
+        return None, reason
+    body = {"last": float(price_val), "date": date_s,
+             "source": "Yahoo chart (delayed)"}
+    _cache_write(url, body)
+    return body, None
+
+
 async def _stooq_fetch_price(ticker: str,
                               client: httpx.AsyncClient
                               ) -> tuple[Optional[dict], Optional[str]]:
@@ -163,31 +260,69 @@ async def _stooq_fetch_price(ticker: str,
     if cached is not None:
         log.info("CACHE HIT %s", url)
         return cached, None
+    neg = _neg_cache_read(url, TTL_PRICES_FAIL)
+    if neg is not None:
+        log.info("NEG-CACHE HIT %s (%s)", url, neg)
+        return None, neg
     log.info("CACHE MISS %s", url)
     try:
         r = await client.get(url, headers={
             "User-Agent": "Mozilla/5.0 (compatible; BMG Capital research)"
         })
     except httpx.HTTPError as e:
-        return None, f"stooq fetch failed: {e}"
+        reason = f"stooq fetch failed: {e.__class__.__name__}: {e}" \
+            if str(e) else f"stooq timeout after {PRICE_TIMEOUT_S}s"
+        _neg_cache_write(url, reason)
+        return None, reason
     if r.status_code != 200:
-        return None, f"stooq http {r.status_code}"
+        reason = f"stooq http {r.status_code}"
+        _neg_cache_write(url, reason)
+        return None, reason
     text = r.text
     # Stooq returns CSV; if it returns HTML (anti-bot), fail gracefully.
     if not text.startswith("Date,"):
-        return None, "stooq returned non-CSV (anti-bot shield)"
+        reason = "stooq returned non-CSV (anti-bot shield)"
+        _neg_cache_write(url, reason)
+        return None, reason
     rows = text.strip().splitlines()
     if len(rows) < 2:
-        return None, "stooq returned empty CSV"
+        reason = "stooq returned empty CSV"
+        _neg_cache_write(url, reason)
+        return None, reason
     last = rows[-1].split(",")
     try:
         close = float(last[4])
         date = last[0]
     except (ValueError, IndexError):
-        return None, "stooq CSV parse error"
+        reason = "stooq CSV parse error"
+        _neg_cache_write(url, reason)
+        return None, reason
     body = {"last": close, "date": date, "source": "Stooq daily"}
     _cache_write(url, body)
     return body, None
+
+
+async def _fetch_price(ticker: str
+                        ) -> tuple[Optional[dict], Optional[str]]:
+    """Fetch latest price. Yahoo first (less rate-limited, more reliable
+    recently), Stooq second. Uses its OWN httpx client with a 4s per-call
+    timeout — never reuses the SEC client because SEC fetches may take
+    much longer and we must not block the overall request on a dead
+    price source. Negative-cached on failure for 10 minutes.
+    """
+    timeout = httpx.Timeout(PRICE_TIMEOUT_S)
+    async with httpx.AsyncClient(timeout=timeout,
+                                   follow_redirects=True) as client:
+        price, yahoo_err = await _yahoo_fetch_price(ticker, client)
+        if price is not None:
+            return price, None
+        price, stooq_err = await _stooq_fetch_price(ticker, client)
+        if price is not None:
+            return price, None
+    # Both failed — return a combined reason.
+    yahoo_err = yahoo_err or "yahoo: no result"
+    stooq_err = stooq_err or "stooq: no result"
+    return None, f"{yahoo_err}; {stooq_err}"
 
 
 # ----------------------------------------------------------------------
@@ -740,17 +875,22 @@ async def snapshot(ticker: str = Query(..., min_length=1,
     cf_url = (f"https://data.sec.gov/api/xbrl/companyfacts/"
                 f"CIK{cik_padded}.json")
 
-    submissions = await _sec_fetch_json(sub_url, TTL_SUBMISSIONS,
-                                          HTTP_CLIENT)
+    # Parallel: SEC submissions + companyfacts + price. Price uses its
+    # OWN httpx client (4s cap) so a dead price source does not slow
+    # SEC fetches — see _fetch_price.
+    sub_task = asyncio.create_task(
+        _sec_fetch_json(sub_url, TTL_SUBMISSIONS, HTTP_CLIENT))
+    cf_task = asyncio.create_task(
+        _sec_fetch_json(cf_url, TTL_COMPANYFACTS, HTTP_CLIENT))
+    price_task = asyncio.create_task(_fetch_price(t))
+
+    submissions, companyfacts, price_result = await asyncio.gather(
+        sub_task, cf_task, price_task)
+    price, price_error = price_result
+
     if submissions is None:
         return JSONResponse(status_code=502, content={
             "error": "sec submissions fetch failed"})
-
-    companyfacts = await _sec_fetch_json(cf_url, TTL_COMPANYFACTS,
-                                           HTTP_CLIENT)
-
-    # Price (never blocks the snapshot).
-    price, price_error = await _stooq_fetch_price(t, HTTP_CLIENT)
 
     snap = _build_snapshot(t, cik_padded, submissions, companyfacts,
                             price, price_error)
