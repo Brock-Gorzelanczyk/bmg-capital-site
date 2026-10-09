@@ -58,6 +58,26 @@
 .check-diff-rem { font-size:12px; padding:4px 8px; background:#fdf0ee; border-left:3px solid #b42318; margin:2px 0; text-decoration:line-through; }
 .check-loading { color:#6a6a6a; font-style:italic; }
 .check-error { color:#b42318; padding:12px; background:#fdf0ee; border:1px solid #b42318; border-radius:6px; }
+.check-actions { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+.check-example-btn { padding:10px 18px; font-size:15px; background:#fff; color:#0f7d47; border:1px solid #0f7d47; border-radius:6px; cursor:pointer; }
+.check-example-btn:hover { background:#eef9f1; }
+.check-honesty { background:#f6f8f7; border-left:3px solid #0f7d47; padding:12px 16px; margin:12px 0 24px; font-size:13.5px; line-height:1.55; color:#333; }
+.check-honesty p { margin:4px 0; }
+.check-summary { font-size:17px; font-weight:600; padding:14px 16px; background:#f6f8f7; border-radius:6px; margin:16px 0; color:#141414; }
+.check-example-banner { background:#fff8e1; border-left:3px solid #7a5200; padding:10px 14px; margin-bottom:16px; font-size:13.5px; color:#5a4000; }
+.check-group-head { margin:12px 0 4px; font-size:13.5px; color:#555; font-weight:600; }
+.check-row-mis { padding:12px 14px; background:#fdf0ee; border-left:3px solid #b42318; border-radius:4px; margin:10px 0; font-size:13px; line-height:1.5; }
+.check-mis-hdr { font-weight:600; color:#141414; font-family:'IBM Plex Mono', monospace; }
+.check-mis-filing { margin-top:4px; color:#b42318; font-weight:600; }
+.check-mis-sent { margin-top:6px; color:#555; font-style:italic; }
+.check-mis-usersent { margin-top:4px; color:#777; font-size:12px; }
+.check-row-match { padding:6px 10px; border-bottom:1px solid #eef4f0; font-size:12.5px; line-height:1.4; }
+.check-match-raw { font-family:'IBM Plex Mono', monospace; color:#141414; }
+.check-match-formula { color:#555; font-size:11.5px; font-family:'IBM Plex Mono', monospace; margin-top:2px; }
+.check-match-sent { color:#666; font-size:11.5px; margin-top:3px; font-style:italic; }
+.check-collapse-head { cursor:pointer; user-select:none; }
+.check-collapse-hint { font-size:12px; font-weight:normal; color:#999; margin-left:8px; }
+.check-collapse-body { max-height:60vh; overflow-y:auto; padding-top:8px; }
 .check-foot { font-size:12px; color:#6a6a6a; margin-top:8px; }
 @media (max-width:640px) {
   .check-row { grid-template-columns: 1fr; }
@@ -66,13 +86,20 @@
 <section class='content'>
   <h1>Report Fact-Checker</h1>
   <p>Upload your research note. We check the numbers against the company's own SEC filings and tell you what is stale or wrong, so you can fix it before your client does.</p>
-  <p class='check-notice'>Uploaded files are processed in memory and not stored. 10 MB cap. Six checks per minute per IP. PDF, DOCX, PPTX, HTML or pasted text.</p>
   <form id='check-form' class='check-form' enctype='multipart/form-data'>
     <label>Ticker: <input type='text' name='ticker' placeholder='GATX' required maxlength='10' style='width:120px'></label>
     <label>File (PDF, DOCX, PPTX, HTML): <input type='file' name='file' accept='.pdf,.docx,.pptx,.html,.htm,.txt'></label>
     <label>Or paste text (if no file): <textarea name='text' placeholder='Paste the paragraph or page you want checked.'></textarea></label>
-    <button type='submit'>Check against SEC filings</button>
+    <div class='check-actions'>
+      <button type='submit'>Check against SEC filings</button>
+      <button type='button' id='check-example' class='check-example-btn'>See an example</button>
+    </div>
   </form>
+  <div class='check-honesty'>
+    <p><strong>What this checks:</strong> reported financials, stated credit ratings, covenant ratios and fleet counts against the latest SEC filings (10-K, two most recent 10-Qs, 8-Ks within 12 months).</p>
+    <p><strong>What this does not check:</strong> your model outputs, consensus or sell-side estimates, price targets, ratings, or any number you label adjusted, normalized, ex-gains, or 20XXE.</p>
+    <p><strong>Storage:</strong> nothing uploaded is kept. 10 MB file cap. Six checks per minute per IP.</p>
+  </div>
   <div id='check-out'></div>
 </section>
 <script>
@@ -140,33 +167,86 @@
   function renderBuckets(data) {
     const out = $('#check-out');
     out.innerHTML = '';
-    const header = create('div', {class: 'check-header'});
-    header.appendChild(create('div', {class: 'check-ticker', text: data.ticker + '  pages=' + data.pages + '  claims=' + data.claims_extracted}));
-    const counts = create('div', {class: 'check-counts'});
-    ['MATCH','MISMATCH','MODEL_OR_ADJUSTED','NOT_IN_FILINGS','STALE'].forEach(b => {
-      const chip = create('span', {class: 'check-chip', style: `background:${bucketColor[b]}20;color:${bucketColor[b]};border:1px solid ${bucketColor[b]}`});
-      chip.textContent = b + ': ' + (data.counts[b] || 0);
-      counts.appendChild(chip);
-    });
-    header.appendChild(counts);
-    out.appendChild(header);
+    const M = (data.counts && data.counts.MATCH) || 0;
+    const X = (data.counts && data.counts.MISMATCH) || 0;
+    const A = (data.counts && data.counts.MODEL_OR_ADJUSTED) || 0;
+    const U = (data.counts && data.counts.NOT_IN_FILINGS) || 0;
+    const N = M + X + A + U;
 
-    ['STALE','MISMATCH','MATCH','MODEL_OR_ADJUSTED','NOT_IN_FILINGS'].forEach(b => {
-      const items = data.buckets[b] || [];
-      if (!items.length) return;
+    // Summary line at top (TOOL-4 G2)
+    const summary = create('div', {class: 'check-summary'});
+    summary.textContent = `Checked ${N} claims against the FY and 10-Q filings: ${M} confirmed, ${X} contradicted, ${A} model estimates not checkable.`;
+    out.appendChild(summary);
+
+    // Example banner (if loaded from the demo button)
+    if (data._example_label) {
+      out.appendChild(create('div', {class: 'check-example-banner', text: data._example_label}));
+    }
+
+    // 1. MISMATCH first with filing sentence quoted
+    const bMis = data.buckets.MISMATCH || [];
+    if (bMis.length) {
       const sec = create('section', {class: 'check-sec'});
-      sec.appendChild(create('h3', {class: 'check-sec-title', style: `color:${bucketColor[b]}`, text: bucketLabel[b] + '  (' + items.length + ')'}));
-      items.slice(0, 50).forEach(r => sec.appendChild(renderRow(r, b)));
-      if (items.length > 50) sec.appendChild(create('div', {class: 'check-more', text: '... ' + (items.length - 50) + ' more'}));
+      sec.appendChild(create('h3', {class: 'check-sec-title', style: `color:${bucketColor.MISMATCH}`, text: `Contradicted (${bMis.length})`}));
+      bMis.forEach(r => {
+        const row = renderRowMismatch(r);
+        sec.appendChild(row);
+      });
       out.appendChild(sec);
-    });
+    }
 
+    // 2. MATCH grouped by basis
+    const bMatch = data.buckets.MATCH || [];
+    if (bMatch.length) {
+      const sec = create('section', {class: 'check-sec'});
+      sec.appendChild(create('h3', {class: 'check-sec-title', style: `color:${bucketColor.MATCH}`, text: `Confirmed by filings (${bMatch.length})`}));
+      const groups = {};
+      bMatch.forEach(r => {
+        const b = (r.basis || 'other').toString();
+        (groups[b] = groups[b] || []).push(r);
+      });
+      Object.keys(groups).sort().forEach(gk => {
+        sec.appendChild(create('div', {class: 'check-group-head', text: `${friendlyBasis(gk)} (${groups[gk].length})`}));
+        groups[gk].slice(0, 30).forEach(r => sec.appendChild(renderRowMatch(r)));
+        if (groups[gk].length > 30) sec.appendChild(create('div', {class: 'check-more', text: `... ${groups[gk].length - 30} more`}));
+      });
+      out.appendChild(sec);
+    }
+
+    // 3. MODEL_OR_ADJUSTED collapsed
+    const bModel = data.buckets.MODEL_OR_ADJUSTED || [];
+    if (bModel.length) {
+      out.appendChild(collapsibleSection(
+        `Model estimates / targets / adjusted figures (${bModel.length})`,
+        bucketColor.MODEL_OR_ADJUSTED,
+        bModel.slice(0, 100), 'MODEL_OR_ADJUSTED'));
+    }
+
+    // 4. NOT_IN_FILINGS collapsed
+    const bNif = data.buckets.NOT_IN_FILINGS || [];
+    if (bNif.length) {
+      out.appendChild(collapsibleSection(
+        `Not resolved to a filing fact (${bNif.length})`,
+        bucketColor.NOT_IN_FILINGS,
+        bNif.slice(0, 100), 'NOT_IN_FILINGS'));
+    }
+
+    // STALE below
+    const bStale = data.buckets.STALE || [];
+    if (bStale.length) {
+      const sec = create('section', {class: 'check-sec'});
+      sec.appendChild(create('h3', {class: 'check-sec-title', style: `color:${bucketColor.STALE}`, text: `Newer filings exist (${bStale.length})`}));
+      bStale.slice(0, 20).forEach(r => sec.appendChild(renderRow(r, 'STALE')));
+      out.appendChild(sec);
+    }
+
+    // Diff section
     if (data.diff && Object.keys(data.diff).length) {
       const sec = create('section', {class: 'check-sec'});
       sec.appendChild(create('h3', {class: 'check-sec-title', text: 'What changed since your document (last 2 10-Qs, 4 sections)'}));
       for (const [k, v] of Object.entries(data.diff)) {
-        const h = create('h4', {class: 'check-diff-h', text: k});
-        sec.appendChild(h);
+        if (!((v.added || []).length) && !((v.removed || []).length)) continue;
+        sec.appendChild(create('h4', {class: 'check-diff-h', text: k}));
         if ((v.added || []).length) {
           sec.appendChild(create('div', {class: 'check-diff-sub', text: 'Added:'}));
           v.added.forEach(s => sec.appendChild(create('div', {class: 'check-diff-add', text: s.slice(0, 300)})));
@@ -178,14 +258,69 @@
       }
       out.appendChild(sec);
     }
+  }
 
-    const notes = create('section', {class: 'check-sec'});
-    notes.appendChild(create('h3', {class: 'check-sec-title', text: 'What this can\'t check'}));
-    const ul = create('ul');
-    (data.notes && data.notes.what_this_cannot_check || []).forEach(s => ul.appendChild(create('li', {text: s})));
-    notes.appendChild(ul);
-    notes.appendChild(create('p', {class: 'check-foot', text: data.notes && data.notes.storage || ''}));
-    out.appendChild(notes);
+  function friendlyBasis(b) {
+    const map = {
+      'xbrl_full_scan': 'XBRL companyfacts (full-tag scan)',
+      'xbrl_mapped_line_item': 'XBRL companyfacts (mapped line item)',
+      'SEC XBRL companyfacts (us-gaap)': 'XBRL companyfacts',
+      'derived_metric': 'Derived metric (computed from XBRL inputs)',
+      'credit_rating': 'Credit rating in filing text',
+      'credit_rating_text': 'Credit rating in filing text',
+      'lpi_value': 'LPI history value in filing text',
+      'fleet_count_text': 'Fleet count in filing text',
+      'covenant_text': 'Covenant ratio in filing text',
+    };
+    return map[b] || b;
+  }
+
+  function renderRowMismatch(r) {
+    const row = create('div', {class: 'check-row-mis'});
+    row.appendChild(create('div', {class: 'check-mis-hdr', text: `${r.locator || 'doc'}  You wrote: ${r.raw || ''}`}));
+    const cite = r.filing_citation || {};
+    const fVal = cite.filing_value ?? cite.filing_text_value ?? r.filing_text ?? '';
+    const tagLabel = cite.xbrl_tag || cite.metric || (r.basis || '');
+    row.appendChild(create('div', {class: 'check-mis-filing', text: `Filing says: ${fVal}  (${friendlyBasis(cite.basis || r.basis || '')}, ${tagLabel})`}));
+    if (cite.filing_sentence) {
+      row.appendChild(create('div', {class: 'check-mis-sent', text: '"' + cite.filing_sentence.slice(0, 400) + '"'}));
+    }
+    if (r.sentence) {
+      row.appendChild(create('div', {class: 'check-mis-usersent', text: 'Your sentence: ' + r.sentence.slice(0, 240)}));
+    }
+    return row;
+  }
+
+  function renderRowMatch(r) {
+    const row = create('div', {class: 'check-row-match'});
+    const cite = r.filing_citation || {};
+    const fVal = cite.filing_value ?? cite.filing_text_value ?? '';
+    const tag = cite.xbrl_tag || cite.metric || '';
+    row.appendChild(create('div', {class: 'check-match-raw', text: `${r.raw || ''}  →  ${fVal} ${tag ? '(' + tag + ')' : ''}`}));
+    if (cite.formula) {
+      row.appendChild(create('div', {class: 'check-match-formula', text: cite.formula}));
+    }
+    if (cite.filing_sentence) {
+      row.appendChild(create('div', {class: 'check-match-sent', text: '"' + cite.filing_sentence.slice(0, 300) + '"'}));
+    }
+    return row;
+  }
+
+  function collapsibleSection(title, color, items, bucketName) {
+    const sec = create('section', {class: 'check-sec check-collapse'});
+    const header = create('h3', {class: 'check-sec-title check-collapse-head', style: `color:${color}`, text: title});
+    const toggleHint = create('span', {class: 'check-collapse-hint', text: '  (click to expand)'});
+    header.appendChild(toggleHint);
+    sec.appendChild(header);
+    const list = create('div', {class: 'check-collapse-body', style: 'display:none'});
+    items.forEach(r => list.appendChild(renderRow(r, bucketName)));
+    sec.appendChild(list);
+    header.addEventListener('click', () => {
+      const open = list.style.display !== 'none';
+      list.style.display = open ? 'none' : 'block';
+      toggleHint.textContent = open ? '  (click to expand)' : '  (click to collapse)';
+    });
+    return sec;
   }
 
   async function submit(ev) {
@@ -210,9 +345,31 @@
     }
   }
 
+  async function loadExample() {
+    const out = $('#check-out');
+    out.innerHTML = '';
+    out.appendChild(create('div', {class: 'check-loading', text: 'Loading precomputed example...'}));
+    try {
+      const r = await fetch('/tool/check/example-v8.json', {cache: 'no-cache'});
+      if (!r.ok) throw new Error('example not available (HTTP ' + r.status + ')');
+      const data = await r.json();
+      data._example_label = 'Example: GATX one-pager v8 (precomputed, no live API call). Shows the two things v8 says that the latest filings contradict.';
+      renderBuckets(data);
+    } catch (e) {
+      out.innerHTML = '';
+      out.appendChild(create('div', {class: 'check-error', text: 'Could not load example: ' + e.message}));
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     const form = $('#check-form');
     if (form) form.addEventListener('submit', submit);
+    const demo = $('#check-example');
+    if (demo) demo.addEventListener('click', loadExample);
+    // Auto-fire on ?demo=1 so a share link can show the example without a click.
+    if (window.location.search.indexOf('demo=1') >= 0) {
+      loadExample();
+    }
   });
 })();
 
@@ -222,7 +379,7 @@
 <footer class="site-footer">
   <p>Student research for educational purposes. Nothing here is investment advice or a recommendation to buy or sell any security.</p>
   <p class="disclosure"><strong>Position status.</strong> 1 of 2 open call(s) has a position held (ORCL); the other 1 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14.</p>
-  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-09 05:51 UTC.</p>
+  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-09 06:59 UTC.</p>
 </footer>
 </body>
 </html>

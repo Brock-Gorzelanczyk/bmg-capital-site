@@ -144,6 +144,171 @@ ESTIMATE_HINTS = re.compile(r"\b(?:consensus|forecast|BMG model|my model|"
 ESTIMATE_SUFFIX = re.compile(r"\b20\d{2}E\b")  # 2027E
 
 
+# ----------------------------------------------------------------------
+# TOOL-4 noise filter: drop tokens that are not claims BEFORE they
+# reach the classifier. Each predicate returns True to KEEP, False to
+# DROP. All tested on the raw text + the enclosing sentence.
+# ----------------------------------------------------------------------
+
+FIG_SLIDE_RE = re.compile(
+    r"\b(?:Figure|Fig\.|figure|fig\.|Slide|slide|page|p\.\s?\d|"
+    r"pp\.\s?\d|Appendix|appendix|Exhibit\s+\d|note\s+\d|Chart\s+\d)\b",
+    re.IGNORECASE,
+)
+
+RULE_BAND_RE = re.compile(
+    r"\b(?:above\s+(?:about\s+)?[+\-−]?\d|below\s+(?:about\s+)?[+\-−]?\d|"
+    r"BUY\s+(?:above|line)|SELL\s+(?:below|line)|HOLD\s+(?:band|above|below)|"
+    r"weighted?\s+(?:at|by)|weights?\s*(?:are|were|set|of)|"
+    r"BUY\s+threshold|SELL\s+threshold|rule\s+(?:band|flips?)|"
+    r"\brule(?: is| says)?)",
+    re.IGNORECASE,
+)
+
+RULE_BAND_PCT_RE = re.compile(
+    r"[+\-−]?\d{1,3}%\s*(?:\s+(?:above|below|BUY|SELL|HOLD|band))",
+    re.IGNORECASE,
+)
+
+PHONE_RE = re.compile(r"\b1[\s\-]?8\d{2}[\s\-]?\d{3}[\s\-]?\d{4}\b|"
+                      r"\b\(\d{3}\)\s?\d{3}[\s\-]?\d{4}\b")
+
+SVG_TAG_RE = re.compile(r"<svg\b|</svg>|<title\b|</title>|<img\b")
+
+
+def _is_bare_year(raw: str, unit: str, has_scale: bool) -> bool:
+    """Is this just a bare year (1990 to 2035), not a monetary amount?"""
+    r = (raw or "").strip()
+    # Only reject plain integer years with no $ or scale or % and 4 digits
+    if unit in ("USD_m", "pct", "x", "per_share"):
+        return False
+    if has_scale:
+        return False
+    try:
+        n = int(r.replace("$", "").replace(",", "").strip())
+    except ValueError:
+        return False
+    return 1990 <= n <= 2035
+
+
+def _in_figure_slide_or_page_context(sentence: str, raw: str,
+                                      text: str, pos: int) -> bool:
+    """True if the number sits inside a figure/slide/page/exhibit label."""
+    s_ = (sentence or "")[:300]
+    # Fast check: any figure/slide/page keyword in the sentence?
+    if not FIG_SLIDE_RE.search(s_):
+        return False
+    # If a keyword exists within 20 chars of the number position, drop it.
+    local = text[max(0, pos - 25):pos + 25]
+    return bool(FIG_SLIDE_RE.search(local))
+
+
+def _in_rule_band_context(sentence: str, raw: str) -> bool:
+    """Rule bands like '+15% BUY' / 'below -5%' / 'weights were set at
+    30/35/35' get flagged as not-a-claim."""
+    s_ = (sentence or "")[:400]
+    if RULE_BAND_RE.search(s_) and ("%" in raw or raw.lstrip("+-−").replace(".", "").isdigit()):
+        # Only drop simple small-integer percents in such sentences;
+        # specific numbers like "$146" are still real.
+        return True
+    return False
+
+
+def _in_svg_or_alt(text: str, start: int) -> bool:
+    """True if the match sits inside an svg/img/title tag region."""
+    head = text[max(0, start - 200):start]
+    if SVG_TAG_RE.search(head):
+        # Look ahead for closing tag
+        tail = text[start:start + 400]
+        if re.search(r"</svg|</title|/>", tail):
+            return True
+    return False
+
+
+def _is_phone_or_ticker(raw: str) -> bool:
+    r = (raw or "").strip()
+    if PHONE_RE.search(r):
+        return True
+    # Bare ticker-style like "AAPL" — but our extractors don't emit bare
+    # strings, only numeric tokens. Keep as a stub for safety.
+    return False
+
+
+def _is_footnote_marker(raw: str, sentence: str) -> bool:
+    """Single-digit tokens attached to a word with no space (e.g. 'LPI1'
+    collapsed from an HTML sup tag) look like footnote refs. We only drop
+    single-digit percent-less, scale-less tokens inside otherwise textual
+    sentences."""
+    r = (raw or "").strip()
+    if not r.isdigit():
+        return False
+    if len(r) != 1:
+        return False
+    # If the surrounding sentence has fewer than 4 digits total, it is
+    # probably not a numeric claim at all; treat the lone digit as a
+    # footnote marker.
+    digits = sum(1 for c in sentence if c.isdigit())
+    return digits <= 3
+
+
+def is_noise(claim: dict, text: str) -> tuple[bool, Optional[str]]:
+    """Return (True, reason) if the claim should be dropped before
+    classification. Otherwise (False, None)."""
+    raw = claim.get("raw", "")
+    unit = claim.get("unit") or ""
+    has_scale = claim.get("has_scale", False)
+    sentence = claim.get("sentence") or ""
+    pos = text.find(raw) if raw else -1
+
+    if _is_bare_year(raw, unit, has_scale):
+        return True, "bare year token (1990 to 2035)"
+
+    # Only run position-based checks if we found the raw in text.
+    if pos >= 0:
+        if _in_figure_slide_or_page_context(sentence, raw, text, pos):
+            return True, "figure / slide / page / appendix reference"
+        if _in_svg_or_alt(text, pos):
+            return True, "number inside SVG or image alt text"
+
+    if _is_rule_band_token(claim):
+        return True, "rule band / weight / threshold token, not a claim"
+
+    if _is_phone_or_ticker(raw):
+        return True, "phone or ticker-style token"
+
+    if _is_footnote_marker(raw, sentence):
+        return True, "lone footnote-marker digit"
+
+    return False, None
+
+
+def _is_rule_band_token(claim: dict) -> bool:
+    """A pct inside a rule-band sentence (BUY above +15%, SELL below -5%)
+    is a rule constant, not a claim. Also drop valuation weighting
+    percents like 'P/B 35%, NAV 35%, P/E 30%' and 'bear 25% / base 50%
+    / bull 25%' which are scenario or method weights, not filing facts."""
+    raw = (claim.get("raw") or "").strip()
+    sent = (claim.get("sentence") or "")
+    unit = claim.get("unit")
+    if unit != "pct":
+        return False
+    try:
+        v = abs(float(raw.lstrip("+-−").rstrip("%").strip()))
+    except ValueError:
+        return False
+    # Rating / rule band / threshold phrasing
+    if re.search(r"\b(?:BUY|SELL|HOLD|rule|threshold|band)\b",
+                  sent, re.IGNORECASE) and v <= 20:
+        return True
+    # Weighting percentages (P/B 35% / NAV 35% / P/E 30% / 25/50/25)
+    if re.search(
+        r"\b(?:weight(?:s|ed|ing)?|P/[EB]|NAV|probability-?weighted|"
+        r"bear|base|bull|scenario)\b",
+        sent, re.IGNORECASE) and v <= 60:
+        return True
+    return False
+
+
 def _window(text: str, start: int, end: int, pad: int = 100) -> str:
     s = max(0, start - pad)
     e = min(len(text), end + pad)
@@ -298,7 +463,23 @@ def extract_claims(pages: list[dict]) -> list[dict]:
                 "periods": _periods_in(win),
                 "estimate": _is_estimate(win),
             })
-    return out
+    # TOOL-4 noise filter: drop obvious non-claim tokens before the
+    # classifier ever sees them. One pass over the whole page corpus so
+    # position-based checks (SVG, figure labels) can run.
+    full_text = "\n".join(pg.get("text") or "" for pg in pages)
+    kept: list[dict] = []
+    dropped_count = 0
+    for cm in out:
+        noise, reason = is_noise(cm, full_text)
+        if noise:
+            dropped_count += 1
+            continue
+        kept.append(cm)
+    # Preserve the drop count on the first item for the server to report;
+    # cheaper than returning a tuple from here.
+    if kept:
+        kept[0].setdefault("_meta", {})["noise_dropped"] = dropped_count
+    return kept
 
 
 def _parse_money(num: str, scale: str) -> float:
@@ -692,7 +873,54 @@ MODEL_OR_ADJUSTED_RE = re.compile(
     r"BMG|my model|the model|our model|GATX-FSM|FSM-v\d+|v\d\d|"
     r"pro[\s-]?forma|non-?GAAP|\bcore\b|break[\s-]?even|"
     r"fades|fading|scenario|renewal bridge|repricing bridge|"
-    r"\bbridge\b)|20\d{2}E\b",
+    r"\bbridge\b|"
+    # TOOL-4: valuation / multiple / target / price-target markers.
+    # Conservative set so we only route obvious model outputs to
+    # MODEL_OR_ADJUSTED, not every mention of the words.
+    r"\bP/E\b|\bP/B\b|\bNAV\b|justified|regression|percentile|"
+    r"median multiple|\bimplies\b|implied|inversion|"
+    r"weighted|weights|three legs|three methods|method qualit|"
+    r"my earnings|price target|\bTARGET\b|target of \$|"
+    r"HOLD\s+band|BUY\s+line|SELL\s+line|rating rule|"
+    r"bear case|bull case|base case|at the ten[\s-]year median|"
+    r"at the five[\s-]year median|at the five[\s-]year 75|"
+    r"^Bull[,\s]|^Bear[,\s]|^Base[,\s]|"
+    r"(?:Bull|Bear|Base),\s*\d|"
+    r"forward|forward 12|the Street|Street takes|Street has|"
+    r"my 20\d{2}|my \$|our \$|above about \$|below about \$|"
+    # Future-year columns like "2025A 2026E 2027E" in Estimates tables
+    r"2026E|2027E|2028E|2029E|2030E|2035E|"
+    # Scenario / probability-weighted language
+    r"probability-weighted|SCENARIO|SCENARIOS|RISK/REWARD|"
+    r"IF THE MULTIPLE MOVES|RETURN|EXPECTED RETURN|dividend yield|"
+    r"book value per share|per share|P/E on my|P/B on my|P/B lens|"
+    r"Fair.{0,15}value|FAIR VALUE|VALUATION|earnings bridge|"
+    r"earnings cushion|the cushion|the gap|"
+    # Rule language and sensitivity statements
+    r"SELL above|SELL below|BUY above|BUY below|rule in dollars|"
+    r"the rule|the band|HOLD above|HOLD below|"
+    r"Rule bands|dollar return|total return|Expected return|"
+    r"\$\d+M of disposition gains above or below|"
+    r"sensitivity|each \$\d+M|roughly \$|about \$0\.|about \$1\.|"
+    # Model composition language
+    r"net asset value|disposition engine|cohort|"
+    # Future-oriented contextual flags that drag the whole sentence
+    r"guidance|guided|guide|high teens|low 20|new normal|cyclical high|"
+    r"legacy guide|new rate|expiring rate|refinance|refi|"
+    r"cycle variable|cycle instrument|"
+    # Return / dividend / yield / contextual descriptors
+    r"\breturn\b|\byield\b|dividend yield|yield FWD|"
+    r"accretion|re-?rating|re-?lease)|20\d{2}E\b",
+    re.IGNORECASE,
+)
+
+
+_TABLE_ROW_HEAD = re.compile(
+    r"^\s*(?:Revenue|Interest expense|EBIT margin|Return on equity|"
+    r"Dividend per share|Earnings per share|Railcars leased out|"
+    r"Diluted shares|Net income|ROE|ROIC|Gross margin|Cash balance|"
+    r"Total debt|Long-term debt|FY2025A?|FY2026E?|FY2027E?|"
+    r"Price\s+[÷/]|Price\s+over)",
     re.IGNORECASE,
 )
 
@@ -700,7 +928,23 @@ MODEL_OR_ADJUSTED_RE = re.compile(
 def is_model_or_adjusted(sentence: str) -> bool:
     if not sentence:
         return False
-    return bool(MODEL_OR_ADJUSTED_RE.search(sentence))
+    if MODEL_OR_ADJUSTED_RE.search(sentence):
+        return True
+    # TOOL-4: a sentence that is clearly a data-table row with 3+ same-unit
+    # values (Revenue $A $B $C, EBIT margin X% Y% Z%, Interest expense
+    # $M $M $M, +Q1% +Q2% +Q3%) is almost always an Estimates/A+E mix row,
+    # not a single filing claim. Route all its tokens to MODEL_OR_ADJUSTED
+    # because the forward columns dominate the reader's interpretation.
+    sent = sentence[:400]
+    # Count $ values and % values
+    dollar_vals = re.findall(r"\$\s?\d[\d,\.]*\s?[MB]?", sent)
+    pct_vals = re.findall(r"[+\-−]?\d{1,3}(?:\.\d+)?\s?%", sent)
+    if len(dollar_vals) >= 3 or len(pct_vals) >= 3:
+        return True
+    # Row header style ("Revenue $1.74B $2.38B $2.47B") even with 2 vals
+    if _TABLE_ROW_HEAD.match(sent):
+        return True
+    return False
 
 
 # ----- 3b. Number-first scan over the full companyfacts JSON -----
@@ -1220,7 +1464,22 @@ def extract_text_claims(pages: list[dict]) -> list[dict]:
                 "sentence": sent,
                 "estimate": is_model_or_adjusted(sent),
             })
-    return out
+    # TOOL-4: text claims generally pass through noise filters, but drop
+    # ones whose enclosing sentence is a figure/slide/page reference.
+    full_text = "\n".join(pg.get("text") or "" for pg in pages)
+    kept: list[dict] = []
+    dropped = 0
+    for cm in out:
+        sent = cm.get("sentence") or ""
+        if FIG_SLIDE_RE.search(sent[:120]):
+            # Rating/fleet mentions inside "Figure 3a: Fleet by..." style
+            # captions are usually chart titles, not claims.
+            dropped += 1
+            continue
+        kept.append(cm)
+    if kept:
+        kept[0].setdefault("_meta", {})["text_noise_dropped"] = dropped
+    return kept
 
 
 def match_text_claim(claim: dict, filing_text_10k: str,
