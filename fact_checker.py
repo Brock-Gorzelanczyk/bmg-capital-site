@@ -868,59 +868,11 @@ def section_diff(new_text: str, old_text: str) -> dict:
 # ----- 3a. MODEL_OR_ADJUSTED guard -----
 
 MODEL_OR_ADJUSTED_RE = re.compile(
-    r"\b(?:adjusted|normalized|normal[\s-]?gains|ex[\s-]?gains|"
-    r"ex\s+gains|excluding|estimate|consensus|target(?:ed)?|"
-    r"BMG|my model|the model|our model|GATX-FSM|FSM-v\d+|v\d\d|"
-    r"pro[\s-]?forma|non-?GAAP|\bcore\b|break[\s-]?even|"
-    r"fades|fading|scenario|renewal bridge|repricing bridge|"
-    r"\bbridge\b|"
-    # TOOL-4: valuation / multiple / target / price-target markers.
-    # Conservative set so we only route obvious model outputs to
-    # MODEL_OR_ADJUSTED, not every mention of the words.
-    r"\bP/E\b|\bP/B\b|\bNAV\b|justified|regression|percentile|"
-    r"median multiple|\bimplies\b|implied|inversion|"
-    r"weighted|weights|three legs|three methods|method qualit|"
-    r"my earnings|price target|\bTARGET\b|target of \$|"
-    r"HOLD\s+band|BUY\s+line|SELL\s+line|rating rule|"
-    r"bear case|bull case|base case|at the ten[\s-]year median|"
-    r"at the five[\s-]year median|at the five[\s-]year 75|"
-    r"^Bull[,\s]|^Bear[,\s]|^Base[,\s]|"
-    r"(?:Bull|Bear|Base),\s*\d|"
-    r"forward|forward 12|the Street|Street takes|Street has|"
-    r"my 20\d{2}|my \$|our \$|above about \$|below about \$|"
-    # Future-year columns like "2025A 2026E 2027E" in Estimates tables
-    r"2026E|2027E|2028E|2029E|2030E|2035E|"
-    # Scenario / probability-weighted language
-    r"probability-weighted|SCENARIO|SCENARIOS|RISK/REWARD|"
-    r"IF THE MULTIPLE MOVES|RETURN|EXPECTED RETURN|dividend yield|"
-    r"book value per share|per share|P/E on my|P/B on my|P/B lens|"
-    r"Fair.{0,15}value|FAIR VALUE|VALUATION|earnings bridge|"
-    r"earnings cushion|the cushion|the gap|"
-    # Rule language and sensitivity statements
-    r"SELL above|SELL below|BUY above|BUY below|rule in dollars|"
-    r"the rule|the band|HOLD above|HOLD below|"
-    r"Rule bands|dollar return|total return|Expected return|"
-    r"\$\d+M of disposition gains above or below|"
-    r"sensitivity|each \$\d+M|roughly \$|about \$0\.|about \$1\.|"
-    # Model composition language
-    r"net asset value|disposition engine|cohort|"
-    # Future-oriented contextual flags that drag the whole sentence
-    r"guidance|guided|guide|high teens|low 20|new normal|cyclical high|"
-    r"legacy guide|new rate|expiring rate|refinance|refi|"
-    r"cycle variable|cycle instrument|"
-    # Return / dividend / yield / contextual descriptors
-    r"\breturn\b|\byield\b|dividend yield|yield FWD|"
-    r"accretion|re-?rating|re-?lease)|20\d{2}E\b",
-    re.IGNORECASE,
-)
-
-
-_TABLE_ROW_HEAD = re.compile(
-    r"^\s*(?:Revenue|Interest expense|EBIT margin|Return on equity|"
-    r"Dividend per share|Earnings per share|Railcars leased out|"
-    r"Diluted shares|Net income|ROE|ROIC|Gross margin|Cash balance|"
-    r"Total debt|Long-term debt|FY2025A?|FY2026E?|FY2027E?|"
-    r"Price\s+[÷/]|Price\s+over)",
+    r"\b(?:adjusted|normalized|excluding|estimate|consensus|"
+    r"target|bridge|our|BMG|model|20\d{2}E)\b"
+    r"|\bex[\s\-]"
+    r"|BUY\s+above"
+    r"|SELL\s+below",
     re.IGNORECASE,
 )
 
@@ -928,23 +880,7 @@ _TABLE_ROW_HEAD = re.compile(
 def is_model_or_adjusted(sentence: str) -> bool:
     if not sentence:
         return False
-    if MODEL_OR_ADJUSTED_RE.search(sentence):
-        return True
-    # TOOL-4: a sentence that is clearly a data-table row with 3+ same-unit
-    # values (Revenue $A $B $C, EBIT margin X% Y% Z%, Interest expense
-    # $M $M $M, +Q1% +Q2% +Q3%) is almost always an Estimates/A+E mix row,
-    # not a single filing claim. Route all its tokens to MODEL_OR_ADJUSTED
-    # because the forward columns dominate the reader's interpretation.
-    sent = sentence[:400]
-    # Count $ values and % values
-    dollar_vals = re.findall(r"\$\s?\d[\d,\.]*\s?[MB]?", sent)
-    pct_vals = re.findall(r"[+\-−]?\d{1,3}(?:\.\d+)?\s?%", sent)
-    if len(dollar_vals) >= 3 or len(pct_vals) >= 3:
-        return True
-    # Row header style ("Revenue $1.74B $2.38B $2.47B") even with 2 vals
-    if _TABLE_ROW_HEAD.match(sent):
-        return True
-    return False
+    return bool(MODEL_OR_ADJUSTED_RE.search(sentence))
 
 
 # ----- 3b. Number-first scan over the full companyfacts JSON -----
