@@ -1344,13 +1344,17 @@ async def check_report(request: Request,
                             break
             return out_s
         for r in bucket_not_in:
-            if r.get("line_item") == "debt":
-                raw_lower = (r.get("raw") or "").lower()
+            ctx = (r.get("context") or "").lower()
+            raw = (r.get("raw") or "")
+            has_gabx = "gabx" in ctx
+            has_term_loan = "term loan" in ctx
+            has_floating = "floating" in ctx and ("debt" in ctx or "term loan" in ctx)
+            if (r.get("line_item") == "debt"
+                    or has_gabx or has_term_loan or has_floating):
                 snips: list[str] = []
-                if "gabx" in (r.get("context") or "").lower() \
-                   or "term loan" in (r.get("context") or "").lower():
+                if has_gabx or has_term_loan or has_floating:
                     snips = _snips("term loan")
-                if not snips:
+                if not snips and r.get("line_item") == "debt":
                     snips = _snips("long-term debt")
                 if snips:
                     r["filing_snippet"] = {
