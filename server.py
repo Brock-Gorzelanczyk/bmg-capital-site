@@ -1276,32 +1276,158 @@ async def check_report(request: Request,
         recent_filings.append(last_10k)
     recent_filings.extend(last_10q)
 
-    # Claim extraction
+    # Claim extraction (numeric + text)
     claims = fc.extract_claims(pages)
-    # Reported-line-item series
-    xbrl_series = _xbrl_series_for(companyfacts)
+    text_claims = fc.extract_text_claims(pages)
 
-    # Match each claim
+    # Precompute derived metrics once per request.
+    derived = fc.derived_metrics(companyfacts or {})
+
+    # TOOL-3: load the latest 10-K and 10-Q full text up front for the
+    # text-fact scanner. Already-cached files are near-free.
+    text_10k = ""
+    if last_10k:
+        text_10k = await _filing_text(last_10k["accession"], cik_padded,
+                                        last_10k["primary"], HTTP_CLIENT)
+    text_10q_latest = ""
+    if last_10q:
+        text_10q_latest = await _filing_text(
+            last_10q[0]["accession"], cik_padded,
+            last_10q[0]["primary"], HTTP_CLIENT)
+
+    # TOOL-3: if the doc mentions an LPI trough or 2017/2018 reference,
+    # fetch the oldest in-submissions 10-K so we can match historical
+    # trough percent values (FY2019 10-K says -28.2% for 2017). SEC's
+    # recent block holds a sliding window; older filings sit in
+    # submissions.filings.files pointing to extension JSONs.
+    historical_10k_texts: list[str] = []
+    all_text_sources = " ".join(pg.get("text") or "" for pg in pages)
+    needs_history = bool(re.search(r"\btrough\b|LPI|2017|2018|2020",
+                                    all_text_sources, re.IGNORECASE))
+    if needs_history:
+        historical_10k: list[dict] = []
+        for i in range(len(forms)):
+            if forms[i] == "10-K":
+                try:
+                    fd = _dt.date.fromisoformat(dates_[i])
+                except Exception:
+                    continue
+                if fd < _dt.date(2022, 1, 1):
+                    prim = primaries[i] if i < len(primaries) else ""
+                    historical_10k.append({"accession": accs[i],
+                                            "primary": prim,
+                                            "filed": dates_[i]})
+        # Also walk extension index files for older 10-Ks
+        ext_files = (submissions.get("filings", {}).get("files") or [])
+        for ef in ext_files[:3]:
+            name = ef.get("name")
+            if not name:
+                continue
+            ext_url = f"https://data.sec.gov/submissions/{name}"
+            try:
+                ext_body = await _sec_fetch_json(ext_url, TTL_SUBMISSIONS,
+                                                   HTTP_CLIENT)
+            except Exception:
+                continue
+            if not ext_body:
+                continue
+            ex_forms = ext_body.get("form", []) or []
+            ex_accs = ext_body.get("accessionNumber", []) or []
+            ex_dates = ext_body.get("filingDate", []) or []
+            ex_prims = ext_body.get("primaryDocument", []) or []
+            for i in range(len(ex_forms)):
+                if ex_forms[i] != "10-K":
+                    continue
+                try:
+                    fd = _dt.date.fromisoformat(ex_dates[i])
+                except Exception:
+                    continue
+                if fd < _dt.date(2022, 1, 1) and fd >= _dt.date(2019, 1, 1):
+                    historical_10k.append({
+                        "accession": ex_accs[i],
+                        "primary": ex_prims[i] if i < len(ex_prims) else "",
+                        "filed": ex_dates[i]})
+        # Dedupe by accession
+        seen = set()
+        uniq = []
+        for h in historical_10k:
+            if h["accession"] not in seen:
+                seen.add(h["accession"])
+                uniq.append(h)
+        historical_10k = uniq
+        # Fetch up to 3 oldest-first (FY2019 is highest priority for -28.2%)
+        historical_10k.sort(key=lambda x: x["filed"])
+        for h in historical_10k[:3]:
+            txt = await _filing_text(h["accession"], cik_padded,
+                                      h["primary"], HTTP_CLIENT)
+            if txt:
+                historical_10k_texts.append(txt)
+    text_10k_full = text_10k + "\n" + "\n".join(historical_10k_texts)
+
+    # Classify every claim via the new v3 pipeline:
+    # 1. MODEL_OR_ADJUSTED guard; 2. number-first full-tag scan (0.5%);
+    # 3. derived metrics (2%); 4. text facts (ratings, LPI); 5. legacy
+    # mapped-line-item fallback.
     bucket_match: list[dict] = []
     bucket_mismatch: list[dict] = []
     bucket_not_in: list[dict] = []
+    bucket_model: list[dict] = []
     for cm in claims:
-        res = fc.match_claim_to_filings(cm, xbrl_series)
+        res = fc.classify_claim_v3(
+            cm, companyfacts or {}, derived,
+            text_10k_full, text_10q_latest, t)
         row = {**cm, **res}
-        # Attach a citation for MATCH/MISMATCH so no row is uncited.
         if res.get("status") in ("MATCH", "MISMATCH"):
-            line = res.get("line_item")
-            tag = xbrl_series.get(line, {}).get("tag") if line else None
+            # Attach a uniform citation block so no row is uncited.
             row["filing_citation"] = {
-                "basis": "SEC XBRL companyfacts (us-gaap)",
-                "xbrl_tag": tag,
-                "period": res.get("filing_period"),
-                "end": res.get("filing_end"),
-                "filing_value_scaled": res.get("filing_value"),
+                "basis": res.get("basis") or "SEC filing",
+                "xbrl_tag": res.get("xbrl_tag"),
+                "xbrl_unit": res.get("xbrl_unit"),
+                "period_end": res.get("period_end") or res.get("filing_period_end"),
+                "fp": res.get("fp"),
+                "form": res.get("form"),
+                "filed": res.get("filed"),
+                "filing_value": res.get("filing_value"),
+                "distance_rel": res.get("distance_rel"),
+                "metric": res.get("metric"),
+                "formula": res.get("formula"),
+                "inputs": res.get("inputs"),
+                "filing_sentence": res.get("filing_sentence"),
+                "filing_label": res.get("filing_label"),
             }
         if res["status"] == "MATCH":
             bucket_match.append(row)
         elif res["status"] == "MISMATCH":
+            bucket_mismatch.append(row)
+        elif res["status"] == "MODEL_OR_ADJUSTED":
+            bucket_model.append(row)
+        else:
+            bucket_not_in.append(row)
+
+    # Text-claim classification (ratings, covenants, fleet counts).
+    # These are extracted separately because they are not numeric claims.
+    for tc in text_claims:
+        if tc.get("estimate"):
+            tc["status"] = "MODEL_OR_ADJUSTED"
+            tc["basis"] = "model_or_adjusted guard"
+            bucket_model.append(tc)
+            continue
+        tres = fc.match_text_claim(tc, text_10k_full, text_10q_latest)
+        if not tres:
+            tc["status"] = "NOT_IN_FILINGS"
+            tc["basis"] = "unverified text claim"
+            bucket_not_in.append(tc)
+            continue
+        row = {**tc, **tres}
+        row["filing_citation"] = {
+            "basis": tres.get("basis"),
+            "filing_label": tres.get("filing_label"),
+            "filing_sentence": tres.get("filing_sentence"),
+            "filing_text_value": tres.get("filing_text_value"),
+        }
+        if tres["status"] == "MATCH":
+            bucket_match.append(row)
+        elif tres["status"] == "MISMATCH":
             bucket_mismatch.append(row)
         else:
             bucket_not_in.append(row)
@@ -1312,13 +1438,10 @@ async def check_report(request: Request,
         all_doc_periods.extend(cm.get("periods", []))
     stale_filings = fc.staleness(all_doc_periods, recent_filings)
 
-    # Section diff: last 2 10-Qs (if we have both)
+    # Section diff: last 2 10-Qs (if we have both). text_10q_latest was
+    # already fetched above for the text-fact scanner.
     diff_blob: dict = {}
-    latest_10q_text = ""
-    if last_10q:
-        latest_10q_text = await _filing_text(
-            last_10q[0]["accession"], cik_padded,
-            last_10q[0]["primary"], HTTP_CLIENT)
+    latest_10q_text = text_10q_latest
     if len(last_10q) == 2:
         old_text = await _filing_text(last_10q[1]["accession"], cik_padded,
                                        last_10q[1]["primary"], HTTP_CLIENT)
@@ -1372,12 +1495,14 @@ async def check_report(request: Request,
         "buckets": {
             "MATCH": bucket_match,
             "MISMATCH": bucket_mismatch,
+            "MODEL_OR_ADJUSTED": bucket_model,
             "NOT_IN_FILINGS": bucket_not_in,
             "STALE": stale_filings,
         },
         "counts": {
             "MATCH": len(bucket_match),
             "MISMATCH": len(bucket_mismatch),
+            "MODEL_OR_ADJUSTED": len(bucket_model),
             "NOT_IN_FILINGS": len(bucket_not_in),
             "STALE": len(stale_filings),
         },

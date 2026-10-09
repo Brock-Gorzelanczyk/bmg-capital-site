@@ -97,12 +97,14 @@
   const bucketLabel = {
     MATCH: 'MATCH (filing agrees)',
     MISMATCH: 'MISMATCH (filing disagrees)',
+    MODEL_OR_ADJUSTED: 'MODEL OR ADJUSTED (model / consensus / target / normalized; not a filing figure)',
     NOT_IN_FILINGS: 'NOT IN FILINGS (not verifiable from SEC filings)',
     STALE: 'STALE (newer filings exist)'
   };
   const bucketColor = {
     MATCH: '#0f7d47',
     MISMATCH: '#b42318',
+    MODEL_OR_ADJUSTED: '#444488',
     NOT_IN_FILINGS: '#6a6a6a',
     STALE: '#7a5200'
   };
@@ -124,8 +126,8 @@
         right.appendChild(create('div', {class: 'check-delta',
           text: `Your value: ${r.claim_value}  Filing value: ${r.filing_value}`}));
       }
-    } else if (bucket === 'NOT_IN_FILINGS') {
-      right.appendChild(create('div', {class: 'check-reason', text: r.reason || ''}));
+    } else if (bucket === 'NOT_IN_FILINGS' || bucket === 'MODEL_OR_ADJUSTED') {
+      right.appendChild(create('div', {class: 'check-reason', text: r.reason || r.basis || ''}));
     } else if (bucket === 'STALE') {
       right.appendChild(create('div', {class: 'check-cite',
         text: `${r.form}  filed ${r.filed}  items=${r.items || ''}`}));
@@ -141,7 +143,7 @@
     const header = create('div', {class: 'check-header'});
     header.appendChild(create('div', {class: 'check-ticker', text: data.ticker + '  pages=' + data.pages + '  claims=' + data.claims_extracted}));
     const counts = create('div', {class: 'check-counts'});
-    ['MATCH','MISMATCH','NOT_IN_FILINGS','STALE'].forEach(b => {
+    ['MATCH','MISMATCH','MODEL_OR_ADJUSTED','NOT_IN_FILINGS','STALE'].forEach(b => {
       const chip = create('span', {class: 'check-chip', style: `background:${bucketColor[b]}20;color:${bucketColor[b]};border:1px solid ${bucketColor[b]}`});
       chip.textContent = b + ': ' + (data.counts[b] || 0);
       counts.appendChild(chip);
@@ -149,7 +151,7 @@
     header.appendChild(counts);
     out.appendChild(header);
 
-    ['STALE','MISMATCH','MATCH','NOT_IN_FILINGS'].forEach(b => {
+    ['STALE','MISMATCH','MATCH','MODEL_OR_ADJUSTED','NOT_IN_FILINGS'].forEach(b => {
       const items = data.buckets[b] || [];
       if (!items.length) return;
       const sec = create('section', {class: 'check-sec'});
@@ -220,7 +222,7 @@
 <footer class="site-footer">
   <p>Student research for educational purposes. Nothing here is investment advice or a recommendation to buy or sell any security.</p>
   <p class="disclosure"><strong>Position status.</strong> 1 of 2 open call(s) has a position held (ORCL); the other 1 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14.</p>
-  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-09 04:07 UTC.</p>
+  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-09 05:51 UTC.</p>
 </footer>
 </body>
 </html>
