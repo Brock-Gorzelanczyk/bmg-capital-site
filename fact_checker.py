@@ -869,7 +869,10 @@ def section_diff(new_text: str, old_text: str) -> dict:
 
 MODEL_OR_ADJUSTED_RE = re.compile(
     r"\b(?:adjusted|normalized|excluding|estimate|consensus|"
-    r"target|bridge|our|BMG|model|20\d{2}E)\b"
+    r"target|bridge|our|BMG|model|breakeven|implied|"
+    r"sensitivity|20\d{2}E)\b"
+    r"|\bbreak[\s\-]?even\b"
+    r"|\bwould\s+need\b"
     r"|\bex[\s\-]"
     r"|BUY\s+above"
     r"|SELL\s+below",
@@ -1400,16 +1403,18 @@ def extract_text_claims(pages: list[dict]) -> list[dict]:
                 "sentence": sent,
                 "estimate": is_model_or_adjusted(sent),
             })
-    # TOOL-4: text claims generally pass through noise filters, but drop
-    # ones whose enclosing sentence is a figure/slide/page reference.
+    # TOOL-4.2: run the full is_noise() filter on text claims too, not just
+    # FIG_SLIDE_RE, so both extract paths share the same noise contract.
     full_text = "\n".join(pg.get("text") or "" for pg in pages)
     kept: list[dict] = []
     dropped = 0
     for cm in out:
         sent = cm.get("sentence") or ""
         if FIG_SLIDE_RE.search(sent[:120]):
-            # Rating/fleet mentions inside "Figure 3a: Fleet by..." style
-            # captions are usually chart titles, not claims.
+            dropped += 1
+            continue
+        noise, _reason = is_noise(cm, full_text)
+        if noise:
             dropped += 1
             continue
         kept.append(cm)
