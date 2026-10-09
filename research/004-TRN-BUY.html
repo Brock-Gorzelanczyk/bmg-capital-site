@@ -29,7 +29,7 @@
   <h1>TRN <span class="note-id">— TRN</span></h1>
   <div class="rating-line"><span class="badge-rating rating-withdrawn">WITHDRAWN &middot; WITHDRAWN-THESIS-ERROR</span> &middot; 2026-09-16<br><span class="strike-note">Original: <s>BUY, target $35.0</s> (as shipped 2026-09-11)</span></div>
   <div class="meta-line">Opened 2026-09-11 &middot; Evaluation 2028-03-13 &middot; Benchmark XLI &middot; Conviction 3 (implied probability 70%)</div>
-  <div class="gate-summary">Gate status: <strong>7/7</strong> pass</div><div class="gate-grid"><div class="gate-badge gate-ok"><div class="gate-name">Gate 1</div><div class="gate-what">provenance (Rule 7)</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 1d</div><div class="gate-what">capital-intensive (M30)</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 2</div><div class="gate-what">falsified audit</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 3</div><div class="gate-what">derivation arithmetic</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 4</div><div class="gate-what">adversarial (M29)</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 6</div><div class="gate-what">earnings cycle (M04)</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 7</div><div class="gate-what">valuation pre-commit (M31)</div></div></div>
+  <div class="gate-summary">Gate status: <strong>6/7</strong> pass</div><div class="gate-grid"><div class="gate-badge gate-ok"><div class="gate-name">Gate 1</div><div class="gate-what">provenance (Rule 7)</div></div><div class="gate-badge gate-fail"><div class="gate-name">Gate 1d</div><div class="gate-what">capital-intensive (M30)</div><div class="gate-reason">[FAIL] Gate 1d: capital_intensive:true but no models/TRN/drivers.yaml exists</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 2</div><div class="gate-what">falsified audit</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 3</div><div class="gate-what">derivation arithmetic</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 4</div><div class="gate-what">adversarial (M29)</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 6</div><div class="gate-what">earnings cycle (M04)</div></div><div class="gate-badge gate-ok"><div class="gate-name">Gate 7</div><div class="gate-what">valuation pre-commit (M31)</div></div></div>
 </section>
 
   
@@ -277,14 +277,14 @@ resolution_note: |
 </section>
 
   <section class="note-supporting"><h2>Supporting artifacts</h2><ul>
-<li><strong>Model directory</strong> — <code>models/TRN/</code> (4 files)</li>
+<li><strong>Model directory</strong> — <code>models/TRN/</code> (7 files)</li>
 <li><strong>Comp set</strong> — <code>reference/comps/TRN.yaml</code></li>
 <li><strong>Credibility ledger</strong> — <code>research/credibility/TRN-consensus.yaml</code></li>
 </ul></section>
 </main>
 <footer>
   <p class="disclosure"><strong>Position status.</strong> 1 of 2 open call(s) has a position held (ORCL); the other 1 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14.</p>
-  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-09 07:24 UTC. Render: 23 markers resolved, 0 unresolved. Gates: 7/7 pass.</p>
+  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-09 19:09 UTC. Render: 23 markers resolved, 0 unresolved. Gates: 6/7 pass.</p>
 </footer>
 </body>
 </html>
