@@ -583,15 +583,8 @@ def _resolve_metric(facts_gaap: dict, metric: str
                     for fy in sorted(set(fy_nc) | set(fy_cu)):
                         n = fy_nc.get(fy, {}).get("val") or 0
                         c = fy_cu.get(fy, {}).get("val") or 0
-                        # Pick end-date from whichever series has this FY.
-                        # Eager-eval of fy_cu[fy] as the .get() default
-                        # crashed on tickers where fy exists in nc but
-                        # not cu (e.g. AMD FY2016). Use explicit lookup.
-                        if fy in fy_nc:
-                            end_date = fy_nc[fy]["end"]
-                        else:
-                            end_date = fy_cu[fy]["end"]
-                        fy_combined.append({"fy": fy, "end": end_date,
+                        fy_combined.append({"fy": fy, "end":
+                            fy_nc.get(fy, fy_cu[fy])["end"],
                             "val": n + c, "unit": "USD"})
                     if fy_combined:
                         return fy_combined[-10:], [], tag
@@ -841,31 +834,11 @@ def _build_snapshot(ticker: str, cik_padded: str, submissions: dict,
     else:
         val["pe_ttm"] = None
 
-    # P/B uses the latest balance-sheet BVPS: prefer the most recent quarterly
-    # (equity, diluted-shares) pair from the raw q_series_out dict; fall back
-    # to the latest fiscal year. This mirrors the inputs_bvps logic below so
-    # the valuation strip P/B and the frontend "inputs.bvps" never disagree.
-    pb_bvps: Optional[float] = None
-    _pb_sorted_q = sorted(q_series_out.keys(),
-                           key=lambda k: q_series_out[k].get("end") or "")
-    for k in reversed(_pb_sorted_q):
-        row = q_series_out[k]
-        eq_q = row.get("equity")
-        sh_q = row.get("shares_diluted")
-        if eq_q is not None and sh_q:
-            pb_bvps = eq_q / sh_q
-            break
-    if pb_bvps is None and fy_series_out:
-        _pb_sorted_fy = sorted(fy_series_out.keys())
-        for y in reversed(_pb_sorted_fy):
-            row = fy_series_out[y]
-            eq_fy = row.get("equity")
-            sh_fy = row.get("shares_diluted")
-            if eq_fy is not None and sh_fy:
-                pb_bvps = eq_fy / sh_fy
-                break
-    if last_price and pb_bvps:
-        val["pb"] = round(last_price / pb_bvps, 2)
+    latest_eq = fy_list[-1].get("equity") if fy_list else None
+    if last_price and latest_eq and shares_latest:
+        bvps = latest_eq / shares_latest
+        if bvps:
+            val["pb"] = round(last_price / bvps, 2)
     else:
         val["pb"] = None
 
@@ -882,7 +855,6 @@ def _build_snapshot(ticker: str, cik_padded: str, submissions: dict,
 
     latest_debt = fy_list[-1].get("debt") if fy_list else None
     latest_cash = fy_list[-1].get("cash") if fy_list else None
-    latest_eq = fy_list[-1].get("equity") if fy_list else None
     if (latest_debt is not None and latest_eq):
         nd = (latest_debt or 0) - (latest_cash or 0)
         val["net_debt_to_equity"] = round(nd / latest_eq, 2) if latest_eq else None
@@ -1069,23 +1041,10 @@ async def snapshot(ticker: str = Query(..., min_length=1,
 
     if submissions is None:
         return JSONResponse(status_code=502, content={
-            "error": "sec unreachable",
-            "message": "SEC EDGAR submissions endpoint did not respond. "
-                        "Try again in a moment."})
+            "error": "sec submissions fetch failed"})
 
-    try:
-        snap = _build_snapshot(t, cik_padded, submissions, companyfacts,
-                                price, price_error)
-    except Exception as exc:
-        import traceback as _tb
-        _tb.print_exc()
-        return JSONResponse(status_code=500, content={
-            "error": "snapshot build failed",
-            "ticker": t,
-            "message": (f"Server could not assemble a snapshot for {t}. "
-                         f"Cause: {type(exc).__name__}. SEC data may be "
-                         f"malformed for this ticker; others still work."),
-        })
+    snap = _build_snapshot(t, cik_padded, submissions, companyfacts,
+                            price, price_error)
     return JSONResponse(content=snap)
 
 
