@@ -1169,7 +1169,13 @@ async def check_report(request: Request,
     `text` paste, plus `ticker`. Returns four buckets + diff.
     Uploads are read into memory and NEVER written to disk."""
     assert HTTP_CLIENT is not None
-    ip = request.client.host if request.client else "unknown"
+    # Railway's edge gives request.client.host different values per request,
+    # so the limiter sees each POST as a different IP. Honor X-Forwarded-For
+    # (first hop = real client) so the per-IP rule actually binds.
+    xff = request.headers.get("x-forwarded-for", "")
+    ip = (xff.split(",")[0].strip()
+          if xff
+          else (request.client.host if request.client else "unknown"))
     rl_err = _rate_limit_check(ip)
     if rl_err:
         return JSONResponse(status_code=429, content={"error": rl_err})
