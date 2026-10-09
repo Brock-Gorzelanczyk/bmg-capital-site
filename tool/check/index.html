@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fact-Checker — BMG Capital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/site.187e1258.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="brand" href="/" aria-label="BMG Capital home">
+      <span class="brand-mark">
+        <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden="true"><polyline points="5,23 12,15 18,19 27,8" fill="none" stroke="#3ddc84" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+      </span>
+      <span class="brand-wm">BMG CAPITAL</span>
+    </a>
+    <nav aria-label="Main" class="site-nav">
+  <a href="#reports">Reports</a>
+  <a href="/tool/">Research tool</a>
+  <a href="#about">About</a>
+  <a href="/resume.pdf" class="nav-resume">Resume</a>
+</nav>
+  </div>
+</header>
+<main class="container">
+<style>
+.check-form { display:flex; flex-direction:column; gap:12px; margin:16px 0 24px; max-width:720px; }
+.check-form input[type='text'] { padding:10px 12px; font-size:16px; border:1px solid #ccc; border-radius:6px; }
+.check-form input[type='file'] { padding:8px 0; font-size:14px; }
+.check-form textarea { padding:10px 12px; font-size:14px; border:1px solid #ccc; border-radius:6px; min-height:120px; font-family:inherit; }
+.check-form button { padding:10px 20px; font-size:16px; background:#0f7d47; color:#fff; border:0; border-radius:6px; cursor:pointer; width:fit-content; }
+.check-form button:hover { background:#0c6039; }
+.check-notice { font-size:14px; color:#6a6a6a; margin:8px 0; }
+.check-header { margin:16px 0 20px; }
+.check-ticker { font-size:16px; font-weight:600; margin-bottom:8px; }
+.check-counts { display:flex; gap:8px; flex-wrap:wrap; }
+.check-chip { padding:4px 10px; border-radius:4px; font-size:13px; font-weight:600; }
+.check-sec { margin:24px 0; }
+.check-sec-title { margin:0 0 10px; font-size:17px; }
+.check-row { display:grid; grid-template-columns: 1fr 1fr; gap:16px; padding:10px 0; border-bottom:1px solid #eee; font-size:13px; }
+.check-row-left { }
+.check-loc { color:#6a6a6a; font-size:12px; }
+.check-raw { font-weight:600; font-family:'IBM Plex Mono', monospace; }
+.check-ctx { color:#444; margin-top:4px; font-size:12px; line-height:1.4; }
+.check-per { color:#7a5200; font-size:12px; margin-top:2px; }
+.check-cite { color:#444; font-size:12px; }
+.check-delta { color:#b42318; font-weight:600; margin-top:4px; font-family:'IBM Plex Mono', monospace; font-size:12px; }
+.check-reason { color:#6a6a6a; font-size:12px; }
+.check-link { color:#0f7d47; text-decoration:underline; font-size:12px; }
+.check-more { color:#6a6a6a; font-size:12px; margin-top:8px; }
+.check-diff-h { margin:12px 0 6px; font-size:14px; }
+.check-diff-sub { font-size:12px; color:#6a6a6a; margin-top:6px; }
+.check-diff-add { font-size:12px; padding:4px 8px; background:#eef9f1; border-left:3px solid #0f7d47; margin:2px 0; }
+.check-diff-rem { font-size:12px; padding:4px 8px; background:#fdf0ee; border-left:3px solid #b42318; margin:2px 0; text-decoration:line-through; }
+.check-loading { color:#6a6a6a; font-style:italic; }
+.check-error { color:#b42318; padding:12px; background:#fdf0ee; border:1px solid #b42318; border-radius:6px; }
+.check-foot { font-size:12px; color:#6a6a6a; margin-top:8px; }
+@media (max-width:640px) {
+  .check-row { grid-template-columns: 1fr; }
+}
+</style>
+<section class='content'>
+  <h1>Report Fact-Checker</h1>
+  <p>Upload your research note. We check the numbers against the company's own SEC filings and tell you what is stale or wrong, so you can fix it before your client does.</p>
+  <p class='check-notice'>Uploaded files are processed in memory and not stored. 10 MB cap. Six checks per minute per IP. PDF, DOCX, PPTX, HTML or pasted text.</p>
+  <form id='check-form' class='check-form' enctype='multipart/form-data'>
+    <label>Ticker: <input type='text' name='ticker' placeholder='GATX' required maxlength='10' style='width:120px'></label>
+    <label>File (PDF, DOCX, PPTX, HTML): <input type='file' name='file' accept='.pdf,.docx,.pptx,.html,.htm,.txt'></label>
+    <label>Or paste text (if no file): <textarea name='text' placeholder='Paste the paragraph or page you want checked.'></textarea></label>
+    <button type='submit'>Check against SEC filings</button>
+  </form>
+  <div id='check-out'></div>
+</section>
+<script>
+
+(function(){
+  const $ = (s)=>document.querySelector(s);
+  const create = (tag, attrs = {}, children = []) => {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') el.className = v;
+      else if (k === 'text') el.textContent = v;
+      else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+      else if (v !== null && v !== undefined) el.setAttribute(k, v);
+    }
+    for (const c of children) {
+      if (c === null || c === undefined) continue;
+      el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    }
+    return el;
+  };
+
+  const bucketLabel = {
+    MATCH: 'MATCH (filing agrees)',
+    MISMATCH: 'MISMATCH (filing disagrees)',
+    NOT_IN_FILINGS: 'NOT IN FILINGS (not verifiable from SEC filings)',
+    STALE: 'STALE (newer filings exist)'
+  };
+  const bucketColor = {
+    MATCH: '#0f7d47',
+    MISMATCH: '#b42318',
+    NOT_IN_FILINGS: '#6a6a6a',
+    STALE: '#7a5200'
+  };
+
+  function renderRow(r, bucket) {
+    const row = create('div', {class: 'check-row'});
+    const left = create('div', {class: 'check-row-left'});
+    left.appendChild(create('div', {class: 'check-loc', text: r.locator || ''}));
+    left.appendChild(create('div', {class: 'check-raw', text: r.raw || ''}));
+    if (r.context) left.appendChild(create('div', {class: 'check-ctx', text: r.context.slice(0, 180)}));
+    if (r.periods && r.periods.length) left.appendChild(create('div', {class: 'check-per', text: 'Periods: ' + r.periods.join(', ')}));
+    row.appendChild(left);
+    const right = create('div', {class: 'check-row-right'});
+    if (bucket === 'MATCH' || bucket === 'MISMATCH') {
+      const cite = r.filing_citation || {};
+      right.appendChild(create('div', {class: 'check-cite',
+        text: `Filing: ${cite.basis || ''}  tag=${cite.xbrl_tag || ''}  period=${cite.period || ''}  end=${cite.end || ''}  value=${cite.filing_value_scaled}`}));
+      if (bucket === 'MISMATCH') {
+        right.appendChild(create('div', {class: 'check-delta',
+          text: `Your value: ${r.claim_value}  Filing value: ${r.filing_value}`}));
+      }
+    } else if (bucket === 'NOT_IN_FILINGS') {
+      right.appendChild(create('div', {class: 'check-reason', text: r.reason || ''}));
+    } else if (bucket === 'STALE') {
+      right.appendChild(create('div', {class: 'check-cite',
+        text: `${r.form}  filed ${r.filed}  items=${r.items || ''}`}));
+      right.appendChild(create('a', {class: 'check-link', href: r.url, target: '_blank', text: 'open filing'}));
+    }
+    row.appendChild(right);
+    return row;
+  }
+
+  function renderBuckets(data) {
+    const out = $('#check-out');
+    out.innerHTML = '';
+    const header = create('div', {class: 'check-header'});
+    header.appendChild(create('div', {class: 'check-ticker', text: data.ticker + '  pages=' + data.pages + '  claims=' + data.claims_extracted}));
+    const counts = create('div', {class: 'check-counts'});
+    ['MATCH','MISMATCH','NOT_IN_FILINGS','STALE'].forEach(b => {
+      const chip = create('span', {class: 'check-chip', style: `background:${bucketColor[b]}20;color:${bucketColor[b]};border:1px solid ${bucketColor[b]}`});
+      chip.textContent = b + ': ' + (data.counts[b] || 0);
+      counts.appendChild(chip);
+    });
+    header.appendChild(counts);
+    out.appendChild(header);
+
+    ['STALE','MISMATCH','MATCH','NOT_IN_FILINGS'].forEach(b => {
+      const items = data.buckets[b] || [];
+      if (!items.length) return;
+      const sec = create('section', {class: 'check-sec'});
+      sec.appendChild(create('h3', {class: 'check-sec-title', style: `color:${bucketColor[b]}`, text: bucketLabel[b] + '  (' + items.length + ')'}));
+      items.slice(0, 50).forEach(r => sec.appendChild(renderRow(r, b)));
+      if (items.length > 50) sec.appendChild(create('div', {class: 'check-more', text: '... ' + (items.length - 50) + ' more'}));
+      out.appendChild(sec);
+    });
+
+    if (data.diff && Object.keys(data.diff).length) {
+      const sec = create('section', {class: 'check-sec'});
+      sec.appendChild(create('h3', {class: 'check-sec-title', text: 'What changed since your document (last 2 10-Qs, 4 sections)'}));
+      for (const [k, v] of Object.entries(data.diff)) {
+        const h = create('h4', {class: 'check-diff-h', text: k});
+        sec.appendChild(h);
+        if ((v.added || []).length) {
+          sec.appendChild(create('div', {class: 'check-diff-sub', text: 'Added:'}));
+          v.added.forEach(s => sec.appendChild(create('div', {class: 'check-diff-add', text: s.slice(0, 300)})));
+        }
+        if ((v.removed || []).length) {
+          sec.appendChild(create('div', {class: 'check-diff-sub', text: 'Removed:'}));
+          v.removed.forEach(s => sec.appendChild(create('div', {class: 'check-diff-rem', text: s.slice(0, 300)})));
+        }
+      }
+      out.appendChild(sec);
+    }
+
+    const notes = create('section', {class: 'check-sec'});
+    notes.appendChild(create('h3', {class: 'check-sec-title', text: 'What this can\'t check'}));
+    const ul = create('ul');
+    (data.notes && data.notes.what_this_cannot_check || []).forEach(s => ul.appendChild(create('li', {text: s})));
+    notes.appendChild(ul);
+    notes.appendChild(create('p', {class: 'check-foot', text: data.notes && data.notes.storage || ''}));
+    out.appendChild(notes);
+  }
+
+  async function submit(ev) {
+    ev.preventDefault();
+    const form = ev.target;
+    const out = $('#check-out');
+    out.innerHTML = '';
+    out.appendChild(create('div', {class: 'check-loading', text: 'Reading filings and checking...'}));
+    const fd = new FormData(form);
+    try {
+      const r = await fetch('/api/check', {method: 'POST', body: fd});
+      const data = await r.json().catch(() => ({ error: 'bad json' }));
+      if (!r.ok) {
+        out.innerHTML = '';
+        out.appendChild(create('div', {class: 'check-error', text: (data.message || data.error || 'HTTP ' + r.status)}));
+        return;
+      }
+      renderBuckets(data);
+    } catch (e) {
+      out.innerHTML = '';
+      out.appendChild(create('div', {class: 'check-error', text: 'Network error: ' + e.message}));
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = $('#check-form');
+    if (form) form.addEventListener('submit', submit);
+  });
+})();
+
+</script>
+
+</main>
+<footer class="site-footer">
+  <p>Student research for educational purposes. Nothing here is investment advice or a recommendation to buy or sell any security.</p>
+  <p class="disclosure"><strong>Position status.</strong> 1 of 2 open call(s) has a position held (ORCL); the other 1 do not. Educational research; nothing here is investment advice or a recommendation to buy or sell any security. Detail: ORCL (HOLD, opened 2026-09-13): position held since 2026-09-14.</p>
+  <p class="build-meta">Built from vault commit <code>094d85b8fee5</code> at 2026-10-09 04:07 UTC.</p>
+</footer>
+</body>
+</html>

@@ -583,9 +583,12 @@ def _resolve_metric(facts_gaap: dict, metric: str
                     for fy in sorted(set(fy_nc) | set(fy_cu)):
                         n = fy_nc.get(fy, {}).get("val") or 0
                         c = fy_cu.get(fy, {}).get("val") or 0
-                        fy_combined.append({"fy": fy, "end":
-                            fy_nc.get(fy, fy_cu[fy])["end"],
-                            "val": n + c, "unit": "USD"})
+                        if fy in fy_nc:
+                            end_date = fy_nc[fy]["end"]
+                        else:
+                            end_date = fy_cu[fy]["end"]
+                        fy_combined.append({"fy": fy, "end": end_date,
+                                            "val": n + c, "unit": "USD"})
                     if fy_combined:
                         return fy_combined[-10:], [], tag
             continue
@@ -625,7 +628,7 @@ def _resolve_metric(facts_gaap: dict, metric: str
 # Ticker map
 # ----------------------------------------------------------------------
 
-TICKER_RE = re.compile(r"^[A-Z][A-Z0-9]{0,6}(\.[A-Z0-9])?$")
+TICKER_RE = re.compile(r"^[A-Z][A-Z0-9]{0,6}([\.\-][A-Z0-9])?$")
 
 
 def _validate_ticker(raw: str) -> Optional[str]:
@@ -635,6 +638,22 @@ def _validate_ticker(raw: str) -> Optional[str]:
     if not TICKER_RE.match(t):
         return None
     return t
+
+
+def _ticker_variants(t: str) -> list[str]:
+    """BRK.B and BRK-B both resolve to the same SEC CIK; try both forms."""
+    variants = [t]
+    if "." in t:
+        variants.append(t.replace(".", "-"))
+    if "-" in t:
+        variants.append(t.replace("-", "."))
+    seen = set()
+    out = []
+    for v in variants:
+        if v not in seen:
+            seen.add(v)
+            out.append(v)
+    return out
 
 
 async def _ticker_map(client: httpx.AsyncClient) -> dict:
@@ -1013,13 +1032,18 @@ async def snapshot(ticker: str = Query(..., min_length=1,
                             content={"error": "invalid ticker"})
 
     tmap = await _ticker_map(HTTP_CLIENT)
-    if t not in tmap:
+    hit = None
+    for variant in _ticker_variants(t):
+        if variant in tmap:
+            hit = tmap[variant]
+            break
+    if hit is None:
         return JSONResponse(status_code=404, content={
             "error": "unknown ticker",
             "message": "Not in SEC US issuer map. Foreign filers and OTC "
                         "may be missing.",
         })
-    row = tmap[t]
+    row = hit
     cik_padded = f"{int(row['cik_str']):010d}"
 
     sub_url = f"https://data.sec.gov/submissions/CIK{cik_padded}.json"
@@ -1046,6 +1070,329 @@ async def snapshot(ticker: str = Query(..., min_length=1,
     snap = _build_snapshot(t, cik_padded, submissions, companyfacts,
                             price, price_error)
     return JSONResponse(content=snap)
+
+
+# ----------------------------------------------------------------------
+# Fact-Checker (/api/check) — Tool-2 Parts 1 to 3
+# ----------------------------------------------------------------------
+
+from fastapi import UploadFile, File, Form
+import fact_checker as fc
+
+CHECK_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+CHECK_RL_WINDOW_S = 60
+CHECK_RL_MAX = 6  # per IP per window
+_check_rl_hits: dict[str, list[float]] = {}
+
+
+def _rate_limit_check(ip: str) -> Optional[str]:
+    now = time.monotonic()
+    hits = _check_rl_hits.get(ip, [])
+    hits = [t for t in hits if now - t < CHECK_RL_WINDOW_S]
+    if len(hits) >= CHECK_RL_MAX:
+        _check_rl_hits[ip] = hits
+        return (f"rate limit: max {CHECK_RL_MAX} checks per "
+                f"{CHECK_RL_WINDOW_S}s per IP; try again shortly")
+    hits.append(now)
+    _check_rl_hits[ip] = hits
+    return None
+
+
+def _detect_kind(filename: str, content_type: str) -> Optional[str]:
+    f = (filename or "").lower()
+    c = (content_type or "").lower()
+    if f.endswith(".pdf") or "pdf" in c:
+        return "pdf"
+    if f.endswith(".docx") or "wordprocessingml" in c:
+        return "docx"
+    if f.endswith(".pptx") or "presentationml" in c:
+        return "pptx"
+    if f.endswith(".html") or f.endswith(".htm") or "html" in c:
+        return "html"
+    if f.endswith(".txt") or "plain" in c:
+        return "text"
+    return None
+
+
+async def _filing_text(acc: str, cik_padded: str, primary: str,
+                       client: httpx.AsyncClient) -> str:
+    """Fetch and strip a filing's primary document. Cached per URL."""
+    acc_nodash = acc.replace("-", "")
+    url = (f"https://www.sec.gov/Archives/edgar/data/"
+            f"{int(cik_padded)}/{acc_nodash}/{primary}")
+    cache_key = f"filing-text::{url}"
+    cached = _cache_read(cache_key, TTL_COMPANYFACTS)
+    if cached is not None:
+        log.info("CACHE HIT filing-text %s", url)
+        return cached
+    log.info("CACHE MISS filing-text %s", url)
+    await SEC_LIMITER.acquire()
+    try:
+        r = await client.get(url, headers={"User-Agent": SEC_USER_AGENT},
+                              timeout=30.0)
+        if r.status_code != 200:
+            return ""
+        html_text = r.text
+    except httpx.HTTPError:
+        return ""
+    from bs4 import BeautifulSoup
+    try:
+        s = BeautifulSoup(html_text, "html.parser")
+        for t in s(["script", "style"]):
+            t.decompose()
+        text = s.get_text(separator=" ")
+        text = re.sub(r"[ \t]+", " ", text)
+    except Exception:
+        text = html_text
+    _cache_write(cache_key, text)
+    return text
+
+
+def _xbrl_series_for(companyfacts: Optional[dict]) -> dict:
+    """Build {line_item: {fy:[...], q:[...]}} from companyfacts."""
+    out: dict[str, dict] = {}
+    if not companyfacts:
+        return out
+    gaap = companyfacts.get("facts", {}).get("us-gaap", {})
+    for metric in XBRL_TAGS:
+        fy, q, tag = _resolve_metric(gaap, metric)
+        out[metric] = {"fy": fy or [], "q": q or [], "tag": tag}
+    return out
+
+
+@app.post("/api/check")
+async def check_report(request: Request,
+                        file: Optional[UploadFile] = File(None),
+                        text: Optional[str] = Form(None),
+                        ticker: str = Form(...)) -> JSONResponse:
+    """Report Fact-Checker. Multipart form with either `file` upload or
+    `text` paste, plus `ticker`. Returns four buckets + diff.
+    Uploads are read into memory and NEVER written to disk."""
+    assert HTTP_CLIENT is not None
+    ip = request.client.host if request.client else "unknown"
+    rl_err = _rate_limit_check(ip)
+    if rl_err:
+        return JSONResponse(status_code=429, content={"error": rl_err})
+
+    t = _validate_ticker(ticker)
+    if not t:
+        return JSONResponse(status_code=400,
+                            content={"error": "invalid ticker"})
+
+    # Resolve ticker (BRK.B/BRK-B both OK)
+    tmap = await _ticker_map(HTTP_CLIENT)
+    hit = None
+    for variant in _ticker_variants(t):
+        if variant in tmap:
+            hit = tmap[variant]
+            break
+    if hit is None:
+        return JSONResponse(status_code=404, content={
+            "error": "unknown ticker",
+            "message": "Not in SEC US issuer map."})
+    cik_padded = f"{int(hit['cik_str']):010d}"
+
+    # Read bytes (file or pasted text). In-memory only, no persistence.
+    kind: Optional[str] = None
+    data: bytes = b""
+    source_label = ""
+    if file is not None:
+        contents = await file.read()
+        if len(contents) > CHECK_MAX_BYTES:
+            return JSONResponse(status_code=413, content={
+                "error": f"file too large: {len(contents)} bytes "
+                         f"(cap {CHECK_MAX_BYTES})"})
+        kind = _detect_kind(file.filename or "", file.content_type or "")
+        if kind is None:
+            return JSONResponse(status_code=400, content={
+                "error": "unsupported file type; use PDF, DOCX, PPTX, HTML "
+                         "or paste text"})
+        data = contents
+        source_label = file.filename or "upload"
+    elif text:
+        text_bytes = text.encode("utf-8", errors="replace")
+        if len(text_bytes) > CHECK_MAX_BYTES:
+            return JSONResponse(status_code=413, content={
+                "error": f"pasted text too large: {len(text_bytes)} bytes"})
+        kind = "text"
+        data = text_bytes
+        source_label = "pasted text"
+    else:
+        return JSONResponse(status_code=400, content={
+            "error": "provide either a file upload or text form field"})
+
+    # Extract (in-memory). The bytes are discarded as `data` goes out of scope.
+    try:
+        pages = fc.extract(data, kind)
+    except Exception as e:
+        return JSONResponse(status_code=400, content={
+            "error": f"could not extract text: {e.__class__.__name__}: {e}"})
+
+    # Filings + XBRL (reuse the snapshot code paths)
+    sub_url = f"https://data.sec.gov/submissions/CIK{cik_padded}.json"
+    cf_url = (f"https://data.sec.gov/api/xbrl/companyfacts/"
+                f"CIK{cik_padded}.json")
+    submissions, companyfacts = await asyncio.gather(
+        _sec_fetch_json(sub_url, TTL_SUBMISSIONS, HTTP_CLIENT),
+        _sec_fetch_json(cf_url, TTL_COMPANYFACTS, HTTP_CLIENT))
+    if submissions is None:
+        return JSONResponse(status_code=502, content={
+            "error": "sec submissions fetch failed"})
+
+    recent = submissions.get("filings", {}).get("recent", {})
+    forms = recent.get("form", [])
+    accs = recent.get("accessionNumber", [])
+    dates_ = recent.get("filingDate", [])
+    primaries = recent.get("primaryDocument", [])
+    items_ = recent.get("items", [])
+    # Build filings list, 12-month 8-K lookback plus last 2 10-Q and last 10-K
+    import datetime as _dt
+    today = _dt.date.today()
+    twelve_mo_ago = today - _dt.timedelta(days=365)
+    recent_filings: list[dict] = []
+    last_10q = []
+    last_10k = None
+    for i in range(len(forms)):
+        form = forms[i]
+        try:
+            fd = _dt.date.fromisoformat(dates_[i])
+        except Exception:
+            continue
+        prim = primaries[i] if i < len(primaries) else ""
+        acc = accs[i]
+        acc_nodash = acc.replace("-", "")
+        url = (f"https://www.sec.gov/Archives/edgar/data/"
+                f"{int(cik_padded)}/{acc_nodash}/{prim}")
+        row = {"form": form, "filed": dates_[i], "accession": acc,
+               "primary": prim, "url": url,
+               "items": items_[i] if i < len(items_) else ""}
+        if form == "8-K" and fd >= twelve_mo_ago:
+            recent_filings.append(row)
+        if form == "10-Q" and len(last_10q) < 2:
+            last_10q.append(row)
+        if form == "10-K" and last_10k is None:
+            last_10k = row
+    if last_10k:
+        recent_filings.append(last_10k)
+    recent_filings.extend(last_10q)
+
+    # Claim extraction
+    claims = fc.extract_claims(pages)
+    # Reported-line-item series
+    xbrl_series = _xbrl_series_for(companyfacts)
+
+    # Match each claim
+    bucket_match: list[dict] = []
+    bucket_mismatch: list[dict] = []
+    bucket_not_in: list[dict] = []
+    for cm in claims:
+        res = fc.match_claim_to_filings(cm, xbrl_series)
+        row = {**cm, **res}
+        # Attach a citation for MATCH/MISMATCH so no row is uncited.
+        if res.get("status") in ("MATCH", "MISMATCH"):
+            line = res.get("line_item")
+            tag = xbrl_series.get(line, {}).get("tag") if line else None
+            row["filing_citation"] = {
+                "basis": "SEC XBRL companyfacts (us-gaap)",
+                "xbrl_tag": tag,
+                "period": res.get("filing_period"),
+                "end": res.get("filing_end"),
+                "filing_value_scaled": res.get("filing_value"),
+            }
+        if res["status"] == "MATCH":
+            bucket_match.append(row)
+        elif res["status"] == "MISMATCH":
+            bucket_mismatch.append(row)
+        else:
+            bucket_not_in.append(row)
+
+    # Staleness: compare doc periods to filings
+    all_doc_periods: list[str] = []
+    for cm in claims:
+        all_doc_periods.extend(cm.get("periods", []))
+    stale_filings = fc.staleness(all_doc_periods, recent_filings)
+
+    # Section diff: last 2 10-Qs (if we have both)
+    diff_blob: dict = {}
+    latest_10q_text = ""
+    if last_10q:
+        latest_10q_text = await _filing_text(
+            last_10q[0]["accession"], cik_padded,
+            last_10q[0]["primary"], HTTP_CLIENT)
+    if len(last_10q) == 2:
+        old_text = await _filing_text(last_10q[1]["accession"], cik_padded,
+                                       last_10q[1]["primary"], HTTP_CLIENT)
+        if latest_10q_text and old_text:
+            diff_blob = fc.section_diff(latest_10q_text, old_text)
+
+    # Attach up to 2 10-Q snippets to NOT_IN_FILINGS debt-mapped rows so
+    # the user sees what the latest filing actually says about debt. This
+    # is the "NOT IN FILINGS with the 10-Q snippet beside it" the WO
+    # calls out for the GABX "$3B term loan" case.
+    if latest_10q_text and last_10q:
+        import re as _re
+        def _snips(keyword: str) -> list[str]:
+            sents = _re.split(r"(?<=[\.!?])\s+(?=[A-Z\$\(])",
+                              latest_10q_text)
+            out_s = []
+            for s in sents:
+                if keyword.lower() in s.lower():
+                    s_norm = _re.sub(r"\s+", " ", s).strip()
+                    if 40 < len(s_norm) < 400:
+                        out_s.append(s_norm)
+                        if len(out_s) >= 2:
+                            break
+            return out_s
+        for r in bucket_not_in:
+            if r.get("line_item") == "debt":
+                raw_lower = (r.get("raw") or "").lower()
+                snips: list[str] = []
+                if "gabx" in (r.get("context") or "").lower() \
+                   or "term loan" in (r.get("context") or "").lower():
+                    snips = _snips("term loan")
+                if not snips:
+                    snips = _snips("long-term debt")
+                if snips:
+                    r["filing_snippet"] = {
+                        "source": f"{last_10q[0]['form']} filed "
+                                   f"{last_10q[0]['filed']}",
+                        "url": last_10q[0]["url"],
+                        "sentences": snips,
+                    }
+
+    out = {
+        "ticker": t,
+        "source": source_label,
+        "pages": len(pages),
+        "claims_extracted": len(claims),
+        "buckets": {
+            "MATCH": bucket_match,
+            "MISMATCH": bucket_mismatch,
+            "NOT_IN_FILINGS": bucket_not_in,
+            "STALE": stale_filings,
+        },
+        "counts": {
+            "MATCH": len(bucket_match),
+            "MISMATCH": len(bucket_mismatch),
+            "NOT_IN_FILINGS": len(bucket_not_in),
+            "STALE": len(stale_filings),
+        },
+        "diff": diff_blob,
+        "notes": {
+            "storage": "Uploaded bytes are processed in memory and not "
+                        "stored on disk.",
+            "size_cap_bytes": CHECK_MAX_BYTES,
+            "rate_limit": f"{CHECK_RL_MAX} checks per {CHECK_RL_WINDOW_S}s "
+                           "per IP.",
+            "what_this_cannot_check": [
+                "ratings and rating agency opinions",
+                "FactSet consensus or any sell-side estimate",
+                "stock prices and quote-derived ratios",
+                "your own model outputs (BMG v32, v37, v38, etc)",
+            ],
+        },
+    }
+    return JSONResponse(content=out)
 
 
 # ----------------------------------------------------------------------
