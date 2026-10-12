@@ -533,7 +533,7 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
   const _docId = _params.get("doc");
   if (_docId){
     (async () => {
-      const d = await fetchJSON("/desk/doc/" + encodeURIComponent(_docId));
+      const d = await fetchJSON("/desk/doc/" + encodeURIComponent(_docId) + "/text");
       if (!d || d.error){ setStatus("doc load failed"); return; }
       const docEv = {type:"document", doc_id:_docId, host:(d.source_url||"").split("/")[2]||"", url:d.source_url, title:d.title,
         doc_type:d.type, ticker:(d.ticker||"GATX"), fetched_at:d.fetched_at, published_at:d.published_at,
@@ -543,7 +543,7 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
       state.totalDocs++;
       setTimeout(() => {
         (d.facts||[]).forEach(f => processEvent({type:"fact", doc_id:_docId, label:f.label, value:f.value, unit:f.unit, char_offset:f.char_offset}));
-      }, 500);
+      }, 800);
     })();
     return;
   }
