@@ -87,13 +87,16 @@ async def poll_edgar(ticker: str, cik: str, *, since: Optional[str] = None, max_
                         df.to_csv(csv_path, index=False)
                     except Exception as e:
                         log.warning(f"Form4 to_dataframe failed {accession}: {e}")
-                # Index each downloaded file
+                # Index each downloaded file. Form 4 CSVs are BMG-generated
+                # derived artifacts; their source_url points to the SEC
+                # accession folder (always 200) rather than a synthetic .csv
+                # URL that would 403 (the CSV does not exist at sec.gov).
+                accession_folder = f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{accession.replace('-','')}/"
                 for p in raw.rglob("*"):
-                    if not p.is_file() or p.suffix.lower() not in (".htm", ".html", ".pdf", ".xml", ".csv"):
+                    if not p.is_file() or p.suffix.lower() not in (".htm", ".html", ".pdf", ".xml"):
                         continue
                     data = p.read_bytes()
                     sha = store.sha256_bytes(data)
-                    # Determine type
                     doc_type = form
                     name = p.name.lower()
                     if "ex-99" in name or "ex99" in name:
@@ -101,7 +104,7 @@ async def poll_edgar(ticker: str, cik: str, *, since: Optional[str] = None, max_
                     did = store.insert_document(
                         ticker=ticker, doc_type=doc_type, title=p.name,
                         source="edgar",
-                        source_url=f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{accession.replace('-','')}/" + p.name,
+                        source_url=accession_folder + p.name,
                         published_at=filing_date,
                         sha256=sha,
                         raw_path=str(p.relative_to(store.DATA_DIR)),
@@ -112,6 +115,27 @@ async def poll_edgar(ticker: str, cik: str, *, since: Optional[str] = None, max_
                     if did:
                         counts["new"] += 1
                         counts["by_form"][form] = counts["by_form"].get(form, 0) + 1
+                # Form 4: index the CSV we generated separately, with its
+                # source_url set to the accession folder index (not the CSV)
+                if form == "4":
+                    csv_path = raw / f"form4_{accession}.csv"
+                    if csv_path.is_file():
+                        data = csv_path.read_bytes()
+                        sha = store.sha256_bytes(data)
+                        did = store.insert_document(
+                            ticker=ticker, doc_type="4", title=f"Form 4 {accession} (CSV)",
+                            source="edgar",
+                            source_url=accession_folder,  # folder index page (200)
+                            published_at=filing_date,
+                            sha256=sha,
+                            raw_path=str(csv_path.relative_to(store.DATA_DIR)),
+                            text_path=None,
+                            bytes_=len(data),
+                            meta={"accession": accession, "form": "4", "cik": cik, "derived": "csv_from_edgartools"},
+                        )
+                        if did:
+                            counts["new"] += 1
+                            counts["by_form"]["4"] = counts["by_form"].get("4", 0) + 1
             except Exception as e:
                 counts["errors"].append(f"{accession}: {e}")
                 log.warning(f"filing {accession} failed: {e}")
