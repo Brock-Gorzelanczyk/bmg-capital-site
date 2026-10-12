@@ -55,18 +55,16 @@ svg.spider .knee{fill:#ff3d9a}
 .w.hl-ping{background:rgba(255,45,143,.32);box-shadow:0 0 0 1px #ff2d8f;border-radius:2px}
 .w.hl-bping{background:rgba(39,200,255,.32);box-shadow:0 0 0 1px #27c8ff;border-radius:2px}
 .fxlayer{position:absolute;inset:0;pointer-events:none;z-index:2}
-.fx{position:absolute;border-radius:2px;white-space:nowrap;box-sizing:border-box;animation:fxin .22s ease-out;transition:opacity .7s ease}
-.fx.out{opacity:0}
+.fx{position:absolute;white-space:nowrap;box-sizing:border-box;transform-origin:0 50%;will-change:transform,opacity;border-radius:0}
+.fx-outline{border:1.5px solid}
+.fx-ink{background:var(--page,#fff);padding:0 2px;font-weight:600}
+.fx-fill,.fx-strip{padding:0 3px;font-weight:600}
+.fx-accent{background:var(--page,#fff);padding:0 4px;font-weight:700;letter-spacing:.2px;box-shadow:0 0 0 1px rgba(0,0,0,.04)}
+.fx-accent.settled{padding:0 2px}
+.fx-strip{box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.fx-veil{background:var(--page,#fff)}
 :root{--page:#000}
 .stage{--page:#fff}
-.fx-fill{mix-blend-mode:screen;opacity:.85}
-.stage .fx-fill{mix-blend-mode:multiply;opacity:.92}
-.fx-box{border:1.5px solid;background:transparent}
-.fx-ink,.fx-big,.fx-bigbox{background:var(--page,#fff);padding:0 3px;font-weight:600}
-.fx-big{z-index:1;text-shadow:0 0 1px rgba(0,0,0,.08)}
-.fx-bigbox{z-index:1;font-weight:700}
-.fx-erase{background:var(--page,#fff);opacity:.9}
-@keyframes fxin{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:none}}
 .w.hl-blue{background:rgba(79,123,255,.18);box-shadow:0 0 0 1px rgba(79,123,255,.75);border-radius:2px}
 .beam.cyan{background:rgba(39,200,255,.85);color:#00384a;box-shadow:0 0 12px rgba(39,200,255,.5)}
 .w.cyanfill{background:#27e3ff;color:#001a22;border-radius:2px}
@@ -140,7 +138,7 @@ svg.spider .knee{fill:#ff3d9a}
     state.crawlTarget = null; state.crawlX = null; state.legAnim = {}; state.eyeFocus = null; state.nextFocus = null; state.heading = null; state.faceHeading = null; state.vel = null; state.lastBodyP = null; state.lastSet = null;
     state.feet = []; state.feetEls = []; state.legEls = []; state.legJ = []; state.legLast = []; state.bodyVel = null; state.threads = []; state.rows = null; state.meshPool = []; state.trail = []; state.links = []; state.linkPool = []; state.ping = null; state.pingLine = null; state.lastPingEl = null; state.silkEl = null; state.silkAnchor = null; state.rideSince = 0; state.eyeEl = null; state.eyeAt = null; state.bping = null;
     document.querySelectorAll(".liftlbl,.beam,.fxlayer").forEach(e => e.remove()); state.beams = [];
-    (state.fx || []).forEach(o => { o.seed._fx = null; }); state.fx = []; state.fxLayer = null; state.fxAcc = 0;
+    (state.fx || []).forEach(o => o.els.forEach(w => { w._fx = null; })); state.fx = []; state.fxLayer = null; state.fxAcc = null;
     bumpLayout();
     state.touchedEls = new Set(); state.touchOrder = [];
   }
@@ -656,110 +654,202 @@ svg.spider .knee{fill:#ff3d9a}
     cands.sort((a, b) => b[0] - a[0]);
     return cands[Math.floor(Math.random() * Math.min(4, cands.length))][1];
   }
-  // Reading highlights (reference clip): the text the spider reads lights
-  // up where it sits in many colours and styles (solid fills, outline
-  // boxes, recoloured or monospaced text, titles and numbers blown up in
-  // place) and the marks stay on the page for several seconds, so a
-  // colourful trail builds up around and behind the spider. Nothing is
-  // moved off its line; overlays are pinned to the words' page position.
-  const FX_FILL = ["#ff2d8f", "#22d3ee", "#4ade80", "#ff8a3d", "#ffd23f", "#3b82f6", "#c084fc"];
-  const FX_INK = ["#ff2d8f", "#7c3aed", "#2563eb", "#e11d48", "#0891b2", "#16a34a", "#ea580c"];
-  const FX_KINDS = [["fill", 0.27], ["box", 0.25], ["ink", 0.22], ["big", 0.16], ["bigbox", 0.06], ["erase", 0.04]];
-  const FX_MAX = 28;
+  // Reading highlights (reference clip, left side): separate treatments
+  // in a broad neon palette. Small scanning marks (thin outlines,
+  // recoloured letters) touch single words around the spider; solid fills,
+  // enlarged accents (1.8-3x, overshoot, 2-3 s hold, then they settle into
+  // a small mark of the same colour that stays on the trail) and slowly
+  // rotating text strips go to meaningful text: amounts, dates, Form 10-Q,
+  // headings and complete row labels. Every mark is an overlay pinned to
+  // its words' page position; the document's layout never changes. Time
+  // only advances while the spider walks, so Pause freezes the marks too.
+  const FX_PAL = [
+    {bg: "#FF00D4", fg: "#1b0024"}, {bg: "#39DFFF", fg: "#06222b"}, {bg: "#43FFA0", fg: "#062b17"},
+    {bg: "#FF8650", fg: "#2b0e00"}, {bg: "#FFD34D", fg: "#2b2100"}, {bg: "#783BFF", fg: "#ffffff"}];
+  const FX_INKC = ["#FF00D4", "#00B3E0", "#00C46A", "#FF6A2B", "#E0A800", "#783BFF"];
+  const FX_FONTS = ["'IBM Plex Mono',ui-monospace,monospace", "Georgia,'Times New Roman',serif", "'IBM Plex Sans',Helvetica,Arial,sans-serif"];
+  const FX_MAX = 34, FX_CAP = {accent: 3, strip: 1, fill: 9};
+  const MONTHS = /^(January|February|March|April|May|June|July|August|September|October|November|December|Jan\.?|Feb\.?|Mar\.?|Apr\.?|Jun\.?|Jul\.?|Aug\.?|Sep\.?|Sept\.?|Oct\.?|Nov\.?|Dec\.?)$/;
+  const FILLER = /^(the|a|an|and|or|of|to|in|on|for|by|as|at|is|was|were|be|that|this|with|from|which|its|their|our|we|it|are|has|have|had|not|no|any|all|such|other|per)$/i;
   state.fx = [];
+  function fxHash(str){ let h = 7; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0; return h; }
   function fxLayer(){
     let L = state.fxLayer;
     if (!L || !L.isConnected){ L = state.fxLayer = document.createElement("div"); L.className = "fxlayer"; doc.appendChild(L); }
     return L;
   }
-  function fxPhrase(seed){
-    // 1 word for numbers, the whole quoted title when inside quotes,
-    // else 1 to 4 words; always on the seed's own line.
-    const t0 = seed.getBoundingClientRect().top;
-    const sameLine = x => x && x.classList && x.classList.contains("w") && !x.classList.contains("found") && Math.abs(x.getBoundingClientRect().top - t0) < 3;
-    const out = [seed];
-    if (/^[\d$(][\d,.$%()-]*$/.test(seed.textContent.trim())) return out;
-    const quoted = /[\u201c"]/.test(seed.textContent);
-    const n = quoted ? 9 : 1 + Math.floor(Math.random() * 4);
-    let x = seed.nextElementSibling;
-    while (out.length < n && sameLine(x)){
-      out.push(x);
-      if (quoted && /[\u201d"]/.test(x.textContent)) break;
-      x = x.nextElementSibling;
+  function rowCands(row){
+    // Phrases worth marking on one rendered line, scored by meaning.
+    if (row._cands) return row._cands;
+    const els = row.els.slice().sort((p, q) => p.getBoundingClientRect().left - q.getBoundingClientRect().left);
+    const tx = els.map(w => w.textContent.trim());
+    const isNum = t => /^[($-]*\$?[\d][\d,]*(\.\d+)?\)?%?$/.test(t) && t.replace(/\D/g, "").length >= 2;
+    const isCap = t => /^[A-Z“"(]/.test(t);
+    const out = [];
+    const add = (i, j, score, kind) => { if (j > i) out.push({els: els.slice(i, j), text: tx.slice(i, j).join(" "), score, kind}); };
+    // complete row label: the leading words before the first number
+    // (a lone page number like "3" also ends a label)
+    let k = 0; while (k < els.length && !isNum(tx[k]) && !/^\d+$/.test(tx[k]) && tx[k] !== "$") k++;
+    const label = tx.slice(0, k).join(" ");
+    if (k >= 1 && label.replace(/[^A-Za-z]/g, "").length >= 6 && isCap(tx[0])){
+      const heading = k === els.length && k <= 9 && tx.slice(0, k).filter(t => !FILLER.test(t)).every(isCap);
+      add(0, Math.min(k, 9), heading ? 4 : k >= 2 ? 3 : 2, heading ? "heading" : "label");
     }
+    for (let i = 0; i < els.length; i++){
+      const t = tx[i];
+      if (/^10-[QK]$/i.test(t) || (/^form$/i.test(t) && /^10-[QK]$/i.test(tx[i + 1] || ""))){ add(/^form$/i.test(t) ? i : Math.max(0, i - (/^form$/i.test(tx[i - 1] || "") ? 1 : 0)), i + (/^form$/i.test(t) ? 2 : 1), 4, "form"); continue; }
+      if (t === "$" && isNum(tx[i + 1] || "")){ add(i, i + 2, 3, "amount"); i++; continue; }
+      if (isNum(t)){ add(i, i + 1, t.replace(/\D/g, "").length >= 3 || /[$%]/.test(t) ? 3 : 1, "amount"); continue; }
+      if (MONTHS.test(t)){
+        let j = i + 1; while (j < els.length && j < i + 3 && /^\d{1,4},?$/.test(tx[j])) j++;
+        if (j > i + 1){ add(i, j, 3, "date"); i = j - 1; continue; }
+      }
+      if (/^(19|20)\d\d$/.test(t)){ add(i, i + 1, 2, "date"); continue; }
+      if (i >= k && isCap(t) && !FILLER.test(t) && t.length > 2){
+        let j = i + 1;
+        while (j < els.length && j < i + 6 && (isCap(tx[j]) || (FILLER.test(tx[j]) && isCap(tx[j + 1] || ""))) && !isNum(tx[j])) j++;
+        if (j - i >= 2){ add(i, j, 2, "name"); i = j - 1; continue; }
+      }
+      if (t.replace(/[^A-Za-z]/g, "").length >= 4 && !FILLER.test(t)) add(i, i + 1, 1, "word");
+    }
+    row._cands = out;
     return out;
   }
-  function fxPick(){
-    let r = Math.random(), k = FX_KINDS[0][0];
-    for (const [kind, w] of FX_KINDS){ if ((r -= w) <= 0){ k = kind; break; } }
-    return k;
-  }
-  function fxOn(seed, kind){
-    if (!seed || !seed.isConnected || seed.classList.contains("found") || seed._fx) return;
-    if (seed.textContent.replace(/[^A-Za-z0-9]/g, "").length < 2) return;
-    const words = fxPhrase(seed);
+  function fxRect(els){
     const dr = doc.getBoundingClientRect();
     let x1 = 1e9, y1 = 1e9, x2 = -1e9, y2 = -1e9;
-    for (const w of words){ const r = w.getBoundingClientRect(); x1 = Math.min(x1, r.left); y1 = Math.min(y1, r.top); x2 = Math.max(x2, r.right); y2 = Math.max(y2, r.bottom); }
-    if (!(x2 > x1) || !(y2 > y1)) return;
-    x1 -= dr.left; x2 -= dr.left; y1 -= dr.top; y2 -= dr.top;
-    kind = kind || fxPick();
-    const isNum = /\d/.test(words.map(w => w.textContent).join(""));
-    if (kind === "bigbox" && !isNum) kind = "big";
+    for (const w of els){ const r = w.getBoundingClientRect(); if (!r.width) continue; x1 = Math.min(x1, r.left); y1 = Math.min(y1, r.top); x2 = Math.max(x2, r.right); y2 = Math.max(y2, r.bottom); }
+    if (!(x2 > x1)) return null;
+    return {x: x1 - dr.left, y: y1 - dr.top, w: x2 - x1, h: y2 - y1};
+  }
+  function fxPlace(o){
+    const r = fxRect(o.els); if (!r) return;
+    o.r = r;
+    const d = o.d;
+    d.style.left = (r.x - 2) + "px"; d.style.top = (r.y - 1) + "px";
+    d.style.minWidth = (r.w + 4) + "px"; d.style.height = (r.h + 2) + "px";
+    d.style.lineHeight = (r.h + 2) + "px"; d.style.fontSize = (r.h * 0.82) + "px";
+    if (o.veil){ Object.assign(o.veil.style, {left: (r.x - 1) + "px", top: (r.y - 1) + "px", width: (r.w + 2) + "px", height: (r.h + 2) + "px"}); }
+  }
+  addEventListener("resize", () => { requestAnimationFrame(() => (state.fx || []).forEach(fxPlace)); });
+  function fxCount(kind){ return state.fx.filter(o => o.kind === kind).length; }
+  function fxOn(cand, kind){
+    // cand: {els, text, score} or a single word element
+    if (cand && cand.nodeType === 1) cand = {els: [cand], text: cand.textContent.trim(), score: 1};
+    if (!cand || !cand.els.length || !cand.els[0].isConnected) return;
+    if (cand.els.some(w => w._fx || w.classList.contains("found"))) return;
+    if (FX_CAP[kind] && fxCount(kind) >= FX_CAP[kind]) kind = kind === "strip" ? "accent" : "fill";
+    if (kind === "accent" && fxCount("accent") >= FX_CAP.accent) kind = "fill";
+    if (kind === "fill" && fxCount("fill") >= FX_CAP.fill) kind = "outline";
+    const key = cand.text + "|" + Math.round(cand.els[0].getBoundingClientRect().top + scrollY);
+    const ci = fxHash(key) % FX_PAL.length;            // stable colour for this span
+    const pal = FX_PAL[ci], ink = FX_INKC[ci];
     const d = document.createElement("div");
-    const h = y2 - y1, txt = words.map(w => w.textContent).join(" ");
-    const pal = FX_FILL[Math.floor(Math.random() * FX_FILL.length)];
-    const ink = FX_INK[Math.floor(Math.random() * FX_INK.length)];
+    const o = {d, els: cand.els, kind, pal, ink, age: 0, text: cand.text};
     d.className = "fx fx-" + kind;
-    d.style.left = (x1 - 2) + "px"; d.style.top = (y1 - 1) + "px";
-    d.style.width = (x2 - x1 + 4) + "px"; d.style.height = (h + 2) + "px";
-    if (kind === "fill"){ d.style.background = pal; }
-    else if (kind === "box"){ d.style.borderColor = Math.random() < 0.5 ? ink : pal; }
-    else if (kind === "erase"){ /* page-coloured veil: the word is "taken" */ }
+    if (kind === "outline"){ d.style.borderColor = ink; o.ttl = 2600 + Math.random() * 1800; }
     else {
-      // text drawn again in place over a page-coloured backing
-      const big = kind === "big" || kind === "bigbox";
-      const sc = big ? 1.45 + Math.random() * 0.6 : 1;
-      const fs = h * 0.8 * sc;
-      d.textContent = txt;
-      d.style.fontSize = fs + "px"; d.style.lineHeight = (h * sc + 2) + "px";
-      d.style.height = "auto"; d.style.width = "auto"; d.style.minWidth = (x2 - x1 + 4) + "px";
-      d.style.top = (y1 - 1 - h * (sc - 1) / 2) + "px";
-      d.style.fontFamily = ["'IBM Plex Mono',ui-monospace,monospace", "Georgia,'Times New Roman',serif", "'IBM Plex Sans',Helvetica,Arial,sans-serif"][Math.floor(Math.random() * 3)];
-      if (kind === "bigbox"){ d.style.background = "#ff2d8f"; d.style.color = "#ffe45c"; d.style.letterSpacing = "1px"; }
-      else d.style.color = ink;
-      if (Math.random() < 0.3) d.style.fontStyle = "italic";
+      d.textContent = cand.text;
+      d.style.fontFamily = FX_FONTS[fxHash(key + "f") % 3];
+      if (kind === "ink"){ d.style.color = ink; o.ttl = 3200 + Math.random() * 1800; }
+      else if (kind === "fill"){ d.style.background = pal.bg; d.style.color = pal.fg; o.ttl = 4200 + Math.random() * 2200; }
+      else if (kind === "accent"){
+        const short = cand.text.length <= 12;
+        o.target = short && Math.random() < 0.35 ? 3 : 1.8 + Math.random() * 0.7;
+        o.solid = Math.random() < 0.6;
+        if (o.solid){ d.style.background = pal.bg; d.style.color = pal.fg; } else d.style.color = ink;
+        o.hold = 2000 + Math.random() * 1000; o.ttl = o.hold + 3500 + Math.random() * 1500;
+      } else if (kind === "strip"){
+        d.style.background = pal.bg; d.style.color = pal.fg;
+        o.angle = (Math.random() < 0.15 ? 90 : 18 + Math.random() * 12) * (Math.random() < 0.5 ? -1 : 1);
+        o.hold = 2600; o.ttl = 5200;
+        o.veil = document.createElement("div"); o.veil.className = "fx fx-veil";   // hides the lifted words underneath
+        fxLayer().appendChild(o.veil);
+      }
     }
     fxLayer().appendChild(d);
-    seed._fx = d;
-    state.fx.push({d, seed, ttl: 4500 + Math.random() * 3500});
+    cand.els.forEach(w => { w._fx = o; });
+    fxPlace(o);
+    if (o.target){
+      // keep the enlarged accent on the page: cap the scale by the room
+      // to the right of the words; too little room means a solid fill
+      const room = (doc.clientWidth - 10 - o.r.x) / Math.max(1, d.offsetWidth);
+      o.target = Math.min(o.target, room);
+      if (o.target < 1.4){ o.kind = "fill"; d.className = "fx fx-fill"; d.style.background = pal.bg; d.style.color = pal.fg; o.ttl = 4200 + Math.random() * 2200; }
+    }
+    fxStyle(o);
+    state.fx.push(o);
     while (state.fx.length > FX_MAX) fxOff(state.fx.shift());
   }
+  function easeOutBack(t){ const c = 1.9; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); }
+  function fxStyle(o){
+    // per-frame transform: 150-250 ms activation with a slight overshoot
+    const act = 200, t = Math.min(1, o.age / act);
+    let sc = 1, rot = 0, op = 1;
+    if (o.kind === "accent"){
+      if (o.age < o.hold) sc = 0.7 + (o.target - 0.7) * easeOutBack(t);
+      else {
+        const u = Math.min(1, (o.age - o.hold) / 350);
+        sc = o.target + (1 - o.target) * (u * u * (3 - 2 * u));
+        if (u >= 1 && !o.settled){
+          // settles into a small mark of the same colour on the trail
+          o.settled = true; o.d.classList.add("settled");
+          if (!o.solid){ o.d.style.background = ""; }
+        }
+      }
+    } else if (o.kind === "strip"){
+      sc = 0.85 + 0.3 * easeOutBack(t);
+      const u = Math.min(1, Math.max(0, (o.age - 120) / 1600));
+      rot = o.angle * (u * u * (3 - 2 * u));
+    } else if (o.kind === "fill"){
+      sc = 0.85 + 0.2 * easeOutBack(t);
+    } else {
+      op = t;
+    }
+    const left = o.ttl - o.age;
+    if (left < 600) op = Math.max(0, left / 600);
+    o.d.style.transform = `rotate(${rot.toFixed(2)}deg) scale(${sc.toFixed(3)})`;
+    o.d.style.opacity = op.toFixed(2);
+    if (o.veil) o.veil.style.opacity = op.toFixed(2);
+    o.d.style.zIndex = o.kind === "accent" && !o.settled ? 5 : o.kind === "strip" ? 4 : o.kind === "fill" ? 2 : 1;
+  }
   function fxOff(o){
-    o.d.classList.add("out");
-    setTimeout(() => { o.d.remove(); if (o.seed._fx === o.d) o.seed._fx = null; }, 700);
+    o.d.remove(); if (o.veil) o.veil.remove();
+    o.els.forEach(w => { if (w._fx === o) w._fx = null; });
   }
   function fxTick(now, dt){
-    // expire (time only runs while the spider walks), then add new marks
-    // around the spider at ~3.5 per second at 1x
     const ms = dt * 1000;
-    state.fx = state.fx.filter(o => { o.ttl -= ms; if (o.ttl <= 0){ fxOff(o); return false; } return true; });
+    state.fx = state.fx.filter(o => { o.age += ms; if (o.age >= o.ttl){ fxOff(o); return false; } fxStyle(o); return true; });
     const rows = state.rows;
     if (!rows || !rows.length) return;
     const mul = (state.speedMul || 1) * Math.sqrt(state.boost || 1);
-    state.fxAcc = (state.fxAcc || 0) + dt * 3.5 * mul;
-    while (state.fxAcc >= 1){
-      state.fxAcc -= 1;
-      const lh = 14 * U, by = state.body.y;
-      const near = rows.filter(rw => rw.y > by - 7 * lh && rw.y < by + 9 * lh && rw.els.length);
-      if (!near.length) return;
-      const rw = near[Math.floor(Math.random() * near.length)];
-      // numbers, capitalised words and quoted titles are picked more often
-      const cand = rw.els.filter(w => !w._fx && !w.classList.contains("found"));
-      if (!cand.length) continue;
-      const pref = cand.filter(w => /\d|^[A-Z\u201c"]/.test(w.textContent));
-      const pool = pref.length && Math.random() < 0.7 ? pref : cand;
-      fxOn(pool[Math.floor(Math.random() * pool.length)]);
+    const lh = 14 * U, by = state.body.y;
+    // rows around and ahead of the spider
+    let lo = 0, hi = rows.length;
+    while (lo < hi){ const m = (lo + hi) >> 1; if (rows[m].y < by - 5 * lh) lo = m + 1; else hi = m; }
+    const near = [];
+    for (let i = lo; i < rows.length && rows[i].y < by + 10 * lh; i++) if (rows[i].els.length) near.push(rows[i]);
+    if (!near.length) return;
+    const pickCand = (minScore) => {
+      const pool = [];
+      for (const rw of near) for (const c of rowCands(rw)) if (c.score >= minScore && !c.els.some(w => w._fx || w.classList.contains("found"))) pool.push(c);
+      if (!pool.length) return null;
+      // weight by score so the strongest phrases win more often
+      let tot = 0; pool.forEach(c => tot += c.score * c.score);
+      let r = Math.random() * tot;
+      for (const c of pool){ r -= c.score * c.score; if (r <= 0) return c; }
+      return pool[pool.length - 1];
+    };
+    const acc = state.fxAcc || (state.fxAcc = {small: 0, fill: 0, accent: 0, strip: 0});
+    acc.small += dt * 4.2 * mul; acc.fill += dt * 1.3 * mul; acc.accent += dt * 0.55 * mul; acc.strip += dt * 0.17 * mul;
+    while (acc.small >= 1){ acc.small -= 1; const c = pickCand(1); if (c) fxOn(c, Math.random() < 0.55 ? "outline" : "ink"); }
+    while (acc.fill >= 1){ acc.fill -= 1; const c = pickCand(2); if (c) fxOn(c, "fill"); }
+    while (acc.accent >= 1){ acc.accent -= 1; const c = pickCand(3); if (c) fxOn(c, "accent"); }
+    while (acc.strip >= 1){
+      acc.strip -= 1;
+      const pool = [];
+      for (const rw of near) for (const c of rowCands(rw)) if (c.score >= 3 && c.els.length >= 3 && c.text.length >= 14 && !c.els.some(w => w._fx)) pool.push(c);
+      if (pool.length) fxOn(pool[Math.floor(Math.random() * pool.length)], "strip");
     }
   }
   function maybePing(now){
@@ -770,7 +860,7 @@ svg.spider .knee{fill:#ff3d9a}
     if (!w) return;
     state.lastPingAt = now; state.lastPingEl = w;
     state.ping = {el: w, start: now};
-    if (Math.random() < 0.4) setTimeout(() => fxOn(w), 220 / mul);
+    if (Math.random() < 0.35) setTimeout(() => fxOn(w, Math.random() < 0.5 ? "ink" : "outline"), 220 / mul);
     w.classList.add("hl-ping");
     setTimeout(() => w.classList.remove("hl-ping"), 450 / mul);
   }
@@ -829,7 +919,7 @@ svg.spider .knee{fill:#ff3d9a}
     // 9th gets a solid pink box (the reference clip's look). .found
     // numbers keep their own fill.
     const k = state.touchCycleIdx;
-    if (k % 5 === 2) fxOn(el);
+    if (k % 3 === 1) fxOn(el, "outline");
     state.touchCycleIdx++;
     state.touchedEls.add(el);
     state.touchOrder.push(el);
