@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desk live, reader | BMG Capital</title>
+<style>
+:root{--bg:#000;--fg:#c9ccd1;--dim:#5b6068;--mag:#ff3df2;--cyan:#27e3ff;--yel:#ffe14d;--org:#ff9f1c;--lime:#b6ff3b;--vio:#9d7bff}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.75 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.strip{position:fixed;top:0;left:0;right:0;height:36px;display:flex;align-items:center;gap:14px;padding:0 16px;background:rgba(0,0,0,.85);border-bottom:1px solid #15181d;font-size:12px;color:#9aa0a8;z-index:5}
+.strip b{color:#fff;font-weight:600}
+.strip .btn{padding:2px 9px;border:1px solid #2a2f37;border-radius:4px;color:#c9ccd1;background:transparent;font:inherit;cursor:pointer}
+.strip .on{background:var(--lime);color:#000;border-color:var(--lime)}
+.strip select{background:transparent;color:#c9ccd1;border:1px solid #2a2f37;border-radius:4px;padding:1px 6px;font:inherit}
+.strip .status{margin-left:auto;color:#c9ccd1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.doc{position:relative;max-width:900px;margin:72px auto 120px;padding:0 16px}
+h1{font:600 22px/1.3 ui-monospace,monospace;color:#fff;margin:0 0 18px}
+p{margin:0 0 14px;position:relative}
+.line{display:block}
+.reading{background:rgba(255,255,255,.06)}
+.link{border-bottom:1px solid var(--cyan);color:#8fd9e6}
+.fact{position:relative;padding:0 3px;border:1px solid;border-radius:2px;color:#fff;white-space:nowrap}
+.fact .tag{position:absolute;left:0;top:-17px;font-size:10px;line-height:14px;padding:0 5px;border-radius:2px;color:#000;font-weight:700;letter-spacing:.2px}
+.mag{border-color:var(--mag);box-shadow:0 0 6px var(--mag)} .mag .tag{background:var(--mag)}
+.cyan{border-color:var(--cyan);box-shadow:0 0 6px var(--cyan)} .cyan .tag{background:var(--cyan)}
+.yel{border-color:var(--yel);box-shadow:0 0 6px var(--yel)} .yel .tag{background:var(--yel)}
+.org{border-color:var(--org);box-shadow:0 0 6px var(--org)} .org .tag{background:var(--org)}
+.lime{border-color:var(--lime);box-shadow:0 0 6px var(--lime)} .lime .tag{background:var(--lime)}
+.vio{border-color:var(--vio);box-shadow:0 0 6px var(--vio)} .vio .tag{background:var(--vio)}
+svg.thread{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+svg.thread line{stroke-width:1.2;opacity:.85;stroke-dasharray:1000;stroke-dashoffset:1000;animation:draw .3s ease-out forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.spider{position:absolute;width:18px;height:18px;transition:transform .4s ease;filter:drop-shadow(0 0 6px var(--mag));z-index:4}
+.note{position:fixed;bottom:0;left:0;right:0;padding:6px 16px;font-size:11px;color:var(--dim);background:rgba(0,0,0,.85);border-top:1px solid #15181d}
+@media (max-width:600px){html,body{font-size:13px}.strip{height:auto;flex-wrap:wrap;padding:6px 12px}.strip .status{margin-left:0;width:100%;max-width:100%}.doc{margin-top:84px}}
+</style>
+</head>
+<body>
+<div class="strip" role="toolbar">
+  <button class="btn on" data-mode="replay">Replay</button>  <button class="btn" data-mode="live">Live</button>  <select id="live-ticker"><option>GATX</option><option>GBX</option><option>TRN</option></select>  <select id="live-mode"><option value="new">New</option><option value="rewalk30" selected>Re-walk 30 days</option></select>  <button class="btn btn-run">Run</button>  <span class="status" id="status">idle</span>
+</div>
+<div class="doc" id="doc">
+  <svg class="thread" id="thread"></svg>
+  <svg class="spider" id="spider" viewBox="0 0 18 18" style="transform:translate(0px,0px)"><g stroke-width="1.3" stroke-linecap="round"><line x1="9" y1="9" x2="1" y2="3" stroke="#ff3df2"/><line x1="9" y1="9" x2="17" y2="3" stroke="#27e3ff"/><line x1="9" y1="9" x2="0" y2="9" stroke="#ffe14d"/><line x1="9" y1="9" x2="18" y2="9" stroke="#ff9f1c"/><line x1="9" y1="9" x2="1" y2="15" stroke="#b6ff3b"/><line x1="9" y1="9" x2="17" y2="15" stroke="#9d7bff"/><line x1="9" y1="9" x2="5" y2="17" stroke="#ff3df2"/><line x1="9" y1="9" x2="13" y2="17" stroke="#27e3ff"/></g><circle cx="9" cy="9" r="3.2" fill="#fff"/></svg>
+  <h1 id="doc-h1"></h1>
+  <div id="docbody"></div>
+</div>
+<div class="note">Live run streams /desk/events; Replay loads /desk/run/latest. Every box is a stored row. No article bodies, no paywalled sources. v1 (two-pane): <a href="/desk/live-v1/" style="color:#5b6068">/desk/live-v1/</a>.</div>
+<script>
+(() => {
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const doc = document.getElementById("doc");
+  const thread = document.getElementById("thread");
+  const spider = document.getElementById("spider");
+  const statusEl = document.getElementById("status");
+  const docBody = document.getElementById("docbody");
+  const h1 = document.getElementById("doc-h1");
+  const CSS_COLOR = {mag:"#ff3df2", cyan:"#27e3ff", yel:"#ffe14d", org:"#ff9f1c", lime:"#b6ff3b", vio:"#9d7bff"};
+  const COLOR_CLASS = {Revenue:"cyan", Sales:"cyan", EPS:"mag", "Net income":"mag",
+    "Backlog units":"yel", "Backlog $B":"yel", Fleet:"yel", Utilization:"yel",
+    LPI:"yel", Dividend:"org", Buyback:"org", "Disposition gains":"org",
+    DGS10:"lime", DGS2:"lime", DGS5:"lime", DGS30:"lime", SOFR:"lime",
+    DFF:"lime", BAMLC0A0CM:"lime", BAMLH0A0HYM2:"lime", T10Y2Y:"lime",
+    INDPRO:"lime", RAILFRTCARLOADSD11:"lime", RAILFRTINTERMODALD11:"lime",
+    Carloads:"lime", Intermodal:"lime"};
+  function colorClass(label){return COLOR_CLASS[label] || "vio";}
+  function colorHex(cls){return CSS_COLOR[cls] || CSS_COLOR.vio;}
+
+  let state = {mode:"replay", events:[], idx:0, speed:60, tickTimer:null,
+    currentDocId:null, docsLoaded:{}, walkRaf:null,
+    walkState:{startTs:0, duration:10000, startY:0, endY:0, done:true, docId:null},
+    lastBox:null, totalDocs:0, totalFacts:0, totalNumbers:0,
+    es:null, running:false, currentText:""};
+
+  function escapeHTML(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function fmtDate(iso){if(!iso) return "";const d=new Date(iso);return isNaN(d)?iso:d.toLocaleString("en-US",{timeZone:"America/Chicago",month:"short",day:"2-digit",hour:"2-digit",minute:"2-digit"});}
+  async function fetchJSON(url){try{const r=await fetch(url,{cache:"no-store"});if(!r.ok) throw new Error(r.status);return await r.json();}catch(e){return {error:String(e)};}}
+
+  function moveSpiderTo(x, y, label){
+    spider.style.transform = `translate(${x}px, ${y}px)`;
+    if (label){const c = colorHex(colorClass(label)); spider.style.filter = `drop-shadow(0 0 6px ${c})`;}
+    const absY = y + doc.getBoundingClientRect().top + window.scrollY;
+    if (absY > window.scrollY + window.innerHeight - 100) window.scrollTo({top: absY - window.innerHeight + 180, behavior:"smooth"});
+    else if (absY < window.scrollY + 100) window.scrollTo({top: Math.max(0, absY - 100), behavior:"smooth"});
+  }
+  function stopWalk(){if (state.walkRaf) cancelAnimationFrame(state.walkRaf); state.walkState.done = true;}
+  function startWalk(doc_id, duration_s){
+    stopWalk();
+    const docRect = doc.getBoundingClientRect();
+    const bodyRect = docBody.getBoundingClientRect();
+    const startY = (h1.getBoundingClientRect().top - docRect.top);
+    const endY = Math.max(startY + 60, bodyRect.bottom - docRect.top - 20);
+    const clamped = Math.min(20, Math.max(3, duration_s)) * 1000;
+    state.walkState = {startTs: performance.now(), duration: clamped, startY, endY, done:false, docId:doc_id};
+    moveSpiderTo(0, startY);
+    // Current line = the <p> intersecting spider y; add .reading class
+    function tick(now){
+      if (state.walkState.docId !== doc_id) return;
+      const prog = Math.min(1, (now - state.walkState.startTs) / state.walkState.duration);
+      const y = state.walkState.startY + (state.walkState.endY - state.walkState.startY) * prog;
+      moveSpiderTo(0, y);
+      // Current line highlight: find <span class="line"> whose top is closest to y
+      try{
+        const lines = docBody.querySelectorAll(".line");
+        const dRect = doc.getBoundingClientRect();
+        let best = null; let bd = Infinity;
+        lines.forEach(l => {
+          const r = l.getBoundingClientRect();
+          const ly = r.top - dRect.top + r.height/2;
+          const d2 = Math.abs(ly - y);
+          if (d2 < bd){bd = d2; best = l;}
+        });
+        docBody.querySelectorAll(".line.reading").forEach(l => {if (l !== best) l.classList.remove("reading");});
+        if (best && !best.classList.contains("reading")) best.classList.add("reading");
+      }catch(e){}
+      // Links the spider passes get the .link class
+      try{
+        const links = docBody.querySelectorAll("a:not(.link)");
+        const dRect = doc.getBoundingClientRect();
+        links.forEach(a => {
+          const r = a.getBoundingClientRect();
+          const ay = r.top - dRect.top + r.height/2;
+          if (Math.abs(ay - y) < 20) a.classList.add("link");
+        });
+      }catch(e){}
+      if (prog < 1) state.walkRaf = requestAnimationFrame(tick);
+      else state.walkState.done = true;
+    }
+    state.walkRaf = requestAnimationFrame(tick);
+  }
+
+  function computeWalkDuration(doc_id, fetched_at){
+    const facts = (state.events || []).filter(e => e.type === "fact" && e.doc_id === doc_id);
+    if (!facts.length || !fetched_at) return 10;
+    const latestAt = facts.map(f => new Date(f.at || f.fetched_at).getTime()).reduce((a,b) => Math.max(a,b), 0);
+    const ft = new Date(fetched_at).getTime();
+    if (!latestAt || !ft) return 10;
+    return Math.max(3, Math.min(20, (latestAt - ft) / 1000));
+  }
+
+  function setStatus(txt){statusEl.innerHTML = txt;}
+
+  function linkify(html){
+    return html.replace(/(https?:\/\/[\w\-._~:\/?#\[\]@!$&'()*+,;=%]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  }
+  function toLines(html){
+    const parts = html.split(/\n\n+/).map(p => p.trim()).filter(Boolean);
+    return parts.map(p => `<p><span class="line">${p.replace(/\n/g, " ")}</span></p>`).join("");
+  }
+
+  function headlineForDoc(ev){
+    const dt = (ev.doc_type || "DOC").replace("PRESS_RELEASE","Release");
+    const dstr = (ev.published_at || ev.fetched_at || "").slice(0, 10);
+    const t = (ev.title || "").trim();
+    return `${ev.ticker || ""} ${dt}${dstr ? " " + dstr : ""}${t ? ": " + t : ""}`;
+  }
+
+  async function loadDocAndWalk(ev){
+    state.currentDocId = ev.doc_id;
+    state.lastBox = null;
+    thread.innerHTML = "";
+    docBody.innerHTML = "";
+    h1.textContent = "";
+    // No-text (banner only, 1.5 s). Only truly text-less types short-circuit.
+    // PRESS_RELEASE and DECK docs do have stored text (fetched via IR source);
+    // facts carry real char_offsets into that text, so route them to the reader.
+    const notext = (!ev.has_text || ["NEWS","4","SERIES"].includes(ev.doc_type));
+    if (notext){
+      let m;
+      if (ev.doc_type === "4") m = `fetched <b>${ev.host||""}</b> Form 4 CSV (derived artifact)`;
+      else if (ev.doc_type === "SERIES"){const mm = ev.meta || {}; m = `fetched <b>${ev.host||""}</b> ${mm.series_id || ev.title} = ${mm.last_value||""} (${mm.last_date||""})`;}
+      else if (ev.doc_type === "NEWS") m = `fetched headline (body never stored): ${(ev.title||"").slice(0,80)}`;
+      else m = `fetched ${ev.doc_type}, no stored text`;
+      setStatus(m);
+      return;
+    }
+    // Text doc: fetch body
+    let d = state.docsLoaded[ev.doc_id];
+    if (!d){d = await fetchJSON("/desk/doc/" + encodeURIComponent(ev.doc_id) + "/text"); state.docsLoaded[ev.doc_id] = d;}
+    if (d.error){setStatus(`doc text error: ${d.error}`); return;}
+    const text = (d.text || "").slice(0, 60000);
+    state.currentText = text;
+    h1.textContent = headlineForDoc(ev);
+    docBody.innerHTML = toLines(escapeHTML(text)).replace(/>/g,">").replace(/<p>/g,"<p>"); // paragraphs with .line spans
+    // Links from URL regex -> wrap with <a>
+    docBody.innerHTML = linkify(docBody.innerHTML);
+    setStatus(`reading <b>${ev.host||""}</b> ${ev.doc_type} ${(ev.published_at||ev.fetched_at||"").slice(0,10)} &nbsp;&middot;&nbsp; 0 of ? numbers found`);
+    const dur = computeWalkDuration(ev.doc_id, ev.fetched_at);
+    setTimeout(() => startWalk(ev.doc_id, dur), 80);
+  }
+
+  function markFactInDoc(ev){
+    if (ev.doc_id !== state.currentDocId) return;
+    const text = state.currentText || (state.docsLoaded[ev.doc_id] && state.docsLoaded[ev.doc_id].text) || "";
+    if (!text) return;
+    let offset = ev.char_offset;
+    if (offset == null || offset < 0) offset = text.indexOf(ev.value);
+    if (offset < 0) return;
+    const facts = (state.events || []).filter(e => e.type === "fact" && e.doc_id === ev.doc_id);
+    const seenFactIdx = state.idx != null ? state.idx : facts.length;
+    const applied = facts.slice(0, seenFactIdx + 1).filter(f => f.value);
+    const ranges = applied.map(f => {
+      let off = f.char_offset;
+      if (off == null || off < 0) off = text.indexOf(f.value);
+      if (off < 0) return null;
+      return {start: off, end: off + f.value.length, label: f.label, value: f.value, unit: f.unit, cls: colorClass(f.label)};
+    }).filter(Boolean).sort((a,b) => a.start - b.start);
+    const merged = [];
+    ranges.forEach(r => {const last = merged[merged.length-1]; if (last && r.start < last.end) return; merged.push(r);});
+    // Rebuild docBody with paragraph structure + highlighted ranges
+    let html = ""; let cursor = 0;
+    merged.forEach(r => {
+      html += escapeHTML(text.slice(cursor, r.start));
+      html += `<span class="fact ${r.cls}"><span class="tag">${r.label.toUpperCase()}</span>${escapeHTML(text.slice(r.start, r.end))}</span>`;
+      cursor = r.end;
+    });
+    html += escapeHTML(text.slice(cursor));
+    docBody.innerHTML = toLines(html);
+    docBody.innerHTML = linkify(docBody.innerHTML);
+    // Draw thread lines between every consecutive box
+    thread.innerHTML = "";
+    sizeThread();
+    const boxes = docBody.querySelectorAll(".fact");
+    let prev = null;
+    boxes.forEach((el, i) => {
+      const r = el.getBoundingClientRect(), dRect = doc.getBoundingClientRect();
+      const p = {x: r.left - dRect.left + r.width/2, y: r.top - dRect.top + r.height/2,
+        c: colorHex([...el.classList].find(k => CSS_COLOR[k]) || "vio")};
+      if (prev){
+        const l = document.createElementNS(SVG_NS, "line");
+        l.setAttribute("x1", prev.x); l.setAttribute("y1", prev.y);
+        l.setAttribute("x2", p.x); l.setAttribute("y2", p.y);
+        l.setAttribute("stroke", p.c);
+        thread.appendChild(l);
+      }
+      prev = p;
+    });
+    state.lastBox = boxes[boxes.length - 1] || null;
+    state.totalFacts++;
+    // Spider glides to newest box
+    if (state.lastBox){
+      const nr = state.lastBox.getBoundingClientRect(), dRect = doc.getBoundingClientRect();
+      moveSpiderTo(nr.left - dRect.left - 9, nr.top - dRect.top - 24, ev.label);
+      if (state.walkState && state.walkState.docId === ev.doc_id && !state.walkState.done){
+        state.walkState.startY = nr.top - dRect.top - 2;
+        state.walkState.startTs = performance.now();
+      }
+    }
+    // Update status
+    const expected = (state.currentText.match(/\$?[\d,]+\.?\d*/g) || []).length;
+    setStatus(`reading <b>${state.currentHost||""}</b> ${state.currentType||""} ${(state.currentPub||"").slice(0,10)} &nbsp;&middot;&nbsp; ${merged.length} of ${expected} numbers found`);
+  }
+
+  function sizeThread(){
+    const docRect = doc.getBoundingClientRect();
+    thread.setAttribute("viewBox", `0 0 ${docRect.width} ${docRect.height}`);
+    thread.setAttribute("width", docRect.width);
+    thread.setAttribute("height", docRect.height);
+  }
+
+  async function processEvent(ev){
+    if (ev.type === "document"){
+      state.currentHost = ev.host; state.currentType = ev.doc_type; state.currentPub = ev.published_at || ev.fetched_at;
+      await loadDocAndWalk(ev);
+      state.totalDocs++;
+    } else if (ev.type === "fact"){
+      markFactInDoc(ev);
+    }
+  }
+
+  async function initReplay(){
+    const data = await fetchJSON("/desk/run/latest?window=14400&limit=200");
+    if (data.error || !data.events || data.events.length === 0){setStatus("no completed run yet"); return;}
+    state.events = data.events;
+    const realSec = Math.max(1, Math.round((new Date(data.ended_at) - new Date(data.started_at))/1000));
+    const choices = [10, 60, 300];
+    let best = choices[0], bd = Infinity;
+    for (const s of choices){const t = Math.max(state.events.length * 0.08, realSec/s); const d = Math.abs(t - 75); if (d < bd){bd = d; best = s;}}
+    state.speed = best;
+    setStatus(`Replay ${fmtDate(data.started_at)} Central &nbsp;&middot;&nbsp; ${state.events.length} events &nbsp;&middot;&nbsp; ${realSec}s real time &nbsp;&middot;&nbsp; ${best}x`);
+    state.idx = 0;
+    replayTick();
+  }
+  function replayTick(){
+    if (state.idx >= state.events.length){setStatus(`done &nbsp;&middot;&nbsp; ${state.totalDocs} documents &nbsp;&middot;&nbsp; ${state.totalFacts} numbers found`); return;}
+    const ev = state.events[state.idx];
+    const nextIdx = state.idx + 1;
+    processEvent(ev);
+    state.idx = nextIdx;
+    let delay = 400;
+    if (nextIdx < state.events.length){
+      const t0 = new Date(ev.fetched_at || ev.at).getTime();
+      const t1 = new Date(state.events[nextIdx].fetched_at || state.events[nextIdx].at).getTime();
+      delay = Math.min(5000, Math.max(80, (t1 - t0) / state.speed));
+    }
+    clearTimeout(state.tickTimer);
+    state.tickTimer = setTimeout(replayTick, delay);
+  }
+
+  function stopLive(){if (state.es){try{state.es.close();}catch(e){} state.es = null;} state.running = false;}
+  function liveHandle(ev){
+    if (ev.type === "heartbeat" || ev.type === "hello") return;
+    if (ev.type === "job_start"){setStatus(`live run started ${fmtDate(ev.at)} Central`); return;}
+    if (ev.type === "fetch_start"){setStatus(`fetching <b>${ev.host}</b> ${(ev.url||"").slice(0,80)}`); return;}
+    if (ev.type === "fetch_done_insert" && ev.doc_id){
+      let host = ""; try{host = new URL(ev.source_url || "").hostname;}catch(e){}
+      const docEv = {type:"document", doc_id:ev.doc_id, host, url:ev.source_url, title:ev.title,
+        doc_type:ev.doc_type, ticker:ev.ticker, fetched_at:ev.at,
+        has_text: !["SERIES","NEWS","4"].includes(ev.doc_type), meta:{}, dim:!!ev.skipped_dup};
+      state.docsSeen = state.docsSeen || {};
+      state.docsSeen[ev.doc_id] = docEv;
+      if (docEv.dim){setStatus(`<b>${host}</b> ${ev.doc_type}: already stored`); return;}
+      processEvent(docEv);
+      return;
+    }
+    if (ev.type === "extract_fact"){
+      state.events = state.events || [];
+      const fact = {type:"fact", doc_id: ev.doc_id, label: ev.label, value: ev.value, unit: ev.unit, char_offset: ev.char_offset, at: ev.at};
+      state.events.push(fact);
+      state.idx = state.events.length;
+      // Extract phase emits facts for several docs in a burst. Accumulate
+      // counts per doc; after the first fact for the doc with the current
+      // winning count arrives, navigate to it and render all its facts.
+      state.factBuffer = state.factBuffer || {};
+      (state.factBuffer[ev.doc_id] = state.factBuffer[ev.doc_id] || []).push(fact);
+      let bestId = null, bestLen = 0;
+      for (const k of Object.keys(state.factBuffer)){ if (state.factBuffer[k].length > bestLen){bestLen = state.factBuffer[k].length; bestId = k;} }
+      if (!bestId) return;
+      const cached = state.docsSeen && state.docsSeen[bestId];
+      if (!cached) return;
+      // If we are already on this doc, just mark the single new fact.
+      if (state.currentDocId === bestId && state.lastRenderedCount === state.factBuffer[bestId].length - 1){
+        processEvent({type:"fact", doc_id: bestId, label: fact.label, value: fact.value, unit: fact.unit, char_offset: fact.char_offset});
+        state.lastRenderedCount = state.factBuffer[bestId].length;
+        return;
+      }
+      // Otherwise navigate + render all facts for best doc.
+      state.pendingRenderDoc = bestId;
+      (async () => {
+        if (state.currentDocId !== bestId){
+          await loadDocAndWalk(cached);
+          if (state.pendingRenderDoc !== bestId) return;
+        }
+        const facts = state.factBuffer[bestId] || [];
+        for (const f of facts){
+          processEvent({type:"fact", doc_id: bestId, label: f.label, value: f.value, unit: f.unit, char_offset: f.char_offset});
+        }
+        state.lastRenderedCount = facts.length;
+      })();
+      return;
+    }
+    if (ev.type === "job_done"){setStatus(`done &nbsp;&middot;&nbsp; ${state.totalDocs} documents &nbsp;&middot;&nbsp; ${state.totalFacts} numbers found`); stopLive(); const btn = document.querySelector("[data-mode='live']"); if (btn) btn.classList.remove("on"); return;}
+    if (ev.type === "job_error"){setStatus(`error ${ev.phase||""}: ${ev.message||""}`); return;}
+  }
+
+  document.querySelectorAll(".btn[data-mode]").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === b.dataset.mode));
+    state.mode = b.dataset.mode;
+    stopWalk(); stopLive(); clearTimeout(state.tickTimer);
+    thread.innerHTML = ""; docBody.innerHTML = ""; h1.textContent = "";
+    state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0;
+    moveSpiderTo(0, 0);
+    if (b.dataset.mode === "replay") initReplay();
+    else setStatus("live mode. click Run.");
+  }));
+  const runBtn = document.querySelector(".btn-run");
+  runBtn.addEventListener("click", async () => {
+    if (state.running) return;
+    document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === "live"));
+    state.mode = "live"; state.running = true;
+    runBtn.classList.add("on"); runBtn.textContent = "Running";
+    thread.innerHTML = ""; docBody.innerHTML = ""; h1.textContent = "";
+    state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0;
+    const ticker = document.getElementById("live-ticker").value;
+    const mode = document.getElementById("live-mode").value;
+    try{
+      state.es = new EventSource("/desk/events");
+      ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done"].forEach(t => {
+        state.es.addEventListener(t, (e) => {try{const d = JSON.parse(e.data); d.type = t; liveHandle(d);}catch(err){}});
+      });
+      state.es.onerror = () => setStatus("SSE connection lost");
+    }catch(e){setStatus("SSE unavailable");}
+    try{
+      const r = await fetch("/desk/_run/live", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ticker, mode})});
+      if (r.status === 409){const j = await r.json(); setStatus(`409: ${j.detail||"another live run active"}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
+      else if (!r.ok){setStatus(`error ${r.status}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
+    }catch(e){setStatus(`POST failed: ${e}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
+  });
+
+  // Autolive URL param (for scripted screenshots)
+  const _params = new URLSearchParams(location.search);
+  const _auto = _params.get("autolive");
+  if (_auto && ["GATX","GBX","TRN"].includes(_auto)){
+    document.getElementById("live-ticker").value = _auto;
+    document.getElementById("live-mode").value = _params.get("automode") || "rewalk30";
+    // If a live run is already in flight, attach to SSE without POSTing (avoids 409).
+    (async () => {
+      try{
+        const sr = await fetch("/desk/_run/live/status");
+        const sj = sr.ok ? await sr.json() : {};
+        if (sj && sj.active){
+          document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === "live"));
+          state.mode = "live"; state.running = true;
+          runBtn.classList.add("on"); runBtn.textContent = "Running";
+          thread.innerHTML = ""; docBody.innerHTML = ""; h1.textContent = "";
+          state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0;
+          state.es = new EventSource("/desk/events");
+          ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done"].forEach(t => {
+            state.es.addEventListener(t, (e) => {try{const d = JSON.parse(e.data); d.type = t; liveHandle(d);}catch(err){}});
+          });
+          setStatus("attached to live run " + (sj.label||""));
+        } else {
+          runBtn.click();
+        }
+      }catch(e){ runBtn.click(); }
+    })();
+  } else {
+    initReplay();
+  }
+})();
+</script>
+</body></html>
