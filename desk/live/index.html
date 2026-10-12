@@ -33,7 +33,17 @@ svg.spider{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;
 svg.spider .body{fill:#ff2bd6;stroke:#fff;stroke-width:1;filter:drop-shadow(0 0 8px #ff2bd6) drop-shadow(0 0 16px rgba(79,123,255,.4))}
 svg.spider .leg{stroke:#fff;stroke-width:2;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 2px rgba(255,255,255,.6))}
 svg.spider .foot{fill:#fff;stroke:#fff}
-svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
+svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.8;filter:drop-shadow(0 0 2px currentColor)}
+svg.spider .thread.t1{stroke:var(--t1)}svg.spider .thread.t2{stroke:var(--t2)}svg.spider .thread.t3{stroke:var(--t3)}svg.spider .thread.t4{stroke:var(--t4)}svg.spider .thread.t5{stroke:var(--t5)}
+svg.spider .tnode{fill:#fff;opacity:.9}
+svg.spider .knee{fill:#fff}
+.w.lift{display:inline-block;position:relative;z-index:2;background:#000;transform:scale(1.7);transition:transform .25s ease}
+.w.lift.f1{font-family:Georgia,'Times New Roman',serif;color:#9fb8ff}
+.w.lift.f2{font-family:ui-monospace,monospace;letter-spacing:2px;color:#ff6ee6}
+.w.lift.f3{font-family:Georgia,serif;font-style:italic;color:#8fd9e6}
+.w.fillbox{background:#ff2bd6;color:#fff;border-radius:2px;box-shadow:0 0 8px rgba(255,43,214,.6)}
+.beam{position:absolute;height:18px;transform-origin:0 50%;background:linear-gradient(90deg,rgba(255,43,214,.95),rgba(255,43,214,.75));color:#4a0036;font:italic 12px/18px Georgia,serif;white-space:nowrap;overflow:hidden;padding-left:8px;z-index:2;pointer-events:none;box-shadow:0 0 14px rgba(255,43,214,.7);animation:beam 2.6s ease-out forwards}
+@keyframes beam{0%{clip-path:inset(0 100% 0 0);opacity:1}15%{clip-path:inset(0 0 0 0);opacity:1}75%{opacity:1}100%{clip-path:inset(0 0 0 0);opacity:0}}
 .note{position:fixed;bottom:0;left:0;right:0;padding:6px 16px;font-size:11px;color:var(--dim);background:rgba(0,0,0,.9);border-top:1px solid #15181d;z-index:20}
 @media (max-width:600px){html,body{font-size:13px}.found{font-size:16px}.strip{height:auto;flex-wrap:wrap;padding:6px 12px}.strip .status{margin-left:0;width:100%;max-width:100%}.doc{margin-top:84px}}
 </style>
@@ -76,7 +86,7 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     touchCycleIdx:0, touchOrder:[], bodyAnim:0, foundCount:0, totalDocs:0, totalFacts:0,
     es:null, running:false, currentText:"", touchedEls:new Set(),
     factBuffer:{}, lastRenderedCount:0, pendingRenderDoc:null,
-    currentHost:"", currentType:"", currentPub:""};
+    currentHost:"", currentType:"", currentPub:"", loadToken:0, docQueue:[]};
 
   function escapeHTML(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
   function fmtDate(iso){if(!iso) return "";const d=new Date(iso);return isNaN(d)?iso:d.toLocaleString("en-US",{timeZone:"America/Chicago",month:"short",day:"2-digit",hour:"2-digit",minute:"2-digit"});}
@@ -167,15 +177,22 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     if (!finite(state.body.x) || !finite(state.body.y)) return;
     const bx = clampN(state.body.x), by = clampN(state.body.y);
     for (let i = 0; i < state.feet.length; i++){
-      const f = state.feet[i];
+      let f = state.feet[i];
       // A sector with no element in reach has no foot; never draw a foot on empty space.
       if (!f || !finite(f.x) || !finite(f.y)) continue;
+      // Planted feet follow their element's live position (a lifted word
+      // or a reflow moves it), so a foot never floats off its word.
+      if (f.el && document.body.contains(f.el)) f = state.feet[i] = Object.assign({el: f.el}, docSpaceCenter(f.el));
       const knee = kneeFor(state.body.x, state.body.y, f.x, f.y);
       const poly = document.createElementNS(SVG_NS, "polyline");
       poly.setAttribute("class", "leg");
       poly.setAttribute("points", `${bx},${by} ${clampN(knee.x)},${clampN(knee.y)} ${clampN(f.x)},${clampN(f.y)}`);
       spiderSvg.appendChild(poly);
       state.legEls.push(poly);
+      const kd = document.createElementNS(SVG_NS, "circle");
+      kd.setAttribute("class", "knee foot"); kd.setAttribute("r", 1.6);
+      kd.setAttribute("cx", clampN(knee.x)); kd.setAttribute("cy", clampN(knee.y));
+      spiderSvg.appendChild(kd);
       const dot = document.createElementNS(SVG_NS, "circle");
       dot.setAttribute("class", "foot");
       dot.setAttribute("cx", clampN(f.x));
@@ -195,38 +212,42 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     return {x: r.left - dr.left + r.width/2, y: r.top - dr.top + r.height/2};
   }
 
-  function addThread(targetEl){
+  function addThread(targetEl, tier){
     // One thread per outlined element. Endpoints are recomputed every
     // frame the body moves (redrawThreads), so a thread always starts at
     // the body's CURRENT position and ends on the element's live center.
     if (!targetEl || state.threads.some(t => t.el === targetEl)) return;
     const t = document.createElementNS(SVG_NS, "line");
-    t.setAttribute("class", "thread");
+    t.setAttribute("class", "thread " + (tier || ""));
+    const n = document.createElementNS(SVG_NS, "circle");
+    n.setAttribute("class", "tnode"); n.setAttribute("r", 2);
+    spiderSvg.insertBefore(n, spiderSvg.firstChild);
     spiderSvg.insertBefore(t, spiderSvg.firstChild);
-    state.threads.push({line: t, el: targetEl});
+    state.threads.push({line: t, node: n, el: targetEl});
   }
 
   function removeThread(el){
     state.threads = state.threads.filter(t => {
       if (t.el !== el) return true;
-      t.line.remove(); return false;
+      t.line.remove(); if (t.node) t.node.remove(); return false;
     });
   }
 
   function redrawThreads(){
     const bx = clampN(state.body.x), by = clampN(state.body.y);
     state.threads = state.threads.filter(t => {
-      if (!document.body.contains(t.el)){ t.line.remove(); return false; }
+      if (!document.body.contains(t.el)){ t.line.remove(); if (t.node) t.node.remove(); return false; }
       const c = docSpaceCenter(t.el);
       t.line.setAttribute("x1", bx); t.line.setAttribute("y1", by);
       t.line.setAttribute("x2", clampN(c.x)); t.line.setAttribute("y2", clampN(c.y));
+      if (t.node){ t.node.setAttribute("cx", clampN(c.x)); t.node.setAttribute("cy", clampN(c.y)); }
       return true;
     });
   }
 
   function clearTouchClasses(el){
     TOUCH_CYCLE.forEach(c => el.classList.remove("touch-" + c));
-    el.classList.remove("touch-fade");
+    el.classList.remove("touch-fade", "lift", "f1", "f2", "f3", "fillbox");
   }
 
   function markTouch(el){
@@ -242,10 +263,18 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     if (el.classList.contains("touch-fade")) clearTouchClasses(el);
     const tier = TOUCH_CYCLE[state.touchCycleIdx % TOUCH_CYCLE.length];
     el.classList.add("touch-" + tier);
+    // Every 5th landed word is lifted off the page in a new face; every
+    // 9th gets a solid pink box (the reference clip's look). .found
+    // numbers keep their own fill.
+    const k = state.touchCycleIdx;
+    if (!el.classList.contains("found") && el !== h1){
+      if (k % 9 === 4) el.classList.add("fillbox");
+      else if (k % 5 === 2) el.classList.add("lift", "f" + (1 + (k % 3)));
+    }
     state.touchCycleIdx++;
     state.touchedEls.add(el);
     state.touchOrder.push(el);
-    addThread(el);
+    addThread(el, tier);
     while (state.touchOrder.length > MAX_OUTLINES){
       const oldest = state.touchOrder.shift();
       if (!oldest) continue;
@@ -369,43 +398,89 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     return `${ev.ticker || ""} ${dt}${dstr ? " " + dstr : ""}${t ? ": " + t : ""}`;
   }
 
+  function noTextStatus(ev){
+    if (ev.doc_type === "4") return `fetched <b>${ev.host||""}</b> Form 4 CSV (derived artifact)`;
+    if (ev.doc_type === "SERIES"){const mm = ev.meta || {}; return `fetched <b>${ev.host||""}</b> ${mm.series_id || ev.title} = ${mm.last_value||""} (${mm.last_date||""})`;}
+    if (ev.doc_type === "NEWS") return `fetched headline (body never stored): ${(ev.title||"").slice(0,80)}`;
+    return `fetched <b>${ev.host||""}</b> ${ev.doc_type}: title only, body not stored - ${(ev.title||"").slice(0,80)}`;
+  }
+
+  async function coldStart(ticker){
+    // Show the most recent stored 10-Q right away so a live run never
+    // opens on a black page; SSE documents queue behind its walk.
+    // If a live document starts loading first, the cold start stands down.
+    const t0 = state.loadToken;
+    try{
+      const lr = await fetch("/desk/latest_doc?ticker=" + encodeURIComponent(ticker) + "&type=10-Q");
+      if (!lr.ok) return;
+      const lj = await lr.json();
+      if (!lj || !lj.doc_id) return;
+      const d = await fetchJSON("/desk/doc/" + encodeURIComponent(lj.doc_id) + "/text");
+      if (!d || d.error) return;
+      state.docsLoaded[lj.doc_id] = d;
+      const docEv = {type:"document", doc_id:lj.doc_id, host:"www.sec.gov", url:d.source_url, title:d.title,
+        doc_type:"10-Q", ticker, fetched_at:d.fetched_at, published_at:d.published_at, has_text:true, meta:d.meta||{}, dim:false};
+      state.docsSeen[lj.doc_id] = docEv;
+      if (state.currentDocId || state.loadToken !== t0) return;  // a live doc got there first
+      if (await loadDocAndWalk(docEv)){
+        state.coldStartDocId = lj.doc_id;
+        setTimeout(() => (d.facts||[]).forEach(f => processEvent({type:"fact", doc_id:lj.doc_id, label:f.label, value:f.value, unit:f.unit, char_offset:f.char_offset})), 1500);
+      }
+    }catch(e){}
+  }
+
+  function walking(){return !!(state.currentDocId && state.walkState && !state.walkState.done);}
+
   async function loadDocAndWalk(ev){
-    state.currentDocId = ev.doc_id;
-    clearSpider();
-    docBody.innerHTML = "";
-    h1.textContent = "";
+    // DESK-5.6: never blank the page for a document with nothing to show.
+    // Fetch and validate first; only then swap the reader to the new doc.
+    // A newer call (token) wins, so overlapping SSE arrivals cannot
+    // interleave half-rendered documents.
+    const token = ++state.loadToken;
     const notext = (!ev.has_text || ["NEWS","4","SERIES"].includes(ev.doc_type));
-    if (notext){
-      let m;
-      if (ev.doc_type === "4") m = `fetched <b>${ev.host||""}</b> Form 4 CSV (derived artifact)`;
-      else if (ev.doc_type === "SERIES"){const mm = ev.meta || {}; m = `fetched <b>${ev.host||""}</b> ${mm.series_id || ev.title} = ${mm.last_value||""} (${mm.last_date||""})`;}
-      else if (ev.doc_type === "NEWS") m = `fetched headline (body never stored): ${(ev.title||"").slice(0,80)}`;
-      else m = `fetched ${ev.doc_type}, no stored text`;
-      setStatus(m);
-      return;
-    }
+    if (notext){ setStatus(noTextStatus(ev)); return false; }
     let d = state.docsLoaded[ev.doc_id];
     if (!d){d = await fetchJSON("/desk/doc/" + encodeURIComponent(ev.doc_id) + "/text"); state.docsLoaded[ev.doc_id] = d;}
-    if (d.error){setStatus(`doc text error: ${d.error}`); return;}
+    if (token !== state.loadToken) return false;
+    if (d.error){setStatus(`doc text error: ${d.error}`); return false;}
     const text = (d.text || "").slice(0, 60000);
-    // DESK-5.3 fix: a press release / deck with no stored body (title only)
-    // used to render as a lone headline over a black page. Skip the viewer
-    // entirely in that case and leave the strip with the banner line.
-    if (text.replace(/\s+/g, "").length < 120 && ["PRESS_RELEASE","DECK"].includes(ev.doc_type)){
-      setStatus(`fetched <b>${ev.host||""}</b> ${ev.doc_type}: title only, body not stored - ${(ev.title||"").slice(0,80)}`);
-      return;
-    }
+    if (text.replace(/\s+/g, "").length < 120){ setStatus(noTextStatus(ev)); return false; }
+    stopWalk();
+    clearSpider();
+    state.currentDocId = ev.doc_id;
+    state.currentHost = ev.host; state.currentType = ev.doc_type; state.currentPub = ev.published_at || ev.fetched_at;
+    state.foundCount = 0;
     state.currentText = text;
     h1.textContent = headlineForDoc(ev);
     docBody.innerHTML = tokenize(text);
     sizeSvg();
     const dRect = doc.getBoundingClientRect();
     const h1Rect = h1.getBoundingClientRect();
-    state.body = {x: dRect.width/2, y: h1Rect.bottom - dRect.top + 20};
+    state.body = {x: Math.max(HI_REACH, dRect.width * 0.42), y: h1Rect.bottom - dRect.top + 60};
     plantInitialFeet();
+    window.scrollTo({top: Math.max(0, dRect.top + window.scrollY - 60)});
     setStatus(`reading <b>${ev.host||""}</b> ${ev.doc_type} ${(ev.published_at||ev.fetched_at||"").slice(0,10)} &nbsp;&middot;&nbsp; 0 numbers found`);
     const dur = computeWalkDuration(ev.doc_id, ev.fetched_at);
-    setTimeout(() => startWalk(ev.doc_id, dur), 80);
+    setTimeout(() => { if (token === state.loadToken) startWalk(ev.doc_id, dur); }, 80);
+    return true;
+  }
+
+  // Live: a text doc that arrives while another is being walked waits its
+  // turn instead of yanking the reader away mid-page.
+  function enqueueDoc(ev){
+    if (!walking()){ loadDocAndWalk(ev); return; }
+    state.docQueue = (state.docQueue || []).filter(q => q.doc_id !== ev.doc_id);
+    state.docQueue.push(ev);
+    if (state.docQueue.length > 6) state.docQueue.shift();
+  }
+  function walkFinished(){
+    const next = (state.docQueue || []).shift();
+    if (next){ setTimeout(() => loadDocAndWalk(next), 600); return; }
+    // Live with nothing queued: keep crawling the current page slowly.
+    const id = state.currentDocId;
+    if (state.mode === "live" && id) setTimeout(() => {
+      if (!walking() && state.currentDocId === id && !(state.docQueue || []).length) startWalk(id, 40);
+    }, 1500);
   }
 
   function computeWalkDuration(doc_id, fetched_at){
@@ -440,7 +515,7 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     let i = 0;
     function stepLine(){
       if (state.walkState.docId !== doc_id || state.walkState.done) return;
-      if (i >= lines.length){state.walkState.done = true; return;}
+      if (i >= lines.length){state.walkState.done = true; walkFinished(); return;}
       const chunk = lines[i];
       // Compute line y as mean of chunk element centers
       const d = doc.getBoundingClientRect();
@@ -459,11 +534,25 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
       moveBody(x, y, null, Math.min(BODY_MS, perLine * 0.8));
       // Scroll
       const absY = y + d.top + window.scrollY;
-      if (absY > window.scrollY + window.innerHeight - 160) window.scrollTo({top: absY - window.innerHeight + 220, behavior:"smooth"});
+      if (absY > window.scrollY + window.innerHeight - 160 || absY < window.scrollY + 80) window.scrollTo({top: Math.max(0, absY - window.innerHeight/2), behavior:"smooth"});
       i++;
       setTimeout(stepLine, perLine);
     }
     stepLine();
+  }
+
+  function fireBeam(x1, y1, x2, y2, text){
+    // Thick pink beam from the body to a found number, carrying its label
+    // and value; it draws in, holds, and fades (one per extract_fact).
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    if (len < 20) return;
+    const b = document.createElement("div");
+    b.className = "beam";
+    b.textContent = text;
+    b.style.left = x1 + "px"; b.style.top = (y1 - 9) + "px"; b.style.width = len + "px";
+    b.style.transform = `rotate(${Math.atan2(y2 - y1, x2 - x1)}rad)`;
+    doc.appendChild(b);
+    setTimeout(() => b.remove(), 2700);
   }
 
   function markFactInDoc(ev){
@@ -490,15 +579,20 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     const c = elCenter(found);
     const dx = state.body.x - c.x, dy = state.body.y - c.y;
     const d = Math.hypot(dx, dy);
+    const beamText = `${ev.label || ""} ${ev.value || ""}`.trim();
     if (d >= LO_REACH && d <= HI_REACH){
       moveBody(state.body.x, state.body.y, found);
+      fireBeam(state.body.x, state.body.y, c.x, c.y, beamText);
     } else {
       const ux = d > 1 ? dx/d : 0, uy = d > 1 ? dy/d : -1;
       const dr = doc.getBoundingClientRect();
       const nx = Math.min(dr.width - 10, Math.max(10, c.x + ux * TARGET_REACH));
       const ny = Math.min(dr.height - 10, Math.max(10, c.y + uy * TARGET_REACH));
       moveBody(nx, ny, found);
+      fireBeam(nx, ny, c.x, c.y, beamText);
     }
+    const absY = c.y + doc.getBoundingClientRect().top + window.scrollY;
+    if (absY < window.scrollY + 80 || absY > window.scrollY + window.innerHeight - 120) window.scrollTo({top: absY - window.innerHeight/2, behavior:"smooth"});
     state.foundCount++;
     setStatus(`reading <b>${state.currentHost||""}</b> ${state.currentType||""} ${(state.currentPub||"").slice(0,10)} &nbsp;&middot;&nbsp; ${state.foundCount} numbers found`);
   }
@@ -561,7 +655,8 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
         setStatus(`fetched <b>${host}</b> ${ev.doc_type}: ${(ev.title||"").slice(0,60)}`);
         return;
       }
-      processEvent(docEv);
+      state.totalDocs++;
+      enqueueDoc(docEv);
       return;
     }
     if (ev.type === "extract_fact"){
@@ -610,6 +705,7 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === b.dataset.mode));
     state.mode = b.dataset.mode;
     stopWalk(); stopLive(); clearTimeout(state.tickTimer);
+    state.loadToken++; state.docQueue = [];
     clearSpider(); docBody.innerHTML = ""; h1.textContent = "";
     state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0; state.foundCount = 0; state.factBuffer = {}; state.lastRenderedCount = 0;
     if (b.dataset.mode === "replay") initReplay();
@@ -621,10 +717,13 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === "live"));
     state.mode = "live"; state.running = true;
     runBtn.classList.add("on"); runBtn.textContent = "Running";
+    stopWalk(); state.loadToken++; state.docQueue = [];
     clearSpider(); docBody.innerHTML = ""; h1.textContent = "";
     state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0; state.foundCount = 0; state.factBuffer = {}; state.lastRenderedCount = 0;
     const ticker = document.getElementById("live-ticker").value;
     const mode = document.getElementById("live-mode").value;
+    state.currentDocId = null; state.coldStartDocId = null;
+    coldStart(ticker);
     try{
       state.es = new EventSource("/desk/events");
       ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done","edgar_done"].forEach(t => {
