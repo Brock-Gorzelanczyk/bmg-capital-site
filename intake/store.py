@@ -160,6 +160,7 @@ def insert_document(
                 from . import events as _events
                 _events.emit("fetch_done_insert", doc_id=did, ticker=ticker,
                              doc_type=doc_type, title=title, source_url=source_url,
+                             published_at=published_at,
                              skipped_dup=False, bytes=bytes_)
             except Exception:
                 pass
@@ -170,6 +171,7 @@ def insert_document(
                 from . import events as _events
                 _events.emit("fetch_done_insert", doc_id=did, ticker=ticker,
                              doc_type=doc_type, title=title, source_url=source_url,
+                             published_at=published_at,
                              skipped_dup=True, bytes=bytes_)
             except Exception:
                 pass
@@ -178,13 +180,17 @@ def insert_document(
 
 def delete_bot_docs_since(ticker: str, sources: list[str], cutoff_iso: str) -> int:
     """Delete documents (and their facts) this bot wrote for `ticker` from
-    `sources` with fetched_at >= cutoff_iso. Returns rows deleted. Used by
-    the rewalk30 live mode to overwrite only rows this bot inserted."""
+    `sources` with fetched_at >= cutoff_iso OR published_at >= cutoff_iso[:10].
+    Returns rows deleted. Used by the rewalk live mode to overwrite only rows
+    this bot inserted. Including published_at ensures a 10-Q published inside
+    the window but fetched long ago still gets re-walked (DESK-5.1 2026-10-12)."""
+    cutoff_date = cutoff_iso[:10]
     with connect() as conn:
         placeholders = ",".join(["?"] * len(sources))
         ids = conn.execute(
-            f"SELECT id FROM documents WHERE ticker = ? AND source IN ({placeholders}) AND fetched_at >= ?",
-            (ticker, *sources, cutoff_iso),
+            f"SELECT id FROM documents WHERE ticker = ? AND source IN ({placeholders}) "
+            f"AND (fetched_at >= ? OR published_at >= ?)",
+            (ticker, *sources, cutoff_iso, cutoff_date),
         ).fetchall()
         id_list = [r["id"] for r in ids]
         if not id_list:

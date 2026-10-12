@@ -305,7 +305,7 @@ svg.thread line{stroke-width:1.2;opacity:.85;stroke-dasharray:1000;stroke-dashof
     if (ev.type === "fetch_done_insert" && ev.doc_id){
       let host = ""; try{host = new URL(ev.source_url || "").hostname;}catch(e){}
       const docEv = {type:"document", doc_id:ev.doc_id, host, url:ev.source_url, title:ev.title,
-        doc_type:ev.doc_type, ticker:ev.ticker, fetched_at:ev.at,
+        doc_type:ev.doc_type, ticker:ev.ticker, fetched_at:ev.at, published_at: ev.published_at || null,
         has_text: !["SERIES","NEWS","4"].includes(ev.doc_type), meta:{}, dim:!!ev.skipped_dup};
       state.docsSeen = state.docsSeen || {};
       state.docsSeen[ev.doc_id] = docEv;
