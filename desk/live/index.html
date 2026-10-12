@@ -1,175 +1,135 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Desk live, reader | BMG Capital</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
 <style>
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; height: 100%; background: #000; color: #c6c9d1; font-family: "IBM Plex Mono", ui-monospace, monospace; }
-.strip { position: fixed; top: 0; left: 0; right: 0; height: 36px; background: #0b0b0f; border-bottom: 1px solid #1a1b22; z-index: 100; display: flex; align-items: center; padding: 0 14px; gap: 10px; font-size: 12px; }
-.strip .seg { display: inline-flex; border: 1px solid #22262e; border-radius: 3px; overflow: hidden; }
-.strip .seg button { background: #141822; color: #c6c9d1; border: 0; padding: 4px 9px; font: inherit; cursor: pointer; }
-.strip .seg button.active { background: #3ddc84; color: #000; }
-.strip select, .strip .btn-run { background: #141822; color: #c6c9d1; border: 1px solid #22262e; border-radius: 3px; padding: 3px 8px; font: inherit; }
-.strip .btn-run { background: #3ddc84; color: #000; border: 0; font-weight: 600; cursor: pointer; }
-.strip .status { flex: 1; color: #8089a0; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.reader { position: relative; margin: 36px auto 0; max-width: 900px; padding: 30px 24px 60px; min-height: calc(100vh - 36px); }
-.doc-wrap { position: relative; transition: transform 300ms ease-in, opacity 300ms ease-in; }
-.doc-wrap.sliding-out { transform: translateX(-100%); opacity: 0; }
-.doc-wrap.sliding-in { transform: translateX(0); opacity: 1; }
-.doc-wrap.fading-in { animation: fadein 300ms ease-in both; }
-@keyframes fadein { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-.doc-text { font-size: 15px; line-height: 1.65; color: #c6c9d1; white-space: pre-wrap; position: relative; z-index: 1; }
-.reader-highlight { position: absolute; left: 0; right: 0; height: 22px; background: rgba(255,255,255,0.045); pointer-events: none; z-index: 2; transition: top 400ms cubic-bezier(.4,.2,.2,1); }
-.thread-svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
-.thread-svg line { stroke-width: 1.4; fill: none; }
-.fact-mark { padding: 0 3px; border: 1px solid #9d7bff; border-radius: 2px; box-shadow: 0 0 6px rgba(157,123,255,0.6); color: #fff; }
-.fact-mark.eps, .fact-mark.earn { border-color: #ff3df2; box-shadow: 0 0 6px rgba(255,61,242,0.6); }
-.fact-mark.rev { border-color: #27e3ff; box-shadow: 0 0 6px rgba(39,227,255,0.6); }
-.fact-mark.fl, .fact-mark.ut, .fact-mark.bl { border-color: #ffe14d; box-shadow: 0 0 6px rgba(255,225,77,0.6); }
-.fact-mark.di, .fact-mark.bb { border-color: #ff9f1c; box-shadow: 0 0 6px rgba(255,159,28,0.6); }
-.fact-mark.rate, .fact-mark.macro { border-color: #b6ff3b; box-shadow: 0 0 6px rgba(182,255,59,0.6); }
-.fact-tag { display: inline-block; margin-left: 4px; padding: 1px 5px; font-size: 10px; background: #9d7bff; color: #000; border-radius: 2px; font-weight: 600; }
-.fact-mark.eps .fact-tag, .fact-mark.earn .fact-tag { background: #ff3df2; }
-.fact-mark.rev .fact-tag { background: #27e3ff; }
-.fact-mark.fl .fact-tag, .fact-mark.ut .fact-tag, .fact-mark.bl .fact-tag { background: #ffe14d; }
-.fact-mark.di .fact-tag, .fact-mark.bb .fact-tag { background: #ff9f1c; }
-.fact-mark.rate .fact-tag, .fact-mark.macro .fact-tag { background: #b6ff3b; }
-.link-pass { border-bottom: 1px solid #27e3ff; padding-bottom: 1px; }
-.spider { position: absolute; width: 18px; height: 18px; z-index: 10; pointer-events: none; transform: translate(0px, 0px); transition: transform 400ms cubic-bezier(.4,.2,.2,1), filter 300ms linear; filter: drop-shadow(0 0 4px #9d7bff); }
-.spider.c-eps { filter: drop-shadow(0 0 6px #ff3df2); }
-.spider.c-rev { filter: drop-shadow(0 0 6px #27e3ff); }
-.spider.c-yel { filter: drop-shadow(0 0 6px #ffe14d); }
-.spider.c-ora { filter: drop-shadow(0 0 6px #ff9f1c); }
-.spider.c-lime { filter: drop-shadow(0 0 6px #b6ff3b); }
-.spider.c-vio { filter: drop-shadow(0 0 6px #9d7bff); }
-.honesty { max-width: 900px; margin: 20px auto 40px; padding: 0 24px; color: #4a5068; font-size: 11px; }
-@media (max-width: 760px) {
-  .strip { flex-wrap: wrap; height: auto; min-height: 36px; padding: 4px 8px; }
-  .strip .status { flex-basis: 100%; order: 10; padding-top: 2px; }
-  .reader { margin-top: 68px; padding: 20px 14px 60px; }
-  .doc-text { font-size: 13px; }
-}
+:root{--bg:#000;--fg:#c9ccd1;--dim:#5b6068;--mag:#ff3df2;--cyan:#27e3ff;--yel:#ffe14d;--org:#ff9f1c;--lime:#b6ff3b;--vio:#9d7bff}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.75 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.strip{position:fixed;top:0;left:0;right:0;height:36px;display:flex;align-items:center;gap:14px;padding:0 16px;background:rgba(0,0,0,.85);border-bottom:1px solid #15181d;font-size:12px;color:#9aa0a8;z-index:5}
+.strip b{color:#fff;font-weight:600}
+.strip .btn{padding:2px 9px;border:1px solid #2a2f37;border-radius:4px;color:#c9ccd1;background:transparent;font:inherit;cursor:pointer}
+.strip .on{background:var(--lime);color:#000;border-color:var(--lime)}
+.strip select{background:transparent;color:#c9ccd1;border:1px solid #2a2f37;border-radius:4px;padding:1px 6px;font:inherit}
+.strip .status{margin-left:auto;color:#c9ccd1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.doc{position:relative;max-width:900px;margin:72px auto 120px;padding:0 16px}
+h1{font:600 22px/1.3 ui-monospace,monospace;color:#fff;margin:0 0 18px}
+p{margin:0 0 14px;position:relative}
+.line{display:block}
+.reading{background:rgba(255,255,255,.06)}
+.link{border-bottom:1px solid var(--cyan);color:#8fd9e6}
+.fact{position:relative;padding:0 3px;border:1px solid;border-radius:2px;color:#fff;white-space:nowrap}
+.fact .tag{position:absolute;left:0;top:-17px;font-size:10px;line-height:14px;padding:0 5px;border-radius:2px;color:#000;font-weight:700;letter-spacing:.2px}
+.mag{border-color:var(--mag);box-shadow:0 0 6px var(--mag)} .mag .tag{background:var(--mag)}
+.cyan{border-color:var(--cyan);box-shadow:0 0 6px var(--cyan)} .cyan .tag{background:var(--cyan)}
+.yel{border-color:var(--yel);box-shadow:0 0 6px var(--yel)} .yel .tag{background:var(--yel)}
+.org{border-color:var(--org);box-shadow:0 0 6px var(--org)} .org .tag{background:var(--org)}
+.lime{border-color:var(--lime);box-shadow:0 0 6px var(--lime)} .lime .tag{background:var(--lime)}
+.vio{border-color:var(--vio);box-shadow:0 0 6px var(--vio)} .vio .tag{background:var(--vio)}
+svg.thread{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+svg.thread line{stroke-width:1.2;opacity:.85;stroke-dasharray:1000;stroke-dashoffset:1000;animation:draw .3s ease-out forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.spider{position:absolute;width:18px;height:18px;transition:transform .4s ease;filter:drop-shadow(0 0 6px var(--mag));z-index:4}
+.note{position:fixed;bottom:0;left:0;right:0;padding:6px 16px;font-size:11px;color:var(--dim);background:rgba(0,0,0,.85);border-top:1px solid #15181d}
+@media (max-width:600px){html,body{font-size:13px}.strip{height:auto;flex-wrap:wrap;padding:6px 12px}.strip .status{margin-left:0;width:100%;max-width:100%}.doc{margin-top:84px}}
 </style>
 </head>
 <body>
 <div class="strip" role="toolbar">
-  <div class="seg">
-    <button data-mode="replay" class="mode-btn active">Replay</button>
-    <button data-mode="live" class="mode-btn">Live</button>
-  </div>
-  <select id="live-ticker"><option>GATX</option><option>GBX</option><option>TRN</option></select>
-  <select id="live-mode"><option value="new">New</option><option value="rewalk30" selected>Rewalk 30d</option></select>
-  <button class="btn-run" id="btn-run">Run</button>
-  <div class="status" id="status">idle</div>
+  <button class="btn on" data-mode="replay">Replay</button>  <button class="btn" data-mode="live">Live</button>  <select id="live-ticker"><option>GATX</option><option>GBX</option><option>TRN</option></select>  <select id="live-mode"><option value="new">New</option><option value="rewalk30" selected>Re-walk 30 days</option></select>  <button class="btn btn-run">Run</button>  <span class="status" id="status">idle</span>
 </div>
-<div class="reader" id="reader">
-  <div class="doc-wrap" id="doc-wrap">
-    <svg class="thread-svg" id="thread-svg" aria-hidden="true"></svg>
-    <div class="reader-highlight" id="reader-highlight" style="top: -30px"></div>
-    <svg class="spider" id="spider" viewBox="0 0 24 24" aria-hidden="true">
-      <g stroke-width="1.6" stroke-linecap="round" fill="none">
-        <line x1="12" y1="12" x2="2" y2="4" stroke="#ff3df2"/>
-        <line x1="12" y1="12" x2="2" y2="12" stroke="#27e3ff"/>
-        <line x1="12" y1="12" x2="2" y2="20" stroke="#ffe14d"/>
-        <line x1="12" y1="12" x2="7" y2="22" stroke="#ff9f1c"/>
-        <line x1="12" y1="12" x2="17" y2="22" stroke="#b6ff3b"/>
-        <line x1="12" y1="12" x2="22" y2="20" stroke="#9d7bff"/>
-        <line x1="12" y1="12" x2="22" y2="12" stroke="#ff3df2"/>
-        <line x1="12" y1="12" x2="22" y2="4" stroke="#27e3ff"/>
-      </g>
-      <circle cx="12" cy="12" r="4" fill="#ffffff"/>
-    </svg>
-    <div class="doc-text" id="doc-text">waiting...</div>
-  </div>
+<div class="doc" id="doc">
+  <svg class="thread" id="thread"></svg>
+  <svg class="spider" id="spider" viewBox="0 0 18 18" style="transform:translate(0px,0px)"><g stroke-width="1.3" stroke-linecap="round"><line x1="9" y1="9" x2="1" y2="3" stroke="#ff3df2"/><line x1="9" y1="9" x2="17" y2="3" stroke="#27e3ff"/><line x1="9" y1="9" x2="0" y2="9" stroke="#ffe14d"/><line x1="9" y1="9" x2="18" y2="9" stroke="#ff9f1c"/><line x1="9" y1="9" x2="1" y2="15" stroke="#b6ff3b"/><line x1="9" y1="9" x2="17" y2="15" stroke="#9d7bff"/><line x1="9" y1="9" x2="5" y2="17" stroke="#ff3df2"/><line x1="9" y1="9" x2="13" y2="17" stroke="#27e3ff"/></g><circle cx="9" cy="9" r="3.2" fill="#fff"/></svg>
+  <h1 id="doc-h1"></h1>
+  <div id="docbody"></div>
 </div>
-<div class="honesty">Replay from /desk/run/latest. Live run streams /desk/events. Every box is a stored row. No article bodies, no paywalled sources. Pacing is the only synthetic thing. v1 (two-pane): <a href="/desk/live-v1/" style="color:#4a5068">/desk/live-v1/</a>.</div>
-
+<div class="note">Live run streams /desk/events; Replay loads /desk/run/latest. Every box is a stored row. No article bodies, no paywalled sources. v1 (two-pane): <a href="/desk/live-v1/" style="color:#5b6068">/desk/live-v1/</a>.</div>
 <script>
 (() => {
   const SVG_NS = "http://www.w3.org/2000/svg";
-  const docText = document.getElementById("doc-text");
-  const docWrap = document.getElementById("doc-wrap");
+  const doc = document.getElementById("doc");
+  const thread = document.getElementById("thread");
   const spider = document.getElementById("spider");
-  const readerHL = document.getElementById("reader-highlight");
-  const threadSvg = document.getElementById("thread-svg");
   const statusEl = document.getElementById("status");
-  let state = { mode: "replay", events: [], idx: 0, speed: 60, playing: true, tickTimer: null,
-    currentDocId: null, docsLoaded: {}, walkRaf: null, walkState: {startTs:0,duration:10000,startY:0,endY:0,done:true,docId:null},
-    lastBox: null, totalDocs: 0, totalFacts: 0, es: null, running: false, live_counts: {docs:0, facts:0} };
+  const docBody = document.getElementById("docbody");
+  const h1 = document.getElementById("doc-h1");
+  const CSS_COLOR = {mag:"#ff3df2", cyan:"#27e3ff", yel:"#ffe14d", org:"#ff9f1c", lime:"#b6ff3b", vio:"#9d7bff"};
+  const COLOR_CLASS = {Revenue:"cyan", Sales:"cyan", EPS:"mag", "Net income":"mag",
+    "Backlog units":"yel", "Backlog $B":"yel", Fleet:"yel", Utilization:"yel",
+    LPI:"yel", Dividend:"org", Buyback:"org", "Disposition gains":"org",
+    DGS10:"lime", DGS2:"lime", DGS5:"lime", DGS30:"lime", SOFR:"lime",
+    DFF:"lime", BAMLC0A0CM:"lime", BAMLH0A0HYM2:"lime", T10Y2Y:"lime",
+    INDPRO:"lime", RAILFRTCARLOADSD11:"lime", RAILFRTINTERMODALD11:"lime",
+    Carloads:"lime", Intermodal:"lime"};
+  function colorClass(label){return COLOR_CLASS[label] || "vio";}
+  function colorHex(cls){return CSS_COLOR[cls] || CSS_COLOR.vio;}
 
-  function escapeHTML(s) { return (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-  function fmtDate(iso) { if (!iso) return ""; const d = new Date(iso); return isNaN(d) ? iso : d.toLocaleString("en-US", {timeZone:"America/Chicago", month:"short", day:"2-digit", hour:"2-digit", minute:"2-digit"}); }
+  let state = {mode:"replay", events:[], idx:0, speed:60, tickTimer:null,
+    currentDocId:null, docsLoaded:{}, walkRaf:null,
+    walkState:{startTs:0, duration:10000, startY:0, endY:0, done:true, docId:null},
+    lastBox:null, totalDocs:0, totalFacts:0, totalNumbers:0,
+    es:null, running:false, currentText:""};
 
-  function colorForLabel(label) {
-    const m = {Revenue:"rev",Sales:"rev",EPS:"eps","Net income":"earn","Backlog units":"bl","Backlog $B":"bl",Fleet:"fl",Utilization:"ut",Dividend:"di",Buyback:"bb",Carloads:"macro",Intermodal:"macro",DGS10:"rate",DGS2:"rate",DGS5:"rate",DGS30:"rate",SOFR:"rate",DFF:"rate",BAMLC0A0CM:"rate",BAMLH0A0HYM2:"rate",T10Y2Y:"rate",INDPRO:"macro",RAILFRTCARLOADSD11:"macro",RAILFRTINTERMODALD11:"macro"};
-    return m[label] || "vio";
-  }
-  const COLOR = {eps:"#ff3df2",earn:"#ff3df2",rev:"#27e3ff",fl:"#ffe14d",ut:"#ffe14d",bl:"#ffe14d",di:"#ff9f1c",bb:"#ff9f1c",rate:"#b6ff3b",macro:"#b6ff3b",vio:"#9d7bff"};
-  const SPIDER = {eps:"c-eps",earn:"c-eps",rev:"c-rev",fl:"c-yel",ut:"c-yel",bl:"c-yel",di:"c-ora",bb:"c-ora",rate:"c-lime",macro:"c-lime"};
+  function escapeHTML(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function fmtDate(iso){if(!iso) return "";const d=new Date(iso);return isNaN(d)?iso:d.toLocaleString("en-US",{timeZone:"America/Chicago",month:"short",day:"2-digit",hour:"2-digit",minute:"2-digit"});}
+  async function fetchJSON(url){try{const r=await fetch(url,{cache:"no-store"});if(!r.ok) throw new Error(r.status);return await r.json();}catch(e){return {error:String(e)};}}
 
-  async function fetchJSON(url) {
-    try { const r = await fetch(url, {cache:"no-store"}); if (!r.ok) throw new Error(r.status); return await r.json(); }
-    catch (e) { return {error: String(e)}; }
-  }
-
-  function setMode(m) {
-    state.mode = m;
-    document.querySelectorAll(".mode-btn").forEach(x => x.classList.toggle("active", x.dataset.mode === m));
-    stopWalk(); stopLive();
-    state.playing = false; clearTimeout(state.tickTimer);
-    threadSvg.innerHTML = "";
-    docText.innerHTML = "waiting...";
-    moveSpider(4, 24);
-    state.lastBox = null;
-    state.live_counts = {docs:0, facts:0};
-    if (m === "replay") initReplay();
-    else statusEl.textContent = "live mode. click Run.";
-  }
-
-  function moveSpider(x, y, label) {
+  function moveSpiderTo(x, y, label){
     spider.style.transform = `translate(${x}px, ${y}px)`;
-    readerHL.style.top = (y - 2) + "px";
-    if (label) spider.className = "spider " + (SPIDER[colorForLabel(label)] || "c-vio");
-    // Scroll to keep spider in view
-    const rect = document.getElementById("reader").getBoundingClientRect();
-    const absY = y + 30; // reader padding offset
-    if (absY > window.scrollY + window.innerHeight - 80) window.scrollTo(0, absY - window.innerHeight + 150);
-    else if (absY < window.scrollY + 100) window.scrollTo(0, Math.max(0, absY - 100));
+    if (label){const c = colorHex(colorClass(label)); spider.style.filter = `drop-shadow(0 0 6px ${c})`;}
+    const absY = y + doc.getBoundingClientRect().top + window.scrollY;
+    if (absY > window.scrollY + window.innerHeight - 100) window.scrollTo({top: absY - window.innerHeight + 180, behavior:"smooth"});
+    else if (absY < window.scrollY + 100) window.scrollTo({top: Math.max(0, absY - 100), behavior:"smooth"});
   }
-  function stopWalk() { if (state.walkRaf) cancelAnimationFrame(state.walkRaf); state.walkState.done = true; }
-  function startWalk(doc_id, duration_s) {
+  function stopWalk(){if (state.walkRaf) cancelAnimationFrame(state.walkRaf); state.walkState.done = true;}
+  function startWalk(doc_id, duration_s){
     stopWalk();
-    const contentH = Math.max(300, docText.getBoundingClientRect().height);
+    const docRect = doc.getBoundingClientRect();
+    const bodyRect = docBody.getBoundingClientRect();
+    const startY = (h1.getBoundingClientRect().top - docRect.top);
+    const endY = Math.max(startY + 60, bodyRect.bottom - docRect.top - 20);
     const clamped = Math.min(20, Math.max(3, duration_s)) * 1000;
-    state.walkState = {startTs: performance.now(), duration: clamped, startY: 60, endY: contentH + 20, done: false, docId: doc_id};
-    moveSpider(0, 60);
-    function tick(now) {
+    state.walkState = {startTs: performance.now(), duration: clamped, startY, endY, done:false, docId:doc_id};
+    moveSpiderTo(0, startY);
+    // Current line = the <p> intersecting spider y; add .reading class
+    function tick(now){
       if (state.walkState.docId !== doc_id) return;
       const prog = Math.min(1, (now - state.walkState.startTs) / state.walkState.duration);
       const y = state.walkState.startY + (state.walkState.endY - state.walkState.startY) * prog;
-      moveSpider(0, y);
-      // Highlight links the spider passes
-      try {
-        const links = docText.querySelectorAll("a");
-        const spiderAbs = y + 30;
-        links.forEach(a => {
-          const ar = a.getBoundingClientRect();
-          const absTop = ar.top + window.scrollY;
-          if (Math.abs(absTop - spiderAbs) < 24 && !a.classList.contains("link-pass")) a.classList.add("link-pass");
+      moveSpiderTo(0, y);
+      // Current line highlight: find <span class="line"> whose top is closest to y
+      try{
+        const lines = docBody.querySelectorAll(".line");
+        const dRect = doc.getBoundingClientRect();
+        let best = null; let bd = Infinity;
+        lines.forEach(l => {
+          const r = l.getBoundingClientRect();
+          const ly = r.top - dRect.top + r.height/2;
+          const d2 = Math.abs(ly - y);
+          if (d2 < bd){bd = d2; best = l;}
         });
-      } catch(e) {}
+        docBody.querySelectorAll(".line.reading").forEach(l => {if (l !== best) l.classList.remove("reading");});
+        if (best && !best.classList.contains("reading")) best.classList.add("reading");
+      }catch(e){}
+      // Links the spider passes get the .link class
+      try{
+        const links = docBody.querySelectorAll("a:not(.link)");
+        const dRect = doc.getBoundingClientRect();
+        links.forEach(a => {
+          const r = a.getBoundingClientRect();
+          const ay = r.top - dRect.top + r.height/2;
+          if (Math.abs(ay - y) < 20) a.classList.add("link");
+        });
+      }catch(e){}
       if (prog < 1) state.walkRaf = requestAnimationFrame(tick);
       else state.walkState.done = true;
     }
     state.walkRaf = requestAnimationFrame(tick);
   }
 
-  function computeWalkDuration(doc_id, fetched_at) {
+  function computeWalkDuration(doc_id, fetched_at){
     const facts = (state.events || []).filter(e => e.type === "fact" && e.doc_id === doc_id);
     if (!facts.length || !fetched_at) return 10;
     const latestAt = facts.map(f => new Date(f.at || f.fetched_at).getTime()).reduce((a,b) => Math.max(a,b), 0);
@@ -178,56 +138,58 @@ html, body { margin: 0; padding: 0; height: 100%; background: #000; color: #c6c9
     return Math.max(3, Math.min(20, (latestAt - ft) / 1000));
   }
 
-  function setBanner(msg, ms) {
-    statusEl.textContent = msg;
-    if (ms) setTimeout(() => { /* leave the message; next event will overwrite */ }, ms);
-  }
+  function setStatus(txt){statusEl.innerHTML = txt;}
 
-  async function loadDocAndWalk(ev) {
-    state.currentDocId = ev.doc_id;
-    state.lastBox = null; // Reset thread per doc
-    threadSvg.innerHTML = "";
-    // No-text docs: 1.5 s banner, no card, no walk
-    if (!ev.has_text || ev.doc_type === "NEWS" || ev.doc_type === "4" || ev.doc_type === "SERIES" || ev.doc_type === "PRESS_RELEASE" || ev.doc_type === "DECK") {
-      let label = `${ev.doc_type || "doc"}`;
-      if (ev.doc_type === "PRESS_RELEASE" || ev.doc_type === "DECK") {
-        setBanner(`fetched ${ev.host || ""} press release, title only, not stored: ${(ev.title || "").slice(0, 70)}`, 1500);
-      } else if (ev.doc_type === "4") {
-        setBanner(`fetched ${ev.host || ""} Form 4 CSV, derived artifact, title only`, 1500);
-      } else if (ev.doc_type === "SERIES") {
-        const m = ev.meta || {};
-        setBanner(`fetched ${ev.host || ""} series ${m.series_id || ev.title} = ${m.last_value || ""} (${m.last_date || ""})`, 1500);
-      } else if (ev.doc_type === "NEWS") {
-        setBanner(`fetched headline (body never stored): ${(ev.title || "").slice(0, 90)}`, 1500);
-      } else {
-        setBanner(`fetched ${label} with no stored text`, 1500);
-      }
-      return;
-    }
-    // Text docs: fetch body, fade in, start walk
-    let doc = state.docsLoaded[ev.doc_id];
-    if (!doc) {
-      doc = await fetchJSON("/desk/doc/" + encodeURIComponent(ev.doc_id) + "/text");
-      state.docsLoaded[ev.doc_id] = doc;
-    }
-    if (doc.error) { setBanner(`doc text error: ${doc.error}`); return; }
-    const text = (doc.text || "").slice(0, 60000);
-    // Fade in the text column
-    docWrap.classList.remove("sliding-out", "sliding-in", "fading-in");
-    void docWrap.offsetWidth;
-    docWrap.classList.add("fading-in");
-    docText.innerHTML = linkify(escapeHTML(text));
-    state.currentText = text;
-    setBanner(`reading ${ev.host || ""} ${ev.doc_type} ${(ev.published_at || ev.fetched_at || "").slice(0, 10)}, 0 of ? numbers found`);
-    const dur = computeWalkDuration(ev.doc_id, ev.fetched_at);
-    setTimeout(() => startWalk(ev.doc_id, dur), 60);
-  }
-
-  function linkify(html) {
+  function linkify(html){
     return html.replace(/(https?:\/\/[\w\-._~:\/?#\[\]@!$&'()*+,;=%]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
   }
+  function toLines(html){
+    const parts = html.split(/\n\n+/).map(p => p.trim()).filter(Boolean);
+    return parts.map(p => `<p><span class="line">${p.replace(/\n/g, " ")}</span></p>`).join("");
+  }
 
-  function markFactInDoc(ev) {
+  function headlineForDoc(ev){
+    const dt = (ev.doc_type || "DOC").replace("PRESS_RELEASE","Release");
+    const dstr = (ev.published_at || ev.fetched_at || "").slice(0, 10);
+    const t = (ev.title || "").trim();
+    return `${ev.ticker || ""} ${dt}${dstr ? " " + dstr : ""}${t ? ": " + t : ""}`;
+  }
+
+  async function loadDocAndWalk(ev){
+    state.currentDocId = ev.doc_id;
+    state.lastBox = null;
+    thread.innerHTML = "";
+    docBody.innerHTML = "";
+    h1.textContent = "";
+    // No-text (banner only, 1.5 s)
+    const notext = (!ev.has_text || ["NEWS","4","SERIES","PRESS_RELEASE","DECK"].includes(ev.doc_type));
+    if (notext){
+      let m;
+      if (ev.doc_type === "PRESS_RELEASE" || ev.doc_type === "DECK")
+        m = `fetched <b>${ev.host||""}</b> press release, title only, not stored: ${(ev.title||"").slice(0,80)}`;
+      else if (ev.doc_type === "4") m = `fetched <b>${ev.host||""}</b> Form 4 CSV (derived artifact)`;
+      else if (ev.doc_type === "SERIES"){const mm = ev.meta || {}; m = `fetched <b>${ev.host||""}</b> ${mm.series_id || ev.title} = ${mm.last_value||""} (${mm.last_date||""})`;}
+      else if (ev.doc_type === "NEWS") m = `fetched headline (body never stored): ${(ev.title||"").slice(0,80)}`;
+      else m = `fetched ${ev.doc_type}, no stored text`;
+      setStatus(m);
+      return;
+    }
+    // Text doc: fetch body
+    let d = state.docsLoaded[ev.doc_id];
+    if (!d){d = await fetchJSON("/desk/doc/" + encodeURIComponent(ev.doc_id) + "/text"); state.docsLoaded[ev.doc_id] = d;}
+    if (d.error){setStatus(`doc text error: ${d.error}`); return;}
+    const text = (d.text || "").slice(0, 60000);
+    state.currentText = text;
+    h1.textContent = headlineForDoc(ev);
+    docBody.innerHTML = toLines(escapeHTML(text)).replace(/>/g,">").replace(/<p>/g,"<p>"); // paragraphs with .line spans
+    // Links from URL regex -> wrap with <a>
+    docBody.innerHTML = linkify(docBody.innerHTML);
+    setStatus(`reading <b>${ev.host||""}</b> ${ev.doc_type} ${(ev.published_at||ev.fetched_at||"").slice(0,10)} &nbsp;&middot;&nbsp; 0 of ? numbers found`);
+    const dur = computeWalkDuration(ev.doc_id, ev.fetched_at);
+    setTimeout(() => startWalk(ev.doc_id, dur), 80);
+  }
+
+  function markFactInDoc(ev){
     if (ev.doc_id !== state.currentDocId) return;
     const text = state.currentText || (state.docsLoaded[ev.doc_id] && state.docsLoaded[ev.doc_id].text) || "";
     if (!text) return;
@@ -236,111 +198,97 @@ html, body { margin: 0; padding: 0; height: 100%; background: #000; color: #c6c9
     if (offset < 0) return;
     const facts = (state.events || []).filter(e => e.type === "fact" && e.doc_id === ev.doc_id);
     const seenFactIdx = state.idx != null ? state.idx : facts.length;
-    // Rebuild innerHTML with all facts up to (and including) this one
-    const applied = facts.slice(0, seenFactIdx + 1).filter(f => f.value && (f.char_offset != null && f.char_offset >= 0 || text.indexOf(f.value) >= 0));
+    const applied = facts.slice(0, seenFactIdx + 1).filter(f => f.value);
     const ranges = applied.map(f => {
       let off = f.char_offset;
       if (off == null || off < 0) off = text.indexOf(f.value);
-      return {start: off, end: off + f.value.length, label: f.label, value: f.value, unit: f.unit, cls: colorForLabel(f.label)};
-    }).sort((a,b) => a.start - b.start);
+      if (off < 0) return null;
+      return {start: off, end: off + f.value.length, label: f.label, value: f.value, unit: f.unit, cls: colorClass(f.label)};
+    }).filter(Boolean).sort((a,b) => a.start - b.start);
     const merged = [];
-    ranges.forEach(r => { const last = merged[merged.length-1]; if (last && r.start < last.end) return; merged.push(r); });
+    ranges.forEach(r => {const last = merged[merged.length-1]; if (last && r.start < last.end) return; merged.push(r);});
+    // Rebuild docBody with paragraph structure + highlighted ranges
     let html = ""; let cursor = 0;
     merged.forEach(r => {
       html += escapeHTML(text.slice(cursor, r.start));
-      html += `<span class="fact-mark ${r.cls}" data-fact-key="${r.label}|${r.value}">${escapeHTML(text.slice(r.start, r.end))}<span class="fact-tag">${r.label} ${r.value}${r.unit ? " " + r.unit : ""}</span></span>`;
+      html += `<span class="fact ${r.cls}"><span class="tag">${r.label.toUpperCase()}</span>${escapeHTML(text.slice(r.start, r.end))}</span>`;
       cursor = r.end;
     });
     html += escapeHTML(text.slice(cursor));
-    docText.innerHTML = linkify(html);
-    // Draw thread line from previous box to this one in doc coords
-    const boxes = docText.querySelectorAll(".fact-mark");
-    if (!boxes.length) return;
-    const newest = boxes[boxes.length - 1];
-    // Reposition SVG + lines based on reader coords
-    sizeThreadSvg();
-    if (state.lastBox) {
-      const r1 = state.lastBox.getBoundingClientRect();
-      const r2 = newest.getBoundingClientRect();
-      const wrapRect = docWrap.getBoundingClientRect();
-      const x1 = r1.right - wrapRect.left, y1 = r1.top + r1.height/2 - wrapRect.top;
-      const x2 = r2.left - wrapRect.left, y2 = r2.top + r2.height/2 - wrapRect.top;
-      const line = document.createElementNS(SVG_NS, "line");
-      line.setAttribute("x1", x1); line.setAttribute("y1", y1); line.setAttribute("x2", x2); line.setAttribute("y2", y2);
-      line.setAttribute("stroke", COLOR[colorForLabel(ev.label)] || COLOR.vio);
-      threadSvg.appendChild(line);
-    }
-    state.lastBox = newest;
-    state.totalFacts = (state.totalFacts || 0) + 1;
-    // Spider glides to this box
-    try {
-      const wrapRect = docWrap.getBoundingClientRect();
-      const nr = newest.getBoundingClientRect();
-      moveSpider(nr.left - wrapRect.left - 24, nr.top - wrapRect.top - 2, ev.label);
-      if (state.walkState && state.walkState.docId === ev.doc_id && !state.walkState.done) {
-        state.walkState.startY = nr.top - wrapRect.top - 2;
+    docBody.innerHTML = toLines(html);
+    docBody.innerHTML = linkify(docBody.innerHTML);
+    // Draw thread lines between every consecutive box
+    thread.innerHTML = "";
+    sizeThread();
+    const boxes = docBody.querySelectorAll(".fact");
+    let prev = null;
+    boxes.forEach((el, i) => {
+      const r = el.getBoundingClientRect(), dRect = doc.getBoundingClientRect();
+      const p = {x: r.left - dRect.left + r.width/2, y: r.top - dRect.top + r.height/2,
+        c: colorHex([...el.classList].find(k => CSS_COLOR[k]) || "vio")};
+      if (prev){
+        const l = document.createElementNS(SVG_NS, "line");
+        l.setAttribute("x1", prev.x); l.setAttribute("y1", prev.y);
+        l.setAttribute("x2", p.x); l.setAttribute("y2", p.y);
+        l.setAttribute("stroke", p.c);
+        thread.appendChild(l);
+      }
+      prev = p;
+    });
+    state.lastBox = boxes[boxes.length - 1] || null;
+    state.totalFacts++;
+    // Spider glides to newest box
+    if (state.lastBox){
+      const nr = state.lastBox.getBoundingClientRect(), dRect = doc.getBoundingClientRect();
+      moveSpiderTo(nr.left - dRect.left - 9, nr.top - dRect.top - 24, ev.label);
+      if (state.walkState && state.walkState.docId === ev.doc_id && !state.walkState.done){
+        state.walkState.startY = nr.top - dRect.top - 2;
         state.walkState.startTs = performance.now();
       }
-    } catch (e) {}
-    setBanner(`reading, ${merged.length} boxes drawn`);
+    }
+    // Update status
+    const expected = (state.currentText.match(/\$?[\d,]+\.?\d*/g) || []).length;
+    setStatus(`reading <b>${state.currentHost||""}</b> ${state.currentType||""} ${(state.currentPub||"").slice(0,10)} &nbsp;&middot;&nbsp; ${merged.length} of ${expected} numbers found`);
   }
 
-  function sizeThreadSvg() {
-    const h = Math.max(300, docText.getBoundingClientRect().height);
-    const w = docText.getBoundingClientRect().width;
-    threadSvg.setAttribute("viewBox", `0 0 ${w} ${h}`);
-    threadSvg.setAttribute("width", w); threadSvg.setAttribute("height", h);
-    threadSvg.style.height = h + "px";
+  function sizeThread(){
+    const docRect = doc.getBoundingClientRect();
+    thread.setAttribute("viewBox", `0 0 ${docRect.width} ${docRect.height}`);
+    thread.setAttribute("width", docRect.width);
+    thread.setAttribute("height", docRect.height);
   }
 
-  function slideDocOut(cb) {
-    docWrap.classList.remove("fading-in", "sliding-in");
-    docWrap.classList.add("sliding-out");
-    setTimeout(() => { cb(); docWrap.classList.remove("sliding-out"); docWrap.classList.add("sliding-in"); }, 320);
-  }
-
-  async function processEvent(ev) {
-    if (ev.type === "document") {
-      if (state.lastBox) {
-        // Transition: slide last out, then show next
-        slideDocOut(() => loadDocAndWalk(ev));
-      } else {
-        await loadDocAndWalk(ev);
-      }
-      state.totalDocs = (state.totalDocs || 0) + 1;
-    } else if (ev.type === "fact") {
+  async function processEvent(ev){
+    if (ev.type === "document"){
+      state.currentHost = ev.host; state.currentType = ev.doc_type; state.currentPub = ev.published_at || ev.fetched_at;
+      await loadDocAndWalk(ev);
+      state.totalDocs++;
+    } else if (ev.type === "fact"){
       markFactInDoc(ev);
     }
   }
 
-  async function initReplay() {
+  async function initReplay(){
     const data = await fetchJSON("/desk/run/latest?window=14400&limit=200");
-    if (data.error || !data.events || data.events.length === 0) {
-      statusEl.textContent = "no completed run yet";
-      docText.textContent = "no completed run yet";
-      return;
-    }
+    if (data.error || !data.events || data.events.length === 0){setStatus("no completed run yet"); return;}
     state.events = data.events;
-    const realSec = Math.max(1, Math.round((new Date(data.ended_at) - new Date(data.started_at)) / 1000));
-    const speed = Math.max(10, Math.min(300, Math.round(realSec / 60)));
-    state.speed = speed;
-    statusEl.textContent = `Replay of ${fmtDate(data.started_at)} Central at ${speed}x. ${state.events.length} events, ${realSec} s real time.`;
+    const realSec = Math.max(1, Math.round((new Date(data.ended_at) - new Date(data.started_at))/1000));
+    const choices = [10, 60, 300];
+    let best = choices[0], bd = Infinity;
+    for (const s of choices){const t = Math.max(state.events.length * 0.08, realSec/s); const d = Math.abs(t - 75); if (d < bd){bd = d; best = s;}}
+    state.speed = best;
+    setStatus(`Replay ${fmtDate(data.started_at)} Central &nbsp;&middot;&nbsp; ${state.events.length} events &nbsp;&middot;&nbsp; ${realSec}s real time &nbsp;&middot;&nbsp; ${best}x`);
     state.idx = 0;
-    state.playing = true;
     replayTick();
   }
-
-  function replayTick() {
-    if (!state.playing || state.idx >= state.events.length) {
-      if (state.playing) statusEl.textContent = `done. ${state.totalDocs} documents, ${state.totalFacts} numbers found.`;
-      state.playing = false; return;
-    }
+  function replayTick(){
+    if (state.idx >= state.events.length){setStatus(`done &nbsp;&middot;&nbsp; ${state.totalDocs} documents &nbsp;&middot;&nbsp; ${state.totalFacts} numbers found`); return;}
     const ev = state.events[state.idx];
     const nextIdx = state.idx + 1;
     processEvent(ev);
     state.idx = nextIdx;
     let delay = 400;
-    if (nextIdx < state.events.length) {
+    if (nextIdx < state.events.length){
       const t0 = new Date(ev.fetched_at || ev.at).getTime();
       const t1 = new Date(state.events[nextIdx].fetched_at || state.events[nextIdx].at).getTime();
       delay = Math.min(5000, Math.max(80, (t1 - t0) / state.speed));
@@ -349,72 +297,75 @@ html, body { margin: 0; padding: 0; height: 100%; background: #000; color: #c6c9
     state.tickTimer = setTimeout(replayTick, delay);
   }
 
-  function stopLive() { if (state.es) { try { state.es.close(); } catch(e) {} state.es = null; } state.running = false; }
-
-  function liveHandle(ev) {
+  function stopLive(){if (state.es){try{state.es.close();}catch(e){} state.es = null;} state.running = false;}
+  function liveHandle(ev){
     if (ev.type === "heartbeat" || ev.type === "hello") return;
-    if (ev.type === "job_start") { statusEl.textContent = `live run started ${fmtDate(ev.at)} Central. real network, real timestamps.`; return; }
-    if (ev.type === "fetch_start") { statusEl.textContent = `fetching ${ev.host} ${(ev.url||"").slice(0, 70)}`; return; }
-    if (ev.type === "fetch_done_insert" && ev.doc_id) {
-      let host = ""; try { host = new URL(ev.source_url || "").hostname; } catch(e) {}
-      const docEv = {type:"document", doc_id:ev.doc_id, host, url: ev.source_url, title: ev.title, doc_type: ev.doc_type, ticker: ev.ticker, fetched_at: ev.at, has_text: ev.doc_type !== "SERIES" && ev.doc_type !== "NEWS", meta: {}, dim: !!ev.skipped_dup};
-      if (docEv.dim) { setBanner(`${host} ${ev.doc_type}: already stored`, 1200); return; }
-      state.live_counts.docs++;
+    if (ev.type === "job_start"){setStatus(`live run started ${fmtDate(ev.at)} Central`); return;}
+    if (ev.type === "fetch_start"){setStatus(`fetching <b>${ev.host}</b> ${(ev.url||"").slice(0,80)}`); return;}
+    if (ev.type === "fetch_done_insert" && ev.doc_id){
+      let host = ""; try{host = new URL(ev.source_url || "").hostname;}catch(e){}
+      const docEv = {type:"document", doc_id:ev.doc_id, host, url:ev.source_url, title:ev.title,
+        doc_type:ev.doc_type, ticker:ev.ticker, fetched_at:ev.at,
+        has_text: !["SERIES","NEWS","4","PRESS_RELEASE","DECK"].includes(ev.doc_type), meta:{}, dim:!!ev.skipped_dup};
+      if (docEv.dim){setStatus(`<b>${host}</b> ${ev.doc_type}: already stored`); return;}
       processEvent(docEv);
       return;
     }
-    if (ev.type === "extract_fact") {
-      state.live_counts.facts++;
+    if (ev.type === "extract_fact"){
       state.events = state.events || [];
       state.events.push({type:"fact", doc_id: ev.doc_id, label: ev.label, value: ev.value, unit: ev.unit, char_offset: ev.char_offset, at: ev.at});
       state.idx = state.events.length;
       processEvent({type:"fact", doc_id: ev.doc_id, label: ev.label, value: ev.value, unit: ev.unit, char_offset: ev.char_offset});
       return;
     }
-    if (ev.type === "job_done") {
-      statusEl.textContent = `done. ${state.live_counts.docs} documents, ${state.live_counts.facts} numbers found.`;
-      document.getElementById("btn-run").disabled = false;
-      stopLive();
-      return;
-    }
-    if (ev.type === "job_error") { statusEl.textContent = `error ${ev.phase || ""}: ${ev.message || ""}`; return; }
+    if (ev.type === "job_done"){setStatus(`done &nbsp;&middot;&nbsp; ${state.totalDocs} documents &nbsp;&middot;&nbsp; ${state.totalFacts} numbers found`); stopLive(); const btn = document.querySelector("[data-mode='live']"); if (btn) btn.classList.remove("on"); return;}
+    if (ev.type === "job_error"){setStatus(`error ${ev.phase||""}: ${ev.message||""}`); return;}
   }
 
-  document.querySelectorAll(".mode-btn").forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
-
-  document.getElementById("btn-run").addEventListener("click", async () => {
+  document.querySelectorAll(".btn[data-mode]").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === b.dataset.mode));
+    state.mode = b.dataset.mode;
+    stopWalk(); stopLive(); clearTimeout(state.tickTimer);
+    thread.innerHTML = ""; docBody.innerHTML = ""; h1.textContent = "";
+    state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0;
+    moveSpiderTo(0, 0);
+    if (b.dataset.mode === "replay") initReplay();
+    else setStatus("live mode. click Run.");
+  }));
+  const runBtn = document.querySelector(".btn-run");
+  runBtn.addEventListener("click", async () => {
     if (state.running) return;
-    setMode("live");
-    state.running = true;
+    document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === "live"));
+    state.mode = "live"; state.running = true;
+    runBtn.classList.add("on"); runBtn.textContent = "Running";
+    thread.innerHTML = ""; docBody.innerHTML = ""; h1.textContent = "";
+    state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0;
     const ticker = document.getElementById("live-ticker").value;
     const mode = document.getElementById("live-mode").value;
-    state.events = []; state.idx = 0; state.live_counts = {docs:0, facts:0};
-    document.getElementById("btn-run").disabled = true;
-    try {
+    try{
       state.es = new EventSource("/desk/events");
       ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done"].forEach(t => {
-        state.es.addEventListener(t, (e) => { try { const d = JSON.parse(e.data); d.type = t; liveHandle(d); } catch(err) {} });
+        state.es.addEventListener(t, (e) => {try{const d = JSON.parse(e.data); d.type = t; liveHandle(d);}catch(err){}});
       });
-      state.es.onerror = () => { statusEl.textContent = "SSE connection lost"; };
-    } catch (e) { statusEl.textContent = "SSE unavailable"; }
-    try {
+      state.es.onerror = () => setStatus("SSE connection lost");
+    }catch(e){setStatus("SSE unavailable");}
+    try{
       const r = await fetch("/desk/_run/live", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ticker, mode})});
-      if (r.status === 409) { const j = await r.json(); statusEl.textContent = `409: ${j.detail || "another live run active"}`; document.getElementById("btn-run").disabled = false; stopLive(); }
-      else if (!r.ok) { statusEl.textContent = `error ${r.status}`; document.getElementById("btn-run").disabled = false; stopLive(); }
-    } catch (e) { statusEl.textContent = `POST failed: ${e}`; document.getElementById("btn-run").disabled = false; stopLive(); }
+      if (r.status === 409){const j = await r.json(); setStatus(`409: ${j.detail||"another live run active"}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
+      else if (!r.ok){setStatus(`error ${r.status}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
+    }catch(e){setStatus(`POST failed: ${e}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
   });
 
-  // Autolive URL param: /desk/live/?autolive=GATX&automode=rewalk30
+  // Autolive URL param (for scripted screenshots)
   const _params = new URLSearchParams(location.search);
   const _auto = _params.get("autolive");
-  if (_auto && ["GATX","GBX","TRN"].includes(_auto)) {
+  if (_auto && ["GATX","GBX","TRN"].includes(_auto)){
     document.getElementById("live-ticker").value = _auto;
     document.getElementById("live-mode").value = _params.get("automode") || "rewalk30";
-    setTimeout(() => document.getElementById("btn-run").click(), 300);
+    setTimeout(() => runBtn.click(), 300);
   } else {
     initReplay();
   }
 })();
 </script>
-</body>
-</html>
+</body></html>

@@ -230,9 +230,11 @@ async def run_live(request: Request, body: dict) -> dict:
         try:
             _events_mod.emit("job_start", label=label, ticker=ticker, mode=mode)
             if mode == "rewalk30":
-                cutoff = (_dt.datetime.utcnow() - _dt.timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                # Widened to 120 days 2026-10-12 so GATX picks up its most
+                # recent 10-Q (filed ~late July) and the 8-Ks around it.
+                cutoff = (_dt.datetime.utcnow() - _dt.timedelta(days=120)).strftime("%Y-%m-%dT%H:%M:%SZ")
                 deleted = store.delete_bot_docs_since(ticker, ["edgar", "ir"], cutoff)
-                _events_mod.emit("job_log", label=label, msg=f"rewalk30 deleted {deleted} prior rows for {ticker}")
+                _events_mod.emit("job_log", label=label, msg=f"rewalk120 deleted {deleted} prior rows for {ticker}")
                 since = cutoff[:10]
             else:
                 since = None
