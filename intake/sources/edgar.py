@@ -98,6 +98,7 @@ async def poll_edgar(ticker: str, cik: str, *, since: Optional[str] = None, max_
                 # Fallback: if the download produced no .htm/.html, pull the
                 # primary document directly via f.html / f.text so the 10-Q
                 # etc. ends up as an indexable row (seen on GATX 2026-10-12).
+                # Strip XBRL metadata lines so the stored text reads as prose.
                 have_html = any(p.is_file() and p.suffix.lower() in (".htm", ".html") for p in raw.rglob("*"))
                 if not have_html and form in ("10-Q", "10-K", "8-K"):
                     try:
@@ -105,8 +106,22 @@ async def poll_edgar(ticker: str, cik: str, *, since: Optional[str] = None, max_
                         if hasattr(f, "html"):
                             html_body = f.html() if callable(getattr(f, "html")) else f.html
                         if html_body:
+                            if not isinstance(html_body, str):
+                                html_body = html_body.decode("utf-8", "ignore")
+                            # Remove inline XBRL tags and attribute soup via BeautifulSoup if available
+                            try:
+                                from bs4 import BeautifulSoup, Comment
+                                soup = BeautifulSoup(html_body, "html.parser")
+                                for tag in soup.find_all(True):
+                                    if tag.name and (tag.name.startswith("ix:") or tag.name.startswith("xbrli:") or tag.name == "script" or tag.name == "style"):
+                                        tag.decompose()
+                                for c in soup.find_all(string=lambda s: isinstance(s, Comment)):
+                                    c.extract()
+                                html_body = str(soup)
+                            except Exception:
+                                pass
                             fname = f"{form}_{accession}.htm"
-                            (raw / fname).write_text(html_body if isinstance(html_body, str) else html_body.decode("utf-8", "ignore"))
+                            (raw / fname).write_text(html_body)
                     except Exception as he:
                         log.warning(f"f.html fallback failed {accession}: {he}")
                 # Form 4: save to CSV
