@@ -137,14 +137,16 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     spiderSvg.appendChild(b);
   }
 
+  function finite(v){return typeof v === "number" && isFinite(v);}
   function kneeFor(bx, by, fx, fy, idx){
-    // Give each leg a knee between body and foot, offset perpendicular.
+    if (!finite(bx) || !finite(by) || !finite(fx) || !finite(fy)) return {x: bx||0, y: by||0};
     const mx = (bx + fx)/2, my = (by + fy)/2;
     const dx = fx - bx, dy = fy - by;
     const len = Math.max(1, Math.hypot(dx, dy));
     const nx = -dy/len, ny = dx/len;
     const bend = 6 + (idx % 3) * 2;
-    return {x: mx + nx * bend, y: my + ny * bend};
+    const kx = mx + nx * bend, ky = my + ny * bend;
+    return {x: finite(kx) ? kx : mx, y: finite(ky) ? ky : my};
   }
 
   function drawLegs(){
@@ -153,6 +155,8 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     state.legEls = []; state.feetEls = [];
     for (let i = 0; i < state.feet.length; i++){
       const f = state.feet[i];
+      if (!finite(f.x) || !finite(f.y)) continue;
+      if (!finite(state.body.x) || !finite(state.body.y)) continue;
       const knee = kneeFor(state.body.x, state.body.y, f.x, f.y, i);
       const poly = document.createElementNS(SVG_NS, "polyline");
       poly.setAttribute("class", "leg");
