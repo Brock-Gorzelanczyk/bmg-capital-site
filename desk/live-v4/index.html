@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Desk live, spider | BMG Capital</title>
 <style>
-:root{--bg:#000;--fg:#c9ccd1;--dim:#5b6068;--pink:#ff2bd6;--org:#ff9f1c;--blue:#4f7bff;--cyan:#27e3ff;--t1:#ff2bd6;--t2:#ff9f1c;--t3:#4f7bff;--t4:#27e3ff;--t5:#b6ff3b}
+:root{--bg:#000;--fg:#c9ccd1;--dim:#5b6068;--pink:#ff2bd6;--org:#ff9f1c;--blue:#4f7bff;--cyan:#27e3ff;--t1:#7fa2ff;--t2:#27e3ff;--t3:#8a6cff;--t4:#ff2bd6;--t5:#7fa2ff}
 html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.8 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-x:hidden}
 .strip{position:fixed;top:0;left:0;right:0;height:36px;display:flex;align-items:center;gap:14px;padding:0 16px;background:rgba(0,0,0,.9);border-bottom:1px solid #15181d;font-size:12px;color:#9aa0a8;z-index:20}
 .strip b{color:#fff;font-weight:600}
@@ -31,20 +31,24 @@ p{margin:0 0 12px}
 .found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
 svg.spider{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
 svg.spider .body{fill:#ff2bd6;stroke:#fff;stroke-width:1;filter:drop-shadow(0 0 8px #ff2bd6) drop-shadow(0 0 16px rgba(79,123,255,.4))}
-svg.spider .leg{stroke:#fff;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+svg.spider .leg{stroke:#8fb3ff;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+svg.spider polyline.leg:nth-of-type(4n){stroke:#ff2bd6}
 svg.spider .foot{fill:#fff;stroke:#fff}
 svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.85}
 svg.spider .thread.t1{stroke:var(--t1)}svg.spider .thread.t2{stroke:var(--t2)}svg.spider .thread.t3{stroke:var(--t3)}svg.spider .thread.t4{stroke:var(--t4)}svg.spider .thread.t5{stroke:var(--t5)}
 svg.spider .tnode{fill:#fff;opacity:.9}
-svg.spider .mesh{stroke:#4f7bff;stroke-width:1;opacity:.55}
+svg.spider .mesh{stroke:#7fa2ff;stroke-width:1.1;opacity:.7}
 svg.spider .knee{fill:#fff}
 .w.lift{}
 .w.lift.f1{font-family:Georgia,'Times New Roman',serif;color:#9fb8ff}
 .w.lift.f2{font-family:ui-monospace,monospace;letter-spacing:2px;color:#ff6ee6}
 .w.lift.f3{font-family:Georgia,serif;font-style:italic;color:#8fd9e6}
 .w.fillbox{background:#ff2bd6;color:#fff;border-radius:2px;box-shadow:0 0 8px rgba(255,43,214,.6)}
-.beam{position:absolute;height:24px;transform-origin:0 50%;background:rgba(255,43,214,.92);color:#5a0040;font:italic 13px/24px Georgia,serif;white-space:nowrap;overflow:hidden;padding-left:10px;z-index:2;pointer-events:none;box-shadow:0 0 12px rgba(255,43,214,.55);animation:beam 4.2s ease-out forwards}
-.liftlbl{position:absolute;transform:translate(-50%,-50%) scale(.6);opacity:0;white-space:nowrap;z-index:2;pointer-events:none;background:#000;padding:0 4px;font-size:24px;line-height:1.1;max-width:60%;overflow:hidden;text-overflow:ellipsis;animation:liftin .3s ease-out forwards;transition:opacity .35s ease}
+.beam{position:absolute;height:26px;transform-origin:0 50%;background:rgba(255,43,214,.9);color:#5a0040;font:italic 14px/26px Georgia,serif;white-space:nowrap;overflow:hidden;padding-left:10px;z-index:2;pointer-events:none;box-shadow:0 0 12px rgba(255,43,214,.55);animation:beam 4.2s ease-out forwards}
+.beam.cyan{background:rgba(39,200,255,.85);color:#00384a;box-shadow:0 0 12px rgba(39,200,255,.5)}
+.w.cyanfill{background:#27e3ff;color:#001a22;border-radius:2px}
+.w.salmon{background:#ff8a6a;color:#2a0d00}
+.liftlbl{position:absolute;transform:translate(-50%,-50%) scale(.6);opacity:0;white-space:nowrap;z-index:2;pointer-events:none;background:#000;padding:0 4px;font-size:28px;line-height:1.1;animation:liftin .3s ease-out forwards;transition:opacity .35s ease}
 .liftlbl.f1{font-family:'IBM Plex Sans',Helvetica,Arial,sans-serif;color:#7fa2ff}
 .liftlbl.f2{font-family:ui-monospace,monospace;letter-spacing:2px;color:#7fa2ff}
 .liftlbl.f3{font-family:Georgia,serif;color:#ff6ee6}
@@ -79,7 +83,7 @@ svg.spider .knee{fill:#fff}
     Fleet:"blue",Utilization:"blue","Backlog units":"blue","Backlog $B":"blue",LPI:"blue"};
   const BODY_W = 14, BODY_H = 22, FOOT_R = 2.5, N_LEGS = 8;
   const MIN_REACH = 70, LO_REACH = 80, HI_REACH = 160, TARGET_REACH = 120;
-  const BODY_MS = 160, FADE_MS = 600;
+  const BODY_MS = 160, FADE_MS = 600, BEAM_MAX = 260;
   const MAX_OUTLINES = 24;
   // Pre-divide 2*PI into N_LEGS sectors; one foot per 45-degree slice.
   const SECTOR_RAD = (2 * Math.PI) / N_LEGS;
@@ -105,8 +109,8 @@ svg.spider .knee{fill:#fff}
   function clearSpider(){
     spiderSvg.innerHTML = "";
     state.bodyAnim++;
-    state.feet = []; state.feetEls = []; state.legEls = []; state.threads = []; state.rows = null; state.meshPool = [];
-    document.querySelectorAll(".liftlbl,.beam").forEach(e => e.remove());
+    state.feet = []; state.feetEls = []; state.legEls = []; state.threads = []; state.rows = null; state.meshPool = []; state.trail = [];
+    document.querySelectorAll(".liftlbl,.beam").forEach(e => e.remove()); state.beams = [];
     bumpLayout();
     state.touchedEls = new Set(); state.touchOrder = [];
   }
@@ -228,7 +232,7 @@ svg.spider .knee{fill:#fff}
   }
   addEventListener("wheel", () => { state.userScrolledAt = performance.now(); }, {passive: true});
   addEventListener("touchmove", () => { state.userScrolledAt = performance.now(); }, {passive: true});
-  function drawSpider(){drawLegs(); redrawThreads(); drawBody(); camera();}
+  function drawSpider(){drawLegs(); redrawThreads(); drawBeams(); drawBody(); camera();}
 
   // Element centers in .doc space are scroll-invariant, so they are cached
   // until the layout changes (new doc, a .found fill, resize). Reading ~40
@@ -279,7 +283,7 @@ svg.spider .knee{fill:#fff}
         if (d < HI_REACH * 1.3) near.push([d, j]);
       }
       near.sort((a, b) => a[0] - b[0]);
-      for (const [, j] of near.slice(0, 2)){
+      for (const [, j] of near.slice(0, 3)){
         const key = i < j ? i + "-" + j : j + "-" + i;
         if (pairs.has(key)) continue;
         pairs.add(key); segs.push([pts[i], pts[j]]);
@@ -317,6 +321,12 @@ svg.spider .knee{fill:#fff}
       return true;
     });
     for (const f of state.feet) if (f && finite(f.x)) pts.push(f);
+    // Trail: where the feet have been stay as web nodes, so the spider
+    // leaves a net behind it (reference clip).
+    for (const t of state.trail || []){
+      const c = t.el && t.el.isConnected ? docSpaceCenter(t.el) : t;
+      if (Math.hypot(c.x - bx, c.y - by) < HI_REACH * 2.2) pts.push(c);
+    }
     drawMesh(pts);
   }
 
@@ -324,9 +334,8 @@ svg.spider .knee{fill:#fff}
     // Lift the word and the next one or two off the page as one enlarged
     // phrase ("field guides to spiders" in the clips), in a new face.
     const words = [el]; let n = el.nextElementSibling;
-    while (n && words.length < 3 && n.classList.contains("w") && !n.classList.contains("found")){ words.push(n); n = n.nextElementSibling; }
-    const text = words.map(w => w.textContent).join(" ");
-    if (text.length > 34) words.splice(1);
+    while (n && words.length < 5 && n.classList.contains("w") && !n.classList.contains("found")){ words.push(n); n = n.nextElementSibling; }
+    while (words.length > 1 && words.map(w => w.textContent).join(" ").length > 40) words.pop();
     const r0 = words[0].getBoundingClientRect(), r1 = words[words.length - 1].getBoundingClientRect();
     if (Math.abs(r0.top - r1.top) > 4) words.splice(1);
     const dr = doc.getBoundingClientRect(), last = words[words.length - 1].getBoundingClientRect();
@@ -347,7 +356,8 @@ svg.spider .knee{fill:#fff}
   function clearTouchClasses(el){
     TOUCH_CYCLE.forEach(c => el.classList.remove("touch-" + c));
     if (el._lift){ const l = el._lift; el._lift = null; l.classList.add("gone"); setTimeout(() => l.remove(), 400); }
-    el.classList.remove("touch-fade", "lift", "f1", "f2", "f3", "fillbox");
+    if (el._bar){ el._bar.forEach(w => w.classList.remove("salmon")); el._bar = null; }
+    el.classList.remove("touch-fade", "lift", "f1", "f2", "f3", "fillbox", "cyanfill");
   }
 
   function markTouch(el){
@@ -369,7 +379,14 @@ svg.spider .knee{fill:#fff}
     const k = state.touchCycleIdx;
     if (!el.classList.contains("found") && el !== h1 && el.textContent.replace(/[^A-Za-z0-9]/g, "").length >= 5){
       if (k % 9 === 4) el.classList.add("fillbox");
-      else if (k % 4 === 2) liftPhrase(el, k);
+      else if (k % 7 === 3) el.classList.add("cyanfill");
+      else if (k % 11 === 6){
+        // Salmon bar across the run of words (a whole citation line).
+        const run = [el]; let nx = el.nextElementSibling;
+        while (nx && run.length < 5 && nx.classList.contains("w")){ run.push(nx); nx = nx.nextElementSibling; }
+        run.forEach(w => w.classList.add("salmon")); el._bar = run;
+      }
+      else if (k % 3 === 1) liftPhrase(el, k);
     }
     state.touchCycleIdx++;
     state.touchedEls.add(el);
@@ -450,12 +467,14 @@ svg.spider .knee{fill:#fff}
   }
 
   function landFeet(feet){
+    state.trail = state.trail || [];
     for (const f of feet){
       if (!f || !f.el) continue;
+      if (!state.trail.some(t => t.el === f.el)){ state.trail.push({el: f.el, x: f.x, y: f.y}); if (state.trail.length > 24) state.trail.shift(); }
       markTouch(f.el);
       if (f.el.tagName === "A"){
         markLinkPassed(f.el);
-        fireBeam(state.body.x, state.body.y, f.x, f.y, f.el.textContent.slice(0, 80));
+        fireBeam(state.body.x, state.body.y, f.x, f.y, f.el.textContent.slice(0, 80), f.el);
       }
     }
     redrawThreads();
@@ -668,26 +687,39 @@ svg.spider .knee{fill:#fff}
     step();
   }
 
-  function fireBeam(x1, y1, x2, y2, text){
-    // Thick pink beam from the body to a found number, carrying its label
-    // and value; it draws in, holds, and fades (one per extract_fact).
-    const len = Math.hypot(x2 - x1, y2 - y1);
-    if (len < 20) return;
-    // At most one new beam every 0.9 s, so a dense table does not turn
-    // into a stack of bars.
+  function fireBeam(x1, y1, x2, y2, text, el){
+    // A thick bar strung from the spider's body out to a link, passage or
+    // found number, carrying its text. It stays attached to the body and
+    // pivots as the spider moves (as in the reference clip), then fades.
+    if (Math.hypot(x2 - x1, y2 - y1) < 20) return;
     const now = performance.now();
     if (state.lastBeam && now - state.lastBeam < 900) return;
     state.lastBeam = now;
-    // Keep the text upright: draw from the end that keeps the bar's
-    // angle within +-90 degrees.
-    if (x2 < x1){ [x1, x2] = [x2, x1]; [y1, y2] = [y2, y1]; }
     const b = document.createElement("div");
-    b.className = "beam";
+    state.beamN = (state.beamN || 0) + 1;
+    b.className = "beam" + (state.beamN % 4 === 0 ? " cyan" : "");
     b.textContent = text;
-    b.style.left = x1 + "px"; b.style.top = (y1 - 9) + "px"; b.style.width = len + "px";
-    b.style.transform = `rotate(${Math.atan2(y2 - y1, x2 - x1)}rad)`;
     doc.appendChild(b);
-    setTimeout(() => b.remove(), 4300);
+    state.beams = state.beams || [];
+    state.beams.push({b, el: el || null, x: x2, y: y2});
+    drawBeams();
+    setTimeout(() => { b.remove(); state.beams = (state.beams || []).filter(o => o.b !== b); }, 4300);
+  }
+
+  function drawBeams(){
+    for (const o of state.beams || []){
+      let x1 = state.body.x, y1 = state.body.y, x2 = o.x, y2 = o.y;
+      if (o.el && o.el.isConnected){ const c = docSpaceCenter(o.el); x2 = c.x; y2 = c.y; }
+      // Bars stay local to the spider (about 260 px), pointing at their
+      // target, so a far-off number never streaks a bar across the page.
+      const dd = Math.hypot(x2 - x1, y2 - y1);
+      if (dd > BEAM_MAX){ x2 = x1 + (x2 - x1) / dd * BEAM_MAX; y2 = y1 + (y2 - y1) / dd * BEAM_MAX; }
+      // Keep the text upright: anchor the bar at whichever end is left.
+      if (x2 < x1){ [x1, x2] = [x2, x1]; [y1, y2] = [y2, y1]; }
+      const len = Math.hypot(x2 - x1, y2 - y1);
+      o.b.style.left = x1 + "px"; o.b.style.top = (y1 - 13) + "px"; o.b.style.width = Math.max(20, len) + "px";
+      o.b.style.transform = `rotate(${Math.atan2(y2 - y1, x2 - x1)}rad)`;
+    }
   }
 
   function markFactInDoc(ev){
@@ -720,14 +752,14 @@ svg.spider .knee{fill:#fff}
     const beamText = `${ev.label || ""} ${ev.value || ""}`.trim();
     if (d >= LO_REACH && d <= HI_REACH){
       moveBody(state.body.x, state.body.y, found);
-      fireBeam(state.body.x, state.body.y, c.x, c.y, beamText);
+      fireBeam(state.body.x, state.body.y, c.x, c.y, beamText, found);
     } else {
       const ux = d > 1 ? dx/d : 0, uy = d > 1 ? dy/d : -1;
       const dr = doc.getBoundingClientRect();
       const nx = Math.min(dr.width - 10, Math.max(10, c.x + ux * TARGET_REACH));
       const ny = Math.min(dr.height - 10, Math.max(10, c.y + uy * TARGET_REACH));
       moveBody(nx, ny, found);
-      fireBeam(nx, ny, c.x, c.y, beamText);
+      fireBeam(nx, ny, c.x, c.y, beamText, found);
     }
 
     state.foundCount++;
