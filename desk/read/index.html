@@ -252,7 +252,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   function clearSpider(){
     spiderSvg.innerHTML = "";
     state.bodyAnim++;
-    state.crawlTarget = null; state.crawlX = null; state.legAnim = {}; state.eyeFocus = null; state.nextFocus = null; state.heading = null;
+    state.crawlTarget = null; state.crawlX = null; state.legAnim = {}; state.eyeFocus = null; state.nextFocus = null; state.heading = null; state.faceHeading = null; state.vel = null; state.lastBodyP = null; state.lastSet = null;
     state.feet = []; state.feetEls = []; state.legEls = []; state.threads = []; state.rows = null; state.meshPool = []; state.trail = []; state.links = []; state.linkPool = []; state.eyeEl = null; state.eyeAt = null;
     document.querySelectorAll(".liftlbl,.beam").forEach(e => e.remove()); state.beams = [];
     bumpLayout();
@@ -308,8 +308,11 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     }
     b.setAttribute("x", clampN(state.body.x - 6.5));
     b.setAttribute("y", clampN(state.body.y - 16));
-    // Eye centered at the top of the body (reference clip).
-    const hx = state.body.x, hy = state.body.y - 10;
+    // The body faces where it is going (mostly down the page), eye at the
+    // front end, as in the reference clip.
+    const hd0 = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
+    b.setAttribute("transform", `rotate(${(hd0 * 180 / Math.PI - 90).toFixed(2)} ${clampN(state.body.x)} ${clampN(state.body.y)})`);
+    const hx = state.body.x + Math.cos(hd0) * 10, hy = state.body.y + Math.sin(hd0) * 10;
     hd.setAttribute("cx", clampN(hx));
     hd.setAttribute("cy", clampN(hy));
     // Keep the body on top of legs and threads.
@@ -410,7 +413,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     state.eyeEl.style.display = state.sightEl.style.display = "";
     state.eyeEl.setAttribute("x", clampN(x)); state.eyeEl.setAttribute("y", clampN(y));
     state.eyeEl.setAttribute("width", clampN(Math.max(4, state.eyeFocus ? r.width : Math.min(r.width, 18)))); state.eyeEl.setAttribute("height", clampN(r.height));
-    state.sightEl.setAttribute("x1", clampN(state.body.x)); state.sightEl.setAttribute("y1", clampN(state.body.y - 10));
+    const fh = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
+    state.sightEl.setAttribute("x1", clampN(state.body.x + Math.cos(fh) * 10)); state.sightEl.setAttribute("y1", clampN(state.body.y + Math.sin(fh) * 10));
     state.sightEl.setAttribute("x2", clampN(x + 4)); state.sightEl.setAttribute("y2", clampN(y + r.height / 2));
     state.eyeAt = {x: x + 4, y: y + r.height / 2};
   }
@@ -425,7 +429,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   }
   function startLegStep(i, to, now){
     const from = state.feet[i] || {x: state.body.x, y: state.body.y};
-    state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 230 / (state.speedMul || 1)};
+    state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 170 / (state.speedMul || 1)};
   }
   function advanceLegs(now){
     for (const k of Object.keys(state.legAnim)){
@@ -435,33 +439,57 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       state.feet[i] = {x: a.from.x + (a.to.x - a.from.x) * s, y: a.from.y + (a.to.y - a.from.y) * s - 7 * Math.sin(Math.PI * s), el: null};
     }
   }
+  // Gait (reference clip): each leg has a resting spot around the body,
+  // four per side from front to back. A foot stays planted on the page
+  // until it falls about a stride from its spot, then steps forward.
+  // Legs move in two alternating sets of four, like a real spider.
+  const LEG_ANG = [-0.55, -1.15, -1.95, -2.55, 0.55, 1.15, 1.95, 2.55];
+  const LEG_R = [84, 90, 86, 78, 84, 90, 86, 78];
+  const LEG_SET = [0, 1, 0, 1, 1, 0, 1, 0];
+  const STRIDE = 30;
+  function restPoint(i, lead){
+    const h = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
+    const a = h + LEG_ANG[i];
+    return {x: state.body.x + Math.cos(a) * LEG_R[i] + Math.cos(h) * lead,
+            y: state.body.y + Math.sin(a) * LEG_R[i] + Math.sin(h) * lead};
+  }
+  function snapToWord(p){
+    // Settle on a word only if one is right there; never reach for one.
+    let best = null, bd = 16;
+    for (const w of footTargets()){
+      const c = docSpaceCenter(w);
+      const d = Math.hypot(c.x - p.x, c.y - p.y);
+      if (d < bd){ bd = d; best = {x: c.x, y: c.y, el: w}; }
+    }
+    return best || {x: p.x, y: p.y, el: null};
+  }
+  function gaitFeet(){
+    const out = [];
+    for (let i = 0; i < N_LEGS; i++) out.push(snapToWord(restPoint(i, 0)));
+    return out;
+  }
   function stepLegs(now){
-    if (now - (state.lastLegCheck || 0) < 70) return;
+    if (now - (state.lastLegCheck || 0) < 40) return;
     state.lastLegCheck = now;
-    const moving = Object.keys(state.legAnim).length;
-    if (moving >= 2) return;
-    const bx = state.body.x, by = state.body.y;
-    const need = [];
+    // Wait for the set in the air to land, then the other set steps:
+    // strict alternation, so neither set is left behind.
+    if (Object.keys(state.legAnim).length) return;
+    const err = (i) => { const f = state.feet[i], r = restPoint(i, 0); return f ? Math.hypot(f.x - r.x, f.y - r.y) : 999; };
+    const worst = (set) => { let m = 0; for (let i = 0; i < N_LEGS; i++) if (LEG_SET[i] === set) m = Math.max(m, err(i)); return m; };
+    const other = state.lastSet == null ? 0 : 1 - state.lastSet;
+    let set = null;
+    if (worst(other) > STRIDE * 0.6) set = other;
+    else if (worst(1 - other) > STRIDE) set = 1 - other;
+    if (set == null) return;
+    // Lead the step by about half a gait cycle of travel (crawl + scroll).
+    const mul = state.speedMul || 1;
+    const lead = Math.min(48, (CRAWL_SPEED + SCROLL_SPEED) * mul * 0.2);
     for (let i = 0; i < N_LEGS; i++){
-      if (state.legAnim[i]) continue;
-      const f = state.feet[i];
-      if (!f || (f.el ? !(footValid(f.el, bx, by, i) || farOk(f, bx, by, i)) : !restOk(f, bx, by, i))) need.push(i);
+      if (LEG_SET[i] !== set) continue;
+      if (err(i) < 8) continue;
+      startLegStep(i, snapToWord(restPoint(i, lead)), now);
     }
-    const ff = state.forceFoot;
-    if (ff){ const c = docSpaceCenter(ff); const si = sectorIndex(bx, by, c.x, c.y); if (!need.includes(si) && !state.legAnim[si]) need.unshift(si); }
-    if (!need.length) return;
-    const target = pickFeetBySector(bx, by, ff);
-    state.forceFoot = null;
-    // Alternate sides like a real gait: prefer legs of the other parity.
-    need.sort((a, b) => ((a % 2) === state.lastParity) - ((b % 2) === state.lastParity));
-    let started = 0;
-    for (const i of need){
-      if (moving + started >= 2) break;
-      const g = target[i];
-      if (!g) continue;
-      if (state.feet[i] && state.feet[i].el === g.el) continue;
-      startLegStep(i, g, now); state.lastParity = i % 2; started++;
-    }
+    state.lastSet = set;
   }
   (function crawl(now){
     requestAnimationFrame(crawl);
@@ -479,6 +507,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       diff = Math.atan2(Math.sin(diff), Math.cos(diff));
       const maxTurn = 2.8 * dt * mul;
       state.heading += Math.max(-maxTurn, Math.min(maxTurn, diff));
+
       const sp = CRAWL_SPEED * mul;
       const dr = doc.getBoundingClientRect();
       state.body.x = Math.min(dr.width - 20, Math.max(20, state.body.x + Math.cos(state.heading) * sp * dt));
@@ -486,6 +515,19 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       // Never leave the frame: ease back inside 15%..80% of the screen.
       const sy = dr.top + state.body.y, lo = innerHeight * 0.15, hi = innerHeight * 0.8;
       if (sy > hi) state.body.y -= (sy - hi) * 0.2; else if (sy < lo) state.body.y += (lo - sy) * 0.2;
+      // Face the actual direction of travel over the page (crawl plus the
+      // scroll it rides), which while reading is mostly down the page.
+      if (state.lastBodyP && dt > 0){
+        const vx = (state.body.x - state.lastBodyP.x) / dt, vy = (state.body.y - state.lastBodyP.y) / dt;
+        state.vel = state.vel ? {x: state.vel.x * 0.92 + vx * 0.08, y: state.vel.y * 0.92 + vy * 0.08} : {x: vx, y: vy};
+        if (Math.hypot(state.vel.x, state.vel.y) > 5){
+          const want = Math.atan2(state.vel.y, state.vel.x);
+          if (state.faceHeading == null) state.faceHeading = want;
+          let fd = want - state.faceHeading; fd = Math.atan2(Math.sin(fd), Math.cos(fd));
+          state.faceHeading = Math.atan2(Math.sin(state.faceHeading + fd * Math.min(1, dt * 3)), Math.cos(state.faceHeading + fd * Math.min(1, dt * 3)));
+        }
+      }
+      state.lastBodyP = {x: state.body.x, y: state.body.y};
       stepLegs(now);
     }
     advanceLegs(now);
@@ -803,7 +845,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   }
 
   function plantInitialFeet(){
-    state.feet = pickFeetBySector(state.body.x, state.body.y);
+    state.faceHeading = Math.PI / 2;
+    state.feet = gaitFeet();
     landFeet(state.feet);
     drawSpider();
   }
@@ -1101,8 +1144,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     const beamText = ev._f && ev._f.display ? `${ev._f.display}` : `${ev.label || ""} ${ev.value || ""}`.trim();
     // The spider does not leap to a found number: it reaches it with a
     // bar (and a foot when it is in reach) and keeps walking.
-    if (d >= LO_REACH && d <= HI_REACH && !walking()) moveBody(state.body.x, state.body.y, found);
-    else if (d >= LO_REACH && d <= HI_REACH){ state.forceFoot = found; }
+    // Feet are never pulled onto numbers (legs looked stuck); the highlight
+    // and the thin line from the body mark the find.
     fireBeam(state.body.x, state.body.y, c.x, c.y, beamText, found);
 
     state.foundCount++;
