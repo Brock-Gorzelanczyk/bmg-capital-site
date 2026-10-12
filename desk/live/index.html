@@ -538,6 +538,20 @@ url:    ${ev.url}
   });
 
   init();
+
+  // Auto-trigger live mode via URL params for scripted screenshots.
+  // Example: /desk/live/?autolive=GATX&automode=rewalk30
+  (function() {
+    const params = new URLSearchParams(location.search);
+    const autoTicker = params.get("autolive");
+    const autoMode = params.get("automode") || "new";
+    if (autoTicker && ["GATX","GBX","TRN"].includes(autoTicker)) {
+      setMode("live");
+      document.getElementById("live-ticker").value = autoTicker;
+      document.getElementById("live-mode").value = autoMode;
+      setTimeout(() => document.getElementById("btn-run").click(), 200);
+    }
+  })();
 })();
 </script>
 </body>
