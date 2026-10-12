@@ -29,8 +29,8 @@ p{margin:0 0 12px}
 .found.org{background:rgba(255,159,28,.22);box-shadow:0 0 10px rgba(255,159,28,.5)}
 .found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
 svg.spider{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
-svg.spider .body{fill:#fff;stroke:#fff;filter:drop-shadow(0 0 6px #fff) drop-shadow(0 0 14px rgba(79,123,255,.5))}
-svg.spider .leg{stroke:#fff;stroke-width:1.3;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 2px rgba(255,255,255,.5))}
+svg.spider .body{fill:#ff2bd6;stroke:#fff;stroke-width:1;filter:drop-shadow(0 0 8px #ff2bd6) drop-shadow(0 0 16px rgba(79,123,255,.4))}
+svg.spider .leg{stroke:#fff;stroke-width:2;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 2px rgba(255,255,255,.6))}
 svg.spider .foot{fill:#fff;stroke:#fff}
 svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
 .note{position:fixed;bottom:0;left:0;right:0;padding:6px 16px;font-size:11px;color:var(--dim);background:rgba(0,0,0,.9);border-top:1px solid #15181d;z-index:20}
@@ -59,7 +59,11 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
   const COLOR_FAM = {Revenue:"pink","Net income":"pink",Sales:"pink",EPS:"pink",
     Dividend:"org","Disposition gains":"org",Buyback:"org",
     Fleet:"blue",Utilization:"blue","Backlog units":"blue","Backlog $B":"blue",LPI:"blue"};
-  const BODY_W = 10, FOOT_R = 2.5, N_LEGS = 8;
+  const BODY_W = 14, BODY_H = 22, FOOT_R = 2.5, N_LEGS = 8;
+  const MIN_REACH = 70, LO_REACH = 80, HI_REACH = 160;
+  const MAX_OUTLINES = 24;
+  // Pre-divide 2*PI into N_LEGS sectors; one foot per 45-degree slice.
+  const SECTOR_RAD = (2 * Math.PI) / N_LEGS;
   const TOUCH_CYCLE = ["t1","t2","t3","t4","t5"];
 
   let state = {
@@ -82,7 +86,7 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
   function clearSpider(){
     spiderSvg.innerHTML = "";
     state.feet = []; state.feetEls = []; state.legEls = []; state.threads = [];
-    state.touchedEls = new Set();
+    state.touchedEls = new Set(); state.touchOrder = [];
   }
 
   function tokenize(text){
@@ -130,22 +134,23 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     const b = document.createElementNS(SVG_NS, "rect");
     b.setAttribute("class", "body");
     b.setAttribute("x", state.body.x - BODY_W/2);
-    b.setAttribute("y", state.body.y - BODY_W/2);
+    b.setAttribute("y", state.body.y - BODY_H/2);
     b.setAttribute("width", BODY_W);
-    b.setAttribute("height", BODY_W);
-    b.setAttribute("rx", 2);
+    b.setAttribute("height", BODY_H);
+    b.setAttribute("rx", 4);
     spiderSvg.appendChild(b);
   }
 
   function finite(v){return typeof v === "number" && isFinite(v);}
   function kneeFor(bx, by, fx, fy, idx){
     if (!finite(bx) || !finite(by) || !finite(fx) || !finite(fy)) return {x: bx||0, y: by||0};
+    // Knee at midpoint of body-foot, pushed 30 px outward from the body
+    // along the leg direction and lifted 20 px up.
     const mx = (bx + fx)/2, my = (by + fy)/2;
     const dx = fx - bx, dy = fy - by;
     const len = Math.max(1, Math.hypot(dx, dy));
-    const nx = -dy/len, ny = dx/len;
-    const bend = 6 + (idx % 3) * 2;
-    const kx = mx + nx * bend, ky = my + ny * bend;
+    const ox = dx/len * 30, oy = dy/len * 30;
+    const kx = mx + ox, ky = my + oy - 20;
     return {x: finite(kx) ? kx : mx, y: finite(ky) ? ky : my};
   }
 
@@ -182,15 +187,37 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     }
   }
 
-  function addThread(toX, toY){
+  function addThread(targetEl){
+    // Store the target element reference; the line's endpoints are
+    // recomputed every frame the body moves so threads always start at
+    // the body's CURRENT position (DESK-5.5) and end on the live rect
+    // of the touched element in the document's coordinate space.
+    if (!targetEl) return;
     const t = document.createElementNS(SVG_NS, "line");
     t.setAttribute("class", "thread");
-    t.setAttribute("x1", state.body.x);
-    t.setAttribute("y1", state.body.y);
-    t.setAttribute("x2", toX);
-    t.setAttribute("y2", toY);
     spiderSvg.insertBefore(t, spiderSvg.firstChild);
-    state.threads.push(t);
+    state.threads.push({line: t, el: targetEl});
+    redrawThreads();
+  }
+
+  function docSpaceCenter(el){
+    const r = el.getBoundingClientRect(), dr = doc.getBoundingClientRect();
+    return {x: r.left - dr.left + r.width/2, y: r.top - dr.top + r.height/2};
+  }
+
+  function redrawThreads(){
+    const bx = clampN(state.body.x), by = clampN(state.body.y);
+    const dr = doc.getBoundingClientRect();
+    for (const t of state.threads){
+      if (!document.body.contains(t.el)){ t.line.remove(); continue; }
+      const c = docSpaceCenter(t.el);
+      // Clip endpoints to the doc rect so a thread never ends off-document.
+      const ex = Math.min(dr.width - 1, Math.max(1, c.x));
+      const ey = Math.min(dr.height - 1, Math.max(1, c.y));
+      t.line.setAttribute("x1", bx); t.line.setAttribute("y1", by);
+      t.line.setAttribute("x2", clampN(ex)); t.line.setAttribute("y2", clampN(ey));
+    }
+    state.threads = state.threads.filter(t => document.body.contains(t.el));
   }
 
   function markTouch(el){
@@ -199,56 +226,89 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     el.classList.add("touch-" + tier);
     state.touchCycleIdx++;
     state.touchedEls.add(el);
+    state.touchOrder = state.touchOrder || [];
+    state.touchOrder.push(el);
+    // Cap visible outlines at MAX_OUTLINES; oldest fade out.
+    while (state.touchOrder.length > MAX_OUTLINES){
+      const oldest = state.touchOrder.shift();
+      if (oldest){
+        TOUCH_CYCLE.forEach(c => oldest.classList.remove("touch-" + c));
+        state.touchedEls.delete(oldest);
+      }
+    }
   }
 
   function markLinkPassed(a){
     if (!a.classList.contains("link")) a.classList.add("link");
   }
 
-  function nearestUntouchedAhead(bodyY){
+  function sectorIndex(bx, by, wx, wy){
+    let ang = Math.atan2(wy - by, wx - bx);
+    if (ang < 0) ang += Math.PI * 2;
+    return Math.floor(ang / SECTOR_RAD) % N_LEGS;
+  }
+
+  function pickFeetBySector(prevFeet){
+    // One foot per 45-degree sector around the body, at distance 80 to 160 px.
+    // Never pick an element closer than MIN_REACH. Prefer untouched words.
     const words = Array.from(docBody.querySelectorAll(".w"));
-    const d = doc.getBoundingClientRect();
-    let best = null, bestDy = Infinity;
+    const dr = doc.getBoundingClientRect();
+    const bx = state.body.x, by = state.body.y;
+    const bucket = new Array(N_LEGS).fill(null);
     for (const w of words){
-      if (state.touchedEls.has(w)) continue;
+      if (w.classList.contains("found")) continue;
       const r = w.getBoundingClientRect();
-      const wy = r.top - d.top + r.height/2;
-      const dy = wy - bodyY;
-      if (dy >= -2 && dy < bestDy){ bestDy = dy; best = w; }
+      const wx = r.left - dr.left + r.width/2;
+      const wy = r.top - dr.top + r.height/2;
+      const d2 = Math.hypot(wx - bx, wy - by);
+      if (d2 < MIN_REACH || d2 > HI_REACH) continue;
+      const si = sectorIndex(bx, by, wx, wy);
+      const prefer = (d2 >= LO_REACH && d2 <= HI_REACH) ? 0 : 1;
+      // Prefer untouched. If sector already filled, keep the one closest to 120 px.
+      const score = Math.abs(d2 - 120) + prefer * 40 + (state.touchedEls.has(w) ? 60 : 0);
+      if (!bucket[si] || score < bucket[si].score){
+        bucket[si] = {w, x: wx, y: wy, score};
+      }
     }
-    return best;
+    // Fill empty sectors with a synthetic radial point at 110 px (never off-doc)
+    const feet = [];
+    for (let i = 0; i < N_LEGS; i++){
+      if (bucket[i]){
+        feet.push({x: bucket[i].x, y: bucket[i].y, el: bucket[i].w});
+      } else {
+        const ang = (i + 0.5) * SECTOR_RAD;
+        const r = 110;
+        const px = Math.min(dr.width - 10, Math.max(10, bx + Math.cos(ang) * r));
+        const py = Math.min(dr.height - 10, Math.max(10, by + Math.sin(ang) * r));
+        feet.push({x: px, y: py, el: null});
+      }
+    }
+    return feet;
   }
 
   function stepFeetForward(){
-    // Lift the two feet whose y is farthest BEHIND body.y and place them on nearest untouched elements ahead
-    if (state.feet.length < 2) return;
-    const indexed = state.feet.map((f,i) => ({f, i}));
-    indexed.sort((a,b) => (state.body.y - a.f.y) - (state.body.y - b.f.y));
-    // Pop two "most behind" (largest body.y - f.y)
-    const toMove = indexed.slice(-2).map(x => x.i);
-    const steps = [];
-    for (const i of toMove){
-      const target = nearestUntouchedAhead(state.body.y) || nearestUntouchedAhead(state.body.y - 50);
-      if (!target) continue;
-      const tc = elCenter(target);
-      const from = {x: state.feet[i].x, y: state.feet[i].y};
-      steps.push({i, from, to: tc, target});
-    }
-    // Animate over 180ms
+    const nextFeet = pickFeetBySector();
+    if (!nextFeet.length) return;
+    // Preserve current feet positions as starting points, tween each foot
+    // over 180 ms via requestAnimationFrame (CSS can't tween polyline points).
+    const prev = state.feet.map(f => ({x: f.x, y: f.y}));
+    const target = nextFeet.map(f => ({x: f.x, y: f.y, el: f.el}));
     const start = performance.now(), dur = 180;
     function tween(now){
       const t = Math.min(1, (now - start)/dur);
-      for (const s of steps){
-        state.feet[s.i].x = s.from.x + (s.to.x - s.from.x) * t;
-        state.feet[s.i].y = s.from.y + (s.to.y - s.from.y) * t;
+      for (let i = 0; i < N_LEGS; i++){
+        const p = prev[i] || {x: state.body.x, y: state.body.y};
+        state.feet[i] = {x: p.x + (target[i].x - p.x) * t, y: p.y + (target[i].y - p.y) * t};
       }
-      drawLegs();
+      drawLegs(); redrawThreads();
       if (t < 1) requestAnimationFrame(tween);
       else {
-        for (const s of steps){
-          markTouch(s.target);
-          if (s.target.tagName === "A") markLinkPassed(s.target);
-          addThread(s.to.x, s.to.y);
+        for (const tgt of target){
+          if (tgt.el){
+            markTouch(tgt.el);
+            if (tgt.el.tagName === "A") markLinkPassed(tgt.el);
+            addThread(tgt.el);
+          }
         }
       }
     }
@@ -258,24 +318,21 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
   function moveBody(x, y){
     const dy = Math.hypot(x - state.body.x, y - state.body.y);
     state.body.x = x; state.body.y = y;
-    drawBody(); drawLegs();
+    drawBody(); drawLegs(); redrawThreads();
     if (dy > 24) stepFeetForward();
   }
 
   function plantInitialFeet(){
-    // Pick the first N_LEGS .w elements nearest the body as the starting feet.
-    const words = Array.from(docBody.querySelectorAll(".w"));
-    if (!words.length) return;
-    const d = doc.getBoundingClientRect();
-    const scored = words.map(w => {
-      const r = w.getBoundingClientRect();
-      const wx = r.left - d.left + r.width/2;
-      const wy = r.top - d.top + r.height/2;
-      return {w, wx, wy, d2: Math.hypot(wx - state.body.x, wy - state.body.y)};
-    }).sort((a,b) => a.d2 - b.d2).slice(0, N_LEGS);
-    state.feet = scored.map(s => ({x: s.wx, y: s.wy}));
-    scored.forEach(s => { markTouch(s.w); if (s.w.tagName === "A") markLinkPassed(s.w); addThread(s.wx, s.wy); });
-    drawBody(); drawLegs();
+    const feet = pickFeetBySector();
+    state.feet = feet.map(f => ({x: f.x, y: f.y}));
+    feet.forEach(f => {
+      if (f.el){
+        markTouch(f.el);
+        if (f.el.tagName === "A") markLinkPassed(f.el);
+        addThread(f.el);
+      }
+    });
+    drawBody(); drawLegs(); redrawThreads();
   }
 
   function familyOf(label){return COLOR_FAM[label] || "pink";}
@@ -422,7 +479,7 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
       drawLegs();
     }
     markTouch(found);
-    addThread(c.x, c.y);
+    addThread(found);
     state.foundCount++;
     setStatus(`reading <b>${state.currentHost||""}</b> ${state.currentType||""} ${(state.currentPub||"").slice(0,10)} &nbsp;&middot;&nbsp; ${state.foundCount} numbers found`);
   }
