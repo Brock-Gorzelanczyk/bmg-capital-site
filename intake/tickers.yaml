@@ -1,0 +1,29 @@
+# BMG Capital research intake bot: ticker configuration.
+# Adding a new covered name is one line here.
+# CIK must be the SEC Central Index Key as a 10-digit integer string.
+# fye: fiscal-year-end month-day (used by the digest and the IR feed slug matching).
+
+tickers:
+  - ticker: GATX
+    cik: "0000040211"
+    fye: "12-31"
+    ir_rss: "https://ir.gatx.com/rss/pressrelease.aspx"
+    ir_home: "https://ir.gatx.com/"
+    crawl_delay_s: 10
+    news_query: "\"GATX\" OR \"GATX Corporation\""
+
+  - ticker: GBX
+    cik: "0000923120"
+    fye: "08-31"
+    ir_rss: "https://pressroom.gbrx.com/press-releases?pagetemplate=rss"
+    ir_home: "https://investors.gbrx.com/"
+    crawl_delay_s: 2
+    news_query: "Greenbrier"
+
+  - ticker: TRN
+    cik: "0000099780"
+    fye: "12-31"
+    ir_rss: "https://www.trin.net/rss/pressrelease.aspx"
+    ir_home: "https://www.trin.net/investor/"
+    crawl_delay_s: 10
+    news_query: "\"Trinity Industries\""
