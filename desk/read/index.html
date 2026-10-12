@@ -48,6 +48,10 @@ svg.spider .knee{fill:#ff3d9a}
 .w.lift.f3{font-family:Georgia,serif;font-style:italic;color:#8fd9e6}
 .w.fillbox{background:#ff2bd6;color:#fff;border-radius:2px;box-shadow:0 0 8px rgba(255,43,214,.6)}
 .beam{position:absolute;height:26px;transform-origin:0 50%;background:rgba(255,43,214,.9);color:#5a0040;font:italic 14px/26px Georgia,serif;white-space:nowrap;overflow:hidden;padding-left:10px;z-index:2;pointer-events:none;box-shadow:0 0 12px rgba(255,43,214,.55);animation:beam 4.2s ease-out forwards}
+.w.hl-pink{background:rgba(255,43,214,.85);color:#fff;border-radius:2px;transition:background .6s ease,color .6s ease}
+.w.hl-cyan{background:rgba(39,200,255,.8);color:#002a36;border-radius:2px;transition:background .6s ease,color .6s ease}
+.w.hl-out{background:transparent!important;color:inherit!important}
+.w.hl-blue{background:rgba(79,123,255,.18);box-shadow:0 0 0 1px rgba(79,123,255,.75);border-radius:2px}
 .beam.cyan{background:rgba(39,200,255,.85);color:#00384a;box-shadow:0 0 12px rgba(39,200,255,.5)}
 .w.cyanfill{background:#27e3ff;color:#001a22;border-radius:2px}
 .w.salmon{background:#ff8a6a;color:#2a0d00}
@@ -61,7 +65,8 @@ svg.spider .knee{fill:#ff3d9a}
 .note{position:fixed;bottom:0;left:0;right:0;padding:6px 16px;font-size:11px;color:var(--dim);background:rgba(0,0,0,.9);border-top:1px solid #15181d;z-index:20}
 @media (max-width:600px){.stage{font-size:13px}.found{font-size:16px}.strip{height:auto;flex-wrap:wrap;padding:6px 12px}.strip .status{margin-left:0;width:100%;max-width:100%}.doc{margin-top:84px}}
 .stage{font:15px/1.8 'IBM Plex Mono',ui-monospace,monospace;border:1px solid #e3e3dc;border-radius:10px;overflow:visible}
-.stage .strip{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e3dc;color:#4a4a4a;border-radius:10px 10px 0 0;z-index:5}
+.stage .strip{background:#fff;border-bottom:1px solid #e3e3dc;color:#4a4a4a;border-radius:10px 10px 0 0;z-index:30}
+.stage .doc{isolation:isolate}
 .stage .strip b{color:#141414}
 .stage .strip .status{color:#4a4a4a}
 .stage .strip .btn{color:#141414;border-color:#c9c9c4;background:#fff}
@@ -77,6 +82,8 @@ svg.spider .knee{fill:#ff3d9a}
 .pdftext{position:absolute;inset:0;overflow:hidden;line-height:1}
 .pdftext .tl{position:absolute;white-space:pre;color:transparent;transform-origin:0 0;font-family:sans-serif}
 .pdftext .w{color:transparent}
+.pdftext .w.hl-pink{background:rgba(255,43,214,.42);color:transparent}
+.pdftext .w.hl-cyan{background:rgba(39,200,255,.4);color:transparent}
 .pdftext .w.found,.htmldoc .w.found{font:inherit;padding:0;box-shadow:none}
 .pdftext .w.found.pink,.pdftext .w.fillbox{background:rgba(255,43,214,.38)}
 .pdftext .w.found.org{background:rgba(255,159,28,.4)}
@@ -458,31 +465,17 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   }
 
   function liftPhrase(el, k){
-    // Lift the word and the next one or two off the page as one enlarged
-    // phrase ("field guides to spiders" in the clips), in a new face.
-    const words = [el]; let n = el.nextElementSibling;
-    while (n && words.length < 5 && n.classList.contains("w") && !n.classList.contains("found")){ words.push(n); n = n.nextElementSibling; }
-    while (words.length > 1 && words.map(w => w.textContent).join(" ").length > 40) words.pop();
-    const r0 = words[0].getBoundingClientRect(), r1 = words[words.length - 1].getBoundingClientRect();
-    if (Math.abs(r0.top - r1.top) > 4) words.splice(1);
-    const dr = doc.getBoundingClientRect(), last = words[words.length - 1].getBoundingClientRect();
-    const lbl = document.createElement("div");
-    lbl.className = "liftlbl f" + (1 + (k % 3));
-    lbl.textContent = words.map(w => w.textContent).join(" ");
-    const cx = (r0.left + last.right) / 2 - dr.left;
-    lbl.style.left = cx + "px";
-    lbl.style.top = ((r0.top + r0.bottom) / 2 - dr.top) + "px";
-    doc.appendChild(lbl);
-    // Keep the whole enlarged phrase inside the page.
-    const half = lbl.offsetWidth / 2 + 4;
-    lbl.style.left = Math.min(dr.width - half, Math.max(half, cx)) + "px";
+    // Mark the phrase (2 to 5 words) in place with a blue highlight; the
+    // text itself stays where it is on the page.
+    const words = phraseFrom(el, 2 + (k % 4));
+    words.forEach(w => w.classList.add("hl-blue"));
     el.classList.add("lift");
-    el._lift = lbl;
+    el._lift = words;
   }
 
   function clearTouchClasses(el){
     TOUCH_CYCLE.forEach(c => el.classList.remove("touch-" + c));
-    if (el._lift){ const l = el._lift; el._lift = null; l.classList.add("gone"); setTimeout(() => l.remove(), 400); }
+    if (el._lift){ el._lift.forEach(w => w.classList.remove("hl-blue")); el._lift = null; }
     if (el._bar){ el._bar.forEach(w => w.classList.remove("salmon")); el._bar = null; }
     el.classList.remove("touch-fade", "lift", "f1", "f2", "f3", "fillbox", "cyanfill");
   }
@@ -818,9 +811,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       // Every ~10 lines the spider pulls a strand of the passage out as a
       // pink bar (the clips' long diagonal beam carrying text).
       if (i % 10 === 5){
-        const txt = row.els.map(w => w.textContent).join(" ").slice(0, 70);
-        const a = (i % 20 === 5 ? -0.6 : 0.55) + (i % 3) * 0.2;
-        fireBeam(x, y, x + Math.cos(a) * 230, y + Math.sin(a) * 230, txt);
+        fireBeam(x, y, x, y, "", row.els[Math.floor(row.els.length * 0.3)]);
       }
       state.walkState.lineIdx = ++i;
       state.walkTimer = setTimeout(step, ms);
@@ -833,27 +824,32 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   function numOf(t){ const m = String(t).replace(/,/g, "").match(/-?\d+(?:\.\d+)?/g); return m && m.length === 1 ? m[0] : null; }
   function holds(w, value){
     const v = numOf(value); const n = numOf(w.textContent);
-    if (v !== null && n !== null) return parseFloat(n) === parseFloat(v) && w.textContent.replace(/[\d,.$()%\-\s]/g, "").length <= 3;
+    if (v !== null && n !== null) return n === v && w.textContent.replace(/[\d,.$()%\-\s]/g, "").length <= 3;
     return w.textContent.includes(value);
   }
 
+  function phraseFrom(el, n){
+    const out = [el]; let x = el.nextElementSibling;
+    while (x && out.length < n && x.classList.contains("w") && !x.classList.contains("found")){ out.push(x); x = x.nextElementSibling; }
+    return out;
+  }
+  function highlightRun(words, color){
+    // Highlight the words where they sit on the page; nothing is copied
+    // or moved. Fades after ~4 s.
+    const cls = "hl-" + color;
+    words.forEach(w => { w.classList.remove("hl-out"); w.classList.add(cls); });
+    setTimeout(() => words.forEach(w => w.classList.add("hl-out")), 3600);
+    setTimeout(() => words.forEach(w => w.classList.remove(cls, "hl-out")), 4300);
+  }
   function fireBeam(x1, y1, x2, y2, text, el){
-    // A thick bar strung from the spider's body out to a link, passage or
-    // found number, carrying its text. It stays attached to the body and
-    // pivots as the spider moves (as in the reference clip), then fades.
-    if (Math.hypot(x2 - x1, y2 - y1) < 20) return;
+    // Was a bar carrying copied text; now an in-place pink (sometimes
+    // cyan) highlight on the target words, at most one every 0.9 s.
+    if (!el) return;
     const now = performance.now();
     if (state.lastBeam && now - state.lastBeam < 900) return;
     state.lastBeam = now;
-    const b = document.createElement("div");
     state.beamN = (state.beamN || 0) + 1;
-    b.className = "beam" + (state.beamN % 4 === 0 ? " cyan" : "");
-    b.textContent = text;
-    doc.appendChild(b);
-    state.beams = state.beams || [];
-    state.beams.push({b, el: el || null, x: x2, y: y2});
-    drawBeams();
-    setTimeout(() => { b.remove(); state.beams = (state.beams || []).filter(o => o.b !== b); }, 4300);
+    highlightRun(el.classList.contains("found") ? [el] : phraseFrom(el, 4), state.beamN % 4 === 0 ? "cyan" : "pink");
   }
 
   function drawBeams(){
