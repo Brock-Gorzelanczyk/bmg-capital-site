@@ -252,6 +252,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   function clearSpider(){
     spiderSvg.innerHTML = "";
     state.bodyAnim++;
+    state.boost = 1; state.boostTarget = 1;
     state.crawlTarget = null; state.crawlX = null; state.legAnim = {}; state.eyeFocus = null; state.nextFocus = null; state.heading = null; state.faceHeading = null; state.vel = null; state.lastBodyP = null; state.lastSet = null;
     state.feet = []; state.feetEls = []; state.legEls = []; state.threads = []; state.rows = null; state.meshPool = []; state.trail = []; state.links = []; state.linkPool = []; state.eyeEl = null; state.eyeAt = null;
     document.querySelectorAll(".liftlbl,.beam").forEach(e => e.remove()); state.beams = [];
@@ -386,7 +387,9 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (!walking() || state.paused || !state.rows) { state.scrollPos = null; return; }
     if (state.scrollPos == null) state.scrollPos = window.scrollY;
     const before = window.scrollY;
-    state.scrollPos += SCROLL_SPEED * (state.speedMul || 1) * dt;
+    // Ease the boost in and out (~0.4 s) so speed changes are smooth.
+    state.boost = (state.boost || 1) + ((state.boostTarget || 1) - (state.boost || 1)) * Math.min(1, dt * 1.6);
+    state.scrollPos += SCROLL_SPEED * (state.speedMul || 1) * state.boost * dt;
     window.scrollTo(0, state.scrollPos);
     // The spider rides the scroll: it moves with the page view, so its own
     // crawl only moves it around inside the frame (reference clip).
@@ -429,7 +432,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   }
   function startLegStep(i, to, now){
     const from = state.feet[i] || {x: state.body.x, y: state.body.y};
-    state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 170 / (state.speedMul || 1)};
+    state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 170 / ((state.speedMul || 1) * Math.sqrt(state.boost || 1))};
   }
   function advanceLegs(now){
     for (const k of Object.keys(state.legAnim)){
@@ -450,7 +453,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   function restPoint(i, lead){
     const h = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
     const a = h + LEG_ANG[i];
-    return {x: state.body.x + Math.cos(a) * LEG_R[i] + Math.cos(h) * lead,
+    const w = doc.clientWidth || 800;
+    return {x: Math.min(w - 6, Math.max(6, state.body.x + Math.cos(a) * LEG_R[i] + Math.cos(h) * lead)),
             y: state.body.y + Math.sin(a) * LEG_R[i] + Math.sin(h) * lead};
   }
   function snapToWord(p){
@@ -483,7 +487,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (set == null) return;
     // Lead the step by about half a gait cycle of travel (crawl + scroll).
     const mul = state.speedMul || 1;
-    const lead = Math.min(48, (CRAWL_SPEED + SCROLL_SPEED) * mul * 0.2);
+    const lead = Math.min(60, (CRAWL_SPEED + SCROLL_SPEED) * mul * (state.boost || 1) * 0.2);
     for (let i = 0; i < N_LEGS; i++){
       if (LEG_SET[i] !== set) continue;
       if (err(i) < 8) continue;
@@ -508,9 +512,10 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       const maxTurn = 2.8 * dt * mul;
       state.heading += Math.max(-maxTurn, Math.min(maxTurn, diff));
 
-      const sp = CRAWL_SPEED * mul;
+      const sp = CRAWL_SPEED * mul * (state.boost || 1);
       const dr = doc.getBoundingClientRect();
-      state.body.x = Math.min(dr.width - 20, Math.max(20, state.body.x + Math.cos(state.heading) * sp * dt));
+      const edge = HI_REACH * 1.2;   // keep the legs on the page too
+      state.body.x = Math.min(dr.width - edge, Math.max(edge, state.body.x + Math.cos(state.heading) * sp * dt));
       state.body.y = Math.max(10, state.body.y + Math.sin(state.heading) * sp * dt);
       // Never leave the frame: ease back inside 15%..80% of the screen.
       const sy = dr.top + state.body.y, lo = innerHeight * 0.15, hi = innerHeight * 0.8;
@@ -946,7 +951,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     const h1Rect = h1.getBoundingClientRect();
     state.body = {x: Math.max(HI_REACH, dRect.width * 0.42), y: h1Rect.bottom - dRect.top + 60};
     plantInitialFeet();
-    window.scrollTo({top: Math.max(0, dRect.top + window.scrollY - 60)});
+    window.scrollTo({top: Math.max(0, dRect.top + window.scrollY - 60), behavior: "smooth"});
     setStatus(`reading <b>${ev.host||""}</b> ${ev.doc_type} ${(ev.published_at||ev.fetched_at||"").slice(0,10)} &nbsp;&middot;&nbsp; 0 numbers found`);
     const dur = state.walkOverride || computeWalkDuration(ev.doc_id, ev.fetched_at);
     setTimeout(() => { if (token === state.loadToken) startWalk(ev.doc_id, dur); }, 80);
@@ -990,6 +995,9 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       if (!cur || Math.abs(y - cur.y) > 6){ cur = {y, els: [], x0: r.left - d.left, x1: r.right - d.left}; rows.push(cur); }
       cur.els.push(w); cur.x1 = Math.max(cur.x1, r.right - d.left);
     }
+    // PDF text comes in content order, not always top to bottom; read
+    // lines in page order.
+    rows.sort((a, b) => a.y - b.y);
     return rows;
   }
 
@@ -1044,14 +1052,18 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
         readIdx++;
       }
       state.walkState.lineIdx = readIdx;
-      if (readIdx >= rows.length){ state.walkState.done = true; state.eyeFocus = null; walkFinished(); return; }
+      if (readIdx >= rows.length){ state.walkState.done = true; state.eyeFocus = null; state.boostTarget = 1; walkFinished(); return; }
+      // Blank space ahead (page gaps, empty bands of a 10-K): speed up;
+      // text near the reading line: back to reading speed.
+      const gap = rowY(readIdx) - ry;
+      state.boostTarget = gap > 90 ? Math.min(4, 1 + (gap - 90) / 110) : 1;
       const ct = state.crawlTarget;
       if (!ct || Math.hypot(ct.x - state.body.x, ct.y - state.body.y) < 45 || ct.y < ry - 90){
         const nf = state.nextFocus;
         const f = (nf && nf.w.isConnected && rowY(nf.r) >= ry - 30) ? nf : pickFocusNear(ct && ct.el);
         if (f){
           const c = docSpaceCenter(f.w), d = doc.getBoundingClientRect();
-          state.crawlTarget = {x: Math.min(d.width - 40, Math.max(40, c.x)), y: c.y + 14, el: f.w};
+          state.crawlTarget = {x: Math.min(d.width - HI_REACH, Math.max(HI_REACH, c.x)), y: c.y + 14, el: f.w};
           state.beatN = (state.beatN || 0) + 1;
           if (state.beatN % 3 === 1) fireBeam(c.x, c.y, c.x, c.y, "", f.w);
           state.nextFocus = pickFocusNear(f.w);
