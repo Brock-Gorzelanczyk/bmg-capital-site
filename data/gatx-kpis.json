@@ -1,0 +1,135 @@
+{
+  "ticker": "GATX",
+  "updated": "2026-10-09",
+  "source_note": "Rail North America KPIs from GATX quarterly earnings releases (Q4 2025, Q1 2026, Q2 2026 tables). Consensus from FactSet. Bond yield from the 2035 notes.",
+  "quarters": [
+    "Q4 2024",
+    "Q1 2025",
+    "Q2 2025",
+    "Q3 2025",
+    "Q4 2025",
+    "Q1 2026",
+    "Q2 2026",
+    "Q3 2026"
+  ],
+  "kpis": [
+    {
+      "id": "lpi",
+      "name": "Renewal pricing (Lease Price Index)",
+      "unit": "%",
+      "plain": "How much more GATX charges on renewal than the expiring lease.",
+      "values": [
+        26.7,
+        24.5,
+        24.2,
+        22.8,
+        21.9,
+        22.3,
+        16.8,
+        null
+      ],
+      "line": 10.0,
+      "line_rule": "below",
+      "line_label": "Kill line: below +10%",
+      "thesis_read": "Slowing. Guide is high teens to low 20s for 2026."
+    },
+    {
+      "id": "success",
+      "name": "Renewal success rate",
+      "unit": "%",
+      "plain": "Share of expiring cars the same customer renews.",
+      "values": [
+        89.1,
+        85.1,
+        84.2,
+        87.1,
+        91.4,
+        79.1,
+        82.6,
+        null
+      ],
+      "line": 85.0,
+      "line_rule": "below",
+      "line_label": "Watch: a third print below 85% is a trend",
+      "thesis_read": "Two of the last three quarters below 85%."
+    },
+    {
+      "id": "term",
+      "name": "Average renewal term",
+      "unit": "months",
+      "plain": "How long customers sign for. Shorter terms mean less confidence.",
+      "values": [
+        60,
+        61,
+        60,
+        60,
+        58,
+        56,
+        54,
+        null
+      ],
+      "line": null,
+      "line_rule": null,
+      "line_label": "Watch: below 54 months",
+      "thesis_read": "Down from 61 to 54 months since Q1 2025, three straight declines."
+    },
+    {
+      "id": "util",
+      "name": "Fleet utilization",
+      "unit": "%",
+      "plain": "Share of railcars on lease.",
+      "values": [
+        99.1,
+        99.2,
+        99.2,
+        98.9,
+        99.0,
+        98.1,
+        98.0,
+        null
+      ],
+      "line": 96.0,
+      "line_rule": "below",
+      "line_label": "Kill line: below 96%",
+      "thesis_read": "Still full. The Wells Fargo cars pulled the combined number to 98%."
+    }
+  ],
+  "other": [
+    {
+      "name": "Cost of new 10-year debt",
+      "value": "5.95% (GATX 2035 notes)",
+      "line": "6.00% fires the kill criterion"
+    },
+    {
+      "name": "Legacy disposition gains, 2026",
+      "value": "about $94M of legacy booked in H1 vs $130M guide (Rail NA segment total $117.5M includes GABX)",
+      "line": "Kill criterion: full-year legacy below the $130M guide; model carries $140M (v39)"
+    },
+    {
+      "name": "Credit rating",
+      "value": "S&P BBB, Moody's Baa1 stable (upgraded 6/30/26), Fitch BBB+",
+      "line": "Below BBB- fires the kill criterion"
+    }
+  ],
+  "consensus_history": [
+    {
+      "date": "2026-09-21",
+      "eps_2026": 10.23,
+      "eps_2027": 11.27,
+      "eps_q3": 2.46,
+      "target_mean": 219.75,
+      "brokers": 4
+    }
+  ],
+  "bmg": {
+    "rating": "HOLD",
+    "target": 161.99,
+    "target_date": "2026-10-09",
+    "eps_2027": 10.18,
+    "eps_q3": 2.55,
+    "model": "GATX-FSM-v40 (Valuation Section C1 bear/bull EPS snapshots refreshed to post-v39 engine; disposition gains basis corrected 2026-10-09; prior v32 $165.54 held through v38); price $162.78 at 2026-10-08 close, FactSet SIP consolidated (Cowork verified)",
+    "ntm_dividend": 2.64,
+    "ntm_dividend_basis": "$0.66 declared quarterly x 4; model 2027E DPS = $2.74 as a footnote",
+    "expected_12m_total_return_pct": 1.1
+  }
+}
