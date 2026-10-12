@@ -382,8 +382,8 @@ svg.spider .knee{fill:#ff3d9a}
       state.body.x = Math.min(dr.width - edge, Math.max(edge, state.body.x + Math.cos(state.heading) * sp * dt));
       state.body.y = Math.max(10, state.body.y + Math.sin(state.heading) * sp * dt);
       // Never leave the frame: ease back inside 15%..80% of the screen.
-      const sy = dr.top + state.body.y, lo = innerHeight * 0.15, hi = innerHeight * 0.8;
-      if (sy > hi) state.body.y -= (sy - hi) * 0.2; else if (sy < lo) state.body.y += (lo - sy) * 0.2;
+      const sy = dr.top + state.body.y, lo = innerHeight * 0.22, hi = innerHeight * 0.72;
+      if (sy > hi) state.body.y -= (sy - hi) * 0.25; else if (sy < lo) state.body.y += (lo - sy) * 0.25;
       // Face the actual direction of travel over the page (crawl plus the
       // scroll it rides), which while reading is mostly down the page.
       if (state.lastBodyP && dt > 0){
@@ -895,12 +895,14 @@ svg.spider .knee{fill:#ff3d9a}
       let best = null, bs = -1e9;
       for (let r = readIdx; r < rows.length; r++){
         const y = rowY(r);
-        if (y > ry + 190) break;
+        if (y > ry + 190 + 140 * ((state.boost || 1) - 1)) break;
         if (y < ry - 30) continue;
         for (const w of rows[r].els){
           if (w === exclude) continue;
           const c = docSpaceCenter(w);
-          const sc = interest(w) + Math.random() * 1.5 - Math.abs(c.x - state.body.x) / 110 - Math.abs(y - (ry + 70)) / 90;
+          // Aim further ahead while the page is speeding up.
+          const ahead = 70 + 70 * ((state.boost || 1) - 1);
+          const sc = interest(w) + Math.random() * 1.5 - Math.abs(c.x - state.body.x) / 110 - Math.abs(y - (ry + ahead)) / 90;
           if (sc > bs){ bs = sc; best = {w, r}; }
         }
       }
@@ -923,7 +925,8 @@ svg.spider .knee{fill:#ff3d9a}
       const gap = rowY(readIdx) - ry;
       state.boostTarget = gap > 90 ? Math.min(4, 1 + (gap - 90) / 110) : 1;
       const ct = state.crawlTarget;
-      if (!ct || Math.hypot(ct.x - state.body.x, ct.y - state.body.y) < 45 || ct.y < ry - 90){
+      const boosting = (state.boost || 1) > 1.2;
+      if (!ct || Math.hypot(ct.x - state.body.x, ct.y - state.body.y) < 45 || ct.y < ry - (boosting ? 10 : 90)){
         const nf = state.nextFocus;
         const f = (nf && nf.w.isConnected && rowY(nf.r) >= ry - 30) ? nf : pickFocusNear(ct && ct.el);
         if (f){
