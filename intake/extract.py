@@ -102,6 +102,12 @@ def _extract_facts_from_text(doc_id: str, text: str) -> int:
                 store.insert_fact(document_id=doc_id, label=label, value=val,
                                    unit=unit, char_offset=offset)
                 inserted += 1
+                try:
+                    from . import events as _events
+                    _events.emit("extract_fact", doc_id=doc_id, label=label,
+                                 value=val, unit=unit, char_offset=offset)
+                except Exception:
+                    pass
             except Exception as e:
                 log.warning(f"insert_fact failed {doc_id} {label}: {e}")
             if inserted >= 10:

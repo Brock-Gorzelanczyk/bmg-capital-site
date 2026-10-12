@@ -143,9 +143,9 @@ def insert_document(
 ) -> Optional[str]:
     """Insert a document row. Returns doc id if newly inserted, None if duplicate
     source_url already in table."""
+    did = doc_id_from_sha(sha256)
     with connect() as conn:
         try:
-            did = doc_id_from_sha(sha256)
             conn.execute(
                 """INSERT INTO documents
                    (id, ticker, type, title, source, source_url, published_at,
@@ -156,10 +156,43 @@ def insert_document(
                  sha256, raw_path, text_path, bytes_, json.dumps(meta or {})),
             )
             log.info(f"inserted doc id={did} ticker={ticker} type={doc_type} url={source_url}")
+            try:
+                from . import events as _events
+                _events.emit("fetch_done_insert", doc_id=did, ticker=ticker,
+                             doc_type=doc_type, title=title, source_url=source_url,
+                             skipped_dup=False, bytes=bytes_)
+            except Exception:
+                pass
             return did
         except sqlite3.IntegrityError:
             log.info(f"duplicate url, skipping: {source_url}")
+            try:
+                from . import events as _events
+                _events.emit("fetch_done_insert", doc_id=did, ticker=ticker,
+                             doc_type=doc_type, title=title, source_url=source_url,
+                             skipped_dup=True, bytes=bytes_)
+            except Exception:
+                pass
             return None
+
+
+def delete_bot_docs_since(ticker: str, sources: list[str], cutoff_iso: str) -> int:
+    """Delete documents (and their facts) this bot wrote for `ticker` from
+    `sources` with fetched_at >= cutoff_iso. Returns rows deleted. Used by
+    the rewalk30 live mode to overwrite only rows this bot inserted."""
+    with connect() as conn:
+        placeholders = ",".join(["?"] * len(sources))
+        ids = conn.execute(
+            f"SELECT id FROM documents WHERE ticker = ? AND source IN ({placeholders}) AND fetched_at >= ?",
+            (ticker, *sources, cutoff_iso),
+        ).fetchall()
+        id_list = [r["id"] for r in ids]
+        if not id_list:
+            return 0
+        qmarks = ",".join(["?"] * len(id_list))
+        conn.execute(f"DELETE FROM facts WHERE document_id IN ({qmarks})", id_list)
+        cur = conn.execute(f"DELETE FROM documents WHERE id IN ({qmarks})", id_list)
+        return cur.rowcount
 
 
 def already_have(source_url: Optional[str] = None, sha256: Optional[str] = None) -> bool:

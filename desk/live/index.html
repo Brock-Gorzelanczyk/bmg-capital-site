@@ -76,10 +76,27 @@ body { background: #0f1115; color: #d7dbe3; }
 <main class="live-root">
   <div class="topbar">
     <div class="title" id="replay-title">Loading replay...</div>
-    <button id="btn-play" aria-pressed="true">Pause</button>
-    <button class="speed-btn" data-speed="10">10x</button>
-    <button class="speed-btn" data-speed="60">60x</button>
-    <button class="speed-btn" data-speed="300">300x</button>
+    <button class="mode-btn active" data-mode="replay">Replay</button>
+    <button class="mode-btn" data-mode="live">Live</button>
+    <span id="replay-controls">
+      <button id="btn-play" aria-pressed="true">Pause</button>
+      <button class="speed-btn" data-speed="10">10x</button>
+      <button class="speed-btn" data-speed="60">60x</button>
+      <button class="speed-btn" data-speed="300">300x</button>
+    </span>
+    <span id="live-controls" style="display:none">
+      <select id="live-ticker" style="background:#22262e;color:#d7dbe3;border:1px solid #2d3240;padding:3px 6px;border-radius:3px;font-family:inherit;font-size:0.8rem">
+        <option value="GATX">GATX</option>
+        <option value="GBX">GBX</option>
+        <option value="TRN">TRN</option>
+      </select>
+      <select id="live-mode" style="background:#22262e;color:#d7dbe3;border:1px solid #2d3240;padding:3px 6px;border-radius:3px;font-family:inherit;font-size:0.8rem">
+        <option value="new">New only</option>
+        <option value="rewalk30">Re-walk 30 days</option>
+      </select>
+      <button id="btn-run" style="background:#3ddc84;color:#0f1115;border:none;padding:4px 12px;border-radius:3px;font-weight:600;cursor:pointer">Run</button>
+      <span id="live-status" style="color:#8089a0;font-size:0.8rem"></span>
+    </span>
     <div class="progressbar"><div class="fill" id="progress-fill"></div></div>
   </div>
   <div class="live-grid">
@@ -361,6 +378,163 @@ url:    ${ev.url}
         title.innerHTML = title.innerHTML.replace(/playing at <b>\d+x<\/b>/, `playing at <b>${s}x</b>`);
       }
     });
+  });
+
+  // Mode toggle Replay / Live
+  const liveState = { es: null, running: false, startedAt: null, clockTimer: null };
+  function setMode(mode) {
+    document.querySelectorAll(".mode-btn").forEach(x => x.classList.toggle("active", x.dataset.mode === mode));
+    document.getElementById("replay-controls").style.display = (mode === "replay") ? "" : "none";
+    document.getElementById("live-controls").style.display = (mode === "live") ? "" : "none";
+    if (mode === "live") {
+      // Pause replay cleanly
+      state.playing = false;
+      clearTimeout(state.tickTimer);
+      document.getElementById("replay-title").textContent = "Live mode. Click Run to start a real network pull.";
+      document.getElementById("doc-text").innerHTML = '<div class="loading">waiting for Run...</div>';
+      document.getElementById("doc-header").textContent = "(no document yet)";
+      // Reset map
+      mapPane.innerHTML = "";
+      for (const k in hostBlocks) delete hostBlocks[k];
+      for (const k in state.nodes) delete state.nodes[k];
+    } else {
+      stopLive();
+      init();
+    }
+  }
+  document.querySelectorAll(".mode-btn").forEach(b => {
+    b.addEventListener("click", () => setMode(b.dataset.mode));
+  });
+
+  function stopLive() {
+    if (liveState.es) { try { liveState.es.close(); } catch(e) {} liveState.es = null; }
+    liveState.running = false;
+    if (liveState.clockTimer) { clearInterval(liveState.clockTimer); liveState.clockTimer = null; }
+  }
+
+  function liveHandle(ev) {
+    const status = document.getElementById("statusline");
+    const t = ev.type;
+    if (t === "heartbeat" || t === "hello") {
+      document.getElementById("live-status").textContent = "connected, " + t;
+      return;
+    }
+    if (t === "job_start") {
+      status.innerHTML = `<b>${ev.label}</b> starting`;
+      return;
+    }
+    if (t === "fetch_start") {
+      status.innerHTML = `<b>fetching</b> ${ev.host} <span style="color:#6b7083">${(ev.url || "").slice(0, 110)}</span>`;
+      return;
+    }
+    if (t === "fetch_done" || t === "fetch_done_insert") {
+      // Attach to map when we have an insert event with doc_id + doc_type
+      if (t === "fetch_done_insert" && ev.doc_id) {
+        const from_url = ev.source_url || "";
+        let host = "";
+        try { host = new URL(from_url).hostname; } catch (e) {}
+        const docEv = {
+          type: "document", doc_id: ev.doc_id, host, url: from_url,
+          title: ev.title, doc_type: ev.doc_type, ticker: ev.ticker,
+          fetched_at: ev.at, has_text: ev.doc_type !== "SERIES" && ev.doc_type !== "NEWS",
+          meta: {}, dim: !!ev.skipped_dup
+        };
+        addMapNode(docEv);
+        if (docEv.dim) {
+          const el = state.nodes[ev.doc_id];
+          if (el && el.el) {
+            el.el.style.opacity = "0.4";
+            el.el.innerHTML += '<span class="meta" style="color:#6b7083"> (already stored)</span>';
+          }
+        } else {
+          loadDoc(docEv);
+        }
+      }
+      status.innerHTML = `<b>fetched</b> ${ev.host || ""} status=${ev.status || "?"}  ${ev.bytes || ""}B`;
+      return;
+    }
+    if (t === "extract_fact") {
+      status.innerHTML = `<b>fact</b> ${ev.label} = ${ev.value} ${ev.unit || ""}`;
+      const factEv = {type: "fact", doc_id: ev.doc_id, label: ev.label, value: ev.value, unit: ev.unit, char_offset: ev.char_offset};
+      addMapFact(factEv);
+      // Mark in current doc if applicable: synthesize minimal state so markFactInDoc works
+      if (state.currentDocId === ev.doc_id) {
+        state.events = state.events || [];
+        state.events.push(factEv);
+        state.idx = state.events.length;
+        markFactInDoc(factEv);
+      }
+      return;
+    }
+    if (t === "job_log") {
+      status.innerHTML = `<b>log</b> ${ev.msg || ""}`;
+      return;
+    }
+    if (t === "job_error") {
+      status.innerHTML = `<b style="color:#ff7a97">error</b> ${ev.phase || ""}: ${ev.message || ""}`;
+      return;
+    }
+    if (t === "job_done") {
+      status.innerHTML = `<b>done</b> ${ev.label || ""}  ok=${ev.ok}`;
+      document.getElementById("btn-run").disabled = false;
+      document.getElementById("btn-run").textContent = "Run";
+      stopLive();
+      return;
+    }
+  }
+
+  document.getElementById("btn-run").addEventListener("click", async () => {
+    if (liveState.running) return;
+    const ticker = document.getElementById("live-ticker").value;
+    const mode = document.getElementById("live-mode").value;
+    document.getElementById("btn-run").disabled = true;
+    document.getElementById("btn-run").textContent = "Running...";
+    document.getElementById("doc-text").innerHTML = '<div class="loading">live run starting...</div>';
+    mapPane.innerHTML = "";
+    for (const k in hostBlocks) delete hostBlocks[k];
+    for (const k in state.nodes) delete state.nodes[k];
+    state.events = []; state.idx = 0;
+    liveState.startedAt = new Date();
+    const topTitle = document.getElementById("replay-title");
+    topTitle.innerHTML = `<b>Live run started ${fmt(liveState.startedAt.toISOString())} Central</b>. Real network, real timestamps, no replay.`;
+    liveState.clockTimer = setInterval(() => {
+      if (!liveState.startedAt) return;
+      const secs = Math.round((Date.now() - liveState.startedAt.getTime()) / 1000);
+      document.getElementById("live-status").textContent = `elapsed ${secs}s`;
+    }, 1000);
+    // Subscribe to SSE
+    try {
+      liveState.es = new EventSource("/desk/events");
+      // Fire handlers for all event types
+      ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done"].forEach(t => {
+        liveState.es.addEventListener(t, (e) => {
+          try { const d = JSON.parse(e.data); d.type = t; liveHandle(d); } catch(err) {}
+        });
+      });
+      liveState.es.onerror = () => { document.getElementById("live-status").textContent = "SSE connection lost"; };
+      liveState.running = true;
+    } catch (e) { document.getElementById("live-status").textContent = "SSE unavailable"; }
+    // POST live run
+    try {
+      const r = await fetch("/desk/_run/live", {method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ticker, mode})});
+      if (r.status === 409) {
+        const j = await r.json();
+        document.getElementById("live-status").textContent = `409: ${j.detail || "another live run is in progress"}`;
+        document.getElementById("btn-run").disabled = false;
+        document.getElementById("btn-run").textContent = "Run";
+        stopLive();
+      } else if (!r.ok) {
+        document.getElementById("live-status").textContent = `error ${r.status}`;
+        document.getElementById("btn-run").disabled = false;
+        document.getElementById("btn-run").textContent = "Run";
+        stopLive();
+      }
+    } catch (e) {
+      document.getElementById("live-status").textContent = `POST failed: ${e}`;
+      document.getElementById("btn-run").disabled = false;
+      document.getElementById("btn-run").textContent = "Run";
+      stopLive();
+    }
   });
 
   init();

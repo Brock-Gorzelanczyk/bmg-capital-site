@@ -14,9 +14,9 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
-from . import store
+from . import store, events as _events_mod
 
 log = logging.getLogger("intake.api")
 
@@ -149,6 +149,116 @@ async def run_latest(request: Request, window: int = Query(7200, ge=60, le=86400
     """Last completed run as an ordered event list. See WORK-ORDER-DESK-2.md."""
     _check_rate(request)
     return store.latest_run_events(window_seconds=window, limit=limit)
+
+
+@router.get("/events")
+async def events_stream(request: Request):
+    """Server-Sent Events stream of every job's live events. Heartbeat every 15 s.
+
+    Events: job_start, fetch_start, fetch_done, fetch_done_insert,
+    extract_fact, job_done, job_error, heartbeat. See WORK-ORDER-DESK-3.md.
+    """
+    import asyncio as _asyncio
+    import queue as _queue
+    import time as _time
+    import json as _json
+    q = _events_mod.subscribe()
+
+    async def gen():
+        try:
+            yield _events_mod.sse_format({"type": "hello", "at": _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime())})
+            last_hb = _time.time()
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    ev = await _asyncio.wait_for(_asyncio.to_thread(q.get, True, 1.0), timeout=2.0)
+                    yield _events_mod.sse_format(ev)
+                    last_hb = _time.time()
+                except (_queue.Empty, _asyncio.TimeoutError):
+                    pass
+                if _time.time() - last_hb >= 15:
+                    yield _events_mod.sse_format({"type": "heartbeat",
+                                                   "at": _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime())})
+                    last_hb = _time.time()
+        finally:
+            _events_mod.unsubscribe(q)
+
+    return StreamingResponse(gen(), media_type="text/event-stream",
+                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@router.post("/_run/live")
+async def run_live(request: Request, body: dict) -> dict:
+    """Start a live run (new or rewalk30) for one ticker; one at a time.
+
+    Body: {"ticker": "GATX"|"GBX"|"TRN", "mode": "new"|"rewalk30"}.
+    Returns 409 if a live run is already active. Events stream over /desk/events.
+    """
+    import asyncio as _asyncio
+    import datetime as _dt
+    from .scheduler import _load_tickers
+    from .sources import edgar as edgar_src, ir_feeds
+    from . import extract as extract_mod
+
+    _check_rate(request)
+    ticker = (body or {}).get("ticker")
+    mode = (body or {}).get("mode", "new")
+    if ticker not in ("GATX", "GBX", "TRN"):
+        raise HTTPException(400, "ticker must be GATX, GBX, or TRN")
+    if mode not in ("new", "rewalk30"):
+        raise HTTPException(400, "mode must be new or rewalk30")
+
+    label = f"live:{mode}:{ticker}"
+    if not _events_mod.try_start(label):
+        active = _events_mod.is_active()
+        raise HTTPException(409, f"another live run is in progress: {active.get('label')} started {active.get('started_at')}")
+
+    tcfg = next((t for t in _load_tickers() if t["ticker"] == ticker), None)
+    if not tcfg:
+        _events_mod.release()
+        raise HTTPException(500, f"tickers.yaml missing {ticker}")
+
+    async def _run():
+        try:
+            _events_mod.emit("job_start", label=label, ticker=ticker, mode=mode)
+            if mode == "rewalk30":
+                cutoff = (_dt.datetime.utcnow() - _dt.timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                deleted = store.delete_bot_docs_since(ticker, ["edgar", "ir"], cutoff)
+                _events_mod.emit("job_log", label=label, msg=f"rewalk30 deleted {deleted} prior rows for {ticker}")
+                since = cutoff[:10]
+            else:
+                since = None
+            try:
+                r1 = await edgar_src.poll_edgar(ticker, tcfg["cik"], since=since, max_filings=30)
+                _events_mod.emit("job_log", label=label, msg=f"edgar: {r1.get('new',0)} new / {r1.get('scanned',0)} scanned")
+            except Exception as e:
+                _events_mod.emit("job_error", label=label, phase="edgar", message=str(e))
+            try:
+                r2 = await ir_feeds.poll_feed(ticker, tcfg["ir_rss"])
+                _events_mod.emit("job_log", label=label, msg=f"ir_feeds: {r2.get('new',0)} new")
+            except Exception as e:
+                _events_mod.emit("job_error", label=label, phase="ir", message=str(e))
+            try:
+                xr = extract_mod.extract_all_pending()
+                _events_mod.emit("job_log", label=label, msg=f"extract: {xr.get('facts',0)} facts, {xr.get('html',0)+xr.get('pdf',0)} new extractions")
+            except Exception as e:
+                _events_mod.emit("job_error", label=label, phase="extract", message=str(e))
+            _events_mod.emit("job_done", label=label, ticker=ticker, mode=mode, ok=True)
+        except Exception as e:
+            _events_mod.emit("job_error", label=label, phase="live", message=str(e))
+            _events_mod.emit("job_done", label=label, ticker=ticker, mode=mode, ok=False)
+        finally:
+            _events_mod.release()
+
+    _asyncio.create_task(_run())
+    return {"ok": True, "label": label}
+
+
+@router.get("/_run/live/status")
+async def run_live_status(request: Request) -> dict:
+    _check_rate(request)
+    return _events_mod.is_active()
 
 
 @router.get("/doc/{doc_id}/text")

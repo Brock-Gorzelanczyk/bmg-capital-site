@@ -211,6 +211,11 @@ async def fetch(url: str, *, extra_headers: Optional[dict] = None) -> FetchResul
     if extra_headers:
         headers.update(extra_headers)
     limiter = _get_limiter(host)
+    try:
+        from . import events as _events
+        _events.emit("fetch_start", url=url, host=host)
+    except Exception:
+        pass
     async with limiter:
         # Record Crawl-delay compliance: log elapsed since last request to the same host
         now = time.monotonic()
@@ -221,6 +226,11 @@ async def fetch(url: str, *, extra_headers: Optional[dict] = None) -> FetchResul
         log.info(f"fetch host={host} gap_s={gap:.1f} min_period={min_period:.1f} url={url}")
         async with httpx.AsyncClient() as client:
             resp = await _do_fetch(client, url, headers=headers, timeout=30.0)
+    try:
+        from . import events as _events
+        _events.emit("fetch_done", url=url, host=host, status=resp.status_code, bytes=len(resp.content))
+    except Exception:
+        pass
     return FetchResult(
         url=url,
         status=resp.status_code,
