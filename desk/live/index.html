@@ -1,21 +1,25 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Desk live, spider | BMG Capital</title>
+<title>Live desk | BMG Capital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/site.187e1258.css">
 <style>
-:root{--bg:#000;--fg:#c9ccd1;--dim:#5b6068;--pink:#ff2bd6;--org:#ff9f1c;--blue:#4f7bff;--cyan:#27e3ff;--t1:#ff2bd6;--t2:#ff9f1c;--t3:#4f7bff;--t4:#27e3ff;--t5:#b6ff3b}
-html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.8 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-x:hidden}
-.strip{position:fixed;top:0;left:0;right:0;height:36px;display:flex;align-items:center;gap:14px;padding:0 16px;background:rgba(0,0,0,.9);border-bottom:1px solid #15181d;font-size:12px;color:#9aa0a8;z-index:20}
+.stage{--bg:#fff;--fg:#1f2328;--dim:#6b6f76;--pink:#ff2bd6;--org:#ff9f1c;--blue:#4f7bff;--cyan:#27e3ff;--t1:#ff2bd6;--t2:#ff9f1c;--t3:#4f7bff;--t4:#27e3ff;--t5:#b6ff3b}
+.stage{background:var(--bg);color:var(--fg);font:15px/1.8 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-x:hidden}
+.strip{position:sticky;top:0;height:36px;display:flex;align-items:center;gap:14px;padding:0 16px;background:rgba(0,0,0,.9);border-bottom:1px solid #15181d;font-size:12px;color:#9aa0a8;z-index:20}
 .strip b{color:#fff;font-weight:600}
 .strip .btn{padding:2px 9px;border:1px solid #2a2f37;border-radius:4px;color:#c9ccd1;background:transparent;font:inherit;cursor:pointer}
 .strip .on{background:#b6ff3b;color:#000;border-color:#b6ff3b}
 .strip select{background:transparent;color:#c9ccd1;border:1px solid #2a2f37;border-radius:4px;padding:1px 6px;font:inherit}
 .strip .status{margin-left:auto;color:#c9ccd1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
-.doc{position:relative;max-width:980px;margin:70px auto 160px;padding:0 20px;opacity:1}
-h1{font:600 20px/1.3 ui-monospace,monospace;color:#e6e8eb;margin:0 0 16px}
-p{margin:0 0 12px}
+.doc{position:relative;max-width:none;margin:0;padding:24px 28px 120px;opacity:1}
+.stage h1{font:600 20px/1.3 ui-monospace,monospace;color:#e6e8eb;margin:0 0 16px}
+.stage p{margin:0 0 12px}
 .w{display:inline;transition:color .2s ease,outline-color .2s ease;word-break:break-word;overflow-wrap:anywhere}
 .a{color:#6ea8ff;border-bottom:1px solid rgba(110,168,255,.5)}
 .a.link{color:#8fd9e6;border-bottom-color:#27e3ff}
@@ -36,6 +40,7 @@ svg.spider .foot{fill:#fff;stroke:#fff}
 svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.85}
 svg.spider .thread.t1{stroke:var(--t1)}svg.spider .thread.t2{stroke:var(--t2)}svg.spider .thread.t3{stroke:var(--t3)}svg.spider .thread.t4{stroke:var(--t4)}svg.spider .thread.t5{stroke:var(--t5)}
 svg.spider .tnode{fill:#fff;opacity:.9}
+svg.spider .mesh{stroke:#4f7bff;stroke-width:1;opacity:.55}
 svg.spider .knee{fill:#fff}
 .w.lift{display:inline-block;position:relative;z-index:2;background:#000;transform:scale(1.7);transition:transform .25s ease}
 .w.lift.f1{font-family:Georgia,'Times New Roman',serif;color:#9fb8ff}
@@ -45,19 +50,134 @@ svg.spider .knee{fill:#fff}
 .beam{position:absolute;height:18px;transform-origin:0 50%;background:linear-gradient(90deg,rgba(255,43,214,.95),rgba(255,43,214,.75));color:#4a0036;font:italic 12px/18px Georgia,serif;white-space:nowrap;overflow:hidden;padding-left:8px;z-index:2;pointer-events:none;box-shadow:0 0 14px rgba(255,43,214,.7);animation:beam 2.6s ease-out forwards}
 @keyframes beam{0%{clip-path:inset(0 100% 0 0);opacity:1}15%{clip-path:inset(0 0 0 0);opacity:1}75%{opacity:1}100%{clip-path:inset(0 0 0 0);opacity:0}}
 .note{position:fixed;bottom:0;left:0;right:0;padding:6px 16px;font-size:11px;color:var(--dim);background:rgba(0,0,0,.9);border-top:1px solid #15181d;z-index:20}
-@media (max-width:600px){html,body{font-size:13px}.found{font-size:16px}.strip{height:auto;flex-wrap:wrap;padding:6px 12px}.strip .status{margin-left:0;width:100%;max-width:100%}.doc{margin-top:84px}}
+@media (max-width:600px){.stage{font-size:13px}.found{font-size:16px}.strip{height:auto;flex-wrap:wrap;padding:6px 12px}.strip .status{margin-left:0;width:100%;max-width:100%}.doc{margin-top:84px}}
+.stage{font:15px/1.8 'IBM Plex Mono',ui-monospace,monospace;border:1px solid #e3e3dc;border-radius:10px;overflow:visible}
+.stage .strip{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e3dc;color:#4a4a4a;border-radius:10px 10px 0 0;z-index:5}
+.stage .strip b{color:#141414}
+.stage .strip .status{color:#4a4a4a}
+.stage .strip .btn{color:#141414;border-color:#c9c9c4;background:#fff}
+.stage .strip .btn.on{background:#0f7d47;color:#fff;border-color:#0f7d47}
+.stage .strip select{color:#141414;border-color:#c9c9c4}
+.stage .strip .status{margin-left:0;max-width:none}
+.stage h1{font:600 20px/1.3 'Source Serif 4',Georgia,serif;color:#141414}
+.stage .a{color:#0f5fc7;border-bottom-color:rgba(15,95,199,.4)}
+.stage .found{color:#141414}
+.stage .w.lift{background:#fff}
+.stage .w.lift.f1{color:#2b4cd6}
+.stage .w.lift.f2{color:#c2189f}
+.stage .w.lift.f3{color:#0c7d93}
+.stage svg.spider .leg{stroke:#ff2bd6;stroke-width:2;filter:none}
+.stage svg.spider polyline.leg:nth-of-type(even){stroke:#4f7bff}
+.stage svg.spider .foot{fill:#fff;stroke:#ff2bd6;stroke-width:1.2}
+.stage svg.spider .knee{fill:#fff;stroke:#4f7bff;stroke-width:1.2}
+.stage svg.spider .tnode{fill:#fff;stroke:#4f7bff;stroke-width:1.2;opacity:1}
+.stage svg.spider .mesh{stroke:#6a5cff;opacity:.6}
+.stage svg.spider .thread{opacity:.9}
+.stage svg.spider .body{filter:drop-shadow(0 0 6px rgba(255,43,214,.6))}
+.stage .touch-t2{outline-color:#e08600}.stage .touch-t5{outline-color:#5c9e00}
+.read-page{padding:28px 0 48px}
+.read-page .back{display:inline-block;margin:0 0 10px;color:#0f7d47;text-decoration:none;font-weight:600;font-size:15px}
+.read-page .back:hover{text-decoration:underline}
+.desk-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 16px;padding:10px 14px;border:1px solid #e3e3dc;border-radius:10px;background:#fafaf7}
+.desk-row .lab{font-weight:600;color:#141414;margin-right:4px}
+.desk-row .btn{height:38px;padding:0 16px;border:1px solid #c9c9c4;border-radius:8px;background:#fff;color:#141414;font:600 14px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.desk-row .btn:hover{border-color:#0f7d47}
+.desk-row .btn.on,.desk-row .btn-run{background:#0f7d47;border-color:#0f7d47;color:#fff}
+.desk-row .btn-run:hover{background:#0a5c34}
+.desk-row select{height:38px;border:1px solid #c9c9c4;border-radius:8px;padding:0 10px;font:500 14px 'IBM Plex Mono',monospace;background:#fff}
+.read-page .older{margin-top:28px;font-size:13px}
+.read-page .older a{color:#6b6f76}
+.read-page h1.rp{font-family:'Source Serif 4',Georgia,serif;font-size:36px;margin:0 0 8px;color:#141414}
+.read-page .lede{margin:0 0 20px;font-size:17px;color:#4a4a4a;max-width:720px}
+.read-form{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:stretch;margin-bottom:12px}
+#read-drop{border:2px dashed #c9c9c4;border-radius:10px;padding:18px;text-align:center;cursor:pointer;color:#4a4a4a;background:#fafaf7}
+#read-drop.over,#read-drop.has{border-color:#0f7d47;background:#f1f8f4;color:#0f7d47}
+#read-drop b{display:block;font-size:16px;color:#141414;margin-bottom:4px}
+#read-ticker{height:44px;padding:0 12px;border:1px solid #c9c9c4;border-radius:8px;font:500 15px 'IBM Plex Mono',monospace;align-self:center}
+#read-run{height:44px;padding:0 26px;background:#0f7d47;color:#fff;border:none;border-radius:8px;font-weight:600;font-size:16px;cursor:pointer;align-self:center}
+#read-run:disabled{opacity:.6;cursor:default}
+details.paste{margin:0 0 16px;color:#4a4a4a}
+details.paste textarea{width:100%;min-height:110px;margin-top:8px;font:13px 'IBM Plex Mono',monospace;border:1px solid #c9c9c4;border-radius:8px;padding:10px;box-sizing:border-box}
+#read-error{padding:12px 14px;border-radius:8px;background:#fef2f1;color:#b42318;border:1px solid #f4c7c3;margin:8px 0}
+.read-grid[hidden]{display:none}
+.read-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
+.read-side{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;border:1px solid #e3e3dc;border-radius:10px;padding:12px 14px;background:#fff}
+.read-side h2{font:600 15px 'IBM Plex Sans',sans-serif;margin:0 0 2px}
+#read-count{font:12px 'IBM Plex Mono',monospace;color:#6b6f76}
+#read-findings{list-style:none;margin:10px 0 0;padding:0}
+.rf{border-left:3px solid #c9c9c4;padding:6px 8px;margin:0 0 8px;font-size:13px;cursor:pointer;animation:rfin .35s ease}
+@keyframes rfin{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+.rf:hover{background:#f6f6f3}
+.rf.new{border-color:#ff2bd6}
+.rf.changed{border-color:#e08600}
+.rf.known{border-color:#9aa0a8}
+.rf.uncompared{border-color:#4f7bff}
+.rf-tag{display:inline-block;font:600 10px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.5px;color:#6b6f76;margin-right:6px}
+.rf.new .rf-tag{color:#c2189f}.rf.changed .rf-tag{color:#b86e00}
+.rf-val{font-family:'IBM Plex Mono',monospace}
+.rf-prior{display:block;color:#b86e00;font-size:12px}
+.rf-snip{display:block;color:#6b6f76;font-size:12px;margin-top:2px}
+#read-summary{margin-top:28px}
+#read-summary h2{font-family:'Source Serif 4',Georgia,serif;font-size:28px;margin:0 0 6px}
+#read-summary h3{font:600 16px 'IBM Plex Sans',sans-serif;margin:22px 0 6px}
+.rs-cards{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+.rs-card{border:1px solid #e3e3dc;border-radius:10px;padding:10px 16px;min-width:140px;color:#4a4a4a;font-size:13px}
+.rs-card b{display:block;font:600 26px 'IBM Plex Mono',monospace;color:#141414}
+.rs-card.new b{color:#c2189f}.rs-card.changed b{color:#b86e00}
+table.rs{width:100%;border-collapse:collapse;font-size:13px}
+table.rs th{text-align:left;border-bottom:2px solid #141414;padding:6px 8px}
+table.rs td{border-bottom:1px solid #eee;padding:6px 8px;vertical-align:top}
+table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+.muted{color:#6b6f76}
+@media (max-width:900px){.read-grid{grid-template-columns:1fr}.read-side{position:static;max-height:none}.read-form{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<div class="strip" role="toolbar">
-  <button class="btn" data-mode="replay">Replay</button>  <button class="btn" data-mode="live">Live</button>  <select id="live-ticker"><option>GATX</option><option>GBX</option><option>TRN</option></select>  <select id="live-mode"><option value="new">New</option><option value="rewalk30" selected>Re-walk 120 days</option></select>  <button class="btn btn-run">Run</button>  <button class="btn" id="ctl-pause">Pause</button>  <select id="ctl-speed" aria-label="Speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option></select>  <span class="status" id="status">idle</span>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="brand" href="/" aria-label="BMG Capital home">
+      <span class="brand-mark">
+        <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden="true"><polyline points="5,23 12,15 18,19 27,8" fill="none" stroke="#3ddc84" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+      </span>
+      <span class="brand-wm">BMG CAPITAL</span>
+    </a>
+    <nav aria-label="Main" class="site-nav">
+  <a href="/#reports">Reports</a>
+  <a href="/tool/">Research tool</a>
+  <a href="/desk/read/">Reader</a>
+  <a href="/desk/">Desk</a>
+  <a href="/desk/live/" aria-current="page">Live</a>
+  <a href="/#about">About</a>
+  <a href="/resume.pdf" class="nav-resume">Resume</a>
+</nav>
+  </div>
+</header>
+<main class="container read-page">
+<a class="back" href="/">&larr; Back to BMG Capital</a>
+<h1 class="rp">Live desk</h1>
+<p class="lede">Drop in a filing, deck, transcript or report and click Run to watch the spider read it. It marks every figure it finds and ends with a summary of what is new or changed against the facts the desk already holds. Or watch the desk's own runs with Replay and Live below.</p>
+<div class="read-form">
+  <label id="read-drop"><input type="file" id="read-file" hidden accept=".pdf,.docx,.pptx,.htm,.html,.txt,.md"><b>Drop a file here or click to choose</b><span id="read-drop-name">PDF, DOCX, PPTX, HTML or text, up to 10 MB. Read in memory, never stored.</span></label>
+  <select id="read-ticker" aria-label="Compare with ticker"><option value="">No ticker</option><option>GATX</option><option>GBX</option><option>TRN</option></select>
+  <button id="read-run" type="button">Run</button>
 </div>
-<div class="doc" id="doc">
-  <svg class="spider" id="spider"></svg>
-  <h1 id="doc-h1"></h1>
-  <div id="docbody"></div>
+<details class="paste"><summary>Or paste text</summary><textarea id="read-paste" placeholder="Paste text to read"></textarea></details>
+<div class="desk-row" role="toolbar" aria-label="Desk runs"><span class="lab">Desk runs</span><button class="btn" data-mode="replay" type="button">Replay last run</button><button class="btn" data-mode="live" type="button">Live</button><select id="live-ticker" aria-label="Ticker"><option>GATX</option><option>GBX</option><option>TRN</option></select><select id="live-mode" aria-label="Mode"><option value="new">New</option><option value="rewalk30" selected>Re-walk 120 days</option></select><button class="btn btn-run" type="button">Run desk</button></div>
+<div id="read-error" hidden></div>
+<div class="read-grid" id="read-stage">
+  <div class="stage">
+    <div class="strip"><button class="btn" id="ctl-pause" type="button">Pause</button><select id="ctl-speed" aria-label="Speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option></select><span class="status" id="status" role="status">idle</span></div>
+    <div class="doc" id="doc">
+      <svg class="spider" id="spider"></svg>
+      <h1 id="doc-h1"></h1>
+      <div id="docbody"></div>
+    </div>
+  </div>
+  <aside class="read-side"><h2>Found</h2><div id="read-count">0 found</div><ol id="read-findings"></ol></aside>
 </div>
-<div class="note">Live run streams /desk/events; Replay loads /desk/run/latest. Line-drawn spider walks the real text; feet plant on real words. Older designs: <a href="/desk/live-v3/" style="color:#5b6068">v3 (hub + beam)</a> &middot; <a href="/desk/live-v2/" style="color:#5b6068">v2 (inline boxes)</a> &middot; <a href="/desk/live-v1/" style="color:#5b6068">v1 (two-pane)</a>.</div>
+<section id="read-summary" hidden></section>
+<p class="older muted">Older designs: <a href="/desk/live-v4/">v4 (black)</a> &middot; <a href="/desk/live-v3/">v3</a> &middot; <a href="/desk/live-v2/">v2</a> &middot; <a href="/desk/live-v1/">v1</a></p>
+</main>
 <script>
 (() => {
   const SVG_NS = "http://www.w3.org/2000/svg";
@@ -239,32 +359,48 @@ svg.spider .knee{fill:#fff}
     const t = document.createElementNS(SVG_NS, "line");
     t.setAttribute("class", "thread " + (tier || ""));
     const n = document.createElementNS(SVG_NS, "circle");
-    n.setAttribute("class", "tnode"); n.setAttribute("r", 2);
+    n.setAttribute("class", "tnode"); n.setAttribute("r", 2.2);
+    // Web mesh: a strand from this node to the previous one, so the
+    // touched words form the net around the spider (reference clips).
+    const mesh = document.createElementNS(SVG_NS, "line");
+    mesh.setAttribute("class", "mesh");
     spiderSvg.insertBefore(n, spiderSvg.firstChild);
     spiderSvg.insertBefore(t, spiderSvg.firstChild);
-    state.threads.push({line: t, node: n, el: targetEl});
+    spiderSvg.insertBefore(mesh, spiderSvg.firstChild);
+    state.threads.push({line: t, node: n, mesh, el: targetEl});
   }
 
   function removeThread(el){
     state.threads = state.threads.filter(t => {
       if (t.el !== el) return true;
-      t.line.remove(); if (t.node) t.node.remove(); return false;
+      t.line.remove(); if (t.node) t.node.remove(); if (t.mesh) t.mesh.remove(); return false;
     });
   }
 
   function redrawThreads(){
     const bx = clampN(state.body.x), by = clampN(state.body.y);
+    let lastC = null;
     state.threads = state.threads.filter(t => {
-      if (!t.el.isConnected){ t.line.remove(); if (t.node) t.node.remove(); return false; }
+      if (!t.el.isConnected){ t.line.remove(); if (t.node) t.node.remove(); if (t.mesh) t.mesh.remove(); return false; }
       const c = docSpaceCenter(t.el);
       // Threads are a local web: past ~2.5x leg reach they are hidden, so
       // words scrolled far away do not streak lines across the page.
       const far = Math.hypot(c.x - bx, c.y - by) > HI_REACH * 2.5;
       t.line.style.display = far ? "none" : ""; if (t.node) t.node.style.display = far ? "none" : "";
-      if (far) return true;
+      t.c = far ? null : c;
+      if (far){ if (t.mesh) t.mesh.style.display = "none"; return true; }
       t.line.setAttribute("x1", bx); t.line.setAttribute("y1", by);
       t.line.setAttribute("x2", clampN(c.x)); t.line.setAttribute("y2", clampN(c.y));
       if (t.node){ t.node.setAttribute("cx", clampN(c.x)); t.node.setAttribute("cy", clampN(c.y)); }
+      if (t.mesh){
+        const prev = lastC;
+        if (prev && Math.hypot(prev.x - c.x, prev.y - c.y) < HI_REACH * 1.6){
+          t.mesh.style.display = "";
+          t.mesh.setAttribute("x1", clampN(prev.x)); t.mesh.setAttribute("y1", clampN(prev.y));
+          t.mesh.setAttribute("x2", clampN(c.x)); t.mesh.setAttribute("y2", clampN(c.y));
+        } else t.mesh.style.display = "none";
+      }
+      lastC = c;
       return true;
     });
   }
@@ -291,7 +427,7 @@ svg.spider .knee{fill:#fff}
     // 9th gets a solid pink box (the reference clip's look). .found
     // numbers keep their own fill.
     const k = state.touchCycleIdx;
-    if (!el.classList.contains("found") && el !== h1){
+    if (!el.classList.contains("found") && el !== h1 && el.textContent.replace(/[^A-Za-z0-9]/g, "").length >= 5){
       if (k % 9 === 4) el.classList.add("fillbox");
       else if (k % 5 === 2) el.classList.add("lift", "f" + (1 + (k % 3)));
     }
@@ -524,6 +660,7 @@ svg.spider .knee{fill:#fff}
     if (state.docQueue.length > 6) state.docQueue.shift();
   }
   function walkFinished(){
+    if (state.mode === "read"){ if (state.doneHook){ const h = state.doneHook; state.doneHook = null; h(); } return; }
     const next = (state.docQueue || []).shift();
     if (next){ setTimeout(() => loadDocAndWalk(next), 600); return; }
     // Nothing queued: the spider stops. It never crawls on its own.
@@ -860,6 +997,124 @@ svg.spider .knee{fill:#fff}
     state.feet = state.feet.map(f => (f && f.el && document.body.contains(f.el)) ? Object.assign({el: f.el}, docSpaceCenter(f.el)) : f);
     if (state.feet.length) drawSpider();
   });
+
+
+  // ---- upload, Run, watch the spider, then a summary ----
+  state.maxChars = 200000;
+  state.paceByWords = true;
+  const fileIn = document.getElementById("read-file");
+  const drop = document.getElementById("read-drop");
+  const dropName = document.getElementById("read-drop-name");
+  const pasteIn = document.getElementById("read-paste");
+  const tickerIn = document.getElementById("read-ticker");
+  const runRead = document.getElementById("read-run");
+  const errBox = document.getElementById("read-error");
+  const stage = document.getElementById("read-stage");
+  const listEl = document.getElementById("read-findings");
+  const countEl = document.getElementById("read-count");
+  const sumEl = document.getElementById("read-summary");
+  let chosen = null;
+
+  function showErr(m){ errBox.textContent = m; errBox.hidden = !m; }
+  function pick(f){ chosen = f || null; dropName.textContent = f ? `${f.name} (${Math.round(f.size/1024)} KB)` : "No file chosen"; drop.classList.toggle("has", !!f); }
+  fileIn.addEventListener("change", () => pick(fileIn.files[0]));
+  ["dragenter","dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave","drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) pick(f); });
+
+  const STATUS_TXT = {NEW: "New", CHANGED: "Changed", KNOWN: "Already in vault", UNCOMPARED: "Not compared"};
+  function esc(s){ return escapeHTML(String(s == null ? "" : s)); }
+  function fmtVal(f){ const u = f.unit || ""; return (u.startsWith("$") || u === "USD_m" ? "$" : "") + f.value + (u === "%" ? "%" : u === "$M" || u === "USD_m" ? "M" : u === "$B" ? "B" : ""); }
+
+  state.onRow = (els) => {
+    // A finding is "found" when the spider's reading line reaches the word
+    // that holds it.
+    const pend = state.pendingFindings || [];
+    if (!pend.length) return;
+    for (const w of els){
+      if (w.classList.contains("found")) continue;
+      const t = w.textContent;
+      const k = pend.findIndex(f => t.includes(f.value));
+      if (k >= 0){ const f = pend.splice(k, 1)[0]; markFactInDoc({doc_id: state.currentDocId, label: f.label, value: f.value, _el: w, _f: f}); }
+    }
+  };
+  state.onFound = (ev, el) => {
+    const f = ev._f || {label: ev.label, value: ev.value, status: "UNCOMPARED"};
+    f._el = el;
+    const li = document.createElement("li");
+    li.className = "rf " + (f.status || "").toLowerCase();
+    li.innerHTML = `<span class="rf-tag">${esc(STATUS_TXT[f.status] || f.status)}</span>` +
+      `<span class="rf-lab">${esc(f.label)}</span> <b class="rf-val">${esc(fmtVal(f))}</b>` +
+      (f.prior ? `<span class="rf-prior">vault: ${esc(f.prior.value)} (${esc(f.prior.doc)})</span>` : "") +
+      `<span class="rf-snip">${esc((f.snippet || "").slice(0, 160))}</span>`;
+    li.addEventListener("click", () => { const r = el.getBoundingClientRect(); window.scrollTo({top: r.top + window.scrollY - innerHeight/2, behavior: "smooth"}); });
+    listEl.prepend(li);
+    state.readFound = (state.readFound || 0) + 1;
+    countEl.textContent = `${state.readFound} of ${state.readTotal} found`;
+  };
+
+  function renderSummary(res){
+    const fs = res.findings;
+    const by = s => fs.filter(f => f.status === s);
+    const row = f => `<tr><td>${esc(f.label)}</td><td class="num">${esc(fmtVal(f))}</td><td>${f.prior ? esc(f.prior.value) + " <span class=\"muted\">" + esc(f.prior.doc) + "</span>" : ""}</td><td class="muted">${esc((f.snippet || "").slice(0, 140))}</td></tr>`;
+    const table = (title, rows, note) => rows.length ? `<h3>${title} <span class="muted">(${rows.length})</span></h3>${note ? `<p class="muted">${note}</p>` : ""}<table class="rs"><tr><th>Item</th><th>Value</th><th>Vault</th><th>Where</th></tr>${rows.map(row).join("")}</table>` : "";
+    const labeled = f => f.src === "desk";
+    const compared = !!res.ticker;
+    sumEl.innerHTML =
+      `<h2>Summary</h2><p class="lede">${esc(res.title)}: ${res.chars.toLocaleString()} characters read, ${fs.length} figures found` +
+      (compared ? `, compared with ${res.stored_facts} stored ${esc(res.ticker)} facts.` : `. Pick a ticker to compare with the vault.`) + `</p>` +
+      `<div class="rs-cards">` +
+      (compared ? `<div class="rs-card new"><b>${by("NEW").length}</b>new to the vault</div><div class="rs-card changed"><b>${by("CHANGED").length}</b>changed vs vault</div><div class="rs-card known"><b>${by("KNOWN").length}</b>already in vault</div>` : `<div class="rs-card"><b>${fs.length}</b>figures</div>`) +
+      `</div>` +
+      table("Changed vs the vault", by("CHANGED"), "Same line item, different value from the latest stored fact.") +
+      table("New labeled figures", by("NEW").filter(labeled).concat(by("UNCOMPARED").filter(labeled)), "Revenue, EPS, net income, backlog, fleet, utilization and dividend, matched by the desk's own patterns.") +
+      table("Other figures", fs.filter(f => !labeled(f) && f.status !== "KNOWN" && f.status !== "CHANGED")) +
+      table("Already in the vault", by("KNOWN"));
+    sumEl.hidden = false;
+  }
+
+  runRead.addEventListener("click", async () => {
+    showErr("");
+    const fd = new FormData();
+    if (chosen) fd.append("file", chosen);
+    else if (pasteIn.value.trim()) fd.append("text", pasteIn.value);
+    else { showErr("Choose a file or paste text first."); return; }
+    if (tickerIn.value) fd.append("ticker", tickerIn.value);
+    state.mode = "read";
+    stopLive(); clearTimeout(state.tickTimer);
+    document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.remove("on"));
+    runRead.disabled = true; runRead.textContent = "Reading...";
+    stopWalk(); state.loadToken++; clearSpider(); docBody.innerHTML = ""; h1.textContent = "";
+    listEl.innerHTML = ""; sumEl.hidden = true; state.readFound = 0;
+    stage.hidden = false;
+    setStatus("uploading and extracting text");
+    let res;
+    try{
+      const r = await fetch("/api/read", {method: "POST", body: fd});
+      res = await r.json();
+      if (!r.ok) throw new Error(res.error || ("HTTP " + r.status));
+    }catch(e){ showErr(String(e.message || e)); setStatus("stopped"); runRead.disabled = false; runRead.textContent = "Run"; return; }
+    state.docsLoaded[res.doc_id] = {text: res.text};
+    state.pendingFindings = res.findings.slice();
+    state.readTotal = res.findings.length;
+    countEl.textContent = `0 of ${state.readTotal} found`;
+    // About 0.35 s per rendered line, so a 10-Q reads in a few minutes.
+    state.walkOverride = Math.min(600, Math.max(20, res.chars / 90 * 0.22));
+    state.readRes = res;
+    const ok = await loadDocAndWalk({type: "document", doc_id: res.doc_id, host: res.title, title: res.title,
+      doc_type: (res.kind || "").toUpperCase(), ticker: res.ticker || "", has_text: true, fetched_at: new Date().toISOString()});
+    if (!ok){ showErr("Nothing readable in that document."); runRead.disabled = false; runRead.textContent = "Run"; return; }
+    state.doneHook = () => {
+      // Anything the line walk did not land on (value split across words)
+      // is still marked so the panel and summary are complete.
+      (state.pendingFindings || []).splice(0).forEach(f => markFactInDoc({doc_id: state.currentDocId, label: f.label, value: f.value, _f: f}));
+      setStatus(`done &nbsp;&middot;&nbsp; ${state.readFound} figures found`);
+      renderSummary(res);
+      runRead.disabled = false; runRead.textContent = "Run again";
+    };
+  });
+  window.addEventListener("resize", sizeSvg);
 })();
 </script>
-</body></html>
+</body>
+</html>

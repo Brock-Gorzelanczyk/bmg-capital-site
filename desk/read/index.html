@@ -40,6 +40,7 @@ svg.spider .foot{fill:#fff;stroke:#fff}
 svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.85}
 svg.spider .thread.t1{stroke:var(--t1)}svg.spider .thread.t2{stroke:var(--t2)}svg.spider .thread.t3{stroke:var(--t3)}svg.spider .thread.t4{stroke:var(--t4)}svg.spider .thread.t5{stroke:var(--t5)}
 svg.spider .tnode{fill:#fff;opacity:.9}
+svg.spider .mesh{stroke:#4f7bff;stroke-width:1;opacity:.55}
 svg.spider .knee{fill:#fff}
 .w.lift{display:inline-block;position:relative;z-index:2;background:#000;transform:scale(1.7);transition:transform .25s ease}
 .w.lift.f1{font-family:Georgia,'Times New Roman',serif;color:#9fb8ff}
@@ -53,6 +54,7 @@ svg.spider .knee{fill:#fff}
 .stage{font:15px/1.8 'IBM Plex Mono',ui-monospace,monospace;border:1px solid #e3e3dc;border-radius:10px;overflow:visible}
 .stage .strip{background:rgba(255,255,255,.94);border-bottom:1px solid #e3e3dc;color:#4a4a4a;border-radius:10px 10px 0 0;z-index:5}
 .stage .strip b{color:#141414}
+.stage .strip .status{color:#4a4a4a}
 .stage .strip .btn{color:#141414;border-color:#c9c9c4;background:#fff}
 .stage .strip .btn.on{background:#0f7d47;color:#fff;border-color:#0f7d47}
 .stage .strip select{color:#141414;border-color:#c9c9c4}
@@ -64,12 +66,27 @@ svg.spider .knee{fill:#fff}
 .stage .w.lift.f1{color:#2b4cd6}
 .stage .w.lift.f2{color:#c2189f}
 .stage .w.lift.f3{color:#0c7d93}
-.stage svg.spider .leg{stroke:#2a2f8f;filter:none}
-.stage svg.spider .foot,.stage svg.spider .knee{fill:#2a2f8f;stroke:#2a2f8f}
-.stage svg.spider .tnode{fill:#141414}
+.stage svg.spider .leg{stroke:#ff2bd6;stroke-width:2;filter:none}
+.stage svg.spider polyline.leg:nth-of-type(even){stroke:#4f7bff}
+.stage svg.spider .foot{fill:#fff;stroke:#ff2bd6;stroke-width:1.2}
+.stage svg.spider .knee{fill:#fff;stroke:#4f7bff;stroke-width:1.2}
+.stage svg.spider .tnode{fill:#fff;stroke:#4f7bff;stroke-width:1.2;opacity:1}
+.stage svg.spider .mesh{stroke:#6a5cff;opacity:.6}
+.stage svg.spider .thread{opacity:.9}
 .stage svg.spider .body{filter:drop-shadow(0 0 6px rgba(255,43,214,.6))}
 .stage .touch-t2{outline-color:#e08600}.stage .touch-t5{outline-color:#5c9e00}
 .read-page{padding:28px 0 48px}
+.read-page .back{display:inline-block;margin:0 0 10px;color:#0f7d47;text-decoration:none;font-weight:600;font-size:15px}
+.read-page .back:hover{text-decoration:underline}
+.desk-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 16px;padding:10px 14px;border:1px solid #e3e3dc;border-radius:10px;background:#fafaf7}
+.desk-row .lab{font-weight:600;color:#141414;margin-right:4px}
+.desk-row .btn{height:38px;padding:0 16px;border:1px solid #c9c9c4;border-radius:8px;background:#fff;color:#141414;font:600 14px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.desk-row .btn:hover{border-color:#0f7d47}
+.desk-row .btn.on,.desk-row .btn-run{background:#0f7d47;border-color:#0f7d47;color:#fff}
+.desk-row .btn-run:hover{background:#0a5c34}
+.desk-row select{height:38px;border:1px solid #c9c9c4;border-radius:8px;padding:0 10px;font:500 14px 'IBM Plex Mono',monospace;background:#fff}
+.read-page .older{margin-top:28px;font-size:13px}
+.read-page .older a{color:#6b6f76}
 .read-page h1.rp{font-family:'Source Serif 4',Georgia,serif;font-size:36px;margin:0 0 8px;color:#141414}
 .read-page .lede{margin:0 0 20px;font-size:17px;color:#4a4a4a;max-width:720px}
 .read-form{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:stretch;margin-bottom:12px}
@@ -136,6 +153,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   </div>
 </header>
 <main class="container read-page">
+<a class="back" href="/">&larr; Back to BMG Capital</a>
 <h1 class="rp">Reader</h1>
 <p class="lede">Drop in a filing, deck, transcript or report and click Run. The spider reads it line by line, marks every figure it finds, and ends with a summary of what is new or changed against the facts the desk already holds.</p>
 <div class="read-form">
@@ -339,32 +357,48 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     const t = document.createElementNS(SVG_NS, "line");
     t.setAttribute("class", "thread " + (tier || ""));
     const n = document.createElementNS(SVG_NS, "circle");
-    n.setAttribute("class", "tnode"); n.setAttribute("r", 2);
+    n.setAttribute("class", "tnode"); n.setAttribute("r", 2.2);
+    // Web mesh: a strand from this node to the previous one, so the
+    // touched words form the net around the spider (reference clips).
+    const mesh = document.createElementNS(SVG_NS, "line");
+    mesh.setAttribute("class", "mesh");
     spiderSvg.insertBefore(n, spiderSvg.firstChild);
     spiderSvg.insertBefore(t, spiderSvg.firstChild);
-    state.threads.push({line: t, node: n, el: targetEl});
+    spiderSvg.insertBefore(mesh, spiderSvg.firstChild);
+    state.threads.push({line: t, node: n, mesh, el: targetEl});
   }
 
   function removeThread(el){
     state.threads = state.threads.filter(t => {
       if (t.el !== el) return true;
-      t.line.remove(); if (t.node) t.node.remove(); return false;
+      t.line.remove(); if (t.node) t.node.remove(); if (t.mesh) t.mesh.remove(); return false;
     });
   }
 
   function redrawThreads(){
     const bx = clampN(state.body.x), by = clampN(state.body.y);
+    let lastC = null;
     state.threads = state.threads.filter(t => {
-      if (!t.el.isConnected){ t.line.remove(); if (t.node) t.node.remove(); return false; }
+      if (!t.el.isConnected){ t.line.remove(); if (t.node) t.node.remove(); if (t.mesh) t.mesh.remove(); return false; }
       const c = docSpaceCenter(t.el);
       // Threads are a local web: past ~2.5x leg reach they are hidden, so
       // words scrolled far away do not streak lines across the page.
       const far = Math.hypot(c.x - bx, c.y - by) > HI_REACH * 2.5;
       t.line.style.display = far ? "none" : ""; if (t.node) t.node.style.display = far ? "none" : "";
-      if (far) return true;
+      t.c = far ? null : c;
+      if (far){ if (t.mesh) t.mesh.style.display = "none"; return true; }
       t.line.setAttribute("x1", bx); t.line.setAttribute("y1", by);
       t.line.setAttribute("x2", clampN(c.x)); t.line.setAttribute("y2", clampN(c.y));
       if (t.node){ t.node.setAttribute("cx", clampN(c.x)); t.node.setAttribute("cy", clampN(c.y)); }
+      if (t.mesh){
+        const prev = lastC;
+        if (prev && Math.hypot(prev.x - c.x, prev.y - c.y) < HI_REACH * 1.6){
+          t.mesh.style.display = "";
+          t.mesh.setAttribute("x1", clampN(prev.x)); t.mesh.setAttribute("y1", clampN(prev.y));
+          t.mesh.setAttribute("x2", clampN(c.x)); t.mesh.setAttribute("y2", clampN(c.y));
+        } else t.mesh.style.display = "none";
+      }
+      lastC = c;
       return true;
     });
   }
@@ -391,7 +425,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     // 9th gets a solid pink box (the reference clip's look). .found
     // numbers keep their own fill.
     const k = state.touchCycleIdx;
-    if (!el.classList.contains("found") && el !== h1){
+    if (!el.classList.contains("found") && el !== h1 && el.textContent.replace(/[^A-Za-z0-9]/g, "").length >= 5){
       if (k % 9 === 4) el.classList.add("fillbox");
       else if (k % 5 === 2) el.classList.add("lift", "f" + (1 + (k % 3)));
     }
@@ -847,8 +881,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   }
 
 
-  // ---- /desk/read/: upload, Run, watch the spider, then a summary ----
-  state.mode = "read";
+  // ---- upload, Run, watch the spider, then a summary ----
   state.maxChars = 200000;
   state.paceByWords = true;
   const fileIn = document.getElementById("read-file");
@@ -929,6 +962,9 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     else if (pasteIn.value.trim()) fd.append("text", pasteIn.value);
     else { showErr("Choose a file or paste text first."); return; }
     if (tickerIn.value) fd.append("ticker", tickerIn.value);
+    state.mode = "read";
+    stopLive(); clearTimeout(state.tickTimer);
+    document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.remove("on"));
     runRead.disabled = true; runRead.textContent = "Reading...";
     stopWalk(); state.loadToken++; clearSpider(); docBody.innerHTML = ""; h1.textContent = "";
     listEl.innerHTML = ""; sumEl.hidden = true; state.readFound = 0;

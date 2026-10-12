@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desk live, spider | BMG Capital</title>
+<style>
+:root{--bg:#000;--fg:#c9ccd1;--dim:#5b6068;--pink:#ff2bd6;--org:#ff9f1c;--blue:#4f7bff;--cyan:#27e3ff;--t1:#ff2bd6;--t2:#ff9f1c;--t3:#4f7bff;--t4:#27e3ff;--t5:#b6ff3b}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.8 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-x:hidden}
+.strip{position:fixed;top:0;left:0;right:0;height:36px;display:flex;align-items:center;gap:14px;padding:0 16px;background:rgba(0,0,0,.9);border-bottom:1px solid #15181d;font-size:12px;color:#9aa0a8;z-index:20}
+.strip b{color:#fff;font-weight:600}
+.strip .btn{padding:2px 9px;border:1px solid #2a2f37;border-radius:4px;color:#c9ccd1;background:transparent;font:inherit;cursor:pointer}
+.strip .on{background:#b6ff3b;color:#000;border-color:#b6ff3b}
+.strip select{background:transparent;color:#c9ccd1;border:1px solid #2a2f37;border-radius:4px;padding:1px 6px;font:inherit}
+.strip .status{margin-left:auto;color:#c9ccd1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.doc{position:relative;max-width:980px;margin:70px auto 160px;padding:0 20px;opacity:1}
+h1{font:600 20px/1.3 ui-monospace,monospace;color:#e6e8eb;margin:0 0 16px}
+p{margin:0 0 12px}
+.w{display:inline;transition:color .2s ease,outline-color .2s ease;word-break:break-word;overflow-wrap:anywhere}
+.a{color:#6ea8ff;border-bottom:1px solid rgba(110,168,255,.5)}
+.a.link{color:#8fd9e6;border-bottom-color:#27e3ff}
+.touch-t1{outline:1px solid var(--t1);outline-offset:1px;border-radius:2px}
+.touch-t2{outline:1px solid var(--t2);outline-offset:1px;border-radius:2px}
+.touch-t3{outline:1px solid var(--t3);outline-offset:1px;border-radius:2px}
+.touch-t4{outline:1px solid var(--t4);outline-offset:1px;border-radius:2px}
+.touch-t5{outline:1px solid var(--t5);outline-offset:1px;border-radius:2px}
+.touch-fade{outline-color:transparent;transition:outline-color .6s ease}
+.found{font:700 20px/1 ui-serif,Georgia,serif;padding:0 4px;border-radius:3px;color:#fff}
+.found.pink{background:rgba(255,43,214,.22);box-shadow:0 0 10px rgba(255,43,214,.5)}
+.found.org{background:rgba(255,159,28,.22);box-shadow:0 0 10px rgba(255,159,28,.5)}
+.found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
+svg.spider{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
+svg.spider .body{fill:#ff2bd6;stroke:#fff;stroke-width:1;filter:drop-shadow(0 0 8px #ff2bd6) drop-shadow(0 0 16px rgba(79,123,255,.4))}
+svg.spider .leg{stroke:#fff;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+svg.spider .foot{fill:#fff;stroke:#fff}
+svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.85}
+svg.spider .thread.t1{stroke:var(--t1)}svg.spider .thread.t2{stroke:var(--t2)}svg.spider .thread.t3{stroke:var(--t3)}svg.spider .thread.t4{stroke:var(--t4)}svg.spider .thread.t5{stroke:var(--t5)}
+svg.spider .tnode{fill:#fff;opacity:.9}
+svg.spider .mesh{stroke:#4f7bff;stroke-width:1;opacity:.55}
+svg.spider .knee{fill:#fff}
+.w.lift{display:inline-block;position:relative;z-index:2;background:#000;transform:scale(1.7);transition:transform .25s ease}
+.w.lift.f1{font-family:Georgia,'Times New Roman',serif;color:#9fb8ff}
+.w.lift.f2{font-family:ui-monospace,monospace;letter-spacing:2px;color:#ff6ee6}
+.w.lift.f3{font-family:Georgia,serif;font-style:italic;color:#8fd9e6}
+.w.fillbox{background:#ff2bd6;color:#fff;border-radius:2px;box-shadow:0 0 8px rgba(255,43,214,.6)}
+.beam{position:absolute;height:18px;transform-origin:0 50%;background:linear-gradient(90deg,rgba(255,43,214,.95),rgba(255,43,214,.75));color:#4a0036;font:italic 12px/18px Georgia,serif;white-space:nowrap;overflow:hidden;padding-left:8px;z-index:2;pointer-events:none;box-shadow:0 0 14px rgba(255,43,214,.7);animation:beam 2.6s ease-out forwards}
+@keyframes beam{0%{clip-path:inset(0 100% 0 0);opacity:1}15%{clip-path:inset(0 0 0 0);opacity:1}75%{opacity:1}100%{clip-path:inset(0 0 0 0);opacity:0}}
+.note{position:fixed;bottom:0;left:0;right:0;padding:6px 16px;font-size:11px;color:var(--dim);background:rgba(0,0,0,.9);border-top:1px solid #15181d;z-index:20}
+@media (max-width:600px){html,body{font-size:13px}.found{font-size:16px}.strip{height:auto;flex-wrap:wrap;padding:6px 12px}.strip .status{margin-left:0;width:100%;max-width:100%}.doc{margin-top:84px}}
+</style>
+</head>
+<body>
+<div class="strip" role="toolbar">
+  <button class="btn" data-mode="replay">Replay</button>  <button class="btn" data-mode="live">Live</button>  <select id="live-ticker"><option>GATX</option><option>GBX</option><option>TRN</option></select>  <select id="live-mode"><option value="new">New</option><option value="rewalk30" selected>Re-walk 120 days</option></select>  <button class="btn btn-run">Run</button>  <button class="btn" id="ctl-pause">Pause</button>  <select id="ctl-speed" aria-label="Speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option></select>  <span class="status" id="status">idle</span>
+</div>
+<div class="doc" id="doc">
+  <svg class="spider" id="spider"></svg>
+  <h1 id="doc-h1"></h1>
+  <div id="docbody"></div>
+</div>
+<div class="note">Live run streams /desk/events; Replay loads /desk/run/latest. Line-drawn spider walks the real text; feet plant on real words. Older designs: <a href="/desk/live-v3/" style="color:#5b6068">v3 (hub + beam)</a> &middot; <a href="/desk/live-v2/" style="color:#5b6068">v2 (inline boxes)</a> &middot; <a href="/desk/live-v1/" style="color:#5b6068">v1 (two-pane)</a>.</div>
+<script>
+(() => {
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const doc = document.getElementById("doc");
+  const spiderSvg = document.getElementById("spider");
+  const statusEl = document.getElementById("status");
+  const docBody = document.getElementById("docbody");
+  const h1 = document.getElementById("doc-h1");
+
+  const COLOR_FAM = {Revenue:"pink","Net income":"pink",Sales:"pink",EPS:"pink",
+    Dividend:"org","Disposition gains":"org",Buyback:"org",
+    Fleet:"blue",Utilization:"blue","Backlog units":"blue","Backlog $B":"blue",LPI:"blue"};
+  const BODY_W = 14, BODY_H = 22, FOOT_R = 2.5, N_LEGS = 8;
+  const MIN_REACH = 70, LO_REACH = 80, HI_REACH = 160, TARGET_REACH = 120;
+  const BODY_MS = 160, FADE_MS = 600;
+  const MAX_OUTLINES = 24;
+  // Pre-divide 2*PI into N_LEGS sectors; one foot per 45-degree slice.
+  const SECTOR_RAD = (2 * Math.PI) / N_LEGS;
+  const TOUCH_CYCLE = ["t1","t2","t3","t4","t5"];
+
+  let state = {
+    mode:"replay", events:[], idx:0, speed:60, tickTimer:null,
+    currentDocId:null, docsLoaded:{}, docsSeen:{},
+    walkState:{done:true, docId:null, lineIdx:0},
+    body:{x:0, y:0}, feet:[], feetEls:[], legEls:[], threads:[],
+    touchCycleIdx:0, touchOrder:[], bodyAnim:0, foundCount:0, totalDocs:0, totalFacts:0,
+    es:null, running:false, currentText:"", touchedEls:new Set(),
+    factBuffer:{}, lastRenderedCount:0, pendingRenderDoc:null,
+    currentHost:"", currentType:"", currentPub:"", loadToken:0, docQueue:[]};
+
+  function escapeHTML(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function fmtDate(iso){if(!iso) return "";const d=new Date(iso);return isNaN(d)?iso:d.toLocaleString("en-US",{timeZone:"America/Chicago",month:"short",day:"2-digit",hour:"2-digit",minute:"2-digit"});}
+  async function fetchJSON(url){try{const r=await fetch(url,{cache:"no-store"});if(!r.ok) throw new Error(r.status);return await r.json();}catch(e){return {error:String(e)};}}
+  function setStatus(s){statusEl.innerHTML = s;}
+
+  function sizeSvg(){const r=doc.getBoundingClientRect(); spiderSvg.setAttribute("viewBox",`0 0 ${r.width} ${r.height}`); spiderSvg.setAttribute("width",r.width); spiderSvg.setAttribute("height",r.height);}
+
+  function clearSpider(){
+    spiderSvg.innerHTML = "";
+    state.bodyAnim++;
+    state.feet = []; state.feetEls = []; state.legEls = []; state.threads = []; state.rows = null; bumpLayout();
+    state.touchedEls = new Set(); state.touchOrder = [];
+  }
+
+  function tokenize(text){
+    // Wrap every word, link, number in its own span.w so feet have targets.
+    // Preserve newlines by splitting into paragraphs.
+    const paras = text.split(/\n\n+/);
+    return paras.map(para => {
+      const lines = para.split(/\n/);
+      const htmlLines = lines.map(line => {
+        // Linkify first (URLs with surrounding spaces)
+        const parts = [];
+        let cursor = 0;
+        const re = /(https?:\/\/[^\s<]+)/g;
+        let m;
+        while ((m = re.exec(line)) !== null){
+          parts.push({type:"text", val: line.slice(cursor, m.index)});
+          parts.push({type:"link", val: m[0]});
+          cursor = m.index + m[0].length;
+        }
+        parts.push({type:"text", val: line.slice(cursor)});
+        return parts.map(part => {
+          if (part.type === "link"){
+            return `<a class="w a" href="${escapeHTML(part.val)}" target="_blank" rel="noopener">${escapeHTML(part.val)}</a>`;
+          }
+          // Tokenize text into word-like spans
+          const toks = part.val.split(/(\s+)/);
+          return toks.map(t => {
+            if (!t || /^\s+$/.test(t)) return escapeHTML(t);
+            return `<span class="w">${escapeHTML(t)}</span>`;
+          }).join("");
+        }).join("");
+      });
+      return "<p>" + htmlLines.join("<br>") + "</p>";
+    }).join("");
+  }
+
+  function elCenter(el){return docSpaceCenter(el);}
+
+  function drawBody(){
+    // 14x22 px pink rect, 1 px white border, centered on the body point.
+    let b = spiderSvg.querySelector("rect.body");
+    if (!b){
+      b = document.createElementNS(SVG_NS, "rect");
+      b.setAttribute("class", "body");
+      b.setAttribute("width", BODY_W);
+      b.setAttribute("height", BODY_H);
+      spiderSvg.appendChild(b);
+    }
+    b.setAttribute("x", clampN(state.body.x - BODY_W/2));
+    b.setAttribute("y", clampN(state.body.y - BODY_H/2));
+    // Keep the body on top of legs and threads.
+    spiderSvg.appendChild(b);
+  }
+
+  function finite(v){return typeof v === "number" && isFinite(v);}
+  function kneeFor(bx, by, fx, fy){
+    if (!finite(bx) || !finite(by) || !finite(fx) || !finite(fy)) return {x: bx||0, y: by||0};
+    // Knee at midpoint of body-foot, pushed 30 px outward from the body
+    // along the leg direction and lifted 20 px up.
+    const mx = (bx + fx)/2, my = (by + fy)/2;
+    const dx = fx - bx, dy = fy - by;
+    const len = Math.max(1, Math.hypot(dx, dy));
+    return {x: mx + dx/len * 30, y: my + dy/len * 30 - 20};
+  }
+
+  function clampN(v){
+    if (!finite(v)) return 0;
+    if (v > 100000) return 100000;
+    if (v < -100000) return -100000;
+    return Math.round(v * 100) / 100;
+  }
+  function legEl(i){
+    // One polyline + foot + knee per leg, created once and updated in place.
+    let L = state.legEls[i];
+    if (!L || !L.poly.isConnected){
+      const poly = document.createElementNS(SVG_NS, "polyline"); poly.setAttribute("class", "leg");
+      const foot = document.createElementNS(SVG_NS, "circle"); foot.setAttribute("class", "foot"); foot.setAttribute("r", FOOT_R);
+      const knee = document.createElementNS(SVG_NS, "circle"); knee.setAttribute("class", "knee"); knee.setAttribute("r", 1.6);
+      spiderSvg.append(poly, knee, foot);
+      L = state.legEls[i] = {poly, foot, knee};
+    }
+    return L;
+  }
+  function drawLegs(){
+    if (!finite(state.body.x) || !finite(state.body.y)) return;
+    const bx = clampN(state.body.x), by = clampN(state.body.y);
+    for (let i = 0; i < N_LEGS; i++){
+      let f = state.feet[i];
+      const L = legEl(i);
+      // A sector with no element in reach has no foot; never draw a foot on empty space.
+      if (!f || !finite(f.x) || !finite(f.y)){ L.poly.style.display = L.foot.style.display = L.knee.style.display = "none"; continue; }
+      // Planted feet follow their element's position (cached until reflow).
+      if (f.el && f.el.isConnected) f = state.feet[i] = Object.assign({el: f.el}, docSpaceCenter(f.el));
+      const knee = kneeFor(state.body.x, state.body.y, f.x, f.y);
+      L.poly.style.display = L.foot.style.display = L.knee.style.display = "";
+      L.poly.setAttribute("points", `${bx},${by} ${clampN(knee.x)},${clampN(knee.y)} ${clampN(f.x)},${clampN(f.y)}`);
+      L.foot.setAttribute("cx", clampN(f.x)); L.foot.setAttribute("cy", clampN(f.y));
+      L.knee.setAttribute("cx", clampN(knee.x)); L.knee.setAttribute("cy", clampN(knee.y));
+    }
+  }
+
+  function camera(){
+    // Ease the page toward the spider every frame so it never walks off
+    // screen (one-off smooth scrolls could not keep up with fast lines).
+    if (state.userScrolledAt && performance.now() - state.userScrolledAt < 2500) return;
+    const dr = doc.getBoundingClientRect();
+    const by = dr.top + state.body.y;           // viewport y of the body
+    const lo = innerHeight * 0.3, hi = innerHeight * 0.62;
+    let dy = 0;
+    if (by > hi) dy = by - hi; else if (by < lo) dy = by - lo;
+    if (Math.abs(dy) > 0.5){ state.cameraScroll = true; window.scrollBy(0, dy * 0.18); }
+  }
+  addEventListener("wheel", () => { state.userScrolledAt = performance.now(); }, {passive: true});
+  addEventListener("touchmove", () => { state.userScrolledAt = performance.now(); }, {passive: true});
+  function drawSpider(){drawLegs(); redrawThreads(); drawBody(); camera();}
+
+  // Element centers in .doc space are scroll-invariant, so they are cached
+  // until the layout changes (new doc, a .found fill, resize). Reading ~40
+  // rects per frame was the main cause of dropped frames.
+  const centerCache = new WeakMap();
+  state.layoutEpoch = 0;
+  function bumpLayout(){ state.layoutEpoch++; }
+  function docSpaceCenter(el){
+    const c = centerCache.get(el);
+    if (c && c.ep === state.layoutEpoch) return {x: c.x, y: c.y};
+    const r = el.getBoundingClientRect(), dr = doc.getBoundingClientRect();
+    const v = {x: r.left - dr.left + r.width/2, y: r.top - dr.top + r.height/2, ep: state.layoutEpoch};
+    centerCache.set(el, v);
+    return {x: v.x, y: v.y};
+  }
+
+  function addThread(targetEl, tier){
+    // One thread per outlined element. Endpoints are recomputed every
+    // frame the body moves (redrawThreads), so a thread always starts at
+    // the body's CURRENT position and ends on the element's live center.
+    if (!targetEl || state.threads.some(t => t.el === targetEl)) return;
+    const t = document.createElementNS(SVG_NS, "line");
+    t.setAttribute("class", "thread " + (tier || ""));
+    const n = document.createElementNS(SVG_NS, "circle");
+    n.setAttribute("class", "tnode"); n.setAttribute("r", 2.2);
+    // Web mesh: a strand from this node to the previous one, so the
+    // touched words form the net around the spider (reference clips).
+    const mesh = document.createElementNS(SVG_NS, "line");
+    mesh.setAttribute("class", "mesh");
+    spiderSvg.insertBefore(n, spiderSvg.firstChild);
+    spiderSvg.insertBefore(t, spiderSvg.firstChild);
+    spiderSvg.insertBefore(mesh, spiderSvg.firstChild);
+    state.threads.push({line: t, node: n, mesh, el: targetEl});
+  }
+
+  function removeThread(el){
+    state.threads = state.threads.filter(t => {
+      if (t.el !== el) return true;
+      t.line.remove(); if (t.node) t.node.remove(); if (t.mesh) t.mesh.remove(); return false;
+    });
+  }
+
+  function redrawThreads(){
+    const bx = clampN(state.body.x), by = clampN(state.body.y);
+    let lastC = null;
+    state.threads = state.threads.filter(t => {
+      if (!t.el.isConnected){ t.line.remove(); if (t.node) t.node.remove(); if (t.mesh) t.mesh.remove(); return false; }
+      const c = docSpaceCenter(t.el);
+      // Threads are a local web: past ~2.5x leg reach they are hidden, so
+      // words scrolled far away do not streak lines across the page.
+      const far = Math.hypot(c.x - bx, c.y - by) > HI_REACH * 2.5;
+      t.line.style.display = far ? "none" : ""; if (t.node) t.node.style.display = far ? "none" : "";
+      t.c = far ? null : c;
+      if (far){ if (t.mesh) t.mesh.style.display = "none"; return true; }
+      t.line.setAttribute("x1", bx); t.line.setAttribute("y1", by);
+      t.line.setAttribute("x2", clampN(c.x)); t.line.setAttribute("y2", clampN(c.y));
+      if (t.node){ t.node.setAttribute("cx", clampN(c.x)); t.node.setAttribute("cy", clampN(c.y)); }
+      if (t.mesh){
+        const prev = lastC;
+        if (prev && Math.hypot(prev.x - c.x, prev.y - c.y) < HI_REACH * 1.6){
+          t.mesh.style.display = "";
+          t.mesh.setAttribute("x1", clampN(prev.x)); t.mesh.setAttribute("y1", clampN(prev.y));
+          t.mesh.setAttribute("x2", clampN(c.x)); t.mesh.setAttribute("y2", clampN(c.y));
+        } else t.mesh.style.display = "none";
+      }
+      lastC = c;
+      return true;
+    });
+  }
+
+  function clearTouchClasses(el){
+    TOUCH_CYCLE.forEach(c => el.classList.remove("touch-" + c));
+    el.classList.remove("touch-fade", "lift", "f1", "f2", "f3", "fillbox");
+  }
+
+  function markTouch(el){
+    // Outline only elements a foot landed on. Newest MAX_OUTLINES keep
+    // their outline; the oldest fades out. .found fills are untouched.
+    if (!el) return;
+    state.touchOrder = state.touchOrder || [];
+    if (state.touchedEls.has(el)){
+      state.touchOrder = state.touchOrder.filter(e => e !== el);
+      state.touchOrder.push(el);
+      return;
+    }
+    if (el.classList.contains("touch-fade")) clearTouchClasses(el);
+    const tier = TOUCH_CYCLE[state.touchCycleIdx % TOUCH_CYCLE.length];
+    el.classList.add("touch-" + tier);
+    // Every 5th landed word is lifted off the page in a new face; every
+    // 9th gets a solid pink box (the reference clip's look). .found
+    // numbers keep their own fill.
+    const k = state.touchCycleIdx;
+    if (!el.classList.contains("found") && el !== h1 && el.textContent.replace(/[^A-Za-z0-9]/g, "").length >= 5){
+      if (k % 9 === 4) el.classList.add("fillbox");
+      else if (k % 5 === 2) el.classList.add("lift", "f" + (1 + (k % 3)));
+    }
+    state.touchCycleIdx++;
+    state.touchedEls.add(el);
+    state.touchOrder.push(el);
+    addThread(el, tier);
+    while (state.touchOrder.length > MAX_OUTLINES){
+      const oldest = state.touchOrder.shift();
+      if (!oldest) continue;
+      state.touchedEls.delete(oldest);
+      removeThread(oldest);
+      oldest.classList.add("touch-fade");
+      setTimeout(() => {
+        if (!state.touchedEls.has(oldest)) clearTouchClasses(oldest);
+      }, FADE_MS);
+    }
+  }
+
+  function markLinkPassed(a){
+    if (!a.classList.contains("link")) a.classList.add("link");
+  }
+
+  function sectorIndex(bx, by, wx, wy){
+    let ang = Math.atan2(wy - by, wx - bx);
+    if (ang < 0) ang += Math.PI * 2;
+    return Math.floor(ang / SECTOR_RAD) % N_LEGS;
+  }
+
+  function footTargets(){
+    // Only words on rendered lines near the body: scanning every span of
+    // a long filing on every step would stall the animation.
+    if (state.rows && state.rows.length){
+      const by = state.body.y, out = [];
+      for (const r of state.rows){ if (Math.abs(r.y - by) <= HI_REACH + 60) out.push(...r.els); }
+      if (h1.textContent.trim()) out.unshift(h1);
+      return out;
+    }
+    const els = Array.from(docBody.querySelectorAll(".w"));
+    if (h1.textContent.trim()) els.unshift(h1);
+    return els;
+  }
+
+  function footValid(el, bx, by, i){
+    if (!el || !document.body.contains(el)) return null;
+    const c = docSpaceCenter(el);
+    const d = Math.hypot(c.x - bx, c.y - by);
+    if (d < MIN_REACH || d > HI_REACH || sectorIndex(bx, by, c.x, c.y) !== i) return null;
+    return {el, x: c.x, y: c.y};
+  }
+
+  function pickFeetBySector(bx, by, forceEl){
+    // One foot per 45-degree sector, each on a real element 80 to 160 px
+    // from the body center (70 to 80 only as a fallback; never closer
+    // than 70). Aim for ~120 px so the spider spans about 250 px.
+    // A planted foot stays put while it is still valid for its sector.
+    const cands = [];
+    for (const el of footTargets()){
+      const c = docSpaceCenter(el);
+      const d = Math.hypot(c.x - bx, c.y - by);
+      if (d < MIN_REACH || d > HI_REACH) continue;
+      const score = Math.abs(d - TARGET_REACH) + (d < LO_REACH ? 40 : 0) + (state.touchedEls.has(el) ? 60 : 0);
+      cands.push({el, x: c.x, y: c.y, d, si: sectorIndex(bx, by, c.x, c.y), score});
+    }
+    const bucket = new Array(N_LEGS).fill(null);
+    for (const c of cands){
+      if (!bucket[c.si] || c.score < bucket[c.si].score) bucket[c.si] = c;
+    }
+    const prev = state.feet || [];
+    for (let i = 0; i < N_LEGS; i++){
+      const kept = footValid(prev[i] && prev[i].el, bx, by, i);
+      if (kept) bucket[i] = kept;
+    }
+    if (forceEl){
+      const f = cands.find(c => c.el === forceEl);
+      if (f) bucket[f.si] = f;
+    }
+    // A sector with no element in reach leaves that leg lifted.
+    return bucket.map(b => b ? {x: b.x, y: b.y, el: b.el} : null);
+  }
+
+  function landFeet(feet){
+    for (const f of feet){
+      if (!f || !f.el) continue;
+      markTouch(f.el);
+      if (f.el.tagName === "A") markLinkPassed(f.el);
+    }
+    redrawThreads();
+  }
+
+  function moveBody(x, y, forceEl, ms, linear){
+    // Glide the body over ms; feet whose element falls out of reach (or out
+    // of their sector) at the destination swing to new elements in step.
+    // Legs and threads are redrawn every frame, so threads always start at
+    // the body's current position. (requestAnimationFrame because CSS
+    // can't tween polyline points.)
+    const sx = state.body.x, sy = state.body.y;
+    const target = pickFeetBySector(x, y, forceEl);
+    const prev = state.feet.slice();
+    const dur = ms || BODY_MS, start = performance.now();
+    const token = ++state.bodyAnim;
+    function frame(now){
+      if (token !== state.bodyAnim) return;
+      const t = Math.min(1, (now - start)/dur);
+      const e = linear ? t : (t < .5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2)/2);
+      state.body.x = sx + (x - sx) * e; state.body.y = sy + (y - sy) * e;
+      for (let i = 0; i < N_LEGS; i++){
+        const g = target[i];
+        if (!g){ state.feet[i] = null; continue; }
+        const p = prev[i] || {x: sx, y: sy};
+        if (t >= 1 || (p.el && p.el === g.el)){ state.feet[i] = g; continue; }
+        // Gait: alternate legs swing in two overlapping phases, each foot
+        // lifting in a small arc, so the spider walks instead of snapping.
+        const off = (i % 2) ? 0.4 : 0;
+        const u = Math.min(1, Math.max(0, (t - off) / 0.6));
+        const s = u * u * (3 - 2 * u);
+        state.feet[i] = {x: p.x + (g.x - p.x) * s, y: p.y + (g.y - p.y) * s - 14 * Math.sin(Math.PI * s), el: null};
+      }
+      drawSpider();
+      if (t < 1) requestAnimationFrame(frame);
+      else landFeet(target);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function plantInitialFeet(){
+    state.feet = pickFeetBySector(state.body.x, state.body.y);
+    landFeet(state.feet);
+    drawSpider();
+  }
+
+  function familyOf(label){return COLOR_FAM[label] || "pink";}
+
+  function headlineForDoc(ev){
+    const dt = (ev.doc_type || "DOC").replace("PRESS_RELEASE","Release");
+    const pub = ev.published_at || ev.fetched_at || "";
+    // Try to format a date in YYYY-MM-DD; parse Date for both RFC and ISO
+    const d = pub ? new Date(pub) : null;
+    const dstr = d && !isNaN(d) ? d.toISOString().slice(0,10) : (pub || "").slice(0,10);
+    const t = (ev.title || "").trim();
+    return `${ev.ticker || ""} ${dt}${dstr ? " " + dstr : ""}${t ? ": " + t : ""}`;
+  }
+
+  function noTextStatus(ev){
+    if (ev.doc_type === "4") return `fetched <b>${ev.host||""}</b> Form 4 CSV (derived artifact)`;
+    if (ev.doc_type === "SERIES"){const mm = ev.meta || {}; return `fetched <b>${ev.host||""}</b> ${mm.series_id || ev.title} = ${mm.last_value||""} (${mm.last_date||""})`;}
+    if (ev.doc_type === "NEWS") return `fetched headline (body never stored): ${(ev.title||"").slice(0,80)}`;
+    return `fetched <b>${ev.host||""}</b> ${ev.doc_type}: title only, body not stored - ${(ev.title||"").slice(0,80)}`;
+  }
+
+  async function coldStart(ticker){
+    // Show the most recent stored 10-Q right away so a live run never
+    // opens on a black page; SSE documents queue behind its walk.
+    // If a live document starts loading first, the cold start stands down.
+    const t0 = state.loadToken;
+    try{
+      const lr = await fetch("/desk/latest_doc?ticker=" + encodeURIComponent(ticker) + "&type=10-Q");
+      if (!lr.ok) return;
+      const lj = await lr.json();
+      if (!lj || !lj.doc_id) return;
+      const d = await fetchJSON("/desk/doc/" + encodeURIComponent(lj.doc_id) + "/text");
+      if (!d || d.error) return;
+      state.docsLoaded[lj.doc_id] = d;
+      const docEv = {type:"document", doc_id:lj.doc_id, host:"www.sec.gov", url:d.source_url, title:d.title,
+        doc_type:"10-Q", ticker, fetched_at:d.fetched_at, published_at:d.published_at, has_text:true, meta:d.meta||{}, dim:false};
+      state.docsSeen[lj.doc_id] = docEv;
+      if (state.currentDocId || state.loadToken !== t0) return;  // a live doc got there first
+      if (await loadDocAndWalk(docEv)){
+        state.coldStartDocId = lj.doc_id;
+        setTimeout(() => (d.facts||[]).forEach(f => processEvent({type:"fact", doc_id:lj.doc_id, label:f.label, value:f.value, unit:f.unit, char_offset:f.char_offset})), 1500);
+      }
+    }catch(e){}
+  }
+
+  // Pause / speed controls (present on /desk/live/ and /desk/read/).
+  state.speedMul = 1; state.paused = false;
+  (function wireControls(){
+    const pb = document.getElementById("ctl-pause"), sp = document.getElementById("ctl-speed");
+    if (pb) pb.addEventListener("click", () => {
+      state.paused = !state.paused;
+      pb.textContent = state.paused ? "Resume" : "Pause";
+      pb.classList.toggle("on", state.paused);
+    });
+    if (sp) sp.addEventListener("change", () => { state.speedMul = parseFloat(sp.value) || 1; });
+  })();
+
+  function walking(){return !!(state.currentDocId && state.walkState && !state.walkState.done);}
+
+  async function loadDocAndWalk(ev){
+    // DESK-5.6: never blank the page for a document with nothing to show.
+    // Fetch and validate first; only then swap the reader to the new doc.
+    // A newer call (token) wins, so overlapping SSE arrivals cannot
+    // interleave half-rendered documents.
+    const token = ++state.loadToken;
+    const notext = (!ev.has_text || ["NEWS","4","SERIES"].includes(ev.doc_type));
+    if (notext){ setStatus(noTextStatus(ev)); return false; }
+    let d = state.docsLoaded[ev.doc_id];
+    if (!d){d = await fetchJSON("/desk/doc/" + encodeURIComponent(ev.doc_id) + "/text"); state.docsLoaded[ev.doc_id] = d;}
+    if (token !== state.loadToken) return false;
+    if (d.error){setStatus(`doc text error: ${d.error}`); return false;}
+    const text = (d.text || "").slice(0, state.maxChars || 60000);
+    if (text.replace(/\s+/g, "").length < 120){ setStatus(noTextStatus(ev)); return false; }
+    stopWalk();
+    clearSpider();
+    state.currentDocId = ev.doc_id;
+    state.currentHost = ev.host; state.currentType = ev.doc_type; state.currentPub = ev.published_at || ev.fetched_at;
+    state.foundCount = 0;
+    state.currentText = text;
+    h1.textContent = headlineForDoc(ev);
+    docBody.innerHTML = tokenize(text);
+    bumpLayout();
+    sizeSvg();
+    const dRect = doc.getBoundingClientRect();
+    const h1Rect = h1.getBoundingClientRect();
+    state.body = {x: Math.max(HI_REACH, dRect.width * 0.42), y: h1Rect.bottom - dRect.top + 60};
+    plantInitialFeet();
+    window.scrollTo({top: Math.max(0, dRect.top + window.scrollY - 60)});
+    setStatus(`reading <b>${ev.host||""}</b> ${ev.doc_type} ${(ev.published_at||ev.fetched_at||"").slice(0,10)} &nbsp;&middot;&nbsp; 0 numbers found`);
+    const dur = state.walkOverride || computeWalkDuration(ev.doc_id, ev.fetched_at);
+    setTimeout(() => { if (token === state.loadToken) startWalk(ev.doc_id, dur); }, 80);
+    return true;
+  }
+
+  // Live: a text doc that arrives while another is being walked waits its
+  // turn instead of yanking the reader away mid-page.
+  function enqueueDoc(ev){
+    if (!walking()){ loadDocAndWalk(ev); return; }
+    state.docQueue = (state.docQueue || []).filter(q => q.doc_id !== ev.doc_id);
+    state.docQueue.push(ev);
+    if (state.docQueue.length > 6) state.docQueue.shift();
+  }
+  function walkFinished(){
+    const next = (state.docQueue || []).shift();
+    if (next){ setTimeout(() => loadDocAndWalk(next), 600); return; }
+    // Nothing queued: the spider stops. It never crawls on its own.
+  }
+
+  function computeWalkDuration(doc_id, fetched_at){
+    const facts = (state.events || []).filter(e => e.type === "fact" && e.doc_id === doc_id);
+    if (facts.length && fetched_at){
+      const tMax = facts.reduce((m,f) => {const t = new Date(f.at||f.fetched_at||0).getTime(); return Math.max(m, t);}, 0);
+      const t0 = new Date(fetched_at).getTime();
+      if (t0 > 0 && tMax > t0) return Math.max(4, Math.min(22, (tMax - t0)/1000));
+    }
+    return 10;
+  }
+
+  function visualRows(){
+    // Group the word spans into rendered lines (same top), so the spider
+    // reads line by line the way the eye does, not paragraph by paragraph.
+    const d = doc.getBoundingClientRect();
+    const rows = []; let cur = null;
+    for (const w of docBody.querySelectorAll(".w")){
+      const r = w.getBoundingClientRect();
+      if (!r.width) continue;
+      const y = r.top - d.top + r.height/2;
+      if (!cur || Math.abs(y - cur.y) > 6){ cur = {y, els: [], x0: r.left - d.left, x1: r.right - d.left}; rows.push(cur); }
+      cur.els.push(w); cur.x1 = Math.max(cur.x1, r.right - d.left);
+    }
+    return rows;
+  }
+
+  function startWalk(doc_id, duration_s){
+    state.walkState = {done:false, docId:doc_id, lineIdx:0};
+    clearTimeout(state.walkTimer);
+    const rows = visualRows();
+    state.rows = rows;
+    if (!rows.length){ state.walkState.done = true; walkFinished(); return; }
+    const perRow = Math.max(120, Math.min(900, (duration_s * 1000) / rows.length));
+    let i = 0;
+    function step(){
+      if (state.walkState.docId !== doc_id || state.walkState.done) return;
+      if (state.paused){ state.walkTimer = setTimeout(step, 150); return; }
+      if (i >= rows.length){ state.walkState.done = true; walkFinished(); return; }
+      const row = rows[i];
+      const d = doc.getBoundingClientRect();
+      // Live y from the row's first word (a .found fill can reflow lines).
+      const r0 = row.els[0].getBoundingClientRect();
+      const y = r0.top - d.top + r0.height/2;
+      const mid = (row.x0 + row.x1) / 2, amp = Math.max(0, (row.x1 - row.x0) / 3);
+      const x = Math.min(d.width - HI_REACH, Math.max(HI_REACH, mid + amp * Math.sin(i * 0.35)));
+      const ms = (state.paceByWords ? Math.min(260, 60 + 14 * row.els.length) : perRow) / (state.speedMul || 1);
+      moveBody(x, y, null, ms, true);
+      if (state.onRow) state.onRow(row.els);
+      state.walkState.lineIdx = ++i;
+      state.walkTimer = setTimeout(step, ms);
+    }
+    step();
+  }
+
+  function fireBeam(x1, y1, x2, y2, text){
+    // Thick pink beam from the body to a found number, carrying its label
+    // and value; it draws in, holds, and fades (one per extract_fact).
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    if (len < 20) return;
+    const b = document.createElement("div");
+    b.className = "beam";
+    b.textContent = text;
+    b.style.left = x1 + "px"; b.style.top = (y1 - 9) + "px"; b.style.width = len + "px";
+    b.style.transform = `rotate(${Math.atan2(y2 - y1, x2 - x1)}rad)`;
+    doc.appendChild(b);
+    setTimeout(() => b.remove(), 2700);
+  }
+
+  function markFactInDoc(ev){
+    if (ev.doc_id !== state.currentDocId) return;
+    const text = state.currentText || "";
+    if (!text) return;
+    let offset = ev.char_offset;
+    if (offset == null || offset < 0) offset = text.indexOf(ev.value);
+    if (offset < 0) return;
+    // Find the first still-unmarked .w span containing the value. 10-Q
+    // extracts often have the same value appear many times in the body;
+    // picking the first unmarked one lets subsequent facts land on fresh
+    // positions and the spider walk builds multiple .found fills.
+    let found = (ev._el && !ev._el.classList.contains("found")) ? ev._el : null;
+    if (!found){
+      for (const w of docBody.querySelectorAll(".w")){
+        if (w.classList.contains("found")) continue;
+        if (w.textContent.includes(ev.value)){ found = w; break; }
+      }
+    }
+    if (!found) return;
+    if (state.onFound) state.onFound(ev, found);
+    found.classList.add("found", familyOf(ev.label));
+    bumpLayout();
+    // Move the body so the value sits TARGET_REACH px away (never under
+    // the body), then plant a foot on it.
+    const c = elCenter(found);
+    const dx = state.body.x - c.x, dy = state.body.y - c.y;
+    const d = Math.hypot(dx, dy);
+    const beamText = `${ev.label || ""} ${ev.value || ""}`.trim();
+    if (d >= LO_REACH && d <= HI_REACH){
+      moveBody(state.body.x, state.body.y, found);
+      fireBeam(state.body.x, state.body.y, c.x, c.y, beamText);
+    } else {
+      const ux = d > 1 ? dx/d : 0, uy = d > 1 ? dy/d : -1;
+      const dr = doc.getBoundingClientRect();
+      const nx = Math.min(dr.width - 10, Math.max(10, c.x + ux * TARGET_REACH));
+      const ny = Math.min(dr.height - 10, Math.max(10, c.y + uy * TARGET_REACH));
+      moveBody(nx, ny, found);
+      fireBeam(nx, ny, c.x, c.y, beamText);
+    }
+
+    state.foundCount++;
+    setStatus(`reading <b>${state.currentHost||""}</b> ${state.currentType||""} ${(state.currentPub||"").slice(0,10)} &nbsp;&middot;&nbsp; ${state.foundCount} numbers found`);
+  }
+
+  function processEvent(ev){
+    if (ev.type === "document"){
+      state.currentHost = ev.host; state.currentType = ev.doc_type; state.currentPub = ev.published_at || ev.fetched_at;
+      loadDocAndWalk(ev);
+      state.totalDocs++;
+    } else if (ev.type === "fact"){
+      markFactInDoc(ev);
+      state.totalFacts++;
+    }
+  }
+
+  async function initReplay(){
+    const data = await fetchJSON("/desk/run/latest?window=14400&limit=200");
+    if (data.error || !data.events || data.events.length === 0){setStatus("no completed run yet"); return;}
+    state.events = data.events;
+    const realSec = Math.max(1, Math.round((new Date(data.ended_at) - new Date(data.started_at))/1000));
+    const choices = [10, 60, 300];
+    let best = choices[0], bd = Infinity;
+    for (const s of choices){const t = Math.max(state.events.length * 0.08, realSec/s); const d = Math.abs(t - 75); if (d < bd){bd = d; best = s;}}
+    state.speed = best;
+    setStatus(`Replay ${fmtDate(data.started_at)} Central &nbsp;&middot;&nbsp; ${state.events.length} events &nbsp;&middot;&nbsp; ${realSec}s real time &nbsp;&middot;&nbsp; ${best}x`);
+    state.idx = 0;
+    replayTick();
+  }
+  function replayTick(){
+    if (state.paused){ clearTimeout(state.tickTimer); state.tickTimer = setTimeout(replayTick, 200); return; }
+    if (state.idx >= state.events.length){setStatus(`done &nbsp;&middot;&nbsp; ${state.totalDocs} documents &nbsp;&middot;&nbsp; ${state.totalFacts} numbers found`); return;}
+    const ev = state.events[state.idx];
+    const nextIdx = state.idx + 1;
+    processEvent(ev);
+    state.idx = nextIdx;
+    let delay = 400;
+    if (nextIdx < state.events.length){
+      const t0 = new Date(ev.fetched_at || ev.at).getTime();
+      const t1 = new Date(state.events[nextIdx].fetched_at || state.events[nextIdx].at).getTime();
+      delay = Math.min(5000, Math.max(80, (t1 - t0) / state.speed));
+    }
+    clearTimeout(state.tickTimer);
+    state.tickTimer = setTimeout(replayTick, delay);
+  }
+  function stopLive(){if (state.es){try{state.es.close();}catch(e){} state.es = null;} state.running = false;}
+  function stopWalk(){state.walkState.done = true;}
+
+  function liveHandle(ev){
+    if (ev.type === "heartbeat" || ev.type === "hello") return;
+    if (ev.type === "job_start"){setStatus(`live run started ${fmtDate(ev.at)} Central`); return;}
+    if (ev.type === "fetch_start"){setStatus(`fetching <b>${ev.host}</b> ${(ev.url||"").slice(0,80)}`); return;}
+    if (ev.type === "fetch_done_insert" && ev.doc_id){
+      let host = ""; try{host = new URL(ev.source_url || "").hostname;}catch(e){}
+      const docEv = {type:"document", doc_id:ev.doc_id, host, url:ev.source_url, title:ev.title,
+        doc_type:ev.doc_type, ticker:ev.ticker, fetched_at:ev.at, published_at: ev.published_at || null,
+        has_text: !["SERIES","NEWS","4"].includes(ev.doc_type), meta:{}, dim:!!ev.skipped_dup};
+      state.docsSeen[ev.doc_id] = docEv;
+      if (docEv.dim){setStatus(`<b>${host}</b> ${ev.doc_type}: already stored`); return;}
+      const _prio = new Set(["10-Q","10-K","8-K","EX-99"]);
+      if (state.coldStartDocId && state.currentDocId === state.coldStartDocId && !_prio.has(ev.doc_type)){
+        setStatus(`fetched <b>${host}</b> ${ev.doc_type}: ${(ev.title||"").slice(0,60)}`);
+        return;
+      }
+      state.totalDocs++;
+      enqueueDoc(docEv);
+      return;
+    }
+    if (ev.type === "extract_fact"){
+      state.events = state.events || [];
+      const fact = {type:"fact", doc_id: ev.doc_id, label: ev.label, value: ev.value, unit: ev.unit, char_offset: ev.char_offset, at: ev.at};
+      state.events.push(fact);
+      state.idx = state.events.length;
+      state.factBuffer = state.factBuffer || {};
+      (state.factBuffer[ev.doc_id] = state.factBuffer[ev.doc_id] || []).push(fact);
+      let bestId = null, bestLen = 0;
+      for (const k of Object.keys(state.factBuffer)){ if (state.factBuffer[k].length > bestLen){bestLen = state.factBuffer[k].length; bestId = k;} }
+      if (!bestId) return;
+      const cached = state.docsSeen[bestId];
+      if (!cached) return;
+      // If the cold-start 10-Q is showing and bestId is not a priority filing,
+      // do not navigate away from the 10-Q (DESK-5.4).
+      const _prio2 = new Set(["10-Q","10-K","8-K","EX-99"]);
+      if (state.coldStartDocId && state.currentDocId === state.coldStartDocId && cached && !_prio2.has(cached.doc_type)){
+        return;
+      }
+      if (state.currentDocId === bestId && state.lastRenderedCount === state.factBuffer[bestId].length - 1){
+        processEvent({type:"fact", doc_id: bestId, label: fact.label, value: fact.value, unit: fact.unit, char_offset: fact.char_offset});
+        state.lastRenderedCount = state.factBuffer[bestId].length;
+        return;
+      }
+      state.pendingRenderDoc = bestId;
+      (async () => {
+        if (state.currentDocId !== bestId){
+          await loadDocAndWalk(cached);
+          if (state.pendingRenderDoc !== bestId) return;
+          await new Promise(r => setTimeout(r, 60));
+        }
+        const facts = state.factBuffer[bestId] || [];
+        for (const f of facts){
+          processEvent({type:"fact", doc_id: bestId, label: f.label, value: f.value, unit: f.unit, char_offset: f.char_offset});
+        }
+        state.lastRenderedCount = facts.length;
+      })();
+      return;
+    }
+    if (ev.type === "job_done"){setStatus(`done &nbsp;&middot;&nbsp; ${state.totalDocs} documents &nbsp;&middot;&nbsp; ${state.totalFacts} numbers found`); stopLive(); const btn = document.querySelector("[data-mode='live']"); if (btn) btn.classList.remove("on"); return;}
+    if (ev.type === "job_error"){setStatus(`error ${ev.phase||""}: ${ev.message||""}`); return;}
+  }
+
+  document.querySelectorAll(".btn[data-mode]").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === b.dataset.mode));
+    state.mode = b.dataset.mode;
+    stopWalk(); stopLive(); clearTimeout(state.tickTimer);
+    state.loadToken++; state.docQueue = [];
+    clearSpider(); docBody.innerHTML = ""; h1.textContent = "";
+    state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0; state.foundCount = 0; state.factBuffer = {}; state.lastRenderedCount = 0;
+    if (b.dataset.mode === "replay") initReplay();
+    else setStatus("live mode. click Run.");
+  }));
+  const runBtn = document.querySelector(".btn-run");
+  runBtn.addEventListener("click", async () => {
+    if (state.running) return;
+    document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === "live"));
+    state.mode = "live"; state.running = true;
+    runBtn.classList.add("on"); runBtn.textContent = "Running";
+    stopWalk(); state.loadToken++; state.docQueue = [];
+    clearSpider(); docBody.innerHTML = ""; h1.textContent = "";
+    state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0; state.foundCount = 0; state.factBuffer = {}; state.lastRenderedCount = 0;
+    const ticker = document.getElementById("live-ticker").value;
+    const mode = document.getElementById("live-mode").value;
+    state.currentDocId = null; state.coldStartDocId = null;
+    coldStart(ticker);
+    try{
+      state.es = new EventSource("/desk/events");
+      ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done","edgar_done"].forEach(t => {
+        state.es.addEventListener(t, (e) => {try{const d = JSON.parse(e.data); d.type = t; liveHandle(d);}catch(err){}});
+      });
+      state.es.onerror = () => setStatus("SSE connection lost");
+    }catch(e){setStatus("SSE unavailable");}
+    try{
+      const r = await fetch("/desk/_run/live", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ticker, mode})});
+      if (r.status === 409){const j = await r.json(); setStatus(`409: ${j.detail||"another live run active"}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
+      else if (!r.ok){setStatus(`error ${r.status}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
+    }catch(e){setStatus(`POST failed: ${e}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
+  });
+
+  const _params = new URLSearchParams(location.search);
+  const _auto = _params.get("autolive");
+  const _docId = _params.get("doc");
+  if (_docId){
+    (async () => {
+      const d = await fetchJSON("/desk/doc/" + encodeURIComponent(_docId) + "/text");
+      if (!d || d.error){ setStatus("doc load failed"); return; }
+      const docEv = {type:"document", doc_id:_docId, host:(d.source_url||"").split("/")[2]||"", url:d.source_url, title:d.title,
+        doc_type:d.type, ticker:(d.ticker||"GATX"), fetched_at:d.fetched_at, published_at:d.published_at,
+        has_text:true, meta:d.meta||{}, dim:false};
+      state.currentHost = docEv.host; state.currentType = docEv.doc_type; state.currentPub = docEv.published_at || docEv.fetched_at;
+      await loadDocAndWalk(docEv);
+      state.totalDocs++;
+      setTimeout(() => {
+        (d.facts||[]).forEach(f => processEvent({type:"fact", doc_id:_docId, label:f.label, value:f.value, unit:f.unit, char_offset:f.char_offset}));
+      }, 800);
+    })();
+    return;
+  }
+  if (_auto && ["GATX","GBX","TRN"].includes(_auto)){
+    document.getElementById("live-ticker").value = _auto;
+    // DESK-5.4: default automode to rewalk120 (backend accepts it as an
+    // alias for the legacy "rewalk30" value in /desk/_run/live).
+    const mode = _params.get("automode") || "rewalk120";
+    const mapped = mode === "rewalk120" ? "rewalk30" : mode;
+    document.getElementById("live-mode").value = mapped;
+    (async () => {
+      // Prefetch the most recent stored 10-Q and show it so the screen is
+      // never empty while the live run spins up. When the first text doc
+      // arrives on SSE, the normal handler takes over and swaps to it.
+      try{
+        const lr = await fetch("/desk/latest_doc?ticker=" + encodeURIComponent(_auto) + "&type=10-Q");
+        if (lr.ok){
+          const lj = await lr.json();
+          if (lj && lj.doc_id){
+            const d = await fetchJSON("/desk/doc/" + encodeURIComponent(lj.doc_id) + "/text");
+            if (d && !d.error){
+              const docEv = {type:"document", doc_id:lj.doc_id, host:"www.sec.gov", url:d.source_url, title:d.title,
+                doc_type:"10-Q", ticker:_auto, fetched_at:d.fetched_at, published_at:d.published_at,
+                has_text:true, meta:d.meta||{}, dim:false};
+              state.docsSeen[lj.doc_id] = docEv;
+              state.currentHost = "www.sec.gov"; state.currentType = "10-Q"; state.currentPub = d.published_at || d.fetched_at;
+              await loadDocAndWalk(docEv);
+              (d.facts||[]).forEach(f => processEvent({type:"fact", doc_id:lj.doc_id, label:f.label, value:f.value, unit:f.unit, char_offset:f.char_offset}));
+              state.coldStartDocId = lj.doc_id;
+            }
+          }
+        }
+      }catch(e){}
+      try{
+        const sr = await fetch("/desk/_run/live/status");
+        const sj = sr.ok ? await sr.json() : {};
+        if (sj && sj.active){
+          document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === "live"));
+          state.mode = "live"; state.running = true;
+          runBtn.classList.add("on"); runBtn.textContent = "Running";
+          state.es = new EventSource("/desk/events");
+          ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done","edgar_done"].forEach(t => {
+            state.es.addEventListener(t, (e) => {try{const d = JSON.parse(e.data); d.type = t; liveHandle(d);}catch(err){}});
+          });
+          setStatus("attached to live run " + (sj.label||""));
+        } else {
+          runBtn.click();
+        }
+      }catch(e){ runBtn.click(); }
+    })();
+  } else {
+    // Idle until asked: nothing runs on page load.
+    document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.remove("on"));
+    setStatus("idle &nbsp;&middot;&nbsp; press Replay to watch the last run, or Live then Run");
+  }
+  window.addEventListener("resize", () => {
+    bumpLayout();
+    sizeSvg();
+    // Reflow moves the words; re-anchor feet on their elements.
+    state.feet = state.feet.map(f => (f && f.el && document.body.contains(f.el)) ? Object.assign({el: f.el}, docSpaceCenter(f.el)) : f);
+    if (state.feet.length) drawSpider();
+  });
+})();
+</script>
+</body></html>
