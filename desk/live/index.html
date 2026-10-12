@@ -534,13 +534,16 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
   if (_docId){
     (async () => {
       const d = await fetchJSON("/desk/doc/" + encodeURIComponent(_docId));
-      if (d && !d.error){
-        processEvent({type:"document", doc_id:_docId, host:(d.source_url||"").split("/")[2]||"", url:d.source_url, title:d.title,
-          doc_type:d.type, ticker:(d.ticker||"GATX"), fetched_at:d.fetched_at, published_at:d.published_at,
-          has_text:true, meta:d.meta||{}, dim:false});
-        // Apply any stored facts
+      if (!d || d.error){ setStatus("doc load failed"); return; }
+      const docEv = {type:"document", doc_id:_docId, host:(d.source_url||"").split("/")[2]||"", url:d.source_url, title:d.title,
+        doc_type:d.type, ticker:(d.ticker||"GATX"), fetched_at:d.fetched_at, published_at:d.published_at,
+        has_text:true, meta:d.meta||{}, dim:false};
+      state.currentHost = docEv.host; state.currentType = docEv.doc_type; state.currentPub = docEv.published_at || docEv.fetched_at;
+      await loadDocAndWalk(docEv);
+      state.totalDocs++;
+      setTimeout(() => {
         (d.facts||[]).forEach(f => processEvent({type:"fact", doc_id:_docId, label:f.label, value:f.value, unit:f.unit, char_offset:f.char_offset}));
-      } else { setStatus("doc load failed"); }
+      }, 500);
     })();
     return;
   }
