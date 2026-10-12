@@ -40,6 +40,7 @@ svg.spider .foot{fill:#ff3d9a;stroke:none}
 svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.85}
 svg.spider .thread.t1{stroke:var(--t1)}svg.spider .thread.t2{stroke:var(--t2)}svg.spider .thread.t3{stroke:var(--t3)}svg.spider .thread.t4{stroke:var(--t4)}svg.spider .thread.t5{stroke:var(--t5)}
 svg.spider .tnode{fill:#fff;opacity:.9}
+svg.spider .silk{stroke:#8fd8ff;stroke-width:1;opacity:.85}
 svg.spider .mesh{stroke:#7fa2ff;stroke-width:1.1;opacity:.7}
 svg.spider .knee{fill:#ff3d9a}
 .w.lift{}
@@ -90,6 +91,10 @@ svg.spider .knee{fill:#ff3d9a}
     Dividend:"org","Disposition gains":"org",Buyback:"org",
     Fleet:"blue",Utilization:"blue","Backlog units":"blue","Backlog $B":"blue",LPI:"blue"};
   const BODY_W = 14, BODY_H = 22, FOOT_R = 2.5, N_LEGS = 8;
+  // Spider size unit: the document's line height / 14 px. Measured from
+  // the reference clip: span ~6.4 text lines, body ~1.3 lines long, so the
+  // spider is sized to the text it reads, whatever the document.
+  let U = 1;
   const MIN_REACH = 45, LO_REACH = 55, HI_REACH = 105, TARGET_REACH = 80;
   const BODY_MS = 160, FADE_MS = 600, BEAM_MAX = 260;
   const MAX_OUTLINES = 24;
@@ -119,7 +124,7 @@ svg.spider .knee{fill:#ff3d9a}
     state.bodyAnim++;
     state.boost = 1; state.boostTarget = 1;
     state.crawlTarget = null; state.crawlX = null; state.legAnim = {}; state.eyeFocus = null; state.nextFocus = null; state.heading = null; state.faceHeading = null; state.vel = null; state.lastBodyP = null; state.lastSet = null;
-    state.feet = []; state.feetEls = []; state.legEls = []; state.threads = []; state.rows = null; state.meshPool = []; state.trail = []; state.links = []; state.linkPool = []; state.ping = null; state.pingLine = null; state.lastPingEl = null; state.eyeEl = null; state.eyeAt = null;
+    state.feet = []; state.feetEls = []; state.legEls = []; state.threads = []; state.rows = null; state.meshPool = []; state.trail = []; state.links = []; state.linkPool = []; state.ping = null; state.pingLine = null; state.lastPingEl = null; state.silkEl = null; state.silkAnchor = null; state.rideSince = 0; state.eyeEl = null; state.eyeAt = null;
     document.querySelectorAll(".liftlbl,.beam").forEach(e => e.remove()); state.beams = [];
     bumpLayout();
     state.touchedEls = new Set(); state.touchOrder = [];
@@ -167,18 +172,18 @@ svg.spider .knee{fill:#ff3d9a}
     let b = spiderSvg.querySelector("rect.body"), hd = spiderSvg.querySelector("circle.head");
     if (!b){
       b = document.createElementNS(SVG_NS, "rect");
-      b.setAttribute("class", "body"); b.setAttribute("width", 13); b.setAttribute("height", 32); b.setAttribute("rx", 2);
+      b.setAttribute("class", "body"); b.setAttribute("width", 8 * U); b.setAttribute("height", 19 * U); b.setAttribute("rx", 1.5 * U);
       hd = document.createElementNS(SVG_NS, "circle");
-      hd.setAttribute("class", "head"); hd.setAttribute("r", 4);
+      hd.setAttribute("class", "head"); hd.setAttribute("r", Math.max(2, 2.6 * U));
       spiderSvg.append(b, hd);
     }
-    b.setAttribute("x", clampN(state.body.x - 6.5));
-    b.setAttribute("y", clampN(state.body.y - 16));
+    b.setAttribute("x", clampN(state.body.x - 4 * U));
+    b.setAttribute("y", clampN(state.body.y - 9.5 * U));
     // The body faces where it is going (mostly down the page), eye at the
     // front end, as in the reference clip.
     const hd0 = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
     b.setAttribute("transform", `rotate(${(hd0 * 180 / Math.PI - 90).toFixed(2)} ${clampN(state.body.x)} ${clampN(state.body.y)})`);
-    const hx = state.body.x + Math.cos(hd0) * 10, hy = state.body.y + Math.sin(hd0) * 10;
+    const hx = state.body.x + Math.cos(hd0) * 6.5 * U, hy = state.body.y + Math.sin(hd0) * 6.5 * U;
     hd.setAttribute("cx", clampN(hx));
     hd.setAttribute("cy", clampN(hy));
     // Keep the body on top of legs and threads.
@@ -208,9 +213,9 @@ svg.spider .knee{fill:#ff3d9a}
     let L = state.legEls[i];
     if (!L || !L.poly.isConnected){
       const poly = document.createElementNS(SVG_NS, "polyline"); poly.setAttribute("class", "leg");
-      const foot = document.createElementNS(SVG_NS, "circle"); foot.setAttribute("class", "foot"); foot.setAttribute("r", FOOT_R);
-      const knee = document.createElementNS(SVG_NS, "circle"); knee.setAttribute("class", "knee"); knee.setAttribute("r", 1.7);
-      const ankle = document.createElementNS(SVG_NS, "circle"); ankle.setAttribute("class", "knee ankle"); ankle.setAttribute("r", 1.3);
+      const foot = document.createElementNS(SVG_NS, "circle"); foot.setAttribute("class", "foot"); foot.setAttribute("r", Math.max(1.6, 2 * U));
+      const knee = document.createElementNS(SVG_NS, "circle"); knee.setAttribute("class", "knee"); knee.setAttribute("r", Math.max(1, 1.2 * U));
+      const ankle = document.createElementNS(SVG_NS, "circle"); ankle.setAttribute("class", "knee ankle"); ankle.setAttribute("r", Math.max(0.8, 1 * U));
       spiderSvg.append(poly, knee, ankle, foot);
       L = state.legEls[i] = {poly, foot, knee, ankle};
     }
@@ -235,14 +240,14 @@ svg.spider .knee{fill:#ff3d9a}
       const ux = Math.cos(h), uy = Math.sin(h);
       const side = i < 4 ? -1 : 1, k4 = i % 4;
       const sx = Math.cos(h + side * Math.PI / 2), sy = Math.sin(h + side * Math.PI / 2);
-      const along = [9, 3, -3, -9][k4];
-      const hipX = state.body.x + ux * along + sx * 5, hipY = state.body.y + uy * along + sy * 5;
+      const along = [5, 2, -2, -5][k4] * U;
+      const hipX = state.body.x + ux * along + sx * 3 * U, hipY = state.body.y + uy * along + sy * 3 * U;
       const lx = f.x - hipX, ly = f.y - hipY, len = Math.max(1, Math.hypot(lx, ly));
       let nx = -ly / len, ny = lx / len;                 // perpendicular to the leg line
       const wantFwd = k4 < 2 ? 1 : -1;                   // front bend forward, back bend back
       if ((nx * ux + ny * uy) * wantFwd < 0){ nx = -nx; ny = -ny; }
-      const bend = len * 0.26;
-      const knee = {x: hipX + lx * 0.42 + nx * bend, y: hipY + ly * 0.42 + ny * bend};
+      const bend = len * 0.36;
+      const knee = {x: hipX + lx * 0.34 + nx * bend, y: hipY + ly * 0.34 + ny * bend};
       const ax = knee.x + (f.x - knee.x) * 0.68 + nx * bend * 0.18, ay = knee.y + (f.y - knee.y) * 0.68 + ny * bend * 0.18;
       L.poly.style.display = L.foot.style.display = L.knee.style.display = L.ankle.style.display = "";
       L.poly.setAttribute("points", `${clampN(hipX)},${clampN(hipY)} ${clampN(knee.x)},${clampN(knee.y)} ${clampN(ax)},${clampN(ay)} ${clampN(f.x)},${clampN(f.y)}`);
@@ -265,12 +270,13 @@ svg.spider .knee{fill:#ff3d9a}
     const before = window.scrollY;
     // Ease the boost in and out (~0.4 s) so speed changes are smooth.
     state.boost = (state.boost || 1) + ((state.boostTarget || 1) - (state.boost || 1)) * Math.min(1, dt * 1.6);
-    state.scrollPos += SCROLL_SPEED * (state.speedMul || 1) * state.boost * dt;
+    state.scrollPos += SCROLL_SPEED * U * (state.speedMul || 1) * state.boost * dt;
     window.scrollTo(0, state.scrollPos);
     // The spider rides the scroll: it moves with the page view, so its own
     // crawl only moves it around inside the frame (reference clip).
     const ride = window.scrollY - before;
     state.body.y += ride;
+    state.rideSince = (state.rideSince || 0) + ride;
     // The feet ride too: the legs hold their pose while the page scrolls
     // and only step when the spider itself moves (reference clip).
     for (const f of state.feet) if (f){ f.y += ride; f.el = null; }
@@ -298,14 +304,34 @@ svg.spider .knee{fill:#ff3d9a}
     state.eyeEl.setAttribute("x", clampN(x)); state.eyeEl.setAttribute("y", clampN(y));
     state.eyeEl.setAttribute("width", clampN(Math.max(4, state.eyeFocus ? r.width : Math.min(r.width, 18)))); state.eyeEl.setAttribute("height", clampN(r.height));
     const fh = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
-    state.sightEl.setAttribute("x1", clampN(state.body.x + Math.cos(fh) * 10)); state.sightEl.setAttribute("y1", clampN(state.body.y + Math.sin(fh) * 10));
+    state.sightEl.setAttribute("x1", clampN(state.body.x + Math.cos(fh) * 6.5 * U)); state.sightEl.setAttribute("y1", clampN(state.body.y + Math.sin(fh) * 6.5 * U));
     state.sightEl.setAttribute("x2", clampN(x + 4)); state.sightEl.setAttribute("y2", clampN(y + r.height / 2));
     state.eyeAt = {x: x + 4, y: y + r.height / 2};
   }
-  function drawSpider(){ state.drawnAt = performance.now(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawBody(); camera(); }
+  function drawSilk(){
+    // A silk thread from the spider's back end to an anchor behind it
+    // (reference clip). Re-anchors behind the spider when it gets long or
+    // its anchor leaves the screen.
+    if (!state.silkEl || !state.silkEl.isConnected){
+      state.silkEl = document.createElementNS(SVG_NS, "line"); state.silkEl.setAttribute("class", "silk");
+      spiderSvg.insertBefore(state.silkEl, spiderSvg.firstChild);
+    }
+    const h = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
+    const tx = state.body.x - Math.cos(h) * 9 * U, ty = state.body.y - Math.sin(h) * 9 * U;
+    const dr = doc.getBoundingClientRect();
+    const a = state.silkAnchor;
+    if (!a || Math.hypot(a.x - tx, a.y - ty) > 420 || dr.top + a.y < -40){
+      // new anchor behind and above, a little to one side
+      const ang = h + Math.PI + (Math.random() - 0.5) * 0.6;
+      state.silkAnchor = {x: Math.min(dr.width - 10, Math.max(10, tx + Math.cos(ang) * 260)), y: ty + Math.min(-120, Math.sin(ang) * 260)};
+    }
+    state.silkEl.setAttribute("x1", clampN(tx)); state.silkEl.setAttribute("y1", clampN(ty));
+    state.silkEl.setAttribute("x2", clampN(state.silkAnchor.x)); state.silkEl.setAttribute("y2", clampN(state.silkAnchor.y));
+  }
+  function drawSpider(){ state.drawnAt = performance.now(); drawSilk(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawBody(); camera(); }
   // Keep the legs flexing and the eye scanning between steps too.
   // ---- crawl: body creeps continuously; legs step one or two at a time
-  const CRAWL_SPEED = 55;   // px/s at 1x across the screen; riding the scroll does the rest
+  const CRAWL_BASE = 26;   // px/s per unit at 1x (~2 lines/s) across the screen; riding the scroll does the rest
   state.legAnim = {};
   function farOk(f, bx, by, i){
     const c = docSpaceCenter(f.el), d = Math.hypot(c.x - bx, c.y - by);
@@ -313,7 +339,7 @@ svg.spider .knee{fill:#ff3d9a}
   }
   function startLegStep(i, to, now){
     const from = state.feet[i] || {x: state.body.x, y: state.body.y};
-    state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 300 / (state.speedMul || 1)};
+    state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 450 / (state.speedMul || 1)};
   }
   function advanceLegs(now){
     for (const k of Object.keys(state.legAnim)){
@@ -328,15 +354,15 @@ svg.spider .knee{fill:#ff3d9a}
   // until it falls about a stride from its spot, then steps forward.
   // Legs move in two alternating sets of four, like a real spider.
   const LEG_ANG = [-0.55, -1.15, -1.95, -2.55, 0.55, 1.15, 1.95, 2.55];
-  const LEG_R = [100, 108, 104, 94, 100, 108, 104, 94];
+  const LEG_R0 = [44, 48, 46, 41, 44, 48, 46, 41];   // px per unit
   const LEG_SET = [0, 1, 0, 1, 1, 0, 1, 0];
-  const STRIDE = 42;
+  const STRIDE0 = 15;   // px per unit
   function restPoint(i, lead){
     const h = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
     const a = h + LEG_ANG[i];
     const w = doc.clientWidth || 800;
-    return {x: Math.min(w - 6, Math.max(6, state.body.x + Math.cos(a) * LEG_R[i] + Math.cos(h) * lead)),
-            y: state.body.y + Math.sin(a) * LEG_R[i] + Math.sin(h) * lead};
+    return {x: Math.min(w - 6, Math.max(6, state.body.x + Math.cos(a) * (LEG_R0[i] * U) + Math.cos(h) * lead)),
+            y: state.body.y + Math.sin(a) * (LEG_R0[i] * U) + Math.sin(h) * lead};
   }
   function snapToWord(p){
     // Settle on a word only if one is right there; never reach for one.
@@ -354,27 +380,29 @@ svg.spider .knee{fill:#ff3d9a}
     return out;
   }
   function stepLegs(now){
-    if (now - (state.lastLegCheck || 0) < 40) return;
+    // Wave gait (reference clip): each leg steps on its own when its foot
+    // falls a stride behind its resting spot; up to three legs move at
+    // once, in slow overlapping strides, so the feet flow rather than snap.
+    if (now - (state.lastLegCheck || 0) < 45) return;
     state.lastLegCheck = now;
-    // Wait for the set in the air to land, then the other set steps:
-    // strict alternation, so neither set is left behind.
-    if (Object.keys(state.legAnim).length) return;
-    const err = (i) => { const f = state.feet[i], r = restPoint(i, 0); return f ? Math.hypot(f.x - r.x, f.y - r.y) : 999; };
-    const worst = (set) => { let m = 0; for (let i = 0; i < N_LEGS; i++) if (LEG_SET[i] === set) m = Math.max(m, err(i)); return m; };
-    const other = state.lastSet == null ? 0 : 1 - state.lastSet;
-    let set = null;
-    if (worst(other) > STRIDE * 0.6) set = other;
-    else if (worst(1 - other) > STRIDE) set = 1 - other;
-    if (set == null) return;
-    // Lead the step by about half a gait cycle of travel (crawl + scroll).
-    const mul = state.speedMul || 1;
-    const lead = Math.min(30, CRAWL_SPEED * mul * 0.3);
+    const moving = Object.keys(state.legAnim).length;
+    if (moving >= 3) return;
+    const errs = [];
     for (let i = 0; i < N_LEGS; i++){
-      if (LEG_SET[i] !== set) continue;
-      if (err(i) < 8) continue;
-      startLegStep(i, snapToWord(restPoint(i, lead)), now);
+      if (state.legAnim[i]) continue;
+      // Never lift a leg whose neighbour on the same side is in the air.
+      const nb = [i - 1, i + 1].filter(j => j >= 0 && j < N_LEGS && Math.floor(j / 4) === Math.floor(i / 4));
+      if (nb.some(j => state.legAnim[j])) continue;
+      const f = state.feet[i], r = restPoint(i, 0);
+      const e = f ? Math.hypot(f.x - r.x, f.y - r.y) : 999;
+      if (e > STRIDE0 * U) errs.push([e, i]);
     }
-    state.lastSet = set;
+    if (!errs.length) return;
+    errs.sort((a, b) => b[0] - a[0]);
+    const mul = state.speedMul || 1;
+    const lead = Math.min(12 * U, (CRAWL_BASE * U) * mul * 0.4);
+    const [, i] = errs[0];
+    startLegStep(i, snapToWord(restPoint(i, lead)), now);
   }
   (function crawl(now){
     requestAnimationFrame(crawl);
@@ -393,9 +421,9 @@ svg.spider .knee{fill:#ff3d9a}
       const maxTurn = 2.8 * dt * mul;
       state.heading += Math.max(-maxTurn, Math.min(maxTurn, diff));
 
-      const sp = CRAWL_SPEED * mul;
+      const sp = (CRAWL_BASE * U) * mul;
       const dr = doc.getBoundingClientRect();
-      const edge = HI_REACH * 1.2;   // keep the legs on the page too
+      const edge = 60 * U;   // keep the legs on the page too
       state.body.x = Math.min(dr.width - edge, Math.max(edge, state.body.x + Math.cos(state.heading) * sp * dt));
       state.body.y = Math.max(10, state.body.y + Math.sin(state.heading) * sp * dt);
       // Never leave the frame: ease back inside 15%..80% of the screen.
@@ -404,9 +432,12 @@ svg.spider .knee{fill:#ff3d9a}
       // Face the actual direction of travel over the page (crawl plus the
       // scroll it rides), which while reading is mostly down the page.
       if (state.lastBodyP && dt > 0){
-        const vx = (state.body.x - state.lastBodyP.x) / dt, vy = (state.body.y - state.lastBodyP.y) / dt;
+        // On-screen motion only (the scroll ride is not the spider walking),
+        // so it can face any way as it roams, as in the clip.
+        const vx = (state.body.x - state.lastBodyP.x) / dt, vy = (state.body.y - state.lastBodyP.y - (state.rideSince || 0)) / dt;
+        state.rideSince = 0;
         state.vel = state.vel ? {x: state.vel.x * 0.92 + vx * 0.08, y: state.vel.y * 0.92 + vy * 0.08} : {x: vx, y: vy};
-        if (Math.hypot(state.vel.x, state.vel.y) > 5){
+        if (Math.hypot(state.vel.x, state.vel.y) > 8){
           const want = Math.atan2(state.vel.y, state.vel.x);
           if (state.faceHeading == null) state.faceHeading = want;
           let fd = want - state.faceHeading; fd = Math.atan2(Math.sin(fd), Math.cos(fd));
@@ -526,15 +557,15 @@ svg.spider .knee{fill:#ff3d9a}
   function pickPingTarget(){
     const rows = state.rows; if (!rows) return null;
     const fh = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
-    const hx = state.body.x + Math.cos(fh) * 10, hy = state.body.y + Math.sin(fh) * 10;
+    const hx = state.body.x + Math.cos(fh) * 6.5 * U, hy = state.body.y + Math.sin(fh) * 6.5 * U;
     const cands = [];
     for (const r of rows){
       if (r.y < hy - 30) continue;
-      if (r.y > hy + 240) break;
+      if (r.y > hy + 130 * U) break;
       for (const w of r.els){
         if (w === state.lastPingEl) continue;
         const c = docSpaceCenter(w), d = Math.hypot(c.x - hx, c.y - hy);
-        if (d < 50 || d > 260) continue;
+        if (d < 25 * U || d > 140 * U) continue;
         let sc = Math.random() * 2;
         if (/\d/.test(w.textContent)) sc += 3;
         if (w.tagName === "A" || w.closest("a")) sc += 2;
@@ -569,7 +600,7 @@ svg.spider .knee{fill:#ff3d9a}
     if (!p || !p.el.isConnected || now - p.start > PING_MS / mul){ l.style.display = "none"; return; }
     const t = (now - p.start) / (PING_MS / mul);
     const fh = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
-    const hx = state.body.x + Math.cos(fh) * 10, hy = state.body.y + Math.sin(fh) * 10;
+    const hx = state.body.x + Math.cos(fh) * 6.5 * U, hy = state.body.y + Math.sin(fh) * 6.5 * U;
     const c = docSpaceCenter(p.el);
     const grow = Math.min(1, t / 0.25);           // shoots out
     const fade = t < 0.55 ? 1 : Math.max(0, 1 - (t - 0.55) / 0.45);
@@ -873,6 +904,13 @@ svg.spider .knee{fill:#ff3d9a}
     const dRect = doc.getBoundingClientRect();
     const h1Rect = h1.getBoundingClientRect();
     state.body = {x: Math.max(HI_REACH, dRect.width * 0.42), y: h1Rect.bottom - dRect.top + 60};
+    {
+      const rs = visualRows(), gaps = [];
+      for (let k = 1; k < rs.length; k++){ const g = rs[k].y - rs[k - 1].y; if (g > 6 && g < 60) gaps.push(g); }
+      gaps.sort((a, b) => a - b);
+      const lh = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 14;
+      U = Math.max(0.8, Math.min(2.2, lh / 14));
+    }
     plantInitialFeet();
     window.scrollTo({top: Math.max(0, dRect.top + window.scrollY - 60), behavior: "smooth"});
     setStatus(`reading <b>${ev.host||""}</b> ${ev.doc_type} ${(ev.published_at||ev.fetched_at||"").slice(0,10)} &nbsp;&middot;&nbsp; 0 numbers found`);
