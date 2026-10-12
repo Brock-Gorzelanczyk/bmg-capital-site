@@ -1,0 +1,17 @@
+html[data-theme="dark"]{filter:invert(1) hue-rotate(180deg);background:#fff}
+html[data-theme="dark"] body{background:#fff}
+html[data-theme="dark"] :is(img,video,iframe,picture,object,embed):not(.doc *),
+html[data-theme="dark"] .stage .doc{filter:invert(1) hue-rotate(180deg)}
+html[data-theme="dark"] .stage .doc{background:#fff}
+/* Reader and Live pages: the animated document is never filtered (keeps
+   60 fps); only the site chrome around it is flipped. */
+html[data-theme="dark"]:has(.stage){filter:none;background:#000}
+html[data-theme="dark"]:has(.stage) body{background:#000}
+html[data-theme="dark"]:has(.stage) .stage .doc{filter:none}
+html[data-theme="dark"]:has(.stage) :is(.site-header, main > :not(.read-grid), .read-grid > :not(.stage), .stage .strip){filter:invert(1) hue-rotate(180deg)}
+html[data-theme="dark"]:has(.stage) .stage{border-color:#2a2d33}
+.theme-toggle{width:38px;height:38px;padding:0;border:1px solid #c9c9c4;border-radius:8px;background:#fff;color:#141414;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;margin-left:4px;align-self:center;flex:none}
+.theme-toggle:hover{background:#f3f3f0}
+.theme-toggle:focus-visible{outline:2px solid #0f7d47;outline-offset:2px}
+.theme-toggle svg{width:18px;height:18px}
+.theme-toggle.floating{position:fixed;top:14px;right:14px;z-index:1000;box-shadow:0 1px 4px rgba(0,0,0,.12)}
