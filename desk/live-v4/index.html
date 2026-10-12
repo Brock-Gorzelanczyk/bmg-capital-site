@@ -38,12 +38,18 @@ svg.spider .thread.t1{stroke:var(--t1)}svg.spider .thread.t2{stroke:var(--t2)}sv
 svg.spider .tnode{fill:#fff;opacity:.9}
 svg.spider .mesh{stroke:#4f7bff;stroke-width:1;opacity:.55}
 svg.spider .knee{fill:#fff}
-.w.lift{display:inline-block;position:relative;z-index:2;background:#000;transform:scale(1.7);transition:transform .25s ease}
+.w.lift{}
 .w.lift.f1{font-family:Georgia,'Times New Roman',serif;color:#9fb8ff}
 .w.lift.f2{font-family:ui-monospace,monospace;letter-spacing:2px;color:#ff6ee6}
 .w.lift.f3{font-family:Georgia,serif;font-style:italic;color:#8fd9e6}
 .w.fillbox{background:#ff2bd6;color:#fff;border-radius:2px;box-shadow:0 0 8px rgba(255,43,214,.6)}
-.beam{position:absolute;height:18px;transform-origin:0 50%;background:linear-gradient(90deg,rgba(255,43,214,.95),rgba(255,43,214,.75));color:#4a0036;font:italic 12px/18px Georgia,serif;white-space:nowrap;overflow:hidden;padding-left:8px;z-index:2;pointer-events:none;box-shadow:0 0 14px rgba(255,43,214,.7);animation:beam 2.6s ease-out forwards}
+.beam{position:absolute;height:24px;transform-origin:0 50%;background:rgba(255,43,214,.92);color:#5a0040;font:italic 13px/24px Georgia,serif;white-space:nowrap;overflow:hidden;padding-left:10px;z-index:2;pointer-events:none;box-shadow:0 0 12px rgba(255,43,214,.55);animation:beam 4.2s ease-out forwards}
+.liftlbl{position:absolute;transform:translate(-50%,-50%) scale(.6);opacity:0;white-space:nowrap;z-index:2;pointer-events:none;background:#000;padding:0 4px;font-size:24px;line-height:1.1;max-width:60%;overflow:hidden;text-overflow:ellipsis;animation:liftin .3s ease-out forwards;transition:opacity .35s ease}
+.liftlbl.f1{font-family:'IBM Plex Sans',Helvetica,Arial,sans-serif;color:#7fa2ff}
+.liftlbl.f2{font-family:ui-monospace,monospace;letter-spacing:2px;color:#7fa2ff}
+.liftlbl.f3{font-family:Georgia,serif;color:#ff6ee6}
+.liftlbl.gone{opacity:0!important}
+@keyframes liftin{to{transform:translate(-50%,-50%) scale(1);opacity:1}}
 @keyframes beam{0%{clip-path:inset(0 100% 0 0);opacity:1}15%{clip-path:inset(0 0 0 0);opacity:1}75%{opacity:1}100%{clip-path:inset(0 0 0 0);opacity:0}}
 .note{position:fixed;bottom:0;left:0;right:0;padding:6px 16px;font-size:11px;color:var(--dim);background:rgba(0,0,0,.9);border-top:1px solid #15181d;z-index:20}
 @media (max-width:600px){html,body{font-size:13px}.found{font-size:16px}.strip{height:auto;flex-wrap:wrap;padding:6px 12px}.strip .status{margin-left:0;width:100%;max-width:100%}.doc{margin-top:84px}}
@@ -99,7 +105,9 @@ svg.spider .knee{fill:#fff}
   function clearSpider(){
     spiderSvg.innerHTML = "";
     state.bodyAnim++;
-    state.feet = []; state.feetEls = []; state.legEls = []; state.threads = []; state.rows = null; bumpLayout();
+    state.feet = []; state.feetEls = []; state.legEls = []; state.threads = []; state.rows = null; state.meshPool = [];
+    document.querySelectorAll(".liftlbl,.beam").forEach(e => e.remove());
+    bumpLayout();
     state.touchedEls = new Set(); state.touchOrder = [];
   }
 
@@ -179,8 +187,9 @@ svg.spider .knee{fill:#fff}
       const poly = document.createElementNS(SVG_NS, "polyline"); poly.setAttribute("class", "leg");
       const foot = document.createElementNS(SVG_NS, "circle"); foot.setAttribute("class", "foot"); foot.setAttribute("r", FOOT_R);
       const knee = document.createElementNS(SVG_NS, "circle"); knee.setAttribute("class", "knee"); knee.setAttribute("r", 1.6);
-      spiderSvg.append(poly, knee, foot);
-      L = state.legEls[i] = {poly, foot, knee};
+      const ankle = document.createElementNS(SVG_NS, "circle"); ankle.setAttribute("class", "knee ankle"); ankle.setAttribute("r", 1.3);
+      spiderSvg.append(poly, knee, ankle, foot);
+      L = state.legEls[i] = {poly, foot, knee, ankle};
     }
     return L;
   }
@@ -191,14 +200,18 @@ svg.spider .knee{fill:#fff}
       let f = state.feet[i];
       const L = legEl(i);
       // A sector with no element in reach has no foot; never draw a foot on empty space.
-      if (!f || !finite(f.x) || !finite(f.y)){ L.poly.style.display = L.foot.style.display = L.knee.style.display = "none"; continue; }
+      if (!f || !finite(f.x) || !finite(f.y)){ L.poly.style.display = L.foot.style.display = L.knee.style.display = L.ankle.style.display = "none"; continue; }
       // Planted feet follow their element's position (cached until reflow).
       if (f.el && f.el.isConnected) f = state.feet[i] = Object.assign({el: f.el}, docSpaceCenter(f.el));
       const knee = kneeFor(state.body.x, state.body.y, f.x, f.y);
-      L.poly.style.display = L.foot.style.display = L.knee.style.display = "";
-      L.poly.setAttribute("points", `${bx},${by} ${clampN(knee.x)},${clampN(knee.y)} ${clampN(f.x)},${clampN(f.y)}`);
+      // Ankle: a second joint two-thirds of the way from knee to foot,
+      // dropped a few px, so each leg reads as three segments (clips).
+      const ax = knee.x + (f.x - knee.x) * 0.62, ay = knee.y + (f.y - knee.y) * 0.62 + 7;
+      L.poly.style.display = L.foot.style.display = L.knee.style.display = L.ankle.style.display = "";
+      L.poly.setAttribute("points", `${bx},${by} ${clampN(knee.x)},${clampN(knee.y)} ${clampN(ax)},${clampN(ay)} ${clampN(f.x)},${clampN(f.y)}`);
       L.foot.setAttribute("cx", clampN(f.x)); L.foot.setAttribute("cy", clampN(f.y));
       L.knee.setAttribute("cx", clampN(knee.x)); L.knee.setAttribute("cy", clampN(knee.y));
+      L.ankle.setAttribute("cx", clampN(ax)); L.ankle.setAttribute("cy", clampN(ay));
     }
   }
 
@@ -241,53 +254,99 @@ svg.spider .knee{fill:#fff}
     t.setAttribute("class", "thread " + (tier || ""));
     const n = document.createElementNS(SVG_NS, "circle");
     n.setAttribute("class", "tnode"); n.setAttribute("r", 2.2);
-    // Web mesh: a strand from this node to the previous one, so the
-    // touched words form the net around the spider (reference clips).
-    const mesh = document.createElementNS(SVG_NS, "line");
-    mesh.setAttribute("class", "mesh");
     spiderSvg.insertBefore(n, spiderSvg.firstChild);
     spiderSvg.insertBefore(t, spiderSvg.firstChild);
-    spiderSvg.insertBefore(mesh, spiderSvg.firstChild);
-    state.threads.push({line: t, node: n, mesh, el: targetEl});
+    state.threads.push({line: t, node: n, el: targetEl});
   }
 
   function removeThread(el){
     state.threads = state.threads.filter(t => {
       if (t.el !== el) return true;
-      t.line.remove(); if (t.node) t.node.remove(); if (t.mesh) t.mesh.remove(); return false;
+      t.line.remove(); if (t.node) t.node.remove(); return false;
+    });
+  }
+
+  function drawMesh(pts){
+    // The web: every node (touched word, planted foot) is strung to its
+    // two nearest neighbours within reach, which weaves the net of
+    // strands around the spider seen in the reference clips.
+    const pairs = new Set(), segs = [];
+    for (let i = 0; i < pts.length; i++){
+      const near = [];
+      for (let j = 0; j < pts.length; j++){
+        if (i === j) continue;
+        const d = Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y);
+        if (d < HI_REACH * 1.3) near.push([d, j]);
+      }
+      near.sort((a, b) => a[0] - b[0]);
+      for (const [, j] of near.slice(0, 2)){
+        const key = i < j ? i + "-" + j : j + "-" + i;
+        if (pairs.has(key)) continue;
+        pairs.add(key); segs.push([pts[i], pts[j]]);
+      }
+    }
+    state.meshPool = state.meshPool || [];
+    while (state.meshPool.length < segs.length){
+      const l = document.createElementNS(SVG_NS, "line"); l.setAttribute("class", "mesh");
+      spiderSvg.insertBefore(l, spiderSvg.firstChild); state.meshPool.push(l);
+    }
+    state.meshPool.forEach((l, k) => {
+      const sg = segs[k];
+      if (!sg){ l.style.display = "none"; return; }
+      l.style.display = "";
+      l.setAttribute("x1", clampN(sg[0].x)); l.setAttribute("y1", clampN(sg[0].y));
+      l.setAttribute("x2", clampN(sg[1].x)); l.setAttribute("y2", clampN(sg[1].y));
     });
   }
 
   function redrawThreads(){
     const bx = clampN(state.body.x), by = clampN(state.body.y);
-    let lastC = null;
+    const pts = [];
     state.threads = state.threads.filter(t => {
-      if (!t.el.isConnected){ t.line.remove(); if (t.node) t.node.remove(); if (t.mesh) t.mesh.remove(); return false; }
+      if (!t.el.isConnected){ t.line.remove(); if (t.node) t.node.remove(); return false; }
       const c = docSpaceCenter(t.el);
       // Threads are a local web: past ~2.5x leg reach they are hidden, so
       // words scrolled far away do not streak lines across the page.
       const far = Math.hypot(c.x - bx, c.y - by) > HI_REACH * 2.5;
       t.line.style.display = far ? "none" : ""; if (t.node) t.node.style.display = far ? "none" : "";
-      t.c = far ? null : c;
-      if (far){ if (t.mesh) t.mesh.style.display = "none"; return true; }
+      if (far) return true;
+      pts.push(c);
       t.line.setAttribute("x1", bx); t.line.setAttribute("y1", by);
       t.line.setAttribute("x2", clampN(c.x)); t.line.setAttribute("y2", clampN(c.y));
       if (t.node){ t.node.setAttribute("cx", clampN(c.x)); t.node.setAttribute("cy", clampN(c.y)); }
-      if (t.mesh){
-        const prev = lastC;
-        if (prev && Math.hypot(prev.x - c.x, prev.y - c.y) < HI_REACH * 1.6){
-          t.mesh.style.display = "";
-          t.mesh.setAttribute("x1", clampN(prev.x)); t.mesh.setAttribute("y1", clampN(prev.y));
-          t.mesh.setAttribute("x2", clampN(c.x)); t.mesh.setAttribute("y2", clampN(c.y));
-        } else t.mesh.style.display = "none";
-      }
-      lastC = c;
       return true;
     });
+    for (const f of state.feet) if (f && finite(f.x)) pts.push(f);
+    drawMesh(pts);
+  }
+
+  function liftPhrase(el, k){
+    // Lift the word and the next one or two off the page as one enlarged
+    // phrase ("field guides to spiders" in the clips), in a new face.
+    const words = [el]; let n = el.nextElementSibling;
+    while (n && words.length < 3 && n.classList.contains("w") && !n.classList.contains("found")){ words.push(n); n = n.nextElementSibling; }
+    const text = words.map(w => w.textContent).join(" ");
+    if (text.length > 34) words.splice(1);
+    const r0 = words[0].getBoundingClientRect(), r1 = words[words.length - 1].getBoundingClientRect();
+    if (Math.abs(r0.top - r1.top) > 4) words.splice(1);
+    const dr = doc.getBoundingClientRect(), last = words[words.length - 1].getBoundingClientRect();
+    const lbl = document.createElement("div");
+    lbl.className = "liftlbl f" + (1 + (k % 3));
+    lbl.textContent = words.map(w => w.textContent).join(" ");
+    const cx = (r0.left + last.right) / 2 - dr.left;
+    lbl.style.left = cx + "px";
+    lbl.style.top = ((r0.top + r0.bottom) / 2 - dr.top) + "px";
+    doc.appendChild(lbl);
+    // Keep the whole enlarged phrase inside the page.
+    const half = lbl.offsetWidth / 2 + 4;
+    lbl.style.left = Math.min(dr.width - half, Math.max(half, cx)) + "px";
+    el.classList.add("lift");
+    el._lift = lbl;
   }
 
   function clearTouchClasses(el){
     TOUCH_CYCLE.forEach(c => el.classList.remove("touch-" + c));
+    if (el._lift){ const l = el._lift; el._lift = null; l.classList.add("gone"); setTimeout(() => l.remove(), 400); }
     el.classList.remove("touch-fade", "lift", "f1", "f2", "f3", "fillbox");
   }
 
@@ -310,7 +369,7 @@ svg.spider .knee{fill:#fff}
     const k = state.touchCycleIdx;
     if (!el.classList.contains("found") && el !== h1 && el.textContent.replace(/[^A-Za-z0-9]/g, "").length >= 5){
       if (k % 9 === 4) el.classList.add("fillbox");
-      else if (k % 5 === 2) el.classList.add("lift", "f" + (1 + (k % 3)));
+      else if (k % 4 === 2) liftPhrase(el, k);
     }
     state.touchCycleIdx++;
     state.touchedEls.add(el);
@@ -394,7 +453,10 @@ svg.spider .knee{fill:#fff}
     for (const f of feet){
       if (!f || !f.el) continue;
       markTouch(f.el);
-      if (f.el.tagName === "A") markLinkPassed(f.el);
+      if (f.el.tagName === "A"){
+        markLinkPassed(f.el);
+        fireBeam(state.body.x, state.body.y, f.x, f.y, f.el.textContent.slice(0, 80));
+      }
     }
     redrawThreads();
   }
@@ -593,6 +655,13 @@ svg.spider .knee{fill:#fff}
       const ms = (state.paceByWords ? Math.min(260, 60 + 14 * row.els.length) : perRow) / (state.speedMul || 1);
       moveBody(x, y, null, ms, true);
       if (state.onRow) state.onRow(row.els);
+      // Every ~10 lines the spider pulls a strand of the passage out as a
+      // pink bar (the clips' long diagonal beam carrying text).
+      if (i % 10 === 5){
+        const txt = row.els.map(w => w.textContent).join(" ").slice(0, 70);
+        const a = (i % 20 === 5 ? -0.6 : 0.55) + (i % 3) * 0.2;
+        fireBeam(x, y, x + Math.cos(a) * 230, y + Math.sin(a) * 230, txt);
+      }
       state.walkState.lineIdx = ++i;
       state.walkTimer = setTimeout(step, ms);
     }
@@ -604,13 +673,21 @@ svg.spider .knee{fill:#fff}
     // and value; it draws in, holds, and fades (one per extract_fact).
     const len = Math.hypot(x2 - x1, y2 - y1);
     if (len < 20) return;
+    // At most one new beam every 0.9 s, so a dense table does not turn
+    // into a stack of bars.
+    const now = performance.now();
+    if (state.lastBeam && now - state.lastBeam < 900) return;
+    state.lastBeam = now;
+    // Keep the text upright: draw from the end that keeps the bar's
+    // angle within +-90 degrees.
+    if (x2 < x1){ [x1, x2] = [x2, x1]; [y1, y2] = [y2, y1]; }
     const b = document.createElement("div");
     b.className = "beam";
     b.textContent = text;
     b.style.left = x1 + "px"; b.style.top = (y1 - 9) + "px"; b.style.width = len + "px";
     b.style.transform = `rotate(${Math.atan2(y2 - y1, x2 - x1)}rad)`;
     doc.appendChild(b);
-    setTimeout(() => b.remove(), 2700);
+    setTimeout(() => b.remove(), 4300);
   }
 
   function markFactInDoc(ev){
