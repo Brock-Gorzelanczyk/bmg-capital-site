@@ -34,12 +34,12 @@
 .found.org{background:rgba(255,159,28,.22);box-shadow:0 0 10px rgba(255,159,28,.5)}
 .found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
 svg.spider{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
-svg.spider .eye{fill:rgba(79,123,255,.55)}
-svg.spider .sight{stroke:#7fa2ff;stroke-width:.8;stroke-dasharray:2 3;opacity:.8}
-svg.spider .body{fill:none;stroke:#c9d6ff;stroke-width:1.6}
-svg.spider .head{fill:#ff3d9a}
+svg.spider .eye{fill:rgba(79,139,255,.55)}
+svg.spider .sight{stroke:#4f8bff;stroke-width:.8;stroke-dasharray:2 3;opacity:.8}
+svg.spider .body{fill:#05070c;stroke:#4f8bff;stroke-width:1.6}
+svg.spider .head{fill:#4f8bff;stroke:#cfe0ff;stroke-width:1}
 svg.spider .link-thread{stroke:#ff3d9a;stroke-width:1.2}
-svg.spider .leg{stroke:#c9d6ff;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+svg.spider .leg{stroke:#4f8bff;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
 svg.spider .foot{fill:#ff3d9a;stroke:none}
 svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.85}
 svg.spider .thread.t1{stroke:var(--t1)}svg.spider .thread.t2{stroke:var(--t2)}svg.spider .thread.t3{stroke:var(--t3)}svg.spider .thread.t4{stroke:var(--t4)}svg.spider .thread.t5{stroke:var(--t5)}
@@ -100,13 +100,15 @@ svg.spider .knee{fill:#ff3d9a}
 .stage .liftlbl{background:rgba(255,255,255,.92)}
 .stage .liftlbl.f1,.stage .liftlbl.f2{color:#2b4cd6}
 .stage .liftlbl.f3{color:#d01aa8}
-.stage svg.spider .leg{stroke:#8ea6ec;stroke-width:1.6;filter:none}
+.stage svg.spider .leg{stroke:#2f6bff;stroke-width:1.6;filter:none}
 .stage svg.spider .foot,.stage svg.spider .knee{fill:#ff2d8f;stroke:none}
 .stage svg.spider .tnode{fill:#fff;stroke:#4f7bff;stroke-width:1.2;opacity:1}
 .stage svg.spider .mesh{stroke:#5b6cff;stroke-width:1.2;opacity:.75}
 .stage svg.spider .thread{opacity:.9}
-.stage svg.spider .body{fill:none;stroke:#7f9cf5;stroke-width:1.6;filter:none}
-.stage svg.spider .head{fill:#ff2d8f}
+.stage svg.spider .body{fill:#0b0d12;stroke:#2f6bff;stroke-width:1.6;filter:none}
+.stage svg.spider .head{fill:#2f6bff;stroke:#fff;stroke-width:1}
+.stage svg.spider .eye{fill:rgba(47,107,255,.45)}
+.stage svg.spider .sight{stroke:#2f6bff}
 .stage svg.spider .link-thread{stroke:#e0207f;stroke-width:1.2}
 .stage{--t1:#4f7bff;--t2:#17b6dc;--t3:#6a5cff;--t4:#ff2bd6;--t5:#4f7bff}
 .read-page{padding:28px 0 48px}
@@ -300,20 +302,20 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     let b = spiderSvg.querySelector("rect.body"), hd = spiderSvg.querySelector("circle.head");
     if (!b){
       b = document.createElementNS(SVG_NS, "rect");
-      b.setAttribute("class", "body"); b.setAttribute("width", 9); b.setAttribute("height", 22); b.setAttribute("rx", 1);
+      b.setAttribute("class", "body"); b.setAttribute("width", 13); b.setAttribute("height", 32); b.setAttribute("rx", 2);
       hd = document.createElementNS(SVG_NS, "circle");
-      hd.setAttribute("class", "head"); hd.setAttribute("r", 3);
+      hd.setAttribute("class", "head"); hd.setAttribute("r", 4);
       spiderSvg.append(b, hd);
     }
-    b.setAttribute("x", clampN(state.body.x - 4.5));
-    b.setAttribute("y", clampN(state.body.y - 11));
-    let hx = state.body.x, hy = state.body.y - 8;
+    b.setAttribute("x", clampN(state.body.x - 6.5));
+    b.setAttribute("y", clampN(state.body.y - 16));
+    let hx = state.body.x, hy = state.body.y - 10;
     if (state.eyeAt){ const ex = state.eyeAt.x - hx, ey = state.eyeAt.y - hy, el = Math.hypot(ex, ey) || 1; hx += ex / el * 2.5; hy += ey / el * 2.5; }
     hd.setAttribute("cx", clampN(hx));
     hd.setAttribute("cy", clampN(hy));
-    spiderSvg.appendChild(hd);
     // Keep the body on top of legs and threads.
     spiderSvg.appendChild(b);
+    spiderSvg.appendChild(hd);
   }
 
   function finite(v){return typeof v === "number" && isFinite(v);}
@@ -403,7 +405,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     state.eyeEl.style.display = state.sightEl.style.display = "";
     state.eyeEl.setAttribute("x", clampN(x)); state.eyeEl.setAttribute("y", clampN(y));
     state.eyeEl.setAttribute("width", clampN(Math.max(4, Math.min(r.width, 18)))); state.eyeEl.setAttribute("height", clampN(r.height));
-    state.sightEl.setAttribute("x1", clampN(state.body.x)); state.sightEl.setAttribute("y1", clampN(state.body.y - 8));
+    state.sightEl.setAttribute("x1", clampN(state.body.x)); state.sightEl.setAttribute("y1", clampN(state.body.y - 10));
     state.sightEl.setAttribute("x2", clampN(x + 4)); state.sightEl.setAttribute("y2", clampN(y + r.height / 2));
     state.eyeAt = {x: x + 4, y: y + r.height / 2};
   }
