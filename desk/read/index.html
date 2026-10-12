@@ -34,15 +34,14 @@
 .found.org{background:rgba(255,159,28,.22);box-shadow:0 0 10px rgba(255,159,28,.5)}
 .found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
 svg.spider{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
-svg.spider .body{fill:#ff2bd6;stroke:#fff;stroke-width:1;filter:drop-shadow(0 0 8px #ff2bd6) drop-shadow(0 0 16px rgba(79,123,255,.4))}
-svg.spider .leg{stroke:#8fb3ff;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-svg.spider polyline.leg:nth-of-type(4n){stroke:#ff2bd6}
-svg.spider .foot{fill:#fff;stroke:#fff}
+svg.spider .body{fill:#0b0d12;stroke:#cfdcff;stroke-width:2}
+svg.spider .leg{stroke:#c9d6ff;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+svg.spider .foot{fill:#ff3d9a;stroke:none}
 svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.85}
 svg.spider .thread.t1{stroke:var(--t1)}svg.spider .thread.t2{stroke:var(--t2)}svg.spider .thread.t3{stroke:var(--t3)}svg.spider .thread.t4{stroke:var(--t4)}svg.spider .thread.t5{stroke:var(--t5)}
 svg.spider .tnode{fill:#fff;opacity:.9}
 svg.spider .mesh{stroke:#7fa2ff;stroke-width:1.1;opacity:.7}
-svg.spider .knee{fill:#fff}
+svg.spider .knee{fill:#ff3d9a}
 .w.lift{}
 .w.lift.f1{font-family:Georgia,'Times New Roman',serif;color:#9fb8ff}
 .w.lift.f2{font-family:ui-monospace,monospace;letter-spacing:2px;color:#ff6ee6}
@@ -72,16 +71,30 @@ svg.spider .knee{fill:#fff}
 .stage h1{font:600 20px/1.3 'Source Serif 4',Georgia,serif;color:#141414}
 .stage .a{color:#0f5fc7;border-bottom-color:rgba(15,95,199,.4)}
 .stage .found{color:#141414}
+#docbody.orig{font:initial;line-height:normal}
+.pdfpage{position:relative;margin:0 auto 18px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.pdfpage canvas{position:absolute;inset:0;width:100%;height:100%}
+.pdftext{position:absolute;inset:0;overflow:hidden;line-height:1}
+.pdftext .tl{position:absolute;white-space:pre;color:transparent;transform-origin:0 0;font-family:sans-serif}
+.pdftext .w{color:transparent}
+.pdftext .w.found,.htmldoc .w.found{font:inherit;padding:0;box-shadow:none}
+.pdftext .w.found.pink,.pdftext .w.fillbox{background:rgba(255,43,214,.38)}
+.pdftext .w.found.org{background:rgba(255,159,28,.4)}
+.pdftext .w.found.blue,.pdftext .w.cyanfill{background:rgba(39,200,255,.38)}
+.pdftext .w.salmon{background:rgba(255,138,106,.42)}
+.htmldoc{background:#fff;color:#000;font:13px/1.35 'Times New Roman',Times,serif;overflow-x:auto}
+.htmldoc p{margin:revert}
+.htmldoc table{border-collapse:collapse}
+.htmldoc .w.found{color:#000}
 .stage .liftlbl{background:rgba(255,255,255,.92)}
 .stage .liftlbl.f1,.stage .liftlbl.f2{color:#2b4cd6}
 .stage .liftlbl.f3{color:#d01aa8}
-.stage svg.spider .leg{stroke:#4f7bff;stroke-width:2;filter:none}
-.stage svg.spider polyline.leg:nth-of-type(4n){stroke:#ff2bd6}
-.stage svg.spider .foot,.stage svg.spider .knee{fill:#fff;stroke:#4f7bff;stroke-width:1.2}
+.stage svg.spider .leg{stroke:#8ea6ec;stroke-width:1.6;filter:none}
+.stage svg.spider .foot,.stage svg.spider .knee{fill:#ff2d8f;stroke:none}
 .stage svg.spider .tnode{fill:#fff;stroke:#4f7bff;stroke-width:1.2;opacity:1}
 .stage svg.spider .mesh{stroke:#5b6cff;stroke-width:1.2;opacity:.75}
 .stage svg.spider .thread{opacity:.9}
-.stage svg.spider .body{filter:drop-shadow(0 0 6px rgba(255,43,214,.6))}
+.stage svg.spider .body{fill:#fff;stroke:#7f9cf5;stroke-width:2;filter:none}
 .stage{--t1:#4f7bff;--t2:#17b6dc;--t3:#6a5cff;--t4:#ff2bd6;--t5:#4f7bff}
 .read-page{padding:28px 0 48px}
 .read-page .back{display:inline-block;margin:0 0 10px;color:#0f7d47;text-decoration:none;font-weight:600;font-size:15px}
@@ -267,17 +280,16 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   function elCenter(el){return docSpaceCenter(el);}
 
   function drawBody(){
-    // 14x22 px pink rect, 1 px white border, centered on the body point.
-    let b = spiderSvg.querySelector("rect.body");
+    // A small ring where the legs meet (reference image), not a block.
+    let b = spiderSvg.querySelector("circle.body");
     if (!b){
-      b = document.createElementNS(SVG_NS, "rect");
+      b = document.createElementNS(SVG_NS, "circle");
       b.setAttribute("class", "body");
-      b.setAttribute("width", BODY_W);
-      b.setAttribute("height", BODY_H);
+      b.setAttribute("r", 4.5);
       spiderSvg.appendChild(b);
     }
-    b.setAttribute("x", clampN(state.body.x - BODY_W/2));
-    b.setAttribute("y", clampN(state.body.y - BODY_H/2));
+    b.setAttribute("cx", clampN(state.body.x));
+    b.setAttribute("cy", clampN(state.body.y));
     // Keep the body on top of legs and threads.
     spiderSvg.appendChild(b);
   }
@@ -305,8 +317,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (!L || !L.poly.isConnected){
       const poly = document.createElementNS(SVG_NS, "polyline"); poly.setAttribute("class", "leg");
       const foot = document.createElementNS(SVG_NS, "circle"); foot.setAttribute("class", "foot"); foot.setAttribute("r", FOOT_R);
-      const knee = document.createElementNS(SVG_NS, "circle"); knee.setAttribute("class", "knee"); knee.setAttribute("r", 1.6);
-      const ankle = document.createElementNS(SVG_NS, "circle"); ankle.setAttribute("class", "knee ankle"); ankle.setAttribute("r", 1.3);
+      const knee = document.createElementNS(SVG_NS, "circle"); knee.setAttribute("class", "knee"); knee.setAttribute("r", 2.2);
+      const ankle = document.createElementNS(SVG_NS, "circle"); ankle.setAttribute("class", "knee ankle"); ankle.setAttribute("r", 1.8);
       spiderSvg.append(poly, knee, ankle, foot);
       L = state.legEls[i] = {poly, foot, knee, ankle};
     }
@@ -714,7 +726,17 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     state.foundCount = 0;
     state.currentText = text;
     h1.textContent = headlineForDoc(ev);
-    docBody.innerHTML = tokenize(text);
+    if (state.renderDoc){
+      // Original-format rendering (PDF pages, HTML with its own styling);
+      // every word still becomes a .w foothold for the spider.
+      docBody.innerHTML = "";
+      docBody.classList.add("orig");
+      try{ await state.renderDoc(docBody); }catch(e){ docBody.classList.remove("orig"); docBody.innerHTML = tokenize(text); }
+      if (token !== state.loadToken) return false;
+    } else {
+      docBody.classList.remove("orig");
+      docBody.innerHTML = tokenize(text);
+    }
     bumpLayout();
     sizeSvg();
     const dRect = doc.getBoundingClientRect();
@@ -786,9 +808,12 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       const r0 = row.els[0].getBoundingClientRect();
       const y = r0.top - d.top + r0.height/2;
       const mid = (row.x0 + row.x1) / 2, amp = Math.max(0, (row.x1 - row.x0) / 3);
-      const x = Math.min(d.width - HI_REACH, Math.max(HI_REACH, mid + amp * Math.sin(i * 0.35)));
-      const ms = (state.paceByWords ? Math.min(260, 60 + 14 * row.els.length) : perRow) / (state.speedMul || 1);
-      moveBody(x, y, null, ms, true);
+      // Slow drift across the text (one sweep every ~90 lines) instead of
+      // a zigzag each line; constant pace so the glide never stutters.
+      const x = Math.min(d.width - HI_REACH, Math.max(HI_REACH, mid + amp * 0.8 * Math.sin(i * 0.07)));
+      const ms = (state.rowMs || perRow) / (state.speedMul || 1);
+      const ff = state.forceFoot; state.forceFoot = null;
+      moveBody(x, y, ff, ms, true);
       if (state.onRow) state.onRow(row.els);
       // Every ~10 lines the spider pulls a strand of the passage out as a
       // pink bar (the clips' long diagonal beam carrying text).
@@ -801,6 +826,15 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       state.walkTimer = setTimeout(step, ms);
     }
     step();
+  }
+
+  // A word holds a figure only when its number IS the figure: "$2.4" or
+  // "(2.4)" match 2.4, "§232.405" does not.
+  function numOf(t){ const m = String(t).replace(/,/g, "").match(/-?\d+(?:\.\d+)?/g); return m && m.length === 1 ? m[0] : null; }
+  function holds(w, value){
+    const v = numOf(value); const n = numOf(w.textContent);
+    if (v !== null && n !== null) return parseFloat(n) === parseFloat(v) && w.textContent.replace(/[\d,.$()%\-\s]/g, "").length <= 3;
+    return w.textContent.includes(value);
   }
 
   function fireBeam(x1, y1, x2, y2, text, el){
@@ -853,7 +887,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (!found){
       for (const w of docBody.querySelectorAll(".w")){
         if (w.classList.contains("found")) continue;
-        if (w.textContent.includes(ev.value)){ found = w; break; }
+        if (holds(w, ev.value)){ found = w; break; }
       }
     }
     if (!found) return;
@@ -865,18 +899,12 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     const c = elCenter(found);
     const dx = state.body.x - c.x, dy = state.body.y - c.y;
     const d = Math.hypot(dx, dy);
-    const beamText = `${ev.label || ""} ${ev.value || ""}`.trim();
-    if (d >= LO_REACH && d <= HI_REACH){
-      moveBody(state.body.x, state.body.y, found);
-      fireBeam(state.body.x, state.body.y, c.x, c.y, beamText, found);
-    } else {
-      const ux = d > 1 ? dx/d : 0, uy = d > 1 ? dy/d : -1;
-      const dr = doc.getBoundingClientRect();
-      const nx = Math.min(dr.width - 10, Math.max(10, c.x + ux * TARGET_REACH));
-      const ny = Math.min(dr.height - 10, Math.max(10, c.y + uy * TARGET_REACH));
-      moveBody(nx, ny, found);
-      fireBeam(nx, ny, c.x, c.y, beamText, found);
-    }
+    const beamText = ev._f && ev._f.display ? `${ev._f.display}` : `${ev.label || ""} ${ev.value || ""}`.trim();
+    // The spider does not leap to a found number: it reaches it with a
+    // bar (and a foot when it is in reach) and keeps walking.
+    if (d >= LO_REACH && d <= HI_REACH && !walking()) moveBody(state.body.x, state.body.y, found);
+    else if (d >= LO_REACH && d <= HI_REACH){ state.forceFoot = found; }
+    fireBeam(state.body.x, state.body.y, c.x, c.y, beamText, found);
 
     state.foundCount++;
     setStatus(`reading <b>${state.currentHost||""}</b> ${state.currentType||""} ${(state.currentPub||"").slice(0,10)} &nbsp;&middot;&nbsp; ${state.foundCount} numbers found`);
@@ -988,9 +1016,105 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   }
 
 
+
+  // ---- original-format rendering --------------------------------------
+  function wrapWords(text){
+    return text.split(/(\s+)/).map(t => (!t || /^\s+$/.test(t)) ? escapeHTML(t) : `<span class="w">${escapeHTML(t)}</span>`).join("");
+  }
+
+  let pdfjsP = null;
+  function loadPdfjs(){
+    if (!pdfjsP) pdfjsP = import("/assets/pdfjs/pdf.min.js").then(m => {
+      m.GlobalWorkerOptions.workerSrc = "/assets/pdfjs/pdf.worker.min.js";
+      return m;
+    });
+    return pdfjsP;
+  }
+
+  async function renderPdf(file, into){
+    // Each page: a canvas drawn as the spider nears it, plus an invisible
+    // word layer positioned exactly over the printed text.
+    const pdfjs = await loadPdfjs();
+    const data = new Uint8Array(await file.arrayBuffer());
+    const pdf = await pdfjs.getDocument({data, isEvalSupported: false}).promise;
+    const width = Math.max(320, into.clientWidth || doc.clientWidth - 56);
+    const pages = [];
+    const maxPages = Math.min(pdf.numPages, 120);
+    for (let n = 1; n <= maxPages; n++){
+      const page = await pdf.getPage(n);
+      const base = page.getViewport({scale: 1});
+      const vp = page.getViewport({scale: width / base.width});
+      const box = document.createElement("div");
+      box.className = "pdfpage";
+      box.style.width = vp.width + "px"; box.style.height = vp.height + "px";
+      const layer = document.createElement("div"); layer.className = "pdftext";
+      box.appendChild(layer);
+      into.appendChild(box);
+      const tc = await page.getTextContent();
+      const spans = [];
+      for (const it of tc.items){
+        if (!it.str || !it.str.trim()) continue;
+        const tx = pdfjs.Util.transform(vp.transform, it.transform);
+        const fs = Math.hypot(tx[2], tx[3]);
+        const sp = document.createElement("span");
+        sp.className = "tl";
+        sp.style.left = tx[4] + "px"; sp.style.top = (tx[5] - fs * 0.86) + "px"; sp.style.fontSize = fs + "px";
+        sp.innerHTML = wrapWords(it.str);
+        layer.appendChild(sp);
+        spans.push([sp, it.width * vp.scale]);
+      }
+      // Batch: read every natural width, then stretch each run to the
+      // printed width so the word boxes sit on the real glyphs.
+      const ws = spans.map(([sp]) => sp.getBoundingClientRect().width);
+      spans.forEach(([sp, target], k) => { if (ws[k] > 0 && target > 0) sp.style.transform = `scaleX(${target / ws[k]})`; });
+      pages.push({page, vp, box, drawn: false});
+    }
+    if (pdf.numPages > maxPages){
+      const more = document.createElement("p"); more.className = "muted";
+      more.textContent = `Showing the first ${maxPages} of ${pdf.numPages} pages.`;
+      into.appendChild(more);
+    }
+    const draw = async (pg) => {
+      if (pg.drawn) return; pg.drawn = true;
+      const c = document.createElement("canvas");
+      c.width = Math.floor(pg.vp.width); c.height = Math.floor(pg.vp.height);
+      pg.box.insertBefore(c, pg.box.firstChild);
+      await pg.page.render({canvasContext: c.getContext("2d"), viewport: pg.vp}).promise;
+    };
+    const io = new IntersectionObserver(es => es.forEach(e => {
+      if (e.isIntersecting){ const pg = pages.find(p => p.box === e.target); if (pg) draw(pg); }
+    }), {rootMargin: "1200px 0px"});
+    pages.forEach(pg => io.observe(pg.box));
+    if (pages[0]) await draw(pages[0]);
+  }
+
+  function renderHtml(html, into){
+    // The filing's own layout and inline styles; scripts, external
+    // styles, frames, forms, event handlers and hidden XBRL are dropped.
+    const d = new DOMParser().parseFromString(html, "text/html");
+    d.querySelectorAll("script,style,link,meta,iframe,object,embed,form,base,noscript,img").forEach(e => e.remove());
+    d.querySelectorAll("*").forEach(e => {
+      if (e.tagName.toLowerCase() === "ix:header" || /display\s*:\s*none/i.test(e.getAttribute("style") || "")){ e.remove(); return; }
+      for (const a of [...e.attributes]){
+        const n = a.name.toLowerCase();
+        if (n.startsWith("on") || ((n === "href" || n === "src" || n === "xlink:href") && /^\s*javascript:/i.test(a.value))) e.removeAttribute(a.name);
+      }
+      if (e.tagName === "A"){ e.setAttribute("target", "_blank"); e.setAttribute("rel", "noopener"); }
+    });
+    const tw = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT);
+    const nodes = []; while (tw.nextNode()) if (tw.currentNode.nodeValue.trim()) nodes.push(tw.currentNode);
+    for (const t of nodes){
+      const tmp = d.createElement("span"); tmp.innerHTML = wrapWords(t.nodeValue);
+      t.replaceWith(...tmp.childNodes);
+    }
+    const wrap = document.createElement("div"); wrap.className = "htmldoc";
+    wrap.innerHTML = d.body.innerHTML;
+    into.appendChild(wrap);
+  }
+
   // ---- upload, Run, watch the spider, then a summary ----
   state.maxChars = 200000;
-  state.paceByWords = true;
+  state.rowMs = 230;
   const fileIn = document.getElementById("read-file");
   const drop = document.getElementById("read-drop");
   const dropName = document.getElementById("read-drop-name");
@@ -1022,8 +1146,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (!pend.length) return;
     for (const w of els){
       if (w.classList.contains("found")) continue;
-      const t = w.textContent;
-      const k = pend.findIndex(f => t.includes(f.value));
+      const k = pend.findIndex(f => holds(w, f.value));
       if (k >= 0){ const f = pend.splice(k, 1)[0]; markFactInDoc({doc_id: state.currentDocId, label: f.label, value: f.value, _el: w, _f: f}); }
     }
   };
@@ -1084,6 +1207,10 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       if (!r.ok) throw new Error(res.error || ("HTTP " + r.status));
     }catch(e){ showErr(String(e.message || e)); setStatus("stopped"); runRead.disabled = false; runRead.textContent = "Run"; return; }
     state.docsLoaded[res.doc_id] = {text: res.text};
+    const fname = chosen ? chosen.name.toLowerCase() : "";
+    if (chosen && fname.endsWith(".pdf")){ const f = chosen; state.renderDoc = (into) => renderPdf(f, into); }
+    else if (chosen && /\.html?$/.test(fname)){ const html = await chosen.text(); state.renderDoc = (into) => renderHtml(html, into); }
+    else state.renderDoc = null;
     state.pendingFindings = res.findings.slice();
     state.readTotal = res.findings.length;
     countEl.textContent = `0 of ${state.readTotal} found`;

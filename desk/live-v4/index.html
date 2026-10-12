@@ -30,15 +30,14 @@ p{margin:0 0 12px}
 .found.org{background:rgba(255,159,28,.22);box-shadow:0 0 10px rgba(255,159,28,.5)}
 .found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
 svg.spider{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
-svg.spider .body{fill:#ff2bd6;stroke:#fff;stroke-width:1;filter:drop-shadow(0 0 8px #ff2bd6) drop-shadow(0 0 16px rgba(79,123,255,.4))}
-svg.spider .leg{stroke:#8fb3ff;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-svg.spider polyline.leg:nth-of-type(4n){stroke:#ff2bd6}
-svg.spider .foot{fill:#fff;stroke:#fff}
+svg.spider .body{fill:#0b0d12;stroke:#cfdcff;stroke-width:2}
+svg.spider .leg{stroke:#c9d6ff;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+svg.spider .foot{fill:#ff3d9a;stroke:none}
 svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.85}
 svg.spider .thread.t1{stroke:var(--t1)}svg.spider .thread.t2{stroke:var(--t2)}svg.spider .thread.t3{stroke:var(--t3)}svg.spider .thread.t4{stroke:var(--t4)}svg.spider .thread.t5{stroke:var(--t5)}
 svg.spider .tnode{fill:#fff;opacity:.9}
 svg.spider .mesh{stroke:#7fa2ff;stroke-width:1.1;opacity:.7}
-svg.spider .knee{fill:#fff}
+svg.spider .knee{fill:#ff3d9a}
 .w.lift{}
 .w.lift.f1{font-family:Georgia,'Times New Roman',serif;color:#9fb8ff}
 .w.lift.f2{font-family:ui-monospace,monospace;letter-spacing:2px;color:#ff6ee6}
@@ -152,17 +151,16 @@ svg.spider .knee{fill:#fff}
   function elCenter(el){return docSpaceCenter(el);}
 
   function drawBody(){
-    // 14x22 px pink rect, 1 px white border, centered on the body point.
-    let b = spiderSvg.querySelector("rect.body");
+    // A small ring where the legs meet (reference image), not a block.
+    let b = spiderSvg.querySelector("circle.body");
     if (!b){
-      b = document.createElementNS(SVG_NS, "rect");
+      b = document.createElementNS(SVG_NS, "circle");
       b.setAttribute("class", "body");
-      b.setAttribute("width", BODY_W);
-      b.setAttribute("height", BODY_H);
+      b.setAttribute("r", 4.5);
       spiderSvg.appendChild(b);
     }
-    b.setAttribute("x", clampN(state.body.x - BODY_W/2));
-    b.setAttribute("y", clampN(state.body.y - BODY_H/2));
+    b.setAttribute("cx", clampN(state.body.x));
+    b.setAttribute("cy", clampN(state.body.y));
     // Keep the body on top of legs and threads.
     spiderSvg.appendChild(b);
   }
@@ -190,8 +188,8 @@ svg.spider .knee{fill:#fff}
     if (!L || !L.poly.isConnected){
       const poly = document.createElementNS(SVG_NS, "polyline"); poly.setAttribute("class", "leg");
       const foot = document.createElementNS(SVG_NS, "circle"); foot.setAttribute("class", "foot"); foot.setAttribute("r", FOOT_R);
-      const knee = document.createElementNS(SVG_NS, "circle"); knee.setAttribute("class", "knee"); knee.setAttribute("r", 1.6);
-      const ankle = document.createElementNS(SVG_NS, "circle"); ankle.setAttribute("class", "knee ankle"); ankle.setAttribute("r", 1.3);
+      const knee = document.createElementNS(SVG_NS, "circle"); knee.setAttribute("class", "knee"); knee.setAttribute("r", 2.2);
+      const ankle = document.createElementNS(SVG_NS, "circle"); ankle.setAttribute("class", "knee ankle"); ankle.setAttribute("r", 1.8);
       spiderSvg.append(poly, knee, ankle, foot);
       L = state.legEls[i] = {poly, foot, knee, ankle};
     }
@@ -599,7 +597,17 @@ svg.spider .knee{fill:#fff}
     state.foundCount = 0;
     state.currentText = text;
     h1.textContent = headlineForDoc(ev);
-    docBody.innerHTML = tokenize(text);
+    if (state.renderDoc){
+      // Original-format rendering (PDF pages, HTML with its own styling);
+      // every word still becomes a .w foothold for the spider.
+      docBody.innerHTML = "";
+      docBody.classList.add("orig");
+      try{ await state.renderDoc(docBody); }catch(e){ docBody.classList.remove("orig"); docBody.innerHTML = tokenize(text); }
+      if (token !== state.loadToken) return false;
+    } else {
+      docBody.classList.remove("orig");
+      docBody.innerHTML = tokenize(text);
+    }
     bumpLayout();
     sizeSvg();
     const dRect = doc.getBoundingClientRect();
@@ -670,9 +678,12 @@ svg.spider .knee{fill:#fff}
       const r0 = row.els[0].getBoundingClientRect();
       const y = r0.top - d.top + r0.height/2;
       const mid = (row.x0 + row.x1) / 2, amp = Math.max(0, (row.x1 - row.x0) / 3);
-      const x = Math.min(d.width - HI_REACH, Math.max(HI_REACH, mid + amp * Math.sin(i * 0.35)));
-      const ms = (state.paceByWords ? Math.min(260, 60 + 14 * row.els.length) : perRow) / (state.speedMul || 1);
-      moveBody(x, y, null, ms, true);
+      // Slow drift across the text (one sweep every ~90 lines) instead of
+      // a zigzag each line; constant pace so the glide never stutters.
+      const x = Math.min(d.width - HI_REACH, Math.max(HI_REACH, mid + amp * 0.8 * Math.sin(i * 0.07)));
+      const ms = (state.rowMs || perRow) / (state.speedMul || 1);
+      const ff = state.forceFoot; state.forceFoot = null;
+      moveBody(x, y, ff, ms, true);
       if (state.onRow) state.onRow(row.els);
       // Every ~10 lines the spider pulls a strand of the passage out as a
       // pink bar (the clips' long diagonal beam carrying text).
@@ -685,6 +696,15 @@ svg.spider .knee{fill:#fff}
       state.walkTimer = setTimeout(step, ms);
     }
     step();
+  }
+
+  // A word holds a figure only when its number IS the figure: "$2.4" or
+  // "(2.4)" match 2.4, "§232.405" does not.
+  function numOf(t){ const m = String(t).replace(/,/g, "").match(/-?\d+(?:\.\d+)?/g); return m && m.length === 1 ? m[0] : null; }
+  function holds(w, value){
+    const v = numOf(value); const n = numOf(w.textContent);
+    if (v !== null && n !== null) return parseFloat(n) === parseFloat(v) && w.textContent.replace(/[\d,.$()%\-\s]/g, "").length <= 3;
+    return w.textContent.includes(value);
   }
 
   function fireBeam(x1, y1, x2, y2, text, el){
@@ -737,7 +757,7 @@ svg.spider .knee{fill:#fff}
     if (!found){
       for (const w of docBody.querySelectorAll(".w")){
         if (w.classList.contains("found")) continue;
-        if (w.textContent.includes(ev.value)){ found = w; break; }
+        if (holds(w, ev.value)){ found = w; break; }
       }
     }
     if (!found) return;
@@ -749,18 +769,12 @@ svg.spider .knee{fill:#fff}
     const c = elCenter(found);
     const dx = state.body.x - c.x, dy = state.body.y - c.y;
     const d = Math.hypot(dx, dy);
-    const beamText = `${ev.label || ""} ${ev.value || ""}`.trim();
-    if (d >= LO_REACH && d <= HI_REACH){
-      moveBody(state.body.x, state.body.y, found);
-      fireBeam(state.body.x, state.body.y, c.x, c.y, beamText, found);
-    } else {
-      const ux = d > 1 ? dx/d : 0, uy = d > 1 ? dy/d : -1;
-      const dr = doc.getBoundingClientRect();
-      const nx = Math.min(dr.width - 10, Math.max(10, c.x + ux * TARGET_REACH));
-      const ny = Math.min(dr.height - 10, Math.max(10, c.y + uy * TARGET_REACH));
-      moveBody(nx, ny, found);
-      fireBeam(nx, ny, c.x, c.y, beamText, found);
-    }
+    const beamText = ev._f && ev._f.display ? `${ev._f.display}` : `${ev.label || ""} ${ev.value || ""}`.trim();
+    // The spider does not leap to a found number: it reaches it with a
+    // bar (and a foot when it is in reach) and keeps walking.
+    if (d >= LO_REACH && d <= HI_REACH && !walking()) moveBody(state.body.x, state.body.y, found);
+    else if (d >= LO_REACH && d <= HI_REACH){ state.forceFoot = found; }
+    fireBeam(state.body.x, state.body.y, c.x, c.y, beamText, found);
 
     state.foundCount++;
     setStatus(`reading <b>${state.currentHost||""}</b> ${state.currentType||""} ${(state.currentPub||"").slice(0,10)} &nbsp;&middot;&nbsp; ${state.foundCount} numbers found`);
@@ -872,6 +886,7 @@ svg.spider .knee{fill:#fff}
   }
 
   document.querySelectorAll(".btn[data-mode]").forEach(b => b.addEventListener("click", () => {
+    state.renderDoc = null;
     document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === b.dataset.mode));
     state.mode = b.dataset.mode;
     stopWalk(); stopLive(); clearTimeout(state.tickTimer);
@@ -885,7 +900,7 @@ svg.spider .knee{fill:#fff}
   runBtn.addEventListener("click", async () => {
     if (state.running) return;
     document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === "live"));
-    state.mode = "live"; state.running = true;
+    state.mode = "live"; state.running = true; state.renderDoc = null;
     runBtn.classList.add("on"); runBtn.textContent = "Running";
     stopWalk(); state.loadToken++; state.docQueue = [];
     clearSpider(); docBody.innerHTML = ""; h1.textContent = "";
