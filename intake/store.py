@@ -67,6 +67,28 @@ def _ensure_dirs() -> None:
     (DATA_DIR / "digests").mkdir(exist_ok=True)
 
 
+_MIGRATED = False
+
+
+def _run_migrations(conn: sqlite3.Connection) -> None:
+    """One-shot idempotent cleanups. Run once per process."""
+    global _MIGRATED
+    if _MIGRATED:
+        return
+    # 2026-10-12: Form 4 CSV rows had synthetic sec.gov URLs pointing at a .csv
+    # path that does not exist (returns 403). Delete the broken rows so the
+    # next edgar poll re-inserts them with the correct accession-folder URL.
+    try:
+        cur = conn.execute(
+            "DELETE FROM documents WHERE type = '4' AND source_url LIKE '%.csv' AND raw_path LIKE '%form4_%'"
+        )
+        if cur.rowcount:
+            log.info(f"migration: deleted {cur.rowcount} Form 4 CSV rows with broken source_url")
+    except Exception as e:
+        log.warning(f"migration failed: {e}")
+    _MIGRATED = True
+
+
 @contextmanager
 def connect() -> Iterator[sqlite3.Connection]:
     _ensure_dirs()
@@ -75,6 +97,7 @@ def connect() -> Iterator[sqlite3.Connection]:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.executescript(SCHEMA)
+    _run_migrations(conn)
     try:
         yield conn
         conn.commit()
