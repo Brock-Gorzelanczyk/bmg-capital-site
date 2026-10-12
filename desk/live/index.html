@@ -661,7 +661,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       state.body.x = Math.min(dr.width - edge, Math.max(edge, state.body.x + bv.x * dt));
       state.body.y = Math.max(10, state.body.y + bv.y * dt);
       // Never leave the frame: ease back inside 15%..80% of the screen.
-      const sy = dr.top + state.body.y, lo = innerHeight * 0.22, hi = innerHeight * 0.72;
+      const vh = innerHeight * (window.READER_VIEW_FRAC || 1);   // a pinned panel can cover the bottom
+      const sy = dr.top + state.body.y, lo = vh * 0.22, hi = vh * 0.72;
       if (sy > hi) state.body.y -= (sy - hi) * 0.25; else if (sy < lo) state.body.y += (lo - sy) * 0.25;
       // Face the actual direction of travel over the page (crawl plus the
       // scroll it rides), which while reading is mostly down the page.
@@ -1408,7 +1409,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       sc += Math.min(3, t.replace(/[^A-Za-z]/g, "").length / 4);
       return sc;
     }
-    const readLineY = () => innerHeight * 0.5 - doc.getBoundingClientRect().top;
+    const readLineY = () => innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5 - doc.getBoundingClientRect().top;
     const rowY = (r) => docSpaceCenter(rows[r].els[0]).y;
     function pickFocusNear(exclude){
       const ry = readLineY();
@@ -1933,16 +1934,31 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     return k < 0 ? esc(sn) : esc(sn.slice(0, k)) + "<mark>" + esc(v) + "</mark>" + esc(sn.slice(k + v.length));
   }
   function esc(s){ return escapeHTML(String(s == null ? "" : s)); }
+  function compact(x){
+    // $3,253,431,000,000 -> $3.25T; $109,417M -> $109.4B
+    const a = Math.abs(x);
+    const fmt = (v, u) => (v >= 100 ? v.toFixed(1) : v >= 10 ? v.toFixed(1) : v.toFixed(2)).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1") + u;
+    return a >= 1e12 ? fmt(a / 1e12, "T") : a >= 1e9 ? fmt(a / 1e9, "B") : a >= 1e6 ? fmt(a / 1e6, "M") : a >= 1e3 ? fmt(a / 1e3, "K") : String(a);
+  }
   function fmtVal(f){
     if (f.display){
       let d = f.display.replace(/\$\s+/, "$").replace(/\s+/g, " ").trim();
       if (f.kind === "per share") return d + " / share";
+      if (f.kind === "amount" && !/%/.test(d)){
+        const m = d.match(/^(\(?)(\$?)\s*(\(?)(-?[\d,]+(?:\.\d+)?)\)?\s*(million|billion|thousand)?/i);
+        if (m){
+          const mult = {K: 1e3, M: 1e6, B: 1e9}[f.scale] || {thousand: 1e3, million: 1e6, billion: 1e9}[(m[5] || "").toLowerCase()] || 1;
+          const v = parseFloat(m[4].replace(/,/g, "")) * mult;
+          if (m[2] && Math.abs(v) >= 1e6){ const c = "$" + compact(v); return (m[1] || m[3]) ? "(" + c + ")" : (v < 0 ? "-" + c : c); }
+        }
+      }
       if (f.scale && !/(million|billion|thousand)/i.test(d) && !/%/.test(d)) d += f.scale;
       return d;
     }
     const u = f.unit || "";
     return (u.startsWith("$") || u === "USD_m" ? "$" : "") + f.value + (u === "%" ? "%" : u === "$M" || u === "USD_m" ? "M" : u === "$B" ? "B" : "");
   }
+
 
   state.onRow = (els) => {
     // A finding is "found" when the spider's reading line reaches the word
