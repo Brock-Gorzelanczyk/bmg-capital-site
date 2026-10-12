@@ -307,6 +307,8 @@ svg.thread line{stroke-width:1.2;opacity:.85;stroke-dasharray:1000;stroke-dashof
       const docEv = {type:"document", doc_id:ev.doc_id, host, url:ev.source_url, title:ev.title,
         doc_type:ev.doc_type, ticker:ev.ticker, fetched_at:ev.at,
         has_text: !["SERIES","NEWS","4"].includes(ev.doc_type), meta:{}, dim:!!ev.skipped_dup};
+      state.docsSeen = state.docsSeen || {};
+      state.docsSeen[ev.doc_id] = docEv;
       if (docEv.dim){setStatus(`<b>${host}</b> ${ev.doc_type}: already stored`); return;}
       processEvent(docEv);
       return;
@@ -315,6 +317,21 @@ svg.thread line{stroke-width:1.2;opacity:.85;stroke-dasharray:1000;stroke-dashof
       state.events = state.events || [];
       state.events.push({type:"fact", doc_id: ev.doc_id, label: ev.label, value: ev.value, unit: ev.unit, char_offset: ev.char_offset, at: ev.at});
       state.idx = state.events.length;
+      // Extract phase emits facts for several doc_ids in one burst. If the
+      // fact is for a doc we are not currently showing, navigate to that
+      // doc first so the box lands in the reader (otherwise markFactInDoc
+      // short-circuits on the currentDocId check and nothing is drawn).
+      const sameDoc = (state.currentDocId === ev.doc_id);
+      if (!sameDoc){
+        const cached = state.docsSeen && state.docsSeen[ev.doc_id];
+        if (cached){
+          (async () => {
+            await loadDocAndWalk(cached);
+            processEvent({type:"fact", doc_id: ev.doc_id, label: ev.label, value: ev.value, unit: ev.unit, char_offset: ev.char_offset});
+          })();
+          return;
+        }
+      }
       processEvent({type:"fact", doc_id: ev.doc_id, label: ev.label, value: ev.value, unit: ev.unit, char_offset: ev.char_offset});
       return;
     }
