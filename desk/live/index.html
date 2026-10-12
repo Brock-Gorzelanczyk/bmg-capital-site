@@ -33,8 +33,18 @@ body { background: #0f1115; color: #d7dbe3; }
 .fact-mark.ni { border-color: #ffdd59; }
 .fact-mark.fl { border-color: #68d4a4; }
 .fact-tag { display: inline-block; margin-left: 4px; padding: 1px 4px; font-size: 0.7rem; background: #22262e; color: #a9afbb; border-radius: 2px; }
-.map-pane { background: #141822; border: 1px solid #22262e; border-radius: 4px; padding: 0.4rem; min-height: 72vh; max-height: 72vh; overflow: hidden; position: relative; }
-.map-pane svg { display: block; width: 100%; height: 100%; }
+.map-pane { background: #141822; border: 1px solid #22262e; border-radius: 4px; padding: 0.5rem 0.6rem; min-height: 72vh; max-height: 72vh; overflow: auto; position: relative; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: #a9afbb; }
+.map-host { margin: 0 0 0.5rem; padding: 0 0 0.35rem; border-bottom: 1px dashed #22262e; }
+.map-host .host-label { color: #3ddc84; font-weight: 600; font-size: 11px; display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.map-host .host-label .dot { width: 7px; height: 7px; border-radius: 50%; background: #3ddc84; display: inline-block; }
+.map-doc { margin: 2px 0 2px 14px; color: #7ac2ff; font-size: 11px; display: flex; align-items: baseline; gap: 6px; }
+.map-doc .dot { width: 5px; height: 5px; border-radius: 50%; background: #7ac2ff; display: inline-block; flex-shrink: 0; }
+.map-doc .meta { color: #6b7083; }
+.map-fact { margin: 1px 0 1px 32px; color: #ffb44f; font-size: 11px; display: flex; align-items: baseline; gap: 6px; }
+.map-fact .dot { width: 4px; height: 4px; border-radius: 50%; background: #ffb44f; display: inline-block; flex-shrink: 0; }
+.map-fact .lv { color: #d7dbe3; }
+.series-synth .k { color: #8089a0; margin-right: 8px; }
+.series-synth .v { color: #e8ecf3; }
 .statusline { margin-top: 0.75rem; padding: 0.4rem 0.75rem; background: #141822; border: 1px solid #22262e; border-radius: 4px; font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; color: #a9afbb; min-height: 1.2em; }
 .statusline b { color: #3ddc84; }
 .loading { padding: 1rem; color: #8089a0; }
@@ -68,7 +78,7 @@ body { background: #0f1115; color: #d7dbe3; }
     <div class="title" id="replay-title">Loading replay...</div>
     <button id="btn-play" aria-pressed="true">Pause</button>
     <button class="speed-btn" data-speed="10">10x</button>
-    <button class="speed-btn active" data-speed="60">60x</button>
+    <button class="speed-btn" data-speed="60">60x</button>
     <button class="speed-btn" data-speed="300">300x</button>
     <div class="progressbar"><div class="fill" id="progress-fill"></div></div>
   </div>
@@ -77,9 +87,7 @@ body { background: #0f1115; color: #d7dbe3; }
       <div class="doc-header" id="doc-header">(no document yet)</div>
       <div class="doc-text" id="doc-text"><div class="loading">waiting for /desk/run/latest...</div></div>
     </div>
-    <div class="map-pane">
-      <svg id="map-svg" viewBox="0 0 400 720" preserveAspectRatio="xMidYMid meet"></svg>
-    </div>
+    <div class="map-pane" id="map-pane">(loading map)</div>
   </div>
   <div class="statusline" id="statusline">idle</div>
   <div class="rules">Playback pacing is synthetic and labeled above. Every box is a stored row from <code>/data/intake.db</code>. No article bodies, no paywalled sources, no fake activity.</div>
@@ -100,8 +108,38 @@ body { background: #0f1115; color: #d7dbe3; }
     currentDocId: null,
   };
 
-  const SVG_NS = "http://www.w3.org/2000/svg";
-  const svg = document.getElementById("map-svg");
+  const mapPane = document.getElementById("map-pane");
+  mapPane.innerHTML = "";
+  const hostBlocks = {}; // host -> {el, docs: {doc_id: el}}
+
+  function hostBlock(host) {
+    if (hostBlocks[host]) return hostBlocks[host];
+    const el = document.createElement("div");
+    el.className = "map-host";
+    el.innerHTML = `<div class="host-label"><span class="dot"></span><span>${host}</span></div>`;
+    mapPane.appendChild(el);
+    hostBlocks[host] = {el, docs: {}};
+    return hostBlocks[host];
+  }
+
+  function pickDefaultSpeed(nEvents, totalRealSec) {
+    const choices = [10, 60, 300];
+    const minPerEv = 0.05;
+    const estTime = (s) => Math.max(nEvents * minPerEv, totalRealSec / s);
+    let best = choices[0], bestDiff = Infinity;
+    for (const s of choices) {
+      const diff = Math.abs(estTime(s) - 75);
+      if (diff < bestDiff) { best = s; bestDiff = diff; }
+    }
+    return best;
+  }
+
+  function setActiveSpeed(s) {
+    state.speed = s;
+    document.querySelectorAll(".speed-btn").forEach(x => {
+      x.classList.toggle("active", parseInt(x.dataset.speed, 10) === s);
+    });
+  }
 
   function fmt(ts) {
     if (!ts) return "";
@@ -133,8 +171,12 @@ body { background: #0f1115; color: #d7dbe3; }
     state.runEnd = new Date(data.ended_at || data.started_at);
     const n = state.events.length;
     const d = state.runEnd - state.runStart;
+    const realSec = Math.max(1, Math.round(d/1000));
+    // Pick default speed so the full replay takes 60 to 90 s where possible
+    const def = pickDefaultSpeed(n, realSec);
+    setActiveSpeed(def);
     const title = document.getElementById("replay-title");
-    title.innerHTML = `Replay of run <b>${fmt(data.started_at)} Central</b> playing at <b>${state.speed}x</b>. ${n} events, ${Math.round(d/1000)} s real time. Every box is a stored row.`;
+    title.innerHTML = `Replay of run <b>${fmt(data.started_at)} Central</b> playing at <b>${state.speed}x</b>. ${n} events, ${realSec} s real time. Every box is a stored row.`;
     tick();
   }
 
@@ -180,6 +222,30 @@ body { background: #0f1115; color: #d7dbe3; }
     state.currentDocId = ev.doc_id;
     if (ev.doc_type === "NEWS") {
       pane.innerHTML = `<div style="color:#8089a0">Headline only (article body never stored):</div><div style="margin-top:6px">${(ev.title || "").replace(/</g,"&lt;")}</div>`;
+      return;
+    }
+    // SERIES rows have no extracted text file; synthesize a short body from the
+    // stored row (series id, value, observation date, source host). The replay
+    // then draws a fact box around the value using the stored meta.
+    if (ev.doc_type === "SERIES") {
+      const m = ev.meta || {};
+      const sid = m.series_id || ev.title || "SERIES";
+      const val = (m.last_value != null) ? String(m.last_value) : "";
+      const d = m.last_date || "";
+      const synth = `series: ${sid}
+value:  ${val}
+as of:  ${d}
+source: ${ev.host}
+url:    ${ev.url}
+`;
+      // Store the synthesized text so the fact-marker code can find it
+      state.docsLoaded[ev.doc_id] = {text: synth, synthetic: true};
+      // Place a fact mark around the value substring (offset after "value:  ")
+      const vStart = synth.indexOf("value:  ") + "value:  ".length;
+      const html = escapeHTML(synth.slice(0, vStart)) +
+        `<span class="fact-mark rev">${escapeHTML(val)}<span class="fact-tag">${sid} ${val}${d ? " (" + d + ")" : ""}</span></span>` +
+        escapeHTML(synth.slice(vStart + val.length));
+      pane.innerHTML = html;
       return;
     }
     if (!ev.has_text) {
@@ -249,61 +315,35 @@ body { background: #0f1115; color: #d7dbe3; }
     if (marks.length) marks[marks.length - 1].scrollIntoView({block:"center", behavior:"smooth"});
   }
 
-  // Map pane: fixed columns per host, docs stack under each host, facts stack under their doc
-  const HOSTS = ["data.sec.gov", "www.sec.gov", "ir.gatx.com", "pressroom.gbrx.com", "www.trin.net", "fred.stlouisfed.org", "api.stlouisfed.org", "www.aar.org", "www.stb.gov"];
-  const HOST_LABELS = { "data.sec.gov": "sec.gov", "www.sec.gov": "sec.gov", "ir.gatx.com": "ir.gatx.com", "pressroom.gbrx.com": "pressroom.gbrx.com", "www.trin.net": "trin.net", "fred.stlouisfed.org": "fred", "api.stlouisfed.org": "fred", "www.aar.org": "aar", "www.stb.gov": "stb" };
-  const HOST_X = {};
-  const HOST_SEEN = {};
-  function hostX(host) {
-    if (HOST_X[host] != null) return HOST_X[host];
-    const idx = Object.keys(HOST_X).length;
-    HOST_X[host] = 50 + idx * 50;
-    const t = document.createElementNS(SVG_NS, "text");
-    t.setAttribute("x", HOST_X[host]);
-    t.setAttribute("y", 15);
-    t.setAttribute("fill", "#8089a0");
-    t.setAttribute("font-size", "9");
-    t.setAttribute("text-anchor", "middle");
-    t.textContent = HOST_LABELS[host] || host;
-    svg.appendChild(t);
-    const c = document.createElementNS(SVG_NS, "circle");
-    c.setAttribute("cx", HOST_X[host]); c.setAttribute("cy", 25); c.setAttribute("r", 4);
-    c.setAttribute("fill", "#3ddc84");
-    svg.appendChild(c);
-    HOST_SEEN[host] = 25;
-    return HOST_X[host];
-  }
+  // HTML-based map: hosts as labeled sections, docs under each host with
+  // "DOC_TYPE TICKER" label and full title on hover, facts under each doc
+  // with "label = value" text. 11px min font. Scrollable when it fills up.
   function addMapNode(ev) {
     const host = ev.host || "unknown";
-    const x = hostX(host);
-    HOST_SEEN[host] = (HOST_SEEN[host] || 25) + 18;
-    const y = HOST_SEEN[host];
-    if (y > 700) return; // cap vertical growth
-    state.nodes[ev.doc_id] = {x, y, host};
-    const line = document.createElementNS(SVG_NS, "line");
-    line.setAttribute("x1", x); line.setAttribute("y1", 25); line.setAttribute("x2", x); line.setAttribute("y2", y);
-    line.setAttribute("stroke", "#2d3240"); line.setAttribute("stroke-width", "1");
-    svg.appendChild(line);
-    const c = document.createElementNS(SVG_NS, "circle");
-    c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 2.5);
-    c.setAttribute("fill", "#7ac2ff");
-    c.setAttribute("data-doc-id", ev.doc_id);
-    svg.appendChild(c);
+    const hb = hostBlock(host);
+    if (hb.docs[ev.doc_id]) return;
+    const docEl = document.createElement("div");
+    docEl.className = "map-doc";
+    const metaBits = [ev.doc_type || "", ev.ticker || ""].filter(Boolean).join(" ");
+    docEl.innerHTML = `<span class="dot"></span><span>${metaBits}</span><span class="meta" title="${(ev.title || "").replace(/"/g, "&quot;")}">${(ev.title || "").slice(0, 42)}${(ev.title || "").length > 42 ? "..." : ""}</span>`;
+    docEl.title = ev.title || ev.url || "";
+    hb.el.appendChild(docEl);
+    hb.docs[ev.doc_id] = docEl;
+    state.nodes[ev.doc_id] = {host, el: docEl};
+    // Autoscroll map pane so newest entry is visible
+    mapPane.scrollTop = mapPane.scrollHeight;
   }
   function addMapFact(ev) {
     const node = state.nodes[ev.doc_id];
     if (!node) return;
-    HOST_SEEN[node.host] = (HOST_SEEN[node.host] || node.y) + 6;
-    const y = HOST_SEEN[node.host];
-    if (y > 700) return;
-    const line = document.createElementNS(SVG_NS, "line");
-    line.setAttribute("x1", node.x); line.setAttribute("y1", node.y); line.setAttribute("x2", node.x); line.setAttribute("y2", y);
-    line.setAttribute("stroke", "#2d3240"); line.setAttribute("stroke-width", "0.5");
-    svg.appendChild(line);
-    const c = document.createElementNS(SVG_NS, "circle");
-    c.setAttribute("cx", node.x); c.setAttribute("cy", y); c.setAttribute("r", 1.5);
-    c.setAttribute("fill", "#ffb44f");
-    svg.appendChild(c);
+    const factEl = document.createElement("div");
+    factEl.className = "map-fact";
+    const unit = ev.unit ? " " + ev.unit : "";
+    factEl.innerHTML = `<span class="dot"></span><span class="lv">${ev.label} = ${ev.value}${unit}</span>`;
+    factEl.title = `${ev.label} = ${ev.value}${unit}`;
+    // Insert immediately after the doc row (so facts cluster under their doc)
+    node.el.insertAdjacentElement("afterend", factEl);
+    mapPane.scrollTop = mapPane.scrollHeight;
   }
 
   // Controls
@@ -314,12 +354,11 @@ body { background: #0f1115; color: #d7dbe3; }
   });
   document.querySelectorAll(".speed-btn").forEach(b => {
     b.addEventListener("click", (e) => {
-      state.speed = parseInt(b.dataset.speed, 10) || 60;
-      document.querySelectorAll(".speed-btn").forEach(x => x.classList.remove("active"));
-      b.classList.add("active");
+      const s = parseInt(b.dataset.speed, 10) || 60;
+      setActiveSpeed(s);
       const title = document.getElementById("replay-title");
       if (title && title.innerHTML.includes("playing at")) {
-        title.innerHTML = title.innerHTML.replace(/playing at <b>\d+x<\/b>/, `playing at <b>${state.speed}x</b>`);
+        title.innerHTML = title.innerHTML.replace(/playing at <b>\d+x<\/b>/, `playing at <b>${s}x</b>`);
       }
     });
   });
