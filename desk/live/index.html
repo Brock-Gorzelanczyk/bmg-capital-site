@@ -34,7 +34,11 @@
 .found.org{background:rgba(255,159,28,.22);box-shadow:0 0 10px rgba(255,159,28,.5)}
 .found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
 svg.spider{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
-svg.spider .body{fill:#0b0d12;stroke:#cfdcff;stroke-width:2}
+svg.spider .eye{fill:rgba(79,123,255,.55)}
+svg.spider .sight{stroke:#7fa2ff;stroke-width:.8;stroke-dasharray:2 3;opacity:.8}
+svg.spider .body{fill:none;stroke:#c9d6ff;stroke-width:1.6}
+svg.spider .head{fill:#ff3d9a}
+svg.spider .link-thread{stroke:#ff3d9a;stroke-width:1.2}
 svg.spider .leg{stroke:#c9d6ff;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
 svg.spider .foot{fill:#ff3d9a;stroke:none}
 svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.85}
@@ -101,7 +105,9 @@ svg.spider .knee{fill:#ff3d9a}
 .stage svg.spider .tnode{fill:#fff;stroke:#4f7bff;stroke-width:1.2;opacity:1}
 .stage svg.spider .mesh{stroke:#5b6cff;stroke-width:1.2;opacity:.75}
 .stage svg.spider .thread{opacity:.9}
-.stage svg.spider .body{fill:#fff;stroke:#7f9cf5;stroke-width:2;filter:none}
+.stage svg.spider .body{fill:none;stroke:#7f9cf5;stroke-width:1.6;filter:none}
+.stage svg.spider .head{fill:#ff2d8f}
+.stage svg.spider .link-thread{stroke:#e0207f;stroke-width:1.2}
 .stage{--t1:#4f7bff;--t2:#17b6dc;--t3:#6a5cff;--t4:#ff2bd6;--t5:#4f7bff}
 .read-page{padding:28px 0 48px}
 .read-page .back{display:inline-block;margin:0 0 10px;color:#0f7d47;text-decoration:none;font-weight:600;font-size:15px}
@@ -219,7 +225,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     Dividend:"org","Disposition gains":"org",Buyback:"org",
     Fleet:"blue",Utilization:"blue","Backlog units":"blue","Backlog $B":"blue",LPI:"blue"};
   const BODY_W = 14, BODY_H = 22, FOOT_R = 2.5, N_LEGS = 8;
-  const MIN_REACH = 70, LO_REACH = 80, HI_REACH = 160, TARGET_REACH = 120;
+  const MIN_REACH = 45, LO_REACH = 55, HI_REACH = 105, TARGET_REACH = 80;
   const BODY_MS = 160, FADE_MS = 600, BEAM_MAX = 260;
   const MAX_OUTLINES = 24;
   // Pre-divide 2*PI into N_LEGS sectors; one foot per 45-degree slice.
@@ -246,7 +252,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   function clearSpider(){
     spiderSvg.innerHTML = "";
     state.bodyAnim++;
-    state.feet = []; state.feetEls = []; state.legEls = []; state.threads = []; state.rows = null; state.meshPool = []; state.trail = [];
+    state.feet = []; state.feetEls = []; state.legEls = []; state.threads = []; state.rows = null; state.meshPool = []; state.trail = []; state.links = []; state.linkPool = []; state.eyeEl = null; state.eyeAt = null;
     document.querySelectorAll(".liftlbl,.beam").forEach(e => e.remove()); state.beams = [];
     bumpLayout();
     state.touchedEls = new Set(); state.touchOrder = [];
@@ -289,16 +295,23 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   function elCenter(el){return docSpaceCenter(el);}
 
   function drawBody(){
-    // A small ring where the legs meet (reference image), not a block.
-    let b = spiderSvg.querySelector("circle.body");
+    // Narrow upright outlined rectangle with a head dot on top, as in
+    // the reference clip.
+    let b = spiderSvg.querySelector("rect.body"), hd = spiderSvg.querySelector("circle.head");
     if (!b){
-      b = document.createElementNS(SVG_NS, "circle");
-      b.setAttribute("class", "body");
-      b.setAttribute("r", 4.5);
-      spiderSvg.appendChild(b);
+      b = document.createElementNS(SVG_NS, "rect");
+      b.setAttribute("class", "body"); b.setAttribute("width", 9); b.setAttribute("height", 22); b.setAttribute("rx", 1);
+      hd = document.createElementNS(SVG_NS, "circle");
+      hd.setAttribute("class", "head"); hd.setAttribute("r", 3);
+      spiderSvg.append(b, hd);
     }
-    b.setAttribute("cx", clampN(state.body.x));
-    b.setAttribute("cy", clampN(state.body.y));
+    b.setAttribute("x", clampN(state.body.x - 4.5));
+    b.setAttribute("y", clampN(state.body.y - 11));
+    let hx = state.body.x, hy = state.body.y - 8;
+    if (state.eyeAt){ const ex = state.eyeAt.x - hx, ey = state.eyeAt.y - hy, el = Math.hypot(ex, ey) || 1; hx += ex / el * 2.5; hy += ey / el * 2.5; }
+    hd.setAttribute("cx", clampN(hx));
+    hd.setAttribute("cy", clampN(hy));
+    spiderSvg.appendChild(hd);
     // Keep the body on top of legs and threads.
     spiderSvg.appendChild(b);
   }
@@ -311,7 +324,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     const mx = (bx + fx)/2, my = (by + fy)/2;
     const dx = fx - bx, dy = fy - by;
     const len = Math.max(1, Math.hypot(dx, dy));
-    return {x: mx + dx/len * 30, y: my + dy/len * 30 - 20};
+    return {x: mx + dx/len * 18, y: my + dy/len * 18 - 12};
   }
 
   function clampN(v){
@@ -344,6 +357,9 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       // Planted feet follow their element's position (cached until reflow).
       if (f.el && f.el.isConnected) f = state.feet[i] = Object.assign({el: f.el}, docSpaceCenter(f.el));
       const knee = kneeFor(state.body.x, state.body.y, f.x, f.y);
+      // Joints flex a little all the time so the spider looks alive.
+      const flex = Math.sin(performance.now() * 0.006 + i * 1.7) * 1.6;
+      knee.x += flex; knee.y += flex * 0.6;
       // Ankle: a second joint two-thirds of the way from knee to foot,
       // dropped a few px, so each leg reads as three segments (clips).
       const ax = knee.x + (f.x - knee.x) * 0.62, ay = knee.y + (f.y - knee.y) * 0.62 + 7;
@@ -361,14 +377,43 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (state.userScrolledAt && performance.now() - state.userScrolledAt < 2500) return;
     const dr = doc.getBoundingClientRect();
     const by = dr.top + state.body.y;           // viewport y of the body
-    const lo = innerHeight * 0.3, hi = innerHeight * 0.62;
-    let dy = 0;
-    if (by > hi) dy = by - hi; else if (by < lo) dy = by - lo;
-    if (Math.abs(dy) > 0.5){ state.cameraScroll = true; window.scrollBy(0, dy * 0.18); }
+    // Hold the spider near 45% of the screen: the page slides under it
+    // and the body itself barely moves on screen (reference clip).
+    const dy = by - innerHeight * 0.45;
+    if (Math.abs(dy) > 0.5){ state.cameraScroll = true; window.scrollBy(0, dy * 0.12); }
   }
   addEventListener("wheel", () => { state.userScrolledAt = performance.now(); }, {passive: true});
   addEventListener("touchmove", () => { state.userScrolledAt = performance.now(); }, {passive: true});
-  function drawSpider(){drawLegs(); redrawThreads(); drawBeams(); drawBody(); camera();}
+  function drawEye(){
+    // The eye: a small blue block sweeping word by word across the line
+    // just ahead of the spider, with a sight line from the head (clip).
+    const rows = state.rows;
+    if (!rows || !rows.length){ if (state.eyeEl) state.eyeEl.style.display = "none"; return; }
+    let ri = Math.min(rows.length - 1, (state.walkState.lineIdx || 0) + 1);
+    const row = rows[ri];
+    if (!state.eyeEl){
+      state.eyeEl = document.createElementNS(SVG_NS, "rect"); state.eyeEl.setAttribute("class", "eye");
+      state.sightEl = document.createElementNS(SVG_NS, "line"); state.sightEl.setAttribute("class", "sight");
+    }
+    if (!state.eyeEl.isConnected) spiderSvg.append(state.sightEl, state.eyeEl);
+    const k = Math.floor(performance.now() / 140) % row.els.length;
+    const w = row.els[k];
+    const r = w.getBoundingClientRect(), dr = doc.getBoundingClientRect();
+    const x = r.left - dr.left, y = r.top - dr.top;
+    state.eyeEl.style.display = state.sightEl.style.display = "";
+    state.eyeEl.setAttribute("x", clampN(x)); state.eyeEl.setAttribute("y", clampN(y));
+    state.eyeEl.setAttribute("width", clampN(Math.max(4, Math.min(r.width, 18)))); state.eyeEl.setAttribute("height", clampN(r.height));
+    state.sightEl.setAttribute("x1", clampN(state.body.x)); state.sightEl.setAttribute("y1", clampN(state.body.y - 8));
+    state.sightEl.setAttribute("x2", clampN(x + 4)); state.sightEl.setAttribute("y2", clampN(y + r.height / 2));
+    state.eyeAt = {x: x + 4, y: y + r.height / 2};
+  }
+  function drawSpider(){ state.drawnAt = performance.now(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawBody(); camera(); }
+  // Keep the legs flexing and the eye scanning between steps too.
+  (function idle(){
+    requestAnimationFrame(idle);
+    if (state.paused || !state.feet || !state.feet.length) return;
+    if (performance.now() - (state.drawnAt || 0) > 12) drawSpider();
+  })();
 
   // Element centers in .doc space are scroll-invariant, so they are cached
   // until the layout changes (new doc, a .found fill, resize). Reading ~40
@@ -394,8 +439,9 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     t.setAttribute("class", "thread " + (tier || ""));
     const n = document.createElementNS(SVG_NS, "circle");
     n.setAttribute("class", "tnode"); n.setAttribute("r", 2.2);
-    spiderSvg.insertBefore(n, spiderSvg.firstChild);
-    spiderSvg.insertBefore(t, spiderSvg.firstChild);
+    // Kept for bookkeeping only: the clip draws no fan of threads to past
+    // words, just legs and one line to the item being highlighted.
+    t.style.display = "none"; n.style.display = "none";
     state.threads.push({line: t, node: n, el: targetEl});
   }
 
@@ -448,7 +494,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       // Threads are a local web: past ~2.5x leg reach they are hidden, so
       // words scrolled far away do not streak lines across the page.
       const far = Math.hypot(c.x - bx, c.y - by) > HI_REACH * 2.5;
-      t.line.style.display = far ? "none" : ""; if (t.node) t.node.style.display = far ? "none" : "";
+      t.line.style.display = "none"; if (t.node) t.node.style.display = "none";
       if (far) return true;
       pts.push(c);
       t.line.setAttribute("x1", bx); t.line.setAttribute("y1", by);
@@ -463,7 +509,27 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       const c = t.el && t.el.isConnected ? docSpaceCenter(t.el) : t;
       if (Math.hypot(c.x - bx, c.y - by) < HI_REACH * 2.2) pts.push(c);
     }
-    drawMesh(pts);
+    drawMesh([]);
+    drawLinks(bx, by);
+  }
+
+  function drawLinks(bx, by){
+    // One thin line from the body to each item highlighted right now.
+    const now = performance.now();
+    state.links = (state.links || []).filter(l => l.until > now && l.el.isConnected);
+    state.linkPool = state.linkPool || [];
+    while (state.linkPool.length < state.links.length){
+      const l = document.createElementNS(SVG_NS, "line"); l.setAttribute("class", "link-thread");
+      spiderSvg.insertBefore(l, spiderSvg.firstChild); state.linkPool.push(l);
+    }
+    state.linkPool.forEach((l, k) => {
+      const o = state.links[k];
+      if (!o){ l.style.display = "none"; return; }
+      const c = docSpaceCenter(o.el);
+      l.style.display = "";
+      l.setAttribute("x1", bx); l.setAttribute("y1", by);
+      l.setAttribute("x2", clampN(c.x)); l.setAttribute("y2", clampN(c.y));
+    });
   }
 
   function liftPhrase(el, k){
@@ -616,7 +682,9 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     function frame(now){
       if (token !== state.bodyAnim) return;
       const t = Math.min(1, (now - start)/dur);
-      const e = linear ? t : (t < .5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2)/2);
+      // Walking: a gentle surge per step (body pushed by the legs), not a
+      // flat glide and not a stop-start ease.
+      const e = linear ? t - 0.11 * Math.sin(2 * Math.PI * t) : (t < .5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2)/2);
       state.body.x = sx + (x - sx) * e; state.body.y = sy + (y - sy) * e;
       for (let i = 0; i < N_LEGS; i++){
         const g = target[i];
@@ -628,7 +696,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
         const off = (i % 2) ? 0.4 : 0;
         const u = Math.min(1, Math.max(0, (t - off) / 0.6));
         const s = u * u * (3 - 2 * u);
-        state.feet[i] = {x: p.x + (g.x - p.x) * s, y: p.y + (g.y - p.y) * s - 14 * Math.sin(Math.PI * s), el: null};
+        state.feet[i] = {x: p.x + (g.x - p.x) * s, y: p.y + (g.y - p.y) * s - 8 * Math.sin(Math.PI * s), el: null};
       }
       drawSpider();
       if (t < 1) requestAnimationFrame(frame);
@@ -852,6 +920,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     state.lastBeam = now;
     state.beamN = (state.beamN || 0) + 1;
     highlightRun(el.classList.contains("found") ? [el] : phraseFrom(el, 4), state.beamN % 4 === 0 ? "cyan" : "pink");
+    state.links = state.links || [];
+    state.links.push({el, until: now + 3600});
   }
 
   function drawBeams(){
