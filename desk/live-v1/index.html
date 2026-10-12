@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desk live v1 (archived) | BMG Capital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/site.187e1258.css">
+<style>
+body { background: #0f1115; color: #d7dbe3; }
+.site-header { background: #0f1115; border-bottom: 1px solid #22262e; }
+.live-root { max-width: 1280px; margin: 0 auto; padding: 0.75rem 1rem 2rem; font-family: "IBM Plex Sans", sans-serif; }
+.topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 0.6rem 0.9rem; background: #141822; border: 1px solid #22262e; border-radius: 4px; margin-bottom: 0.75rem; }
+.topbar .title { flex: 1; min-width: 240px; font-size: 0.92rem; color: #a9afbb; }
+.topbar .title b { color: #e8ecf3; }
+.topbar button { background: #22262e; color: #d7dbe3; border: 1px solid #2d3240; padding: 4px 10px; border-radius: 3px; font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; cursor: pointer; }
+.topbar button.active { background: #3ddc84; color: #0f1115; border-color: #3ddc84; }
+.topbar button:hover { background: #2d3240; }
+.progressbar { flex-basis: 100%; height: 3px; background: #22262e; border-radius: 2px; margin-top: 0.4rem; overflow: hidden; }
+.progressbar .fill { height: 100%; background: #3ddc84; width: 0; transition: width 0.3s linear; }
+.live-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 0.75rem; }
+.doc-pane { background: #141822; border: 1px solid #22262e; border-radius: 4px; padding: 0.75rem; max-height: 72vh; overflow: auto; position: relative; }
+.doc-pane .doc-header { font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; color: #8089a0; margin-bottom: 0.5rem; padding-bottom: 0.4rem; border-bottom: 1px dashed #22262e; }
+.doc-text { font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; line-height: 1.5; white-space: pre-wrap; color: #a9afbb; position: relative; }
+/* Fact box color families (DESK-3.2 f): */
+.fact-mark { background: transparent; border: 1px solid #9d7bff; border-radius: 2px; padding: 0 2px; color: #e8ecf3; position: relative; box-shadow: 0 0 6px rgba(157,123,255,0.6); }
+.fact-mark.eps,   .fact-mark.earn { border-color: #ff3df2; box-shadow: 0 0 6px rgba(255,61,242,0.6); }
+.fact-mark.rev { border-color: #27e3ff; box-shadow: 0 0 6px rgba(39,227,255,0.6); }
+.fact-mark.fl, .fact-mark.ut, .fact-mark.bl { border-color: #ffe14d; box-shadow: 0 0 6px rgba(255,225,77,0.6); }
+.fact-mark.di, .fact-mark.bb { border-color: #ff9f1c; box-shadow: 0 0 6px rgba(255,159,28,0.6); }
+.fact-mark.rate, .fact-mark.macro { border-color: #b6ff3b; box-shadow: 0 0 6px rgba(182,255,59,0.6); }
+.fact-tag { display: inline-block; margin-left: 4px; padding: 1px 5px; font-size: 0.7rem; background: #9d7bff; color: #0f1115; border-radius: 2px; font-weight: 600; }
+.fact-mark.eps .fact-tag, .fact-mark.earn .fact-tag { background: #ff3df2; }
+.fact-mark.rev .fact-tag { background: #27e3ff; }
+.fact-mark.fl .fact-tag, .fact-mark.ut .fact-tag, .fact-mark.bl .fact-tag { background: #ffe14d; }
+.fact-mark.di .fact-tag, .fact-mark.bb .fact-tag { background: #ff9f1c; }
+.fact-mark.rate .fact-tag, .fact-mark.macro .fact-tag { background: #b6ff3b; }
+/* host-colored map edges */
+.map-pane .edge-host-sec { stroke: #27e3ff; }
+.map-pane .edge-host-gatx { stroke: #ff3df2; }
+.map-pane .edge-host-gbrx { stroke: #ffe14d; }
+.map-pane .edge-host-trin { stroke: #ff9f1c; }
+.map-pane .edge-host-fred { stroke: #b6ff3b; }
+.map-pane .edge-host-aar  { stroke: #9d7bff; }
+.map-pane .edge-host-stb  { stroke: #b6ff3b; }
+/* Doc-pane overlay: thin line from fact box to its map node */
+#fact-link-layer { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 20; }
+#fact-link-layer line { stroke-width: 1; fill: none; }
+#fact-link-layer line.anim { stroke-dasharray: 400; stroke-dashoffset: 400; transition: stroke-dashoffset 300ms linear, opacity 300ms linear 300ms; opacity: 1; }
+#fact-link-layer line.anim.drawn { stroke-dashoffset: 0; opacity: 0.35; }
+.map-pane { background: #141822; border: 1px solid #22262e; border-radius: 4px; padding: 0; min-height: 72vh; max-height: 72vh; overflow: hidden; position: relative; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: #a9afbb; }
+.map-pane svg { display: block; width: 100%; height: 100%; }
+.map-pane .n-host { fill: #3ddc84; }
+.map-pane .n-doc { fill: #7ac2ff; }
+.map-pane .n-doc.dup { opacity: 0.4; }
+.map-pane .n-fact { fill: #ffb44f; }
+.map-pane .n-placeholder { fill: none; stroke: #3ddc84; stroke-dasharray: 2 2; }
+.map-pane .edge { stroke: #2d3240; stroke-width: 1; fill: none; }
+.map-pane .edge-anim { stroke: #3ddc84; stroke-width: 1; fill: none; stroke-dasharray: 60; stroke-dashoffset: 60; transition: stroke-dashoffset 300ms linear; }
+.map-pane .edge-anim.drawn { stroke-dashoffset: 0; stroke: #2d3240; }
+.map-pane text { fill: #a9afbb; font-size: 10px; font-family: "IBM Plex Mono", monospace; pointer-events: none; }
+.map-pane text.lbl-host { fill: #3ddc84; font-size: 11px; font-weight: 600; }
+.map-pane text.lbl-doc { fill: #7ac2ff; }
+.map-pane text.lbl-fact { fill: #ffb44f; }
+.map-pane text.lbl-doc.dup { opacity: 0.4; }
+.spider { position: absolute; width: 18px; height: 18px; pointer-events: none; z-index: 10; transform: translate(0px, 0px); transition: transform 400ms cubic-bezier(.4,.2,.2,1), filter 300ms linear; will-change: transform; filter: drop-shadow(0 0 4px #9d7bff); }
+.spider.c-eps  { filter: drop-shadow(0 0 6px #ff3df2); }
+.spider.c-rev  { filter: drop-shadow(0 0 6px #27e3ff); }
+.spider.c-yel  { filter: drop-shadow(0 0 6px #ffe14d); }
+.spider.c-ora  { filter: drop-shadow(0 0 6px #ff9f1c); }
+.spider.c-lime { filter: drop-shadow(0 0 6px #b6ff3b); }
+.spider.c-vio  { filter: drop-shadow(0 0 6px #9d7bff); }
+.reader-highlight { position: absolute; left: 0; right: 0; height: 20px; background: rgba(255,255,255,0.06); pointer-events: none; z-index: 5; transition: top 400ms cubic-bezier(.4,.2,.2,1); }
+.pr-card { background: #1a1f2a; border: 1px solid #22262e; border-left: 3px solid #3ddc84; border-radius: 4px; padding: 0.9rem 1rem; max-width: 560px; }
+.pr-card .k { color: #8089a0; margin-right: 8px; font-size: 0.78rem; display: inline-block; width: 70px; }
+.pr-card .v { color: #e8ecf3; }
+.pr-card .row { margin: 0.3rem 0; font-family: "IBM Plex Mono", monospace; font-size: 0.82rem; }
+.pr-card a { color: #3ddc84; text-decoration: none; word-break: break-all; }
+.pr-card a:hover { text-decoration: underline; }
+.pr-card .note { margin-top: 0.6rem; color: #6b7083; font-size: 0.72rem; }
+.series-synth .k { color: #8089a0; margin-right: 8px; }
+.series-synth .v { color: #e8ecf3; }
+.statusline { margin-top: 0.75rem; padding: 0.4rem 0.75rem; background: #141822; border: 1px solid #22262e; border-radius: 4px; font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; color: #a9afbb; min-height: 1.2em; }
+.statusline b { color: #3ddc84; }
+.loading { padding: 1rem; color: #8089a0; }
+.rules { margin-top: 1rem; font-size: 0.75rem; color: #6b7083; }
+@media (max-width: 760px) {
+  .live-grid { grid-template-columns: 1fr; }
+  .doc-pane, .map-pane { max-height: 50vh; min-height: 300px; }
+}
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="brand" href="/" aria-label="BMG Capital home">
+      <span class="brand-mark">
+        <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden="true"><polyline points="5,23 12,15 18,19 27,8" fill="none" stroke="#3ddc84" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+      </span>
+      <span class="brand-wm">BMG CAPITAL</span>
+    </a>
+    <nav aria-label="Main" class="site-nav">
+      <a href="/">Home</a>
+      <a href="/tool/">Research tool</a>
+      <a href="/desk/">Desk</a>
+      <a href="/desk/live/" aria-current="page">Live</a>
+      <a href="/research.html">Research</a>
+    </nav>
+  </div>
+</header>
+<main class="live-root">
+  <div class="topbar">
+    <div class="title" id="replay-title">Loading replay...</div>
+    <button class="mode-btn active" data-mode="replay">Replay</button>
+    <button class="mode-btn" data-mode="live">Live</button>
+    <span id="replay-controls">
+      <button id="btn-play" aria-pressed="true">Pause</button>
+      <button class="speed-btn" data-speed="10">10x</button>
+      <button class="speed-btn" data-speed="60">60x</button>
+      <button class="speed-btn" data-speed="300">300x</button>
+    </span>
+    <span id="live-controls" style="display:none">
+      <select id="live-ticker" style="background:#22262e;color:#d7dbe3;border:1px solid #2d3240;padding:3px 6px;border-radius:3px;font-family:inherit;font-size:0.8rem">
+        <option value="GATX">GATX</option>
+        <option value="GBX">GBX</option>
+        <option value="TRN">TRN</option>
+      </select>
+      <select id="live-mode" style="background:#22262e;color:#d7dbe3;border:1px solid #2d3240;padding:3px 6px;border-radius:3px;font-family:inherit;font-size:0.8rem">
+        <option value="new">New only</option>
+        <option value="rewalk30" selected>Re-walk 30 days</option>
+      </select>
+      <button id="btn-run" style="background:#3ddc84;color:#0f1115;border:none;padding:4px 12px;border-radius:3px;font-weight:600;cursor:pointer">Run</button>
+      <span id="live-status" style="color:#8089a0;font-size:0.8rem"></span>
+    </span>
+    <div class="progressbar"><div class="fill" id="progress-fill"></div></div>
+  </div>
+  <div class="live-grid">
+    <div class="doc-pane" id="doc-pane">
+      <div class="reader-highlight" id="reader-highlight" style="top:-30px"></div>
+      <svg class="spider" id="spider" viewBox="0 0 24 24" aria-hidden="true">
+        <g stroke-width="1.6" stroke-linecap="round" fill="none">
+          <line x1="12" y1="12" x2="2"  y2="4"  stroke="#ff3df2"/>
+          <line x1="12" y1="12" x2="2"  y2="12" stroke="#27e3ff"/>
+          <line x1="12" y1="12" x2="2"  y2="20" stroke="#ffe14d"/>
+          <line x1="12" y1="12" x2="7"  y2="22" stroke="#ff9f1c"/>
+          <line x1="12" y1="12" x2="17" y2="22" stroke="#b6ff3b"/>
+          <line x1="12" y1="12" x2="22" y2="20" stroke="#9d7bff"/>
+          <line x1="12" y1="12" x2="22" y2="12" stroke="#ff3df2"/>
+          <line x1="12" y1="12" x2="22" y2="4"  stroke="#27e3ff"/>
+        </g>
+        <circle cx="12" cy="12" r="4" fill="#ffffff"/>
+      </svg>
+      <svg id="fact-link-layer" aria-hidden="true"></svg>
+      <div class="doc-header" id="doc-header">(no document yet)</div>
+      <div class="doc-text" id="doc-text"><div class="loading">waiting for /desk/run/latest...</div></div>
+    </div>
+    <div class="map-pane" id="map-pane">
+      <svg id="map-svg" viewBox="0 0 400 720" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </div>
+  <div class="statusline" id="statusline">idle</div>
+  <div class="rules">Playback pacing is synthetic and labeled above. Every box is a stored row from <code>/data/intake.db</code>. No article bodies, no paywalled sources, no fake activity.</div>
+</main>
+
+<script>
+(() => {
+  const state = {
+    events: [],
+    idx: 0,
+    speed: 60,
+    playing: true,
+    runStart: null,
+    runEnd: null,
+    tickTimer: null,
+    nodes: {}, // doc_id -> {x,y} or host -> {x,y}
+    docsLoaded: {}, // doc_id -> text
+    currentDocId: null,
+  };
+
+  const mapPane = document.getElementById("map-pane");
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  let mapSvg = document.getElementById("map-svg");
+  const MAP_W = 400, MAP_H = 720, CX = MAP_W/2, CY = MAP_H/2;
+  const HOST_R = 150, DOC_R = 46, FACT_R = 16;
+  const hostBlocks = {}; // host -> {pos:{x,y}, nextDocAngle, docs: {doc_id: {pos,el,factCount,factAngle}}}
+  let placeholders = {}; // url -> {el, host}
+  let mapBounds = {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity};
+
+  function expandMapBounds(x, y, pad=28) {
+    mapBounds.minX = Math.min(mapBounds.minX, x - pad);
+    mapBounds.minY = Math.min(mapBounds.minY, y - pad);
+    mapBounds.maxX = Math.max(mapBounds.maxX, x + pad);
+    mapBounds.maxY = Math.max(mapBounds.maxY, y + pad);
+    if (!mapSvg) return;
+    const w = Math.max(60, mapBounds.maxX - mapBounds.minX);
+    const h = Math.max(60, mapBounds.maxY - mapBounds.minY);
+    mapSvg.setAttribute("viewBox", `${mapBounds.minX} ${mapBounds.minY} ${w} ${h}`);
+  }
+
+  function resetMap() {
+    // Rebuild the SVG so stale references after innerHTML wipes don't leak
+    mapPane.innerHTML = '<svg id="map-svg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet"></svg>';
+    mapSvg = document.getElementById("map-svg");
+    for (const k in hostBlocks) delete hostBlocks[k];
+    placeholders = {};
+    mapBounds = {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity};
+  }
+
+  function hostBlock(host) {
+    if (hostBlocks[host]) return hostBlocks[host];
+    const idx = Object.keys(hostBlocks).length;
+    // Radial layout: angle = (idx + 0.5) / 8 * 2pi; room for ~8 hosts
+    const angle = ((idx + 0.5) / 8) * 2 * Math.PI - Math.PI / 2;
+    const x = CX + Math.cos(angle) * HOST_R;
+    const y = CY + Math.sin(angle) * HOST_R;
+    const g = document.createElementNS(SVG_NS, "g");
+    g.setAttribute("class", "map-host-group");
+    const c = document.createElementNS(SVG_NS, "circle");
+    c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 5);
+    c.setAttribute("class", "n-host");
+    g.appendChild(c);
+    const t = document.createElementNS(SVG_NS, "text");
+    t.setAttribute("x", x); t.setAttribute("y", y - 10);
+    t.setAttribute("text-anchor", "middle");
+    t.setAttribute("class", "lbl-host");
+    t.textContent = host;
+    g.appendChild(t);
+    mapSvg.appendChild(g);
+    hostBlocks[host] = {pos: {x, y}, nextDocAngle: 0, docs: {}, el: g};
+    expandMapBounds(x, y, 60);
+    return hostBlocks[host];
+  }
+
+  function placeholderNode(url, host) {
+    if (placeholders[url]) return placeholders[url];
+    const hb = hostBlock(host);
+    const dx = hb.pos.x + 20, dy = hb.pos.y - 20;
+    const edge = document.createElementNS(SVG_NS, "line");
+    edge.setAttribute("x1", hb.pos.x); edge.setAttribute("y1", hb.pos.y);
+    edge.setAttribute("x2", dx); edge.setAttribute("y2", dy);
+    edge.setAttribute("class", "edge-anim " + hostEdgeClass(host));
+    mapSvg.appendChild(edge);
+    // Trigger CSS transition on next frame
+    requestAnimationFrame(() => edge.classList.add("drawn"));
+    const c = document.createElementNS(SVG_NS, "circle");
+    c.setAttribute("cx", dx); c.setAttribute("cy", dy); c.setAttribute("r", 3);
+    c.setAttribute("class", "n-placeholder");
+    mapSvg.appendChild(c);
+    placeholders[url] = {edge, circ: c, host, x: dx, y: dy};
+    expandMapBounds(dx, dy, 20);
+    return placeholders[url];
+  }
+
+  function upgradePlaceholder(url, docEv) {
+    const ph = placeholders[url];
+    const hb = hostBlock(docEv.host || "unknown");
+    const angle = (hb.nextDocAngle++) * (Math.PI / 4) + Math.PI / 8;
+    const x = hb.pos.x + Math.cos(angle) * DOC_R;
+    const y = hb.pos.y + Math.sin(angle) * DOC_R;
+    if (ph) {
+      ph.circ.setAttribute("cx", x); ph.circ.setAttribute("cy", y);
+      ph.circ.setAttribute("class", "n-doc" + (docEv.dim ? " dup" : ""));
+      ph.edge.setAttribute("x2", x); ph.edge.setAttribute("y2", y);
+      delete placeholders[url];
+    }
+    const circ = ph ? ph.circ : (() => {
+      const edge = document.createElementNS(SVG_NS, "line");
+      edge.setAttribute("x1", hb.pos.x); edge.setAttribute("y1", hb.pos.y);
+      edge.setAttribute("x2", x); edge.setAttribute("y2", y);
+      edge.setAttribute("class", "edge " + hostEdgeClass(docEv.host || host || ""));
+      mapSvg.appendChild(edge);
+      const c = document.createElementNS(SVG_NS, "circle");
+      c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 3);
+      c.setAttribute("class", "n-doc" + (docEv.dim ? " dup" : ""));
+      mapSvg.appendChild(c);
+      return c;
+    })();
+    const label = (docEv.doc_type || "") + " " + (docEv.ticker || "");
+    const t = document.createElementNS(SVG_NS, "text");
+    t.setAttribute("x", x + 5); t.setAttribute("y", y + 3);
+    t.setAttribute("class", "lbl-doc" + (docEv.dim ? " dup" : ""));
+    t.textContent = label + (docEv.dim ? " dup" : "");
+    const tt = document.createElementNS(SVG_NS, "title");
+    tt.textContent = docEv.title || docEv.url || "";
+    t.appendChild(tt);
+    mapSvg.appendChild(t);
+    hb.docs[docEv.doc_id] = {pos: {x, y}, el: circ, factAngle: 0, dim: !!docEv.dim};
+    state.nodes[docEv.doc_id] = {host: docEv.host, el: null, pos: {x, y}};
+    expandMapBounds(x, y, 30);
+  }
+
+  function addMapFactSVG(ev) {
+    const node = state.nodes[ev.doc_id];
+    if (!node || !node.pos) return;
+    const host = node.host;
+    const docInfo = hostBlocks[host] && hostBlocks[host].docs[ev.doc_id];
+    if (!docInfo) return;
+    const angle = (docInfo.factAngle++) * (Math.PI / 3);
+    const x = docInfo.pos.x + Math.cos(angle) * FACT_R;
+    const y = docInfo.pos.y + Math.sin(angle) * FACT_R;
+    const edge = document.createElementNS(SVG_NS, "line");
+    edge.setAttribute("x1", docInfo.pos.x); edge.setAttribute("y1", docInfo.pos.y);
+    edge.setAttribute("x2", x); edge.setAttribute("y2", y);
+    edge.setAttribute("class", "edge " + hostEdgeClass(host));
+    mapSvg.appendChild(edge);
+    const cls = colorForLabel(ev.label);
+    const color = familyColor(cls);
+    const c = document.createElementNS(SVG_NS, "circle");
+    c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 2.5);
+    c.setAttribute("class", "n-fact");
+    c.setAttribute("fill", color);
+    c.setAttribute("data-fact-key", ev.doc_id + "|" + ev.label + "|" + ev.value);
+    mapSvg.appendChild(c);
+    const t = document.createElementNS(SVG_NS, "text");
+    t.setAttribute("x", x + 4); t.setAttribute("y", y + 2);
+    t.setAttribute("class", "lbl-fact");
+    t.setAttribute("fill", color);
+    t.textContent = `${ev.label} = ${ev.value}`;
+    mapSvg.appendChild(t);
+    expandMapBounds(x, y, 18);
+    // Draw a thin line from the latest fact box in the doc pane to this node
+    drawFactLink(ev.doc_id, ev.label, ev.value, cls, c);
+  }
+
+  function drawFactLink(doc_id, label, value, cls, mapCirc) {
+    try {
+      const linkLayer = document.getElementById("fact-link-layer");
+      if (!linkLayer) return;
+      // Size the link-layer to viewport
+      linkLayer.setAttribute("viewBox", `0 0 ${window.innerWidth} ${window.innerHeight}`);
+      linkLayer.setAttribute("width", window.innerWidth);
+      linkLayer.setAttribute("height", window.innerHeight);
+      const dtxt = document.getElementById("doc-text");
+      const marks = dtxt.querySelectorAll(".fact-mark");
+      if (!marks.length) return;
+      const mark = marks[marks.length - 1];
+      const mr = mark.getBoundingClientRect();
+      const cr = mapCirc.getBoundingClientRect();
+      const x1 = mr.right, y1 = mr.top + mr.height / 2;
+      const x2 = cr.left + cr.width / 2, y2 = cr.top + cr.height / 2;
+      const line = document.createElementNS(SVG_NS, "line");
+      line.setAttribute("x1", x1); line.setAttribute("y1", y1);
+      line.setAttribute("x2", x2); line.setAttribute("y2", y2);
+      line.setAttribute("stroke", familyColor(cls));
+      line.setAttribute("class", "anim");
+      linkLayer.appendChild(line);
+      requestAnimationFrame(() => line.classList.add("drawn"));
+    } catch (e) {}
+  }
+
+  // Spider glyph + reader walk. Spider follows text line by line over a
+  // computed duration (clamped 3-20s). extract_fact jumps the spider to the
+  // fact position and continues walking from there.
+  const spider = document.getElementById("spider");
+  const readerHL = document.getElementById("reader-highlight");
+  let walkState = { docId: null, raf: null, startTs: 0, duration: 10000, startY: 24, endY: 0, done: false };
+
+  function moveSpiderTo(x, y) {
+    spider.style.transform = `translate(${x}px, ${y}px)`;
+    readerHL.style.top = (y - 2) + "px";
+    // Scroll pane to keep the spider on screen (y relative to pane content)
+    const pane = document.getElementById("doc-pane");
+    const paneRect = pane.getBoundingClientRect();
+    const visibleMid = paneRect.height / 2;
+    if (y > pane.scrollTop + paneRect.height - 60) pane.scrollTop = y - paneRect.height + 100;
+    else if (y < pane.scrollTop + 40) pane.scrollTop = Math.max(0, y - 40);
+  }
+  function moveSpiderToPaneTop() {
+    moveSpiderTo(4, 24);
+    readerHL.style.top = "22px";
+  }
+  function moveSpiderToFactOffset(doc_id, charOffset, value) {
+    const pane = document.getElementById("doc-pane");
+    const dtxt = document.getElementById("doc-text");
+    const marks = dtxt.querySelectorAll(".fact-mark");
+    if (!marks.length) return;
+    const mark = marks[marks.length - 1];
+    const paneRect = pane.getBoundingClientRect();
+    const markRect = mark.getBoundingClientRect();
+    const x = markRect.left - paneRect.left + pane.scrollLeft - 24;
+    const y = markRect.top  - paneRect.top  + pane.scrollTop  - 2;
+    moveSpiderTo(Math.max(2, x), Math.max(2, y));
+    // Spider glow: pick the color of the fact it is heading to
+    const cls = colorForLabel(arguments[2] && arguments[3] ? arguments[3] : "");
+    // We don't have the fact object here; the caller (markFactInDoc) sets the glow
+    if (walkState.docId === doc_id && !walkState.done) {
+      walkState.startY = y;
+      walkState.startTs = performance.now();
+    }
+  }
+  function setSpiderGlowFor(label) {
+    const cls = colorForLabel(label);
+    const gc = spiderGlowClass(cls);
+    spider.className = "spider " + gc;
+  }
+
+  function stopWalk() {
+    if (walkState.raf) cancelAnimationFrame(walkState.raf);
+    walkState = { docId: null, raf: null, startTs: 0, duration: 10000, startY: 24, endY: 0, done: true };
+  }
+
+  function startWalk(doc_id, duration_s) {
+    stopWalk();
+    const pane = document.getElementById("doc-pane");
+    const dtxt = document.getElementById("doc-text");
+    // Content height of the doc-text (what the spider traverses)
+    const contentH = dtxt.getBoundingClientRect().height;
+    const paneH = pane.getBoundingClientRect().height;
+    const endY = Math.max(24, Math.min(contentH, contentH - 20));
+    const clampedS = Math.min(20, Math.max(3, duration_s));
+    walkState = { docId: doc_id, raf: null, startTs: performance.now(), duration: clampedS * 1000, startY: 24, endY, done: false };
+    moveSpiderTo(4, 24);
+    function tick(now) {
+      if (walkState.docId !== doc_id) return;
+      const prog = Math.min(1, (now - walkState.startTs) / walkState.duration);
+      const y = walkState.startY + (walkState.endY - walkState.startY) * prog;
+      moveSpiderTo(4, y);
+      if (prog < 1) walkState.raf = requestAnimationFrame(tick);
+      else { walkState.done = true; }
+    }
+    walkState.raf = requestAnimationFrame(tick);
+  }
+
+  function computeDocWalkDuration(doc_id, fetched_at) {
+    // In replay mode state.events has all events; find max fact.at for this doc
+    const facts = (state.events || []).filter(e => e.type === "fact" && e.doc_id === doc_id);
+    if (!facts.length || !fetched_at) return 10;
+    const latestAt = facts.map(f => new Date(f.at || f.fetched_at).getTime()).reduce((a,b) => Math.max(a,b), 0);
+    const ft = new Date(fetched_at).getTime();
+    if (!latestAt || !ft) return 10;
+    return Math.max(3, Math.min(20, (latestAt - ft) / 1000));
+  }
+
+  function pickDefaultSpeed(nEvents, totalRealSec) {
+    const choices = [10, 60, 300];
+    const minPerEv = 0.05;
+    const estTime = (s) => Math.max(nEvents * minPerEv, totalRealSec / s);
+    let best = choices[0], bestDiff = Infinity;
+    for (const s of choices) {
+      const diff = Math.abs(estTime(s) - 75);
+      if (diff < bestDiff) { best = s; bestDiff = diff; }
+    }
+    return best;
+  }
+
+  function setActiveSpeed(s) {
+    state.speed = s;
+    document.querySelectorAll(".speed-btn").forEach(x => {
+      x.classList.toggle("active", parseInt(x.dataset.speed, 10) === s);
+    });
+  }
+
+  function fmt(ts) {
+    if (!ts) return "";
+    const d = new Date(ts);
+    return isNaN(d) ? ts : d.toLocaleString("en-US", { timeZone: "America/Chicago", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  // 6-family color taxonomy (DESK-3.2 f)
+  function colorForLabel(label) {
+    const m = {Revenue:"rev", Sales:"rev", EPS:"eps", "Net income":"earn",
+      "Backlog units":"bl", "Backlog $B":"bl", Fleet:"fl", Utilization:"ut",
+      Dividend:"di", Buyback:"bb", Carloads:"macro", Intermodal:"macro",
+      DGS10:"rate", DGS2:"rate", DGS5:"rate", DGS30:"rate", SOFR:"rate",
+      DFF:"rate", BAMLC0A0CM:"rate", BAMLH0A0HYM2:"rate", T10Y2Y:"rate",
+      INDPRO:"macro", RAILFRTCARLOADSD11:"macro", RAILFRTINTERMODALD11:"macro"};
+    return m[label] || "vio";
+  }
+  function familyColor(cls) {
+    const c = {eps:"#ff3df2", earn:"#ff3df2", rev:"#27e3ff", fl:"#ffe14d",
+                ut:"#ffe14d", bl:"#ffe14d", di:"#ff9f1c", bb:"#ff9f1c",
+                rate:"#b6ff3b", macro:"#b6ff3b", vio:"#9d7bff"};
+    return c[cls] || c.vio;
+  }
+  function spiderGlowClass(cls) {
+    const m = {eps:"c-eps", earn:"c-eps", rev:"c-rev", fl:"c-yel", ut:"c-yel", bl:"c-yel", di:"c-ora", bb:"c-ora", rate:"c-lime", macro:"c-lime"};
+    return m[cls] || "c-vio";
+  }
+  function hostEdgeClass(host) {
+    const h = (host || "").toLowerCase();
+    if (h.includes("sec.gov")) return "edge-host-sec";
+    if (h.includes("gatx")) return "edge-host-gatx";
+    if (h.includes("gbrx")) return "edge-host-gbrx";
+    if (h.includes("trin")) return "edge-host-trin";
+    if (h.includes("fred") || h.includes("stlouis")) return "edge-host-fred";
+    if (h.includes("aar"))  return "edge-host-aar";
+    if (h.includes("stb"))  return "edge-host-stb";
+    return "";
+  }
+
+  async function fetchJSON(url) {
+    try { const r = await fetch(url, {cache: "no-store"}); if (!r.ok) throw new Error(r.status); return await r.json(); }
+    catch (e) { return {error: String(e)}; }
+  }
+
+  async function init() {
+    // Short-circuit when autolive URL param is set so we do not race the Live
+    // mode activation (which the IIFE at the end of this script calls
+    // immediately after init()). The autolive handler owns the title and
+    // doc-pane state.
+    if (new URLSearchParams(location.search).get("autolive")) return;
+    const data = await fetchJSON("/desk/run/latest?window=14400&limit=200");
+    if (data.error || !data.events || data.events.length === 0) {
+      document.getElementById("replay-title").innerHTML = "No completed run yet";
+      document.getElementById("doc-text").innerHTML = '<div class="loading">no completed run yet</div>';
+      const h = await fetchJSON("/desk/health");
+      document.getElementById("statusline").textContent = JSON.stringify(h, null, 2).slice(0, 500);
+      return;
+    }
+    state.events = data.events;
+    state.runStart = new Date(data.started_at);
+    state.runEnd = new Date(data.ended_at || data.started_at);
+    const n = state.events.length;
+    const d = state.runEnd - state.runStart;
+    const realSec = Math.max(1, Math.round(d/1000));
+    // Pick default speed so the full replay takes 60 to 90 s where possible
+    const def = pickDefaultSpeed(n, realSec);
+    setActiveSpeed(def);
+    const title = document.getElementById("replay-title");
+    title.innerHTML = `Replay of run <b>${fmt(data.started_at)} Central</b> playing at <b>${state.speed}x</b>. ${n} events, ${realSec} s real time. Every box is a stored row.`;
+    tick();
+  }
+
+  function tick() {
+    if (!state.playing) return;
+    if (state.idx >= state.events.length) { state.playing = false; document.getElementById("btn-play").textContent = "Replay done"; return; }
+    const ev = state.events[state.idx];
+    const nextIdx = state.idx + 1;
+    renderEvent(ev);
+    state.idx = nextIdx;
+    // Compute next delay: real gap scaled by speed, clamped to 50-5000ms
+    let delay = 400;
+    if (nextIdx < state.events.length) {
+      const t0 = new Date(ev.fetched_at || ev.at || state.runStart).getTime();
+      const t1 = new Date(state.events[nextIdx].fetched_at || state.events[nextIdx].at || t0).getTime();
+      const real_ms = Math.max(0, t1 - t0);
+      delay = Math.min(5000, Math.max(50, real_ms / state.speed));
+    }
+    // Progress bar
+    const pct = Math.round((state.idx / state.events.length) * 100);
+    document.getElementById("progress-fill").style.width = pct + "%";
+    clearTimeout(state.tickTimer);
+    state.tickTimer = setTimeout(tick, delay);
+  }
+
+  function renderEvent(ev) {
+    const status = document.getElementById("statusline");
+    if (ev.type === "document") {
+      status.innerHTML = `<b>${ev.job || ""}</b> fetching ${ev.host} <span style="color:#6b7083">${ev.url.slice(0, 100)}</span>`;
+      addMapNode(ev);
+      loadDoc(ev);
+    } else if (ev.type === "fact") {
+      status.innerHTML = `fact extracted: <b>${ev.label}</b> = ${ev.value} ${ev.unit || ""}`;
+      addMapFact(ev);
+      markFactInDoc(ev);
+    }
+  }
+
+  async function loadDoc(ev) {
+    document.getElementById("doc-header").textContent = `${ev.ticker || ""} ${ev.doc_type}: ${(ev.title || "").slice(0, 120)}`;
+    const pane = document.getElementById("doc-text");
+    pane.scrollTop = 0;
+    // Scroll pane container to top so spider lands correctly
+    document.getElementById("doc-pane").scrollTop = 0;
+    state.currentDocId = ev.doc_id;
+    // Spider moves to top of new document (triggered by fetch_done arrival)
+    stopWalk();
+    moveSpiderToPaneTop();
+    // Short-circuit docs with no stored text to 1.5 s display: NEWS, Form 4 CSV,
+    // SERIES in live mode, PR cards all land in this branch via loadDoc.
+    if (ev.doc_type === "NEWS") {
+      pane.innerHTML = `<div style="color:#8089a0">Headline only (article body never stored):</div><div style="margin-top:6px">${(ev.title || "").replace(/</g,"&lt;")}</div>`;
+      // No walk; the next fetch_done moves us on
+      return;
+    }
+    if (ev.doc_type === "4") {
+      pane.innerHTML = `<div class="pr-card"><div class="row"><span class="k">Form 4:</span><span class="v">${(ev.title || "").replace(/</g,"&lt;")}</span></div><div class="row"><span class="k">host:</span><span class="v">${ev.host || ""}</span></div><div class="row"><span class="k">link:</span><a href="${(ev.url || "")}" target="_blank" rel="noopener">${(ev.url || "")}</a></div><div class="note">Form 4 CSV is a derived artifact; the original XML is at the SEC accession folder.</div></div>`;
+      return;
+    }
+    if (ev.doc_type === "PRESS_RELEASE" || ev.doc_type === "DECK") {
+      // We fetch and store the release HTML/PDF to disk, but render a card
+      // instead of raw markdown. The card gives title, date, host, link.
+      const safeTitle = (ev.title || "").replace(/</g,"&lt;");
+      const url = (ev.url || "").replace(/</g,"&lt;");
+      const dt = (ev.fetched_at || "").slice(0, 10);
+      pane.innerHTML = `<div class="pr-card">
+  <div class="row"><span class="k">title:</span><span class="v">${safeTitle}</span></div>
+  <div class="row"><span class="k">published:</span><span class="v">${dt}</span></div>
+  <div class="row"><span class="k">host:</span><span class="v">${ev.host || ""}</span></div>
+  <div class="row"><span class="k">link:</span><a href="${url}" target="_blank" rel="noopener">${url}</a></div>
+  <div class="note">Press release and deck bodies are not stored on the public site. The card above comes from stored metadata rows; click the link for the publisher's own copy.</div>
+</div>`;
+      // Mark text with the title so fact extractor can still box values if any
+      state.docsLoaded[ev.doc_id] = {text: safeTitle, synthetic: true};
+      return;
+    }
+    // SERIES rows have no extracted text file; synthesize a short body from the
+    // stored row (series id, value, observation date, source host). The replay
+    // then draws a fact box around the value using the stored meta.
+    if (ev.doc_type === "SERIES") {
+      const m = ev.meta || {};
+      const sid = m.series_id || ev.title || "SERIES";
+      const val = (m.last_value != null) ? String(m.last_value) : "";
+      const d = m.last_date || "";
+      const synth = `series: ${sid}
+value:  ${val}
+as of:  ${d}
+source: ${ev.host}
+url:    ${ev.url}
+`;
+      // Store the synthesized text so the fact-marker code can find it
+      state.docsLoaded[ev.doc_id] = {text: synth, synthetic: true};
+      // Place a fact mark around the value substring (offset after "value:  ")
+      const vStart = synth.indexOf("value:  ") + "value:  ".length;
+      const html = escapeHTML(synth.slice(0, vStart)) +
+        `<span class="fact-mark rev">${escapeHTML(val)}<span class="fact-tag">${sid} ${val}${d ? " (" + d + ")" : ""}</span></span>` +
+        escapeHTML(synth.slice(vStart + val.length));
+      pane.innerHTML = html;
+      return;
+    }
+    if (!ev.has_text) {
+      pane.innerHTML = `<div style="color:#8089a0">(no extracted text for this document)</div>`;
+      return;
+    }
+    let doc = state.docsLoaded[ev.doc_id];
+    if (!doc) {
+      doc = await fetchJSON("/desk/doc/" + encodeURIComponent(ev.doc_id) + "/text");
+      state.docsLoaded[ev.doc_id] = doc;
+    }
+    if (doc.error) {
+      pane.innerHTML = `<div style="color:#ff7a97">doc text error: ${doc.error}</div>`;
+      return;
+    }
+    const text = (doc.text || "").slice(0, 60000);
+    pane.setAttribute("data-doc-id", ev.doc_id);
+    pane.innerHTML = escapeHTML(text);
+    // Start the reader walk; duration from timing between fetch_done and last fact (replay) or default 10s (live)
+    const dur = computeDocWalkDuration(ev.doc_id, ev.fetched_at);
+    // Defer so layout settles
+    setTimeout(() => startWalk(ev.doc_id, dur), 50);
+  }
+
+  function escapeHTML(s) {
+    return (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  function markFactInDoc(ev) {
+    if (ev.doc_id !== state.currentDocId) return;
+    const pane = document.getElementById("doc-text");
+    const doc = state.docsLoaded[ev.doc_id];
+    if (!doc || !doc.text) return;
+    // PR cards and other synthetic bodies: do not rebuild innerHTML; the card
+    // keeps its layout and the facts simply route to the map pane.
+    if (doc.synthetic && pane.querySelector(".pr-card")) return;
+    const text = doc.text;
+    let offset = ev.char_offset;
+    if (offset == null || offset < 0) {
+      offset = text.indexOf(ev.value);
+      if (offset < 0) return;
+    }
+    // Rebuild the pane preserving existing marks: we work on the original text
+    // and apply all currently-shown marks for this doc up to this event.
+    const facts = state.events.filter(e => e.type === "fact" && e.doc_id === ev.doc_id).slice(0, state.idx + 1).filter(e => state.events.indexOf(e) <= state.idx);
+    const ranges = [];
+    facts.forEach(f => {
+      let off = f.char_offset;
+      let v = f.value || "";
+      if (!v) return;
+      if (off == null || off < 0) off = text.indexOf(v);
+      if (off < 0) return;
+      ranges.push({start: off, end: off + v.length, label: f.label, value: v, unit: f.unit, cls: colorForLabel(f.label)});
+    });
+    ranges.sort((a,b) => a.start - b.start);
+    // Collapse overlaps
+    const merged = [];
+    ranges.forEach(r => {
+      const last = merged[merged.length - 1];
+      if (last && r.start < last.end) return;
+      merged.push(r);
+    });
+    let html = "";
+    let cursor = 0;
+    merged.forEach(r => {
+      html += escapeHTML(text.slice(cursor, r.start));
+      html += `<span class="fact-mark ${r.cls}">${escapeHTML(text.slice(r.start, r.end))}<span class="fact-tag">${r.label} ${r.value}${r.unit ? " " + r.unit : ""}</span></span>`;
+      cursor = r.end;
+    });
+    html += escapeHTML(text.slice(cursor));
+    pane.innerHTML = html;
+    // Scroll to the newest mark, then glide the spider to its position
+    const marks = pane.querySelectorAll(".fact-mark");
+    if (marks.length) {
+      marks[marks.length - 1].scrollIntoView({block:"center", behavior:"smooth"});
+      setSpiderGlowFor(ev.label);
+      setTimeout(() => moveSpiderToFactOffset(ev.doc_id, ev.char_offset, ev.value), 60);
+    }
+  }
+
+  // SVG node graph: hosts positioned radially, docs orbit host, facts orbit doc.
+  // addMapNode is called for every document event (both from replay and from
+  // the SSE fetch_done_insert handler). addMapFact draws the fact node and
+  // its edge. The spider is moved by the renderEvent / liveHandle wrappers.
+  function addMapNode(ev) {
+    upgradePlaceholder(ev.url, ev);
+  }
+  function addMapFact(ev) {
+    addMapFactSVG(ev);
+  }
+
+  // Controls
+  document.getElementById("btn-play").addEventListener("click", (e) => {
+    state.playing = !state.playing;
+    e.target.textContent = state.playing ? "Pause" : "Play";
+    if (state.playing) tick();
+  });
+  document.querySelectorAll(".speed-btn").forEach(b => {
+    b.addEventListener("click", (e) => {
+      const s = parseInt(b.dataset.speed, 10) || 60;
+      setActiveSpeed(s);
+      const title = document.getElementById("replay-title");
+      if (title && title.innerHTML.includes("playing at")) {
+        title.innerHTML = title.innerHTML.replace(/playing at <b>\d+x<\/b>/, `playing at <b>${s}x</b>`);
+      }
+    });
+  });
+
+  // Mode toggle Replay / Live
+  const liveState = { es: null, running: false, startedAt: null, clockTimer: null };
+  function setMode(mode) {
+    document.querySelectorAll(".mode-btn").forEach(x => x.classList.toggle("active", x.dataset.mode === mode));
+    document.getElementById("replay-controls").style.display = (mode === "replay") ? "" : "none";
+    document.getElementById("live-controls").style.display = (mode === "live") ? "" : "none";
+    if (mode === "live") {
+      // Pause replay cleanly
+      state.playing = false;
+      clearTimeout(state.tickTimer);
+      document.getElementById("replay-title").textContent = "Live mode. Click Run to start a real network pull.";
+      document.getElementById("doc-text").innerHTML = '<div class="loading">waiting for Run...</div>';
+      document.getElementById("doc-header").textContent = "(no document yet)";
+      // Reset map
+      resetMap();
+      for (const k in state.nodes) delete state.nodes[k];
+    } else {
+      stopLive();
+      init();
+    }
+  }
+  document.querySelectorAll(".mode-btn").forEach(b => {
+    b.addEventListener("click", () => setMode(b.dataset.mode));
+  });
+
+  function stopLive() {
+    if (liveState.es) { try { liveState.es.close(); } catch(e) {} liveState.es = null; }
+    liveState.running = false;
+    if (liveState.clockTimer) { clearInterval(liveState.clockTimer); liveState.clockTimer = null; }
+  }
+
+  function liveHandle(ev) {
+    const status = document.getElementById("statusline");
+    const t = ev.type;
+    if (t === "heartbeat" || t === "hello") {
+      document.getElementById("live-status").textContent = "connected, " + t;
+      return;
+    }
+    if (t === "job_start") {
+      status.innerHTML = `<b>${ev.label}</b> starting`;
+      return;
+    }
+    if (t === "fetch_start") {
+      status.innerHTML = `<b>fetching</b> ${ev.host} <span style="color:#6b7083">${(ev.url || "").slice(0, 110)}</span>`;
+      // Draw an animated edge to a placeholder node on the map
+      try { placeholderNode(ev.url, ev.host || "unknown"); } catch(e) {}
+      return;
+    }
+    if (t === "fetch_done" || t === "fetch_done_insert") {
+      // Attach to map when we have an insert event with doc_id + doc_type
+      if (t === "fetch_done_insert" && ev.doc_id) {
+        const from_url = ev.source_url || "";
+        let host = "";
+        try { host = new URL(from_url).hostname; } catch (e) {}
+        const docEv = {
+          type: "document", doc_id: ev.doc_id, host, url: from_url,
+          title: ev.title, doc_type: ev.doc_type, ticker: ev.ticker,
+          fetched_at: ev.at, has_text: ev.doc_type !== "SERIES" && ev.doc_type !== "NEWS",
+          meta: {}, dim: !!ev.skipped_dup
+        };
+        addMapNode(docEv);
+        if (docEv.dim) {
+          const el = state.nodes[ev.doc_id];
+          if (el && el.el) {
+            el.el.style.opacity = "0.4";
+            el.el.innerHTML += '<span class="meta" style="color:#6b7083"> (already stored)</span>';
+          }
+        } else {
+          loadDoc(docEv);
+        }
+      }
+      status.innerHTML = `<b>fetched</b> ${ev.host || ""} status=${ev.status || "?"}  ${ev.bytes || ""}B`;
+      return;
+    }
+    if (t === "extract_fact") {
+      status.innerHTML = `<b>fact</b> ${ev.label} = ${ev.value} ${ev.unit || ""}`;
+      const factEv = {type: "fact", doc_id: ev.doc_id, label: ev.label, value: ev.value, unit: ev.unit, char_offset: ev.char_offset};
+      addMapFact(factEv);
+      // Mark in current doc if applicable: synthesize minimal state so markFactInDoc works
+      if (state.currentDocId === ev.doc_id) {
+        state.events = state.events || [];
+        state.events.push(factEv);
+        state.idx = state.events.length;
+        markFactInDoc(factEv);
+      }
+      return;
+    }
+    if (t === "job_log") {
+      status.innerHTML = `<b>log</b> ${ev.msg || ""}`;
+      return;
+    }
+    if (t === "job_error") {
+      status.innerHTML = `<b style="color:#ff7a97">error</b> ${ev.phase || ""}: ${ev.message || ""}`;
+      return;
+    }
+    if (t === "job_done") {
+      status.innerHTML = `<b>done</b> ${ev.label || ""}  ok=${ev.ok}`;
+      document.getElementById("btn-run").disabled = false;
+      document.getElementById("btn-run").textContent = "Run";
+      stopLive();
+      return;
+    }
+  }
+
+  document.getElementById("btn-run").addEventListener("click", async () => {
+    if (liveState.running) return;
+    const ticker = document.getElementById("live-ticker").value;
+    const mode = document.getElementById("live-mode").value;
+    document.getElementById("btn-run").disabled = true;
+    document.getElementById("btn-run").textContent = "Running...";
+    document.getElementById("doc-text").innerHTML = '<div class="loading">live run starting...</div>';
+    resetMap();
+    for (const k in state.nodes) delete state.nodes[k];
+    state.events = []; state.idx = 0;
+    liveState.startedAt = new Date();
+    const topTitle = document.getElementById("replay-title");
+    topTitle.innerHTML = `<b>Live run started ${fmt(liveState.startedAt.toISOString())} Central</b>. Real network, real timestamps, no replay.`;
+    liveState.clockTimer = setInterval(() => {
+      if (!liveState.startedAt) return;
+      const secs = Math.round((Date.now() - liveState.startedAt.getTime()) / 1000);
+      document.getElementById("live-status").textContent = `elapsed ${secs}s`;
+    }, 1000);
+    // Subscribe to SSE
+    try {
+      liveState.es = new EventSource("/desk/events");
+      // Fire handlers for all event types
+      ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done"].forEach(t => {
+        liveState.es.addEventListener(t, (e) => {
+          try { const d = JSON.parse(e.data); d.type = t; liveHandle(d); } catch(err) {}
+        });
+      });
+      liveState.es.onerror = () => { document.getElementById("live-status").textContent = "SSE connection lost"; };
+      liveState.running = true;
+    } catch (e) { document.getElementById("live-status").textContent = "SSE unavailable"; }
+    // POST live run
+    try {
+      const r = await fetch("/desk/_run/live", {method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ticker, mode})});
+      if (r.status === 409) {
+        const j = await r.json();
+        document.getElementById("live-status").textContent = `409: ${j.detail || "another live run is in progress"}`;
+        document.getElementById("btn-run").disabled = false;
+        document.getElementById("btn-run").textContent = "Run";
+        stopLive();
+      } else if (!r.ok) {
+        document.getElementById("live-status").textContent = `error ${r.status}`;
+        document.getElementById("btn-run").disabled = false;
+        document.getElementById("btn-run").textContent = "Run";
+        stopLive();
+      }
+    } catch (e) {
+      document.getElementById("live-status").textContent = `POST failed: ${e}`;
+      document.getElementById("btn-run").disabled = false;
+      document.getElementById("btn-run").textContent = "Run";
+      stopLive();
+    }
+  });
+
+  init();
+
+  // Auto-trigger live mode via URL params for scripted screenshots.
+  // Example: /desk/live/?autolive=GATX&automode=rewalk30
+  (function() {
+    const params = new URLSearchParams(location.search);
+    const autoTicker = params.get("autolive");
+    const autoMode = params.get("automode") || "new";
+    if (autoTicker && ["GATX","GBX","TRN"].includes(autoTicker)) {
+      setMode("live");
+      document.getElementById("live-ticker").value = autoTicker;
+      document.getElementById("live-mode").value = autoMode;
+      setTimeout(() => document.getElementById("btn-run").click(), 200);
+    }
+  })();
+})();
+</script>
+</body>
+</html>
