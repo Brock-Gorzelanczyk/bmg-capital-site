@@ -58,6 +58,19 @@ svg.spider .knee{fill:#ff3d9a}
 .w.hl-out{background:transparent!important;color:inherit!important}
 .w.hl-ping{background:rgba(255,45,143,.32);box-shadow:0 0 0 1px #ff2d8f;border-radius:2px}
 .w.hl-bping{background:rgba(39,200,255,.32);box-shadow:0 0 0 1px #27c8ff;border-radius:2px}
+.fxlayer{position:absolute;inset:0;pointer-events:none;z-index:2}
+.fx{position:absolute;border-radius:2px;white-space:nowrap;box-sizing:border-box;animation:fxin .22s ease-out;transition:opacity .7s ease}
+.fx.out{opacity:0}
+:root{--page:#000}
+.stage{--page:#fff}
+.fx-fill{mix-blend-mode:screen;opacity:.85}
+.stage .fx-fill{mix-blend-mode:multiply;opacity:.92}
+.fx-box{border:1.5px solid;background:transparent}
+.fx-ink,.fx-big,.fx-bigbox{background:var(--page,#fff);padding:0 3px;font-weight:600}
+.fx-big{z-index:1;text-shadow:0 0 1px rgba(0,0,0,.08)}
+.fx-bigbox{z-index:1;font-weight:700}
+.fx-erase{background:var(--page,#fff);opacity:.9}
+@keyframes fxin{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:none}}
 .w.hl-blue{background:rgba(79,123,255,.18);box-shadow:0 0 0 1px rgba(79,123,255,.75);border-radius:2px}
 .beam.cyan{background:rgba(39,200,255,.85);color:#00384a;box-shadow:0 0 12px rgba(39,200,255,.5)}
 .w.cyanfill{background:#27e3ff;color:#001a22;border-radius:2px}
@@ -281,7 +294,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     state.boost = 1; state.boostTarget = 1;
     state.crawlTarget = null; state.crawlX = null; state.legAnim = {}; state.eyeFocus = null; state.nextFocus = null; state.heading = null; state.faceHeading = null; state.vel = null; state.lastBodyP = null; state.lastSet = null;
     state.feet = []; state.feetEls = []; state.legEls = []; state.legJ = []; state.legLast = []; state.bodyVel = null; state.threads = []; state.rows = null; state.meshPool = []; state.trail = []; state.links = []; state.linkPool = []; state.ping = null; state.pingLine = null; state.lastPingEl = null; state.silkEl = null; state.silkAnchor = null; state.rideSince = 0; state.eyeEl = null; state.eyeAt = null; state.bping = null;
-    document.querySelectorAll(".liftlbl,.beam").forEach(e => e.remove()); state.beams = [];
+    document.querySelectorAll(".liftlbl,.beam,.fxlayer").forEach(e => e.remove()); state.beams = [];
+    (state.fx || []).forEach(o => { o.seed._fx = null; }); state.fx = []; state.fxLayer = null; state.fxAcc = 0;
     bumpLayout();
     state.touchedEls = new Set(); state.touchOrder = [];
   }
@@ -666,6 +680,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       state.lastBodyP = {x: state.body.x, y: state.body.y};
       stepLegs(now);
       maybePing(now);
+      fxTick(now, dt);
     }
     advanceLegs(now);
     if (now - (state.drawnAt || 0) > 12) drawSpider();
@@ -796,6 +811,112 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     cands.sort((a, b) => b[0] - a[0]);
     return cands[Math.floor(Math.random() * Math.min(4, cands.length))][1];
   }
+  // Reading highlights (reference clip): the text the spider reads lights
+  // up where it sits in many colours and styles (solid fills, outline
+  // boxes, recoloured or monospaced text, titles and numbers blown up in
+  // place) and the marks stay on the page for several seconds, so a
+  // colourful trail builds up around and behind the spider. Nothing is
+  // moved off its line; overlays are pinned to the words' page position.
+  const FX_FILL = ["#ff2d8f", "#22d3ee", "#4ade80", "#ff8a3d", "#ffd23f", "#3b82f6", "#c084fc"];
+  const FX_INK = ["#ff2d8f", "#7c3aed", "#2563eb", "#e11d48", "#0891b2", "#16a34a", "#ea580c"];
+  const FX_KINDS = [["fill", 0.27], ["box", 0.25], ["ink", 0.22], ["big", 0.16], ["bigbox", 0.06], ["erase", 0.04]];
+  const FX_MAX = 28;
+  state.fx = [];
+  function fxLayer(){
+    let L = state.fxLayer;
+    if (!L || !L.isConnected){ L = state.fxLayer = document.createElement("div"); L.className = "fxlayer"; doc.appendChild(L); }
+    return L;
+  }
+  function fxPhrase(seed){
+    // 1 word for numbers, the whole quoted title when inside quotes,
+    // else 1 to 4 words; always on the seed's own line.
+    const t0 = seed.getBoundingClientRect().top;
+    const sameLine = x => x && x.classList && x.classList.contains("w") && !x.classList.contains("found") && Math.abs(x.getBoundingClientRect().top - t0) < 3;
+    const out = [seed];
+    if (/^[\d$(][\d,.$%()-]*$/.test(seed.textContent.trim())) return out;
+    const quoted = /[\u201c"]/.test(seed.textContent);
+    const n = quoted ? 9 : 1 + Math.floor(Math.random() * 4);
+    let x = seed.nextElementSibling;
+    while (out.length < n && sameLine(x)){
+      out.push(x);
+      if (quoted && /[\u201d"]/.test(x.textContent)) break;
+      x = x.nextElementSibling;
+    }
+    return out;
+  }
+  function fxPick(){
+    let r = Math.random(), k = FX_KINDS[0][0];
+    for (const [kind, w] of FX_KINDS){ if ((r -= w) <= 0){ k = kind; break; } }
+    return k;
+  }
+  function fxOn(seed, kind){
+    if (!seed || !seed.isConnected || seed.classList.contains("found") || seed._fx) return;
+    if (seed.textContent.replace(/[^A-Za-z0-9]/g, "").length < 2) return;
+    const words = fxPhrase(seed);
+    const dr = doc.getBoundingClientRect();
+    let x1 = 1e9, y1 = 1e9, x2 = -1e9, y2 = -1e9;
+    for (const w of words){ const r = w.getBoundingClientRect(); x1 = Math.min(x1, r.left); y1 = Math.min(y1, r.top); x2 = Math.max(x2, r.right); y2 = Math.max(y2, r.bottom); }
+    if (!(x2 > x1) || !(y2 > y1)) return;
+    x1 -= dr.left; x2 -= dr.left; y1 -= dr.top; y2 -= dr.top;
+    kind = kind || fxPick();
+    const isNum = /\d/.test(words.map(w => w.textContent).join(""));
+    if (kind === "bigbox" && !isNum) kind = "big";
+    const d = document.createElement("div");
+    const h = y2 - y1, txt = words.map(w => w.textContent).join(" ");
+    const pal = FX_FILL[Math.floor(Math.random() * FX_FILL.length)];
+    const ink = FX_INK[Math.floor(Math.random() * FX_INK.length)];
+    d.className = "fx fx-" + kind;
+    d.style.left = (x1 - 2) + "px"; d.style.top = (y1 - 1) + "px";
+    d.style.width = (x2 - x1 + 4) + "px"; d.style.height = (h + 2) + "px";
+    if (kind === "fill"){ d.style.background = pal; }
+    else if (kind === "box"){ d.style.borderColor = Math.random() < 0.5 ? ink : pal; }
+    else if (kind === "erase"){ /* page-coloured veil: the word is "taken" */ }
+    else {
+      // text drawn again in place over a page-coloured backing
+      const big = kind === "big" || kind === "bigbox";
+      const sc = big ? 1.45 + Math.random() * 0.6 : 1;
+      const fs = h * 0.8 * sc;
+      d.textContent = txt;
+      d.style.fontSize = fs + "px"; d.style.lineHeight = (h * sc + 2) + "px";
+      d.style.height = "auto"; d.style.width = "auto"; d.style.minWidth = (x2 - x1 + 4) + "px";
+      d.style.top = (y1 - 1 - h * (sc - 1) / 2) + "px";
+      d.style.fontFamily = ["'IBM Plex Mono',ui-monospace,monospace", "Georgia,'Times New Roman',serif", "'IBM Plex Sans',Helvetica,Arial,sans-serif"][Math.floor(Math.random() * 3)];
+      if (kind === "bigbox"){ d.style.background = "#ff2d8f"; d.style.color = "#ffe45c"; d.style.letterSpacing = "1px"; }
+      else d.style.color = ink;
+      if (Math.random() < 0.3) d.style.fontStyle = "italic";
+    }
+    fxLayer().appendChild(d);
+    seed._fx = d;
+    state.fx.push({d, seed, ttl: 4500 + Math.random() * 3500});
+    while (state.fx.length > FX_MAX) fxOff(state.fx.shift());
+  }
+  function fxOff(o){
+    o.d.classList.add("out");
+    setTimeout(() => { o.d.remove(); if (o.seed._fx === o.d) o.seed._fx = null; }, 700);
+  }
+  function fxTick(now, dt){
+    // expire (time only runs while the spider walks), then add new marks
+    // around the spider at ~3.5 per second at 1x
+    const ms = dt * 1000;
+    state.fx = state.fx.filter(o => { o.ttl -= ms; if (o.ttl <= 0){ fxOff(o); return false; } return true; });
+    const rows = state.rows;
+    if (!rows || !rows.length) return;
+    const mul = (state.speedMul || 1) * Math.sqrt(state.boost || 1);
+    state.fxAcc = (state.fxAcc || 0) + dt * 3.5 * mul;
+    while (state.fxAcc >= 1){
+      state.fxAcc -= 1;
+      const lh = 14 * U, by = state.body.y;
+      const near = rows.filter(rw => rw.y > by - 7 * lh && rw.y < by + 9 * lh && rw.els.length);
+      if (!near.length) return;
+      const rw = near[Math.floor(Math.random() * near.length)];
+      // numbers, capitalised words and quoted titles are picked more often
+      const cand = rw.els.filter(w => !w._fx && !w.classList.contains("found"));
+      if (!cand.length) continue;
+      const pref = cand.filter(w => /\d|^[A-Z\u201c"]/.test(w.textContent));
+      const pool = pref.length && Math.random() < 0.7 ? pref : cand;
+      fxOn(pool[Math.floor(Math.random() * pool.length)]);
+    }
+  }
   function maybePing(now){
     const mul = (state.speedMul || 1) * Math.sqrt(state.boost || 1);
     if (state.ping && now - state.ping.start < PING_MS / mul) return;
@@ -804,6 +925,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (!w) return;
     state.lastPingAt = now; state.lastPingEl = w;
     state.ping = {el: w, start: now};
+    if (Math.random() < 0.4) setTimeout(() => fxOn(w), 220 / mul);
     w.classList.add("hl-ping");
     setTimeout(() => w.classList.remove("hl-ping"), 450 / mul);
   }
@@ -862,17 +984,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     // 9th gets a solid pink box (the reference clip's look). .found
     // numbers keep their own fill.
     const k = state.touchCycleIdx;
-    if (!el.classList.contains("found") && el !== h1 && el.textContent.replace(/[^A-Za-z0-9]/g, "").length >= 5){
-      if (k % 9 === 4) el.classList.add("fillbox");
-      else if (k % 7 === 3) el.classList.add("cyanfill");
-      else if (k % 11 === 6){
-        // Salmon bar across the run of words (a whole citation line).
-        const run = [el]; let nx = el.nextElementSibling;
-        while (nx && run.length < 5 && nx.classList.contains("w")){ run.push(nx); nx = nx.nextElementSibling; }
-        run.forEach(w => w.classList.add("salmon")); el._bar = run;
-      }
-      else if (k % 3 === 1) liftPhrase(el, k);
-    }
+    if (k % 5 === 2) fxOn(el);
     state.touchCycleIdx++;
     state.touchedEls.add(el);
     state.touchOrder.push(el);
