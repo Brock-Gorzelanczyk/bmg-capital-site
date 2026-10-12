@@ -1830,9 +1830,22 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     // that holds it.
     const pend = state.pendingFindings || [];
     if (!pend.length) return;
+    // A figure only counts where it really sits: its place in the extracted
+    // text (char offset / length) must match the word's place down the
+    // rendered document, or a "67" on the cover would claim a figure from
+    // page 60 of a long filing.
+    const total = (state.readRes && state.readRes.chars) || 0;
+    const H = doc.scrollHeight || 1;
     for (const w of els){
       if (w.classList.contains("found")) continue;
-      const k = pend.findIndex(f => holds(w, f.value));
+      const wy = docSpaceCenter(w).y / H;
+      let k = -1, best = 1e9;
+      pend.forEach((f, j) => {
+        if (!holds(w, f.value)) return;
+        const fy = total && f.char_offset >= 0 ? f.char_offset / total : wy;
+        const d = Math.abs(fy - wy);
+        if (d < 0.06 && d < best){ best = d; k = j; }
+      });
       if (k >= 0){ const f = pend.splice(k, 1)[0]; markFactInDoc({doc_id: state.currentDocId, label: f.label, value: f.value, _el: w, _f: f}); }
     }
   };

@@ -1653,6 +1653,30 @@ def _read_line_item(body: str, st: int) -> tuple[str, str]:
     seg = seg[seg.rfind("  ") + 2:] if "  " in seg else seg
     m = _LABEL_RE.search(seg)
     item = (m.group(1) if m else "").strip(" ,-(")
+    if not item and not re.search(r"[A-Za-z]{2,}", before):
+        # a label right after a lone value on its line ("3.600% Notes due 2042")
+        after = body[st:le]
+        m3 = re.match(r"\S+\s+([A-Za-z][A-Za-z0-9 ,'\u2019&()/\-]{3,60}?)(?:\s+[\u2014\-]|\s*$)", after)
+        if m3 and not re.match(r"[\s$\d,.%()\u00a0]+\d", after[len(after.split()[0]):][:12]):
+            item = m3.group(1).strip(" ,-")
+    if not item and not re.search(r"[A-Za-z]{2,}", before) and ls > 0:
+        # EDGAR PDF layout: the row label prints at the end of the line
+        # above its numbers ("... Net sales" / "$ 265,595 $ 229,234 ...")
+        ps = body.rfind("\n", 0, ls - 1) + 1
+        prev = body[ps:ls - 1]
+        m2 = re.search(r"(?:^|[\d%)\s\u00a0])([A-Z][A-Za-z ,'\u2019&()/\-:]{2,80}?)[\s\u00a0:]*$", prev)
+        if m2 and not re.search(r"\d", m2.group(1)):
+            item = m2.group(1).strip(" ,:")
+    prose = len(re.findall(r"\b[a-z]{2,}\b", before)) >= 8 or bool(re.search(r"\b(?:was|were|is|are|totaled|increased|decreased|approximately)\s*\$?\s*$", before))
+    if (not item or prose) and len(before) > 40:
+        # a number inside a sentence: its subject ("The aggregate market
+        # value of ... was approximately $3.25 trillion")
+        sent = re.split(r"(?<=[.;:])\s|\n(?=[A-Z])", body[max(0, st - 400):st])[-1]
+        sent = re.sub(r"^(?:As of|In|During|For|At|On)\b[^,]{0,80},\s*", "", sent)
+        subj = re.split(r"\b(?:was|were|is|are|increased|decreased|totaled|of approximately|approximately|had|rose|fell|grew|declined)\b|,", sent)[0]
+        words = [w for w in re.sub(r"[$\d,.%()]+", " ", subj).split() if re.search(r"[A-Za-z]", w)]
+        if 2 <= len(words):
+            item = " ".join(words[:8])
     if not item:
         # a number inside a sentence: the words just before it
         sent = re.split(r"[.;:]\s", before)[-1]
@@ -1663,7 +1687,7 @@ def _read_line_item(body: str, st: int) -> tuple[str, str]:
         item = " ".join(item.split()[-7:])
     # prose fragments ("million and", "respectively, and") are not labels
     junk = {"increased", "decreased", "totaled", "rose", "fell", "grew", "declined", "compared", "approximately", "were", "be", "and", "or", "of", "the", "million", "billion", "thousand", "respectively", "to", "in", "was", "were", "by", "for", "from", "as", "at", "approximately", "which", "with", "is", "a", "an"}
-    toks = [w for w in re.findall(r"[A-Za-z']+", item)]
+    toks = [w for w in re.findall(r"[A-Za-z0-9']+", item)]
     while toks and toks[-1].lower() in junk:
         toks.pop()
     while toks and toks[0].lower() in junk:
@@ -1724,20 +1748,24 @@ def _read_classify(body: str, f: dict) -> None:
     f["snippet"] = snip
     raw = f.get("display") or f.get("value") or ""
     unit = f.get("unit") or ""
-    kind = "percent" if "%" in raw or unit == "%" else "per share" if re.search(r"per (?:\w+ )?share", item + " " + body[st:st + 40], re.I) else "amount"
+    kind = "percent" if "%" in raw or unit == "%" else "per share" if (re.search(r"per (?:\w+ )?share", item + " " + body[st:st + 40], re.I) or re.fullmatch(r"(?:basic|diluted)", item.strip(), re.I)) else "amount"
     # table position: which of the numbers that follow this row label it is
     ls = body.rfind("\n", 0, st) + 1
     le = body.find("\n", st); le = len(body) if le < 0 else le
     line = body[ls:le]
     col = ncols = 0
     k = line.rfind(item) if item else -1
+    if k < 0 and item and not re.search(r"[A-Za-z]{2,}", body[ls:st]):
+        k, item_len = 0, 0          # label sat on the line above: cells start the line
+    else:
+        item_len = len(item)
     if k >= 0 and len(line) < 220:
-        rest = line[k + len(item):]
+        rest = line[k + item_len:]
         nxt = re.search(r"[A-Za-z]{3,}", rest)       # next row label on a folded line
         rest = rest[:nxt.start()] if nxt else rest
         if not re.fullmatch(r"[\s$\d,.()%\u2014\-]*", rest):
             rest = ""
-        base = ls + k + len(item)
+        base = ls + k + item_len
         cells = [base + m.start() for m in re.finditer(r"\d[\d,]*(?:\.\d+)?", rest)]
         hit = [i for i, c in enumerate(cells) if c <= st < c + 12 and body[c:st + 1].strip()]
         if len(cells) > 1 and hit:
