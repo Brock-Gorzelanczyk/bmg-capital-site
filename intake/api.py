@@ -244,6 +244,14 @@ async def run_live(request: Request, body: dict) -> dict:
                     # ahead of insider Form 4s during the rewalk animation.
                     r1a = await edgar_src.poll_edgar(ticker, tcfg["cik"], since=since, max_filings=20, forms=["8-K","10-Q","10-K"])
                     _events_mod.emit("job_log", label=label, msg=f"edgar priority forms: {r1a.get('new',0)} new")
+                    # DESK-5.3: extract immediately so the 10-Q and 8-K facts
+                    # fire into the live stream within the first ~20 seconds,
+                    # before IR fetches crowd the screen with press releases.
+                    try:
+                        xr0 = extract_mod.extract_all_pending()
+                        _events_mod.emit("job_log", label=label, msg=f"extract after priority: {xr0.get('facts',0)} facts, {xr0.get('html',0)+xr0.get('pdf',0)} new extractions")
+                    except Exception as e0:
+                        _events_mod.emit("job_error", label=label, phase="extract-priority", message=str(e0))
                     r1b = await edgar_src.poll_edgar(ticker, tcfg["cik"], since=since, max_filings=20, forms=["4"])
                     _events_mod.emit("job_log", label=label, msg=f"edgar Form 4: {r1b.get('new',0)} new")
                 else:

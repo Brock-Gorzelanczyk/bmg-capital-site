@@ -392,10 +392,14 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     let offset = ev.char_offset;
     if (offset == null || offset < 0) offset = text.indexOf(ev.value);
     if (offset < 0) return;
-    // Find the .w span whose text content contains the value starting near offset
+    // Find the first still-unmarked .w span containing the value. 10-Q
+    // extracts often have the same value appear many times in the body;
+    // picking the first unmarked one lets subsequent facts land on fresh
+    // positions and the spider walk builds multiple .found fills.
     const words = Array.from(docBody.querySelectorAll(".w"));
     let found = null;
     for (const w of words){
+      if (w.classList.contains("found")) continue;
       if (w.textContent.includes(ev.value)){ found = w; break; }
     }
     if (!found) return;
