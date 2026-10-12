@@ -1593,6 +1593,178 @@ async def _cache_control(request: Request, call_next):
 
 
 # ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# /api/read: upload a document, get its text plus labeled findings for the
+# /desk/read/ spider reader, compared against the desk's stored facts for
+# the ticker (the same store vault_sync copies into the vault).
+# Uploads are read into memory and NEVER written to disk.
+# ----------------------------------------------------------------------
+READ_MAX_FINDINGS = 80
+
+
+def _norm_num(v: str) -> str:
+    v = (v or "").replace(",", "").replace("$", "").strip()
+    try:
+        return f"{float(v):.4g}"
+    except ValueError:
+        return v
+
+
+def _stored_facts_for_ticker(ticker: str) -> list[dict]:
+    try:
+        from intake import store as _store
+        with _store.connect() as conn:
+            rows = conn.execute(
+                "SELECT f.label, f.value, f.unit, d.type, d.title, d.published_at, d.fetched_at "
+                "FROM facts f JOIN documents d ON d.id = f.document_id "
+                "WHERE d.ticker = ? ORDER BY COALESCE(d.published_at, d.fetched_at) DESC",
+                (ticker,)).fetchall()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        log.warning(f"/api/read stored facts lookup failed: {e}")
+        return []
+
+
+@app.post("/api/read")
+async def read_document(request: Request,
+                        file: Optional[UploadFile] = File(None),
+                        text: Optional[str] = Form(None),
+                        ticker: Optional[str] = Form(None)) -> JSONResponse:
+    xff = request.headers.get("x-forwarded-for", "")
+    ip = (xff.split(",")[0].strip() if xff
+          else (request.client.host if request.client else "unknown"))
+    rl_err = _rate_limit_check(ip)
+    if rl_err:
+        return JSONResponse(status_code=429, content={"error": rl_err})
+    if file is not None:
+        data = await file.read()
+        if len(data) > CHECK_MAX_BYTES:
+            return JSONResponse(status_code=413, content={
+                "error": f"file too large: {len(data)} bytes (cap {CHECK_MAX_BYTES})"})
+        kind = _detect_kind(file.filename or "", file.content_type or "")
+        if kind is None:
+            return JSONResponse(status_code=400, content={
+                "error": "unsupported file type; use PDF, DOCX, PPTX, HTML or text"})
+        title = file.filename or "upload"
+    elif text:
+        data = text.encode("utf-8", errors="replace")
+        kind, title = "text", "pasted text"
+    else:
+        return JSONResponse(status_code=400, content={"error": "upload a file or paste text"})
+    try:
+        pages = fc.extract(data, kind)
+    except Exception as e:
+        return JSONResponse(status_code=400, content={
+            "error": f"could not extract text: {e.__class__.__name__}: {e}"})
+    body = "\n\n".join((p.get("text") or "").strip() for p in pages if (p.get("text") or "").strip())
+    # Tables extract one cell per line; fold runs of short fragments back
+    # into one row so the reader shows "Revenue $ 576.5 $ 842.7" on a line.
+    folded, row = [], []
+    for ln in body.split("\n"):
+        t = ln.strip()
+        if t and len(t) < 28:
+            row.append(t)
+            continue
+        if row:
+            folded.append("  ".join(row)); row = []
+        folded.append(t)
+    if row:
+        folded.append("  ".join(row))
+    body = re.sub(r"\n{3,}", "\n\n", "\n".join(folded))[:200000]
+    if len(re.sub(r"\s+", "", body)) < 40:
+        return JSONResponse(status_code=422, content={
+            "error": "no readable text in that file (scanned PDF or image only?)"})
+
+    # Labeled findings: the desk's own fact patterns (same labels the live
+    # page uses), then every other money/percent claim the fact-checker sees.
+    try:
+        from intake.extract import _FACT_PATTERNS
+    except Exception:
+        _FACT_PATTERNS = []
+    findings: list[dict] = []
+    seen_spans: list[tuple[int, int]] = []
+    for label, pat, grp, unit in _FACT_PATTERNS:
+        for m in pat.finditer(body):
+            try:
+                val = m.group(grp)
+            except IndexError:
+                continue
+            st, en = m.span(grp)
+            if any(a <= st < b for a, b in seen_spans):
+                continue
+            seen_spans.append((st, en))
+            findings.append({"label": label, "value": val, "unit": unit, "char_offset": st, "src": "desk",
+                             "snippet": body[max(0, m.start() - 60): m.end() + 60].replace("\n", " ").strip()})
+    try:
+        claims = fc.extract_claims([{"locator": "doc", "text": body}])
+    except Exception:
+        claims = []
+    for c in claims:
+        raw = (c.get("raw") or "").strip()
+        if not raw:
+            continue
+        num = re.search(r"[\d][\d,]*\.?\d*", raw)
+        if not num:
+            continue
+        val = num.group(0).rstrip(".")
+        pos = body.find(raw)
+        st = pos + raw.find(val) if pos >= 0 else -1
+        if st >= 0 and any(a <= st < b for a, b in seen_spans):
+            continue
+        if st >= 0:
+            seen_spans.append((st, st + len(val)))
+        ctx = c.get("context") or ""
+        label = fc.map_to_line_item(ctx) or "Number"
+        if label != "Number":
+            # A context match is a mention near the line item (a change, a
+            # percent, a component), not the line item itself.
+            label = {"dps": "dividend per share", "eps": "EPS", "net_income": "net income"}.get(
+                label, label.replace("_", " "))
+            label = f"Number near {label}"
+        findings.append({"label": label, "src": "claim",
+                         "value": val, "unit": c.get("unit"), "char_offset": st,
+                         "snippet": re.sub(r"\s+", " ", c.get("sentence") or ctx)[:220]})
+    # Keep every labeled finding first, then fill with bare numbers; the
+    # reader walks them in document order.
+    labeled = [f for f in findings if f.get("src") == "desk"]
+    bare = [f for f in findings if f.get("src") != "desk"]
+    findings = (labeled + bare)[:READ_MAX_FINDINGS]
+    findings.sort(key=lambda f: (f["char_offset"] if f["char_offset"] is not None and f["char_offset"] >= 0 else 10**9))
+
+    # Compare with the stored facts for the ticker.
+    t = _validate_ticker(ticker) if ticker else None
+    stored = _stored_facts_for_ticker(t) if t else []
+    known_vals: dict[str, set] = {}
+    latest: dict[str, dict] = {}
+    for r in stored:
+        known_vals.setdefault(r["label"], set()).add(_norm_num(r["value"]))
+        latest.setdefault(r["label"], r)
+    for f in findings:
+        if not t:
+            f["status"] = "UNCOMPARED"
+            continue
+        lab = f["label"]
+        if _norm_num(f["value"]) in known_vals.get(lab, set()):
+            f["status"] = "KNOWN"
+        elif lab in latest and f.get("src") == "desk":
+            # Only the desk's own labeled facts are compared value-to-value;
+            # a context label ("revenue decreased $0.9 million") is a mention,
+            # not a restatement of the line item.
+            r = latest[lab]
+            f["status"] = "CHANGED"
+            f["prior"] = {"value": r["value"], "doc": f"{r['type']} {(r['published_at'] or r['fetched_at'] or '')[:10]}".strip()}
+        else:
+            f["status"] = "NEW"
+    counts: dict[str, int] = {}
+    for f in findings:
+        counts[f["status"]] = counts.get(f["status"], 0) + 1
+    doc_id = "upload-" + hashlib.sha256(data).hexdigest()[:16]
+    return JSONResponse(content={
+        "doc_id": doc_id, "title": title, "kind": kind, "ticker": t,
+        "chars": len(body), "text": body, "findings": findings, "counts": counts,
+        "stored_facts": len(stored)})
+
+
 # StaticFiles mount — serves every current static URL at /
 #
 # Must come AFTER all /api routes so FastAPI dispatches /api/* before

@@ -31,9 +31,9 @@ p{margin:0 0 12px}
 .found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
 svg.spider{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
 svg.spider .body{fill:#ff2bd6;stroke:#fff;stroke-width:1;filter:drop-shadow(0 0 8px #ff2bd6) drop-shadow(0 0 16px rgba(79,123,255,.4))}
-svg.spider .leg{stroke:#fff;stroke-width:2;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 2px rgba(255,255,255,.6))}
+svg.spider .leg{stroke:#fff;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 svg.spider .foot{fill:#fff;stroke:#fff}
-svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.8;filter:drop-shadow(0 0 2px currentColor)}
+svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.85}
 svg.spider .thread.t1{stroke:var(--t1)}svg.spider .thread.t2{stroke:var(--t2)}svg.spider .thread.t3{stroke:var(--t3)}svg.spider .thread.t4{stroke:var(--t4)}svg.spider .thread.t5{stroke:var(--t5)}
 svg.spider .tnode{fill:#fff;opacity:.9}
 svg.spider .knee{fill:#fff}
@@ -50,7 +50,7 @@ svg.spider .knee{fill:#fff}
 </head>
 <body>
 <div class="strip" role="toolbar">
-  <button class="btn on" data-mode="replay">Replay</button>  <button class="btn" data-mode="live">Live</button>  <select id="live-ticker"><option>GATX</option><option>GBX</option><option>TRN</option></select>  <select id="live-mode"><option value="new">New</option><option value="rewalk30" selected>Re-walk 120 days</option></select>  <button class="btn btn-run">Run</button>  <span class="status" id="status">idle</span>
+  <button class="btn" data-mode="replay">Replay</button>  <button class="btn" data-mode="live">Live</button>  <select id="live-ticker"><option>GATX</option><option>GBX</option><option>TRN</option></select>  <select id="live-mode"><option value="new">New</option><option value="rewalk30" selected>Re-walk 120 days</option></select>  <button class="btn btn-run">Run</button>  <button class="btn" id="ctl-pause">Pause</button>  <select id="ctl-speed" aria-label="Speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option></select>  <span class="status" id="status">idle</span>
 </div>
 <div class="doc" id="doc">
   <svg class="spider" id="spider"></svg>
@@ -98,7 +98,7 @@ svg.spider .knee{fill:#fff}
   function clearSpider(){
     spiderSvg.innerHTML = "";
     state.bodyAnim++;
-    state.feet = []; state.feetEls = []; state.legEls = []; state.threads = [];
+    state.feet = []; state.feetEls = []; state.legEls = []; state.threads = []; state.rows = null; bumpLayout();
     state.touchedEls = new Set(); state.touchOrder = [];
   }
 
@@ -171,45 +171,64 @@ svg.spider .knee{fill:#fff}
     if (v < -100000) return -100000;
     return Math.round(v * 100) / 100;
   }
+  function legEl(i){
+    // One polyline + foot + knee per leg, created once and updated in place.
+    let L = state.legEls[i];
+    if (!L || !L.poly.isConnected){
+      const poly = document.createElementNS(SVG_NS, "polyline"); poly.setAttribute("class", "leg");
+      const foot = document.createElementNS(SVG_NS, "circle"); foot.setAttribute("class", "foot"); foot.setAttribute("r", FOOT_R);
+      const knee = document.createElementNS(SVG_NS, "circle"); knee.setAttribute("class", "knee"); knee.setAttribute("r", 1.6);
+      spiderSvg.append(poly, knee, foot);
+      L = state.legEls[i] = {poly, foot, knee};
+    }
+    return L;
+  }
   function drawLegs(){
-    spiderSvg.querySelectorAll(".leg,.foot").forEach(e => e.remove());
-    state.legEls = []; state.feetEls = [];
     if (!finite(state.body.x) || !finite(state.body.y)) return;
     const bx = clampN(state.body.x), by = clampN(state.body.y);
-    for (let i = 0; i < state.feet.length; i++){
+    for (let i = 0; i < N_LEGS; i++){
       let f = state.feet[i];
+      const L = legEl(i);
       // A sector with no element in reach has no foot; never draw a foot on empty space.
-      if (!f || !finite(f.x) || !finite(f.y)) continue;
-      // Planted feet follow their element's live position (a lifted word
-      // or a reflow moves it), so a foot never floats off its word.
-      if (f.el && document.body.contains(f.el)) f = state.feet[i] = Object.assign({el: f.el}, docSpaceCenter(f.el));
+      if (!f || !finite(f.x) || !finite(f.y)){ L.poly.style.display = L.foot.style.display = L.knee.style.display = "none"; continue; }
+      // Planted feet follow their element's position (cached until reflow).
+      if (f.el && f.el.isConnected) f = state.feet[i] = Object.assign({el: f.el}, docSpaceCenter(f.el));
       const knee = kneeFor(state.body.x, state.body.y, f.x, f.y);
-      const poly = document.createElementNS(SVG_NS, "polyline");
-      poly.setAttribute("class", "leg");
-      poly.setAttribute("points", `${bx},${by} ${clampN(knee.x)},${clampN(knee.y)} ${clampN(f.x)},${clampN(f.y)}`);
-      spiderSvg.appendChild(poly);
-      state.legEls.push(poly);
-      const kd = document.createElementNS(SVG_NS, "circle");
-      kd.setAttribute("class", "knee foot"); kd.setAttribute("r", 1.6);
-      kd.setAttribute("cx", clampN(knee.x)); kd.setAttribute("cy", clampN(knee.y));
-      spiderSvg.appendChild(kd);
-      const dot = document.createElementNS(SVG_NS, "circle");
-      dot.setAttribute("class", "foot");
-      dot.setAttribute("cx", clampN(f.x));
-      dot.setAttribute("cy", clampN(f.y));
-      dot.setAttribute("r", FOOT_R);
-      spiderSvg.appendChild(dot);
-      state.feetEls.push(dot);
+      L.poly.style.display = L.foot.style.display = L.knee.style.display = "";
+      L.poly.setAttribute("points", `${bx},${by} ${clampN(knee.x)},${clampN(knee.y)} ${clampN(f.x)},${clampN(f.y)}`);
+      L.foot.setAttribute("cx", clampN(f.x)); L.foot.setAttribute("cy", clampN(f.y));
+      L.knee.setAttribute("cx", clampN(knee.x)); L.knee.setAttribute("cy", clampN(knee.y));
     }
   }
 
-  function drawSpider(){drawLegs(); redrawThreads(); drawBody();}
+  function camera(){
+    // Ease the page toward the spider every frame so it never walks off
+    // screen (one-off smooth scrolls could not keep up with fast lines).
+    if (state.userScrolledAt && performance.now() - state.userScrolledAt < 2500) return;
+    const dr = doc.getBoundingClientRect();
+    const by = dr.top + state.body.y;           // viewport y of the body
+    const lo = innerHeight * 0.3, hi = innerHeight * 0.62;
+    let dy = 0;
+    if (by > hi) dy = by - hi; else if (by < lo) dy = by - lo;
+    if (Math.abs(dy) > 0.5){ state.cameraScroll = true; window.scrollBy(0, dy * 0.18); }
+  }
+  addEventListener("wheel", () => { state.userScrolledAt = performance.now(); }, {passive: true});
+  addEventListener("touchmove", () => { state.userScrolledAt = performance.now(); }, {passive: true});
+  function drawSpider(){drawLegs(); redrawThreads(); drawBody(); camera();}
 
+  // Element centers in .doc space are scroll-invariant, so they are cached
+  // until the layout changes (new doc, a .found fill, resize). Reading ~40
+  // rects per frame was the main cause of dropped frames.
+  const centerCache = new WeakMap();
+  state.layoutEpoch = 0;
+  function bumpLayout(){ state.layoutEpoch++; }
   function docSpaceCenter(el){
-    // Center of el in the .doc coordinate space (the svg overlay's space).
-    // Scroll-invariant: both rects shift together when the page scrolls.
+    const c = centerCache.get(el);
+    if (c && c.ep === state.layoutEpoch) return {x: c.x, y: c.y};
     const r = el.getBoundingClientRect(), dr = doc.getBoundingClientRect();
-    return {x: r.left - dr.left + r.width/2, y: r.top - dr.top + r.height/2};
+    const v = {x: r.left - dr.left + r.width/2, y: r.top - dr.top + r.height/2, ep: state.layoutEpoch};
+    centerCache.set(el, v);
+    return {x: v.x, y: v.y};
   }
 
   function addThread(targetEl, tier){
@@ -236,8 +255,13 @@ svg.spider .knee{fill:#fff}
   function redrawThreads(){
     const bx = clampN(state.body.x), by = clampN(state.body.y);
     state.threads = state.threads.filter(t => {
-      if (!document.body.contains(t.el)){ t.line.remove(); if (t.node) t.node.remove(); return false; }
+      if (!t.el.isConnected){ t.line.remove(); if (t.node) t.node.remove(); return false; }
       const c = docSpaceCenter(t.el);
+      // Threads are a local web: past ~2.5x leg reach they are hidden, so
+      // words scrolled far away do not streak lines across the page.
+      const far = Math.hypot(c.x - bx, c.y - by) > HI_REACH * 2.5;
+      t.line.style.display = far ? "none" : ""; if (t.node) t.node.style.display = far ? "none" : "";
+      if (far) return true;
       t.line.setAttribute("x1", bx); t.line.setAttribute("y1", by);
       t.line.setAttribute("x2", clampN(c.x)); t.line.setAttribute("y2", clampN(c.y));
       if (t.node){ t.node.setAttribute("cx", clampN(c.x)); t.node.setAttribute("cy", clampN(c.y)); }
@@ -298,6 +322,14 @@ svg.spider .knee{fill:#fff}
   }
 
   function footTargets(){
+    // Only words on rendered lines near the body: scanning every span of
+    // a long filing on every step would stall the animation.
+    if (state.rows && state.rows.length){
+      const by = state.body.y, out = [];
+      for (const r of state.rows){ if (Math.abs(r.y - by) <= HI_REACH + 60) out.push(...r.els); }
+      if (h1.textContent.trim()) out.unshift(h1);
+      return out;
+    }
     const els = Array.from(docBody.querySelectorAll(".w"));
     if (h1.textContent.trim()) els.unshift(h1);
     return els;
@@ -350,7 +382,7 @@ svg.spider .knee{fill:#fff}
     redrawThreads();
   }
 
-  function moveBody(x, y, forceEl, ms){
+  function moveBody(x, y, forceEl, ms, linear){
     // Glide the body over ms; feet whose element falls out of reach (or out
     // of their sector) at the destination swing to new elements in step.
     // Legs and threads are redrawn every frame, so threads always start at
@@ -364,14 +396,19 @@ svg.spider .knee{fill:#fff}
     function frame(now){
       if (token !== state.bodyAnim) return;
       const t = Math.min(1, (now - start)/dur);
-      const e = t < .5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2)/2;
+      const e = linear ? t : (t < .5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2)/2);
       state.body.x = sx + (x - sx) * e; state.body.y = sy + (y - sy) * e;
       for (let i = 0; i < N_LEGS; i++){
         const g = target[i];
         if (!g){ state.feet[i] = null; continue; }
         const p = prev[i] || {x: sx, y: sy};
-        state.feet[i] = (t >= 1 || (p.el && p.el === g.el)) ? g
-          : {x: p.x + (g.x - p.x) * e, y: p.y + (g.y - p.y) * e, el: null};
+        if (t >= 1 || (p.el && p.el === g.el)){ state.feet[i] = g; continue; }
+        // Gait: alternate legs swing in two overlapping phases, each foot
+        // lifting in a small arc, so the spider walks instead of snapping.
+        const off = (i % 2) ? 0.4 : 0;
+        const u = Math.min(1, Math.max(0, (t - off) / 0.6));
+        const s = u * u * (3 - 2 * u);
+        state.feet[i] = {x: p.x + (g.x - p.x) * s, y: p.y + (g.y - p.y) * s - 14 * Math.sin(Math.PI * s), el: null};
       }
       drawSpider();
       if (t < 1) requestAnimationFrame(frame);
@@ -429,6 +466,18 @@ svg.spider .knee{fill:#fff}
     }catch(e){}
   }
 
+  // Pause / speed controls (present on /desk/live/ and /desk/read/).
+  state.speedMul = 1; state.paused = false;
+  (function wireControls(){
+    const pb = document.getElementById("ctl-pause"), sp = document.getElementById("ctl-speed");
+    if (pb) pb.addEventListener("click", () => {
+      state.paused = !state.paused;
+      pb.textContent = state.paused ? "Resume" : "Pause";
+      pb.classList.toggle("on", state.paused);
+    });
+    if (sp) sp.addEventListener("change", () => { state.speedMul = parseFloat(sp.value) || 1; });
+  })();
+
   function walking(){return !!(state.currentDocId && state.walkState && !state.walkState.done);}
 
   async function loadDocAndWalk(ev){
@@ -443,7 +492,7 @@ svg.spider .knee{fill:#fff}
     if (!d){d = await fetchJSON("/desk/doc/" + encodeURIComponent(ev.doc_id) + "/text"); state.docsLoaded[ev.doc_id] = d;}
     if (token !== state.loadToken) return false;
     if (d.error){setStatus(`doc text error: ${d.error}`); return false;}
-    const text = (d.text || "").slice(0, 60000);
+    const text = (d.text || "").slice(0, state.maxChars || 60000);
     if (text.replace(/\s+/g, "").length < 120){ setStatus(noTextStatus(ev)); return false; }
     stopWalk();
     clearSpider();
@@ -453,6 +502,7 @@ svg.spider .knee{fill:#fff}
     state.currentText = text;
     h1.textContent = headlineForDoc(ev);
     docBody.innerHTML = tokenize(text);
+    bumpLayout();
     sizeSvg();
     const dRect = doc.getBoundingClientRect();
     const h1Rect = h1.getBoundingClientRect();
@@ -460,7 +510,7 @@ svg.spider .knee{fill:#fff}
     plantInitialFeet();
     window.scrollTo({top: Math.max(0, dRect.top + window.scrollY - 60)});
     setStatus(`reading <b>${ev.host||""}</b> ${ev.doc_type} ${(ev.published_at||ev.fetched_at||"").slice(0,10)} &nbsp;&middot;&nbsp; 0 numbers found`);
-    const dur = computeWalkDuration(ev.doc_id, ev.fetched_at);
+    const dur = state.walkOverride || computeWalkDuration(ev.doc_id, ev.fetched_at);
     setTimeout(() => { if (token === state.loadToken) startWalk(ev.doc_id, dur); }, 80);
     return true;
   }
@@ -476,11 +526,7 @@ svg.spider .knee{fill:#fff}
   function walkFinished(){
     const next = (state.docQueue || []).shift();
     if (next){ setTimeout(() => loadDocAndWalk(next), 600); return; }
-    // Live with nothing queued: keep crawling the current page slowly.
-    const id = state.currentDocId;
-    if (state.mode === "live" && id) setTimeout(() => {
-      if (!walking() && state.currentDocId === id && !(state.docQueue || []).length) startWalk(id, 40);
-    }, 1500);
+    // Nothing queued: the spider stops. It never crawls on its own.
   }
 
   function computeWalkDuration(doc_id, fetched_at){
@@ -493,52 +539,47 @@ svg.spider .knee{fill:#fff}
     return 10;
   }
 
+  function visualRows(){
+    // Group the word spans into rendered lines (same top), so the spider
+    // reads line by line the way the eye does, not paragraph by paragraph.
+    const d = doc.getBoundingClientRect();
+    const rows = []; let cur = null;
+    for (const w of docBody.querySelectorAll(".w")){
+      const r = w.getBoundingClientRect();
+      if (!r.width) continue;
+      const y = r.top - d.top + r.height/2;
+      if (!cur || Math.abs(y - cur.y) > 6){ cur = {y, els: [], x0: r.left - d.left, x1: r.right - d.left}; rows.push(cur); }
+      cur.els.push(w); cur.x1 = Math.max(cur.x1, r.right - d.left);
+    }
+    return rows;
+  }
+
   function startWalk(doc_id, duration_s){
     state.walkState = {done:false, docId:doc_id, lineIdx:0};
-    const paragraphs = Array.from(docBody.querySelectorAll("p"));
-    const lines = [];
-    paragraphs.forEach(p => {
-      // Treat each <br>-split chunk as a line by walking children
-      let currentLine = [];
-      Array.from(p.childNodes).forEach(c => {
-        if (c.nodeName === "BR"){
-          if (currentLine.length) lines.push(currentLine);
-          currentLine = [];
-        } else {
-          currentLine.push(c);
-        }
-      });
-      if (currentLine.length) lines.push(currentLine);
-    });
-    if (!lines.length) return;
-    const perLine = Math.max(80, Math.min(800, (duration_s * 1000) / Math.max(1, lines.length)));
+    clearTimeout(state.walkTimer);
+    const rows = visualRows();
+    state.rows = rows;
+    if (!rows.length){ state.walkState.done = true; walkFinished(); return; }
+    const perRow = Math.max(120, Math.min(900, (duration_s * 1000) / rows.length));
     let i = 0;
-    function stepLine(){
+    function step(){
       if (state.walkState.docId !== doc_id || state.walkState.done) return;
-      if (i >= lines.length){state.walkState.done = true; walkFinished(); return;}
-      const chunk = lines[i];
-      // Compute line y as mean of chunk element centers
+      if (state.paused){ state.walkTimer = setTimeout(step, 150); return; }
+      if (i >= rows.length){ state.walkState.done = true; walkFinished(); return; }
+      const row = rows[i];
       const d = doc.getBoundingClientRect();
-      let ys = [], xs = [];
-      chunk.forEach(n => {
-        if (!(n instanceof Element)) return;
-        const r = n.getBoundingClientRect();
-        ys.push(r.top - d.top + r.height/2);
-        xs.push(r.left - d.left + r.width/2);
-      });
-      if (!ys.length){i++; setTimeout(stepLine, perLine); return;}
-      const y = ys.reduce((a,b) => a+b, 0)/ys.length;
-      // Keep the body inside the text block (alternating left and right of
-      // center) so every 45-degree sector has words within reach.
-      const x = Math.min(d.width - HI_REACH, Math.max(HI_REACH, d.width * (i % 2 ? 0.58 : 0.42)));
-      moveBody(x, y, null, Math.min(BODY_MS, perLine * 0.8));
-      // Scroll
-      const absY = y + d.top + window.scrollY;
-      if (absY > window.scrollY + window.innerHeight - 160 || absY < window.scrollY + 80) window.scrollTo({top: Math.max(0, absY - window.innerHeight/2), behavior:"smooth"});
-      i++;
-      setTimeout(stepLine, perLine);
+      // Live y from the row's first word (a .found fill can reflow lines).
+      const r0 = row.els[0].getBoundingClientRect();
+      const y = r0.top - d.top + r0.height/2;
+      const mid = (row.x0 + row.x1) / 2, amp = Math.max(0, (row.x1 - row.x0) / 3);
+      const x = Math.min(d.width - HI_REACH, Math.max(HI_REACH, mid + amp * Math.sin(i * 0.35)));
+      const ms = (state.paceByWords ? Math.min(260, 60 + 14 * row.els.length) : perRow) / (state.speedMul || 1);
+      moveBody(x, y, null, ms, true);
+      if (state.onRow) state.onRow(row.els);
+      state.walkState.lineIdx = ++i;
+      state.walkTimer = setTimeout(step, ms);
     }
-    stepLine();
+    step();
   }
 
   function fireBeam(x1, y1, x2, y2, text){
@@ -566,14 +607,17 @@ svg.spider .knee{fill:#fff}
     // extracts often have the same value appear many times in the body;
     // picking the first unmarked one lets subsequent facts land on fresh
     // positions and the spider walk builds multiple .found fills.
-    const words = Array.from(docBody.querySelectorAll(".w"));
-    let found = null;
-    for (const w of words){
-      if (w.classList.contains("found")) continue;
-      if (w.textContent.includes(ev.value)){ found = w; break; }
+    let found = (ev._el && !ev._el.classList.contains("found")) ? ev._el : null;
+    if (!found){
+      for (const w of docBody.querySelectorAll(".w")){
+        if (w.classList.contains("found")) continue;
+        if (w.textContent.includes(ev.value)){ found = w; break; }
+      }
     }
     if (!found) return;
+    if (state.onFound) state.onFound(ev, found);
     found.classList.add("found", familyOf(ev.label));
+    bumpLayout();
     // Move the body so the value sits TARGET_REACH px away (never under
     // the body), then plant a foot on it.
     const c = elCenter(found);
@@ -591,8 +635,7 @@ svg.spider .knee{fill:#fff}
       moveBody(nx, ny, found);
       fireBeam(nx, ny, c.x, c.y, beamText);
     }
-    const absY = c.y + doc.getBoundingClientRect().top + window.scrollY;
-    if (absY < window.scrollY + 80 || absY > window.scrollY + window.innerHeight - 120) window.scrollTo({top: absY - window.innerHeight/2, behavior:"smooth"});
+
     state.foundCount++;
     setStatus(`reading <b>${state.currentHost||""}</b> ${state.currentType||""} ${(state.currentPub||"").slice(0,10)} &nbsp;&middot;&nbsp; ${state.foundCount} numbers found`);
   }
@@ -622,6 +665,7 @@ svg.spider .knee{fill:#fff}
     replayTick();
   }
   function replayTick(){
+    if (state.paused){ clearTimeout(state.tickTimer); state.tickTimer = setTimeout(replayTick, 200); return; }
     if (state.idx >= state.events.length){setStatus(`done &nbsp;&middot;&nbsp; ${state.totalDocs} documents &nbsp;&middot;&nbsp; ${state.totalFacts} numbers found`); return;}
     const ev = state.events[state.idx];
     const nextIdx = state.idx + 1;
@@ -805,9 +849,12 @@ svg.spider .knee{fill:#fff}
       }catch(e){ runBtn.click(); }
     })();
   } else {
-    initReplay();
+    // Idle until asked: nothing runs on page load.
+    document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.remove("on"));
+    setStatus("idle &nbsp;&middot;&nbsp; press Replay to watch the last run, or Live then Run");
   }
   window.addEventListener("resize", () => {
+    bumpLayout();
     sizeSvg();
     // Reflow moves the words; re-anchor feet on their elements.
     state.feet = state.feet.map(f => (f && f.el && document.body.contains(f.el)) ? Object.assign({el: f.el}, docSpaceCenter(f.el)) : f);
