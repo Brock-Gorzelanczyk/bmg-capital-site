@@ -63,8 +63,13 @@ def extract_pdf_to_md(pdf_path: Path) -> Path:
 
 
 def extract_all_pending() -> dict:
-    """Walk /data/raw and extract any file whose text/ counterpart is missing."""
-    counts = {"html": 0, "pdf": 0, "skipped": 0, "errors": []}
+    """Walk /data/raw and extract any file whose text/ counterpart is missing.
+
+    Also UPDATES the document row's text_path so /desk/doc/{id} can serve the
+    extracted markdown. Prior version wrote the .md file but left text_path
+    NULL in SQLite, so /desk/doc returned no text (observed on live 2026-10-11).
+    """
+    counts = {"html": 0, "pdf": 0, "skipped": 0, "errors": [], "linked": 0}
     raw_root = store.DATA_DIR / "raw"
     if not raw_root.exists():
         return counts
@@ -73,17 +78,33 @@ def extract_all_pending() -> dict:
             continue
         rel = p.relative_to(raw_root)
         text_target = store.DATA_DIR / "text" / rel.with_suffix(".md")
+        raw_rel = str(p.relative_to(store.DATA_DIR))
+        text_rel = str(text_target.relative_to(store.DATA_DIR))
         if text_target.exists():
             counts["skipped"] += 1
-            continue
+        else:
+            try:
+                if p.suffix.lower() in (".htm", ".html"):
+                    extract_html_to_md(p)
+                    counts["html"] += 1
+                elif p.suffix.lower() == ".pdf":
+                    extract_pdf_to_md(p)
+                    counts["pdf"] += 1
+                else:
+                    continue
+            except Exception as e:
+                counts["errors"].append(f"{p}: {e}")
+                log.warning(f"extract failed {p}: {e}")
+                continue
+        # Link the document row to its extracted text (idempotent)
         try:
-            if p.suffix.lower() in (".htm", ".html"):
-                extract_html_to_md(p)
-                counts["html"] += 1
-            elif p.suffix.lower() == ".pdf":
-                extract_pdf_to_md(p)
-                counts["pdf"] += 1
+            with store.connect() as conn:
+                r = conn.execute(
+                    "UPDATE documents SET text_path = ? WHERE raw_path = ? AND (text_path IS NULL OR text_path = '')",
+                    (text_rel, raw_rel),
+                )
+                if r.rowcount > 0:
+                    counts["linked"] += 1
         except Exception as e:
-            counts["errors"].append(f"{p}: {e}")
-            log.warning(f"extract failed {p}: {e}")
+            counts["errors"].append(f"link {p}: {e}")
     return counts

@@ -208,12 +208,21 @@ def get_doc(doc_id: str) -> Optional[dict]:
 
 
 def health_summary() -> dict:
-    """Latest-run per job + counts."""
+    """Latest-run per job + counts.
+
+    Per-ticker fetchers (edgar/ir/news) write run rows with colon-suffixed
+    job names like ``edgar_poll:GATX``. The health query matches by prefix
+    so the canonical job buckets show the most recent per-source run.
+    """
     jobs = ["edgar_poll", "ir_feeds", "news", "fred", "aar_weekly", "stb_ep724", "rsi_arci", "digest"]
     out = {"jobs": {}, "counts": {}, "db_path": str(DB_PATH), "data_dir": str(DATA_DIR)}
     with connect() as conn:
         for j in jobs:
-            r = conn.execute("SELECT started_at, ended_at, ok, error FROM runs WHERE job=? ORDER BY started_at DESC LIMIT 1", (j,)).fetchone()
+            r = conn.execute(
+                "SELECT started_at, ended_at, ok, error, job FROM runs "
+                "WHERE job = ? OR job LIKE ? ORDER BY started_at DESC LIMIT 1",
+                (j, f"{j}:%"),
+            ).fetchone()
             out["jobs"][j] = dict(r) if r else {"started_at": None, "ok": None}
         total = conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
         out["counts"]["documents_total"] = total
