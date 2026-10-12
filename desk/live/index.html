@@ -24,6 +24,7 @@ p{margin:0 0 12px}
 .touch-t3{outline:1px solid var(--t3);outline-offset:1px;border-radius:2px}
 .touch-t4{outline:1px solid var(--t4);outline-offset:1px;border-radius:2px}
 .touch-t5{outline:1px solid var(--t5);outline-offset:1px;border-radius:2px}
+.touch-fade{outline-color:transparent;transition:outline-color .6s ease}
 .found{font:700 20px/1 ui-serif,Georgia,serif;padding:0 4px;border-radius:3px;color:#fff}
 .found.pink{background:rgba(255,43,214,.22);box-shadow:0 0 10px rgba(255,43,214,.5)}
 .found.org{background:rgba(255,159,28,.22);box-shadow:0 0 10px rgba(255,159,28,.5)}
@@ -60,7 +61,8 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     Dividend:"org","Disposition gains":"org",Buyback:"org",
     Fleet:"blue",Utilization:"blue","Backlog units":"blue","Backlog $B":"blue",LPI:"blue"};
   const BODY_W = 14, BODY_H = 22, FOOT_R = 2.5, N_LEGS = 8;
-  const MIN_REACH = 70, LO_REACH = 80, HI_REACH = 160;
+  const MIN_REACH = 70, LO_REACH = 80, HI_REACH = 160, TARGET_REACH = 120;
+  const BODY_MS = 160, FADE_MS = 600;
   const MAX_OUTLINES = 24;
   // Pre-divide 2*PI into N_LEGS sectors; one foot per 45-degree slice.
   const SECTOR_RAD = (2 * Math.PI) / N_LEGS;
@@ -71,7 +73,7 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     currentDocId:null, docsLoaded:{}, docsSeen:{},
     walkState:{done:true, docId:null, lineIdx:0},
     body:{x:0, y:0}, feet:[], feetEls:[], legEls:[], threads:[],
-    touchCycleIdx:0, foundCount:0, totalDocs:0, totalFacts:0,
+    touchCycleIdx:0, touchOrder:[], bodyAnim:0, foundCount:0, totalDocs:0, totalFacts:0,
     es:null, running:false, currentText:"", touchedEls:new Set(),
     factBuffer:{}, lastRenderedCount:0, pendingRenderDoc:null,
     currentHost:"", currentType:"", currentPub:""};
@@ -85,6 +87,7 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
 
   function clearSpider(){
     spiderSvg.innerHTML = "";
+    state.bodyAnim++;
     state.feet = []; state.feetEls = []; state.legEls = []; state.threads = [];
     state.touchedEls = new Set(); state.touchOrder = [];
   }
@@ -123,35 +126,33 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     }).join("");
   }
 
-  function elCenter(el){
-    const r = el.getBoundingClientRect(), d = doc.getBoundingClientRect();
-    return {x: r.left - d.left + r.width/2, y: r.top - d.top + r.height/2};
-  }
+  function elCenter(el){return docSpaceCenter(el);}
 
   function drawBody(){
-    // Remove old body
-    const old = spiderSvg.querySelector("rect.body"); if (old) old.remove();
-    const b = document.createElementNS(SVG_NS, "rect");
-    b.setAttribute("class", "body");
-    b.setAttribute("x", state.body.x - BODY_W/2);
-    b.setAttribute("y", state.body.y - BODY_H/2);
-    b.setAttribute("width", BODY_W);
-    b.setAttribute("height", BODY_H);
-    b.setAttribute("rx", 4);
+    // 14x22 px pink rect, 1 px white border, centered on the body point.
+    let b = spiderSvg.querySelector("rect.body");
+    if (!b){
+      b = document.createElementNS(SVG_NS, "rect");
+      b.setAttribute("class", "body");
+      b.setAttribute("width", BODY_W);
+      b.setAttribute("height", BODY_H);
+      spiderSvg.appendChild(b);
+    }
+    b.setAttribute("x", clampN(state.body.x - BODY_W/2));
+    b.setAttribute("y", clampN(state.body.y - BODY_H/2));
+    // Keep the body on top of legs and threads.
     spiderSvg.appendChild(b);
   }
 
   function finite(v){return typeof v === "number" && isFinite(v);}
-  function kneeFor(bx, by, fx, fy, idx){
+  function kneeFor(bx, by, fx, fy){
     if (!finite(bx) || !finite(by) || !finite(fx) || !finite(fy)) return {x: bx||0, y: by||0};
     // Knee at midpoint of body-foot, pushed 30 px outward from the body
     // along the leg direction and lifted 20 px up.
     const mx = (bx + fx)/2, my = (by + fy)/2;
     const dx = fx - bx, dy = fy - by;
     const len = Math.max(1, Math.hypot(dx, dy));
-    const ox = dx/len * 30, oy = dy/len * 30;
-    const kx = mx + ox, ky = my + oy - 20;
-    return {x: finite(kx) ? kx : mx, y: finite(ky) ? ky : my};
+    return {x: mx + dx/len * 30, y: my + dy/len * 30 - 20};
   }
 
   function clampN(v){
@@ -161,80 +162,99 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     return Math.round(v * 100) / 100;
   }
   function drawLegs(){
-    // Remove old legs/feet
     spiderSvg.querySelectorAll(".leg,.foot").forEach(e => e.remove());
     state.legEls = []; state.feetEls = [];
+    if (!finite(state.body.x) || !finite(state.body.y)) return;
+    const bx = clampN(state.body.x), by = clampN(state.body.y);
     for (let i = 0; i < state.feet.length; i++){
       const f = state.feet[i];
-      if (!finite(f.x) || !finite(f.y)) continue;
-      if (!finite(state.body.x) || !finite(state.body.y)) continue;
-      const knee = kneeFor(state.body.x, state.body.y, f.x, f.y, i);
-      const bx = clampN(state.body.x), by = clampN(state.body.y);
-      const kx = clampN(knee.x), ky = clampN(knee.y);
-      const fx = clampN(f.x), fy = clampN(f.y);
+      // A sector with no element in reach has no foot; never draw a foot on empty space.
+      if (!f || !finite(f.x) || !finite(f.y)) continue;
+      const knee = kneeFor(state.body.x, state.body.y, f.x, f.y);
       const poly = document.createElementNS(SVG_NS, "polyline");
       poly.setAttribute("class", "leg");
-      poly.setAttribute("points", `${bx},${by} ${kx},${ky} ${fx},${fy}`);
+      poly.setAttribute("points", `${bx},${by} ${clampN(knee.x)},${clampN(knee.y)} ${clampN(f.x)},${clampN(f.y)}`);
       spiderSvg.appendChild(poly);
       state.legEls.push(poly);
       const dot = document.createElementNS(SVG_NS, "circle");
       dot.setAttribute("class", "foot");
-      dot.setAttribute("cx", f.x);
-      dot.setAttribute("cy", f.y);
+      dot.setAttribute("cx", clampN(f.x));
+      dot.setAttribute("cy", clampN(f.y));
       dot.setAttribute("r", FOOT_R);
       spiderSvg.appendChild(dot);
       state.feetEls.push(dot);
     }
   }
 
-  function addThread(targetEl){
-    // Store the target element reference; the line's endpoints are
-    // recomputed every frame the body moves so threads always start at
-    // the body's CURRENT position (DESK-5.5) and end on the live rect
-    // of the touched element in the document's coordinate space.
-    if (!targetEl) return;
-    const t = document.createElementNS(SVG_NS, "line");
-    t.setAttribute("class", "thread");
-    spiderSvg.insertBefore(t, spiderSvg.firstChild);
-    state.threads.push({line: t, el: targetEl});
-    redrawThreads();
-  }
+  function drawSpider(){drawLegs(); redrawThreads(); drawBody();}
 
   function docSpaceCenter(el){
+    // Center of el in the .doc coordinate space (the svg overlay's space).
+    // Scroll-invariant: both rects shift together when the page scrolls.
     const r = el.getBoundingClientRect(), dr = doc.getBoundingClientRect();
     return {x: r.left - dr.left + r.width/2, y: r.top - dr.top + r.height/2};
   }
 
+  function addThread(targetEl){
+    // One thread per outlined element. Endpoints are recomputed every
+    // frame the body moves (redrawThreads), so a thread always starts at
+    // the body's CURRENT position and ends on the element's live center.
+    if (!targetEl || state.threads.some(t => t.el === targetEl)) return;
+    const t = document.createElementNS(SVG_NS, "line");
+    t.setAttribute("class", "thread");
+    spiderSvg.insertBefore(t, spiderSvg.firstChild);
+    state.threads.push({line: t, el: targetEl});
+  }
+
+  function removeThread(el){
+    state.threads = state.threads.filter(t => {
+      if (t.el !== el) return true;
+      t.line.remove(); return false;
+    });
+  }
+
   function redrawThreads(){
     const bx = clampN(state.body.x), by = clampN(state.body.y);
-    const dr = doc.getBoundingClientRect();
-    for (const t of state.threads){
-      if (!document.body.contains(t.el)){ t.line.remove(); continue; }
+    state.threads = state.threads.filter(t => {
+      if (!document.body.contains(t.el)){ t.line.remove(); return false; }
       const c = docSpaceCenter(t.el);
-      // Clip endpoints to the doc rect so a thread never ends off-document.
-      const ex = Math.min(dr.width - 1, Math.max(1, c.x));
-      const ey = Math.min(dr.height - 1, Math.max(1, c.y));
       t.line.setAttribute("x1", bx); t.line.setAttribute("y1", by);
-      t.line.setAttribute("x2", clampN(ex)); t.line.setAttribute("y2", clampN(ey));
-    }
-    state.threads = state.threads.filter(t => document.body.contains(t.el));
+      t.line.setAttribute("x2", clampN(c.x)); t.line.setAttribute("y2", clampN(c.y));
+      return true;
+    });
+  }
+
+  function clearTouchClasses(el){
+    TOUCH_CYCLE.forEach(c => el.classList.remove("touch-" + c));
+    el.classList.remove("touch-fade");
   }
 
   function markTouch(el){
-    if (!el || state.touchedEls.has(el)) return;
+    // Outline only elements a foot landed on. Newest MAX_OUTLINES keep
+    // their outline; the oldest fades out. .found fills are untouched.
+    if (!el) return;
+    state.touchOrder = state.touchOrder || [];
+    if (state.touchedEls.has(el)){
+      state.touchOrder = state.touchOrder.filter(e => e !== el);
+      state.touchOrder.push(el);
+      return;
+    }
+    if (el.classList.contains("touch-fade")) clearTouchClasses(el);
     const tier = TOUCH_CYCLE[state.touchCycleIdx % TOUCH_CYCLE.length];
     el.classList.add("touch-" + tier);
     state.touchCycleIdx++;
     state.touchedEls.add(el);
-    state.touchOrder = state.touchOrder || [];
     state.touchOrder.push(el);
-    // Cap visible outlines at MAX_OUTLINES; oldest fade out.
+    addThread(el);
     while (state.touchOrder.length > MAX_OUTLINES){
       const oldest = state.touchOrder.shift();
-      if (oldest){
-        TOUCH_CYCLE.forEach(c => oldest.classList.remove("touch-" + c));
-        state.touchedEls.delete(oldest);
-      }
+      if (!oldest) continue;
+      state.touchedEls.delete(oldest);
+      removeThread(oldest);
+      oldest.classList.add("touch-fade");
+      setTimeout(() => {
+        if (!state.touchedEls.has(oldest)) clearTouchClasses(oldest);
+      }, FADE_MS);
     }
   }
 
@@ -248,91 +268,93 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     return Math.floor(ang / SECTOR_RAD) % N_LEGS;
   }
 
-  function pickFeetBySector(prevFeet){
-    // One foot per 45-degree sector around the body, at distance 80 to 160 px.
-    // Never pick an element closer than MIN_REACH. Prefer untouched words.
-    const words = Array.from(docBody.querySelectorAll(".w"));
-    const dr = doc.getBoundingClientRect();
-    const bx = state.body.x, by = state.body.y;
+  function footTargets(){
+    const els = Array.from(docBody.querySelectorAll(".w"));
+    if (h1.textContent.trim()) els.unshift(h1);
+    return els;
+  }
+
+  function footValid(el, bx, by, i){
+    if (!el || !document.body.contains(el)) return null;
+    const c = docSpaceCenter(el);
+    const d = Math.hypot(c.x - bx, c.y - by);
+    if (d < MIN_REACH || d > HI_REACH || sectorIndex(bx, by, c.x, c.y) !== i) return null;
+    return {el, x: c.x, y: c.y};
+  }
+
+  function pickFeetBySector(bx, by, forceEl){
+    // One foot per 45-degree sector, each on a real element 80 to 160 px
+    // from the body center (70 to 80 only as a fallback; never closer
+    // than 70). Aim for ~120 px so the spider spans about 250 px.
+    // A planted foot stays put while it is still valid for its sector.
+    const cands = [];
+    for (const el of footTargets()){
+      const c = docSpaceCenter(el);
+      const d = Math.hypot(c.x - bx, c.y - by);
+      if (d < MIN_REACH || d > HI_REACH) continue;
+      const score = Math.abs(d - TARGET_REACH) + (d < LO_REACH ? 40 : 0) + (state.touchedEls.has(el) ? 60 : 0);
+      cands.push({el, x: c.x, y: c.y, d, si: sectorIndex(bx, by, c.x, c.y), score});
+    }
     const bucket = new Array(N_LEGS).fill(null);
-    for (const w of words){
-      if (w.classList.contains("found")) continue;
-      const r = w.getBoundingClientRect();
-      const wx = r.left - dr.left + r.width/2;
-      const wy = r.top - dr.top + r.height/2;
-      const d2 = Math.hypot(wx - bx, wy - by);
-      if (d2 < MIN_REACH || d2 > HI_REACH) continue;
-      const si = sectorIndex(bx, by, wx, wy);
-      const prefer = (d2 >= LO_REACH && d2 <= HI_REACH) ? 0 : 1;
-      // Prefer untouched. If sector already filled, keep the one closest to 120 px.
-      const score = Math.abs(d2 - 120) + prefer * 40 + (state.touchedEls.has(w) ? 60 : 0);
-      if (!bucket[si] || score < bucket[si].score){
-        bucket[si] = {w, x: wx, y: wy, score};
-      }
+    for (const c of cands){
+      if (!bucket[c.si] || c.score < bucket[c.si].score) bucket[c.si] = c;
     }
-    // Fill empty sectors with a synthetic radial point at 110 px (never off-doc)
-    const feet = [];
+    const prev = state.feet || [];
     for (let i = 0; i < N_LEGS; i++){
-      if (bucket[i]){
-        feet.push({x: bucket[i].x, y: bucket[i].y, el: bucket[i].w});
-      } else {
-        const ang = (i + 0.5) * SECTOR_RAD;
-        const r = 110;
-        const px = Math.min(dr.width - 10, Math.max(10, bx + Math.cos(ang) * r));
-        const py = Math.min(dr.height - 10, Math.max(10, by + Math.sin(ang) * r));
-        feet.push({x: px, y: py, el: null});
-      }
+      const kept = footValid(prev[i] && prev[i].el, bx, by, i);
+      if (kept) bucket[i] = kept;
     }
-    return feet;
+    if (forceEl){
+      const f = cands.find(c => c.el === forceEl);
+      if (f) bucket[f.si] = f;
+    }
+    // A sector with no element in reach leaves that leg lifted.
+    return bucket.map(b => b ? {x: b.x, y: b.y, el: b.el} : null);
   }
 
-  function stepFeetForward(){
-    const nextFeet = pickFeetBySector();
-    if (!nextFeet.length) return;
-    // Preserve current feet positions as starting points, tween each foot
-    // over 180 ms via requestAnimationFrame (CSS can't tween polyline points).
-    const prev = state.feet.map(f => ({x: f.x, y: f.y}));
-    const target = nextFeet.map(f => ({x: f.x, y: f.y, el: f.el}));
-    const start = performance.now(), dur = 180;
-    function tween(now){
+  function landFeet(feet){
+    for (const f of feet){
+      if (!f || !f.el) continue;
+      markTouch(f.el);
+      if (f.el.tagName === "A") markLinkPassed(f.el);
+    }
+    redrawThreads();
+  }
+
+  function moveBody(x, y, forceEl, ms){
+    // Glide the body over ms; feet whose element falls out of reach (or out
+    // of their sector) at the destination swing to new elements in step.
+    // Legs and threads are redrawn every frame, so threads always start at
+    // the body's current position. (requestAnimationFrame because CSS
+    // can't tween polyline points.)
+    const sx = state.body.x, sy = state.body.y;
+    const target = pickFeetBySector(x, y, forceEl);
+    const prev = state.feet.slice();
+    const dur = ms || BODY_MS, start = performance.now();
+    const token = ++state.bodyAnim;
+    function frame(now){
+      if (token !== state.bodyAnim) return;
       const t = Math.min(1, (now - start)/dur);
+      const e = t < .5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2)/2;
+      state.body.x = sx + (x - sx) * e; state.body.y = sy + (y - sy) * e;
       for (let i = 0; i < N_LEGS; i++){
-        const p = prev[i] || {x: state.body.x, y: state.body.y};
-        state.feet[i] = {x: p.x + (target[i].x - p.x) * t, y: p.y + (target[i].y - p.y) * t};
+        const g = target[i];
+        if (!g){ state.feet[i] = null; continue; }
+        const p = prev[i] || {x: sx, y: sy};
+        state.feet[i] = (t >= 1 || (p.el && p.el === g.el)) ? g
+          : {x: p.x + (g.x - p.x) * e, y: p.y + (g.y - p.y) * e, el: null};
       }
-      drawLegs(); redrawThreads();
-      if (t < 1) requestAnimationFrame(tween);
-      else {
-        for (const tgt of target){
-          if (tgt.el){
-            markTouch(tgt.el);
-            if (tgt.el.tagName === "A") markLinkPassed(tgt.el);
-            addThread(tgt.el);
-          }
-        }
-      }
+      drawSpider();
+      if (t < 1) requestAnimationFrame(frame);
+      else landFeet(target);
     }
-    requestAnimationFrame(tween);
-  }
-
-  function moveBody(x, y){
-    const dy = Math.hypot(x - state.body.x, y - state.body.y);
-    state.body.x = x; state.body.y = y;
-    drawBody(); drawLegs(); redrawThreads();
-    if (dy > 24) stepFeetForward();
+    requestAnimationFrame(frame);
   }
 
   function plantInitialFeet(){
-    const feet = pickFeetBySector();
-    state.feet = feet.map(f => ({x: f.x, y: f.y}));
-    feet.forEach(f => {
-      if (f.el){
-        markTouch(f.el);
-        if (f.el.tagName === "A") markLinkPassed(f.el);
-        addThread(f.el);
-      }
-    });
-    drawBody(); drawLegs(); redrawThreads();
+    state.feet = pickFeetBySector(state.body.x, state.body.y);
+    landFeet(state.feet);
+    drawSpider();
   }
 
   function familyOf(label){return COLOR_FAM[label] || "pink";}
@@ -431,8 +453,10 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
       });
       if (!ys.length){i++; setTimeout(stepLine, perLine); return;}
       const y = ys.reduce((a,b) => a+b, 0)/ys.length;
-      const x = Math.min(d.width - 20, Math.max(20, xs[0] + 20));
-      moveBody(x, y);
+      // Keep the body inside the text block (alternating left and right of
+      // center) so every 45-degree sector has words within reach.
+      const x = Math.min(d.width - HI_REACH, Math.max(HI_REACH, d.width * (i % 2 ? 0.58 : 0.42)));
+      moveBody(x, y, null, Math.min(BODY_MS, perLine * 0.8));
       // Scroll
       const absY = y + d.top + window.scrollY;
       if (absY > window.scrollY + window.innerHeight - 160) window.scrollTo({top: absY - window.innerHeight + 220, behavior:"smooth"});
@@ -460,26 +484,21 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
       if (w.textContent.includes(ev.value)){ found = w; break; }
     }
     if (!found) return;
-    // Give it .found treatment
-    const fam = familyOf(ev.label);
-    found.classList.add("found", fam);
-    // Replace content to include the value nicely (keep whole text)
-    // Move body to this value and plant a foot on it
+    found.classList.add("found", familyOf(ev.label));
+    // Move the body so the value sits TARGET_REACH px away (never under
+    // the body), then plant a foot on it.
     const c = elCenter(found);
-    moveBody(c.x, c.y);
-    // Replace one foot with this value's center
-    if (state.feet.length){
-      // find the foot farthest behind
-      let bi = 0, bd = -Infinity;
-      for (let i = 0; i < state.feet.length; i++){
-        const d2 = state.body.y - state.feet[i].y;
-        if (d2 > bd){bd = d2; bi = i;}
-      }
-      state.feet[bi] = {x: c.x, y: c.y};
-      drawLegs();
+    const dx = state.body.x - c.x, dy = state.body.y - c.y;
+    const d = Math.hypot(dx, dy);
+    if (d >= LO_REACH && d <= HI_REACH){
+      moveBody(state.body.x, state.body.y, found);
+    } else {
+      const ux = d > 1 ? dx/d : 0, uy = d > 1 ? dy/d : -1;
+      const dr = doc.getBoundingClientRect();
+      const nx = Math.min(dr.width - 10, Math.max(10, c.x + ux * TARGET_REACH));
+      const ny = Math.min(dr.height - 10, Math.max(10, c.y + uy * TARGET_REACH));
+      moveBody(nx, ny, found);
     }
-    markTouch(found);
-    addThread(found);
     state.foundCount++;
     setStatus(`reading <b>${state.currentHost||""}</b> ${state.currentType||""} ${(state.currentPub||"").slice(0,10)} &nbsp;&middot;&nbsp; ${state.foundCount} numbers found`);
   }
@@ -689,7 +708,12 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
   } else {
     initReplay();
   }
-  window.addEventListener("resize", sizeSvg);
+  window.addEventListener("resize", () => {
+    sizeSvg();
+    // Reflow moves the words; re-anchor feet on their elements.
+    state.feet = state.feet.map(f => (f && f.el && document.body.contains(f.el)) ? Object.assign({el: f.el}, docSpaceCenter(f.el)) : f);
+    if (state.feet.length) drawSpider();
+  });
 })();
 </script>
 </body></html>
