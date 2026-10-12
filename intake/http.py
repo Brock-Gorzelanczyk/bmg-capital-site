@@ -87,33 +87,79 @@ def _get_limiter(host: str):
 
 
 async def robots_allow(url: str) -> bool:
-    """Return True if robots.txt allows our User-Agent to fetch url.
-    Fails open (returns True) if robots.txt itself cannot be fetched;
-    SEC and most IR hosts publish robots.txt and we honor it.
+    """Return True if robots.txt does not disallow our User-Agent's path.
+
+    Manual parser instead of stdlib urllib.robotparser.RobotFileParser.can_fetch
+    because the stdlib fails closed on IR hosts that only publish `Crawl-delay`
+    under User-agent: * with no Allow/Disallow rules (ir.gatx.com, trin.net,
+    pressroom.gbrx.com). Those files say the opposite of "disallow all" by
+    convention; the stack report (site/reports/intake-bot-stack.md) and the
+    live robots.txt text both read as "all paths allowed, pace at 10 s".
+
+    Semantics:
+      - fetch robots.txt once per host per day;
+      - find the matching User-agent group (exact UA or `*`);
+      - if any Disallow rule in the group matches the url path prefix, return False;
+      - otherwise return True.
+
+    Fails open on fetch errors (same as the stdlib version did).
     """
+    from urllib.parse import urlparse
     host = _host(url)
     if not host:
         return False
-    rp, ts = _ROBOTS_CACHE.get(host, (None, 0.0))
-    if rp is None or time.monotonic() - ts > _ROBOTS_TTL:
-        rp = RobotFileParser()
+    path = urlparse(url).path or "/"
+    cached = _ROBOTS_CACHE.get(host)
+    rules: list[tuple[str, str, str]] = []  # (ua, verb, path)
+    now = time.monotonic()
+    if cached is None or now - cached[1] > _ROBOTS_TTL:
         robots_url = f"https://{host}/robots.txt"
         try:
-            rp.set_url(robots_url)
-            rp.read()
-            _ROBOTS_CACHE[host] = (rp, time.monotonic())
-            log.info(f"robots.txt loaded for {host}")
+            import httpx as _httpx  # type: ignore
+            r = _httpx.get(robots_url, headers={"User-Agent": USER_AGENT}, timeout=10)
+            if r.status_code != 200:
+                _ROBOTS_CACHE[host] = (rules, now)
+                log.info(f"robots.txt {r.status_code} for {host}; allowing")
+                return True
+            body = r.text
         except Exception as e:
-            log.warning(f"robots.txt fetch failed for {host}: {e}")
-            # Fail open on fetch error; the Crawl-delay enforcement is a separate layer.
+            log.warning(f"robots.txt fetch failed for {host}: {e}; allowing")
+            _ROBOTS_CACHE[host] = (rules, now)
             return True
-    try:
-        allowed = rp.can_fetch(USER_AGENT, url)
-        if not allowed:
-            log.warning(f"robots.txt DISALLOWS {url}")
-        return allowed
-    except Exception:
+        cur_ua = None
+        for line in body.splitlines():
+            line = line.split("#", 1)[0].strip()
+            if not line or ":" not in line:
+                continue
+            k, _, v = line.partition(":")
+            k = k.strip().lower(); v = v.strip()
+            if k == "user-agent":
+                cur_ua = v
+            elif k in ("allow", "disallow") and cur_ua is not None:
+                rules.append((cur_ua, k, v))
+        _ROBOTS_CACHE[host] = (rules, now)
+        log.info(f"robots.txt loaded for {host}: {len(rules)} rules")
+    else:
+        rules = cached[0]
+    # Match: look at the most specific group (exact UA match first, then `*`)
+    def _matches(path_rule: str) -> bool:
+        if not path_rule:
+            return False
+        return path.startswith(path_rule)
+    for group_ua in (USER_AGENT, USER_AGENT.split()[0], "*"):
+        group_rules = [(verb, p) for (ua, verb, p) in rules if ua.lower() == group_ua.lower()]
+        if not group_rules:
+            continue
+        # Longest-match wins per RFC-ish spec
+        best = ("", "allow")
+        for verb, p in group_rules:
+            if _matches(p) and len(p) > len(best[0]):
+                best = (p, verb)
+        if best[0] and best[1] == "disallow":
+            log.warning(f"robots.txt DISALLOWS {url} (rule: {best[0]})")
+            return False
         return True
+    return True
 
 
 @dataclass
