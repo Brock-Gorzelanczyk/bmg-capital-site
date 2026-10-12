@@ -91,9 +91,16 @@ async def run_job(job: str, request: Request) -> dict:
     """Manually trigger a scheduler job. Idempotent (jobs dedup on source_url).
 
     Allowed names: edgar, ir, news, fred, aar, stb, rsi, digest, extract.
-    Rate-limited per IP (same as every /desk endpoint); no auth required because
-    every underlying source is public and every writer is dedup-safe.
+    "live" is intercepted here and dispatched to run_live() because FastAPI's
+    route-registration order would otherwise shadow the /_run/live specific
+    route with this /_run/{job} parameterised one.
     """
+    if job == "live":
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        return await run_live(request, body)
     _check_rate(request)
     import asyncio
     from .scheduler import _load_tickers
