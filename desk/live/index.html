@@ -480,6 +480,11 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
         has_text: !["SERIES","NEWS","4"].includes(ev.doc_type), meta:{}, dim:!!ev.skipped_dup};
       state.docsSeen[ev.doc_id] = docEv;
       if (docEv.dim){setStatus(`<b>${host}</b> ${ev.doc_type}: already stored`); return;}
+      const _prio = new Set(["10-Q","10-K","8-K","EX-99"]);
+      if (state.coldStartDocId && state.currentDocId === state.coldStartDocId && !_prio.has(ev.doc_type)){
+        setStatus(`fetched <b>${host}</b> ${ev.doc_type}: ${(ev.title||"").slice(0,60)}`);
+        return;
+      }
       processEvent(docEv);
       return;
     }
@@ -495,6 +500,12 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
       if (!bestId) return;
       const cached = state.docsSeen[bestId];
       if (!cached) return;
+      // If the cold-start 10-Q is showing and bestId is not a priority filing,
+      // do not navigate away from the 10-Q (DESK-5.4).
+      const _prio2 = new Set(["10-Q","10-K","8-K","EX-99"]);
+      if (state.coldStartDocId && state.currentDocId === state.coldStartDocId && cached && !_prio2.has(cached.doc_type)){
+        return;
+      }
       if (state.currentDocId === bestId && state.lastRenderedCount === state.factBuffer[bestId].length - 1){
         processEvent({type:"fact", doc_id: bestId, label: fact.label, value: fact.value, unit: fact.unit, char_offset: fact.char_offset});
         state.lastRenderedCount = state.factBuffer[bestId].length;
