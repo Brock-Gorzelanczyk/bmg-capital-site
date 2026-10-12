@@ -252,7 +252,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   function clearSpider(){
     spiderSvg.innerHTML = "";
     state.bodyAnim++;
-    state.crawlTarget = null; state.crawlX = null; state.legAnim = {};
+    state.crawlTarget = null; state.crawlX = null; state.legAnim = {}; state.eyeFocus = null; state.nextFocus = null; state.heading = null;
     state.feet = []; state.feetEls = []; state.legEls = []; state.threads = []; state.rows = null; state.meshPool = []; state.trail = []; state.links = []; state.linkPool = []; state.eyeEl = null; state.eyeAt = null;
     document.querySelectorAll(".liftlbl,.beam").forEach(e => e.remove()); state.beams = [];
     bumpLayout();
@@ -372,16 +372,18 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     }
   }
 
+  const SCROLL_SPEED = 95;   // px per second at 1x, matched to the clip (lines per second)
   function camera(){
-    // Ease the page toward the spider every frame so it never walks off
-    // screen (one-off smooth scrolls could not keep up with fast lines).
-    if (state.userScrolledAt && performance.now() - state.userScrolledAt < 2500) return;
-    const dr = doc.getBoundingClientRect();
-    const by = dr.top + state.body.y;           // viewport y of the body
-    // Hold the spider near 45% of the screen: the page slides under it
-    // and the body itself barely moves on screen (reference clip).
-    const dy = by - innerHeight * 0.45;
-    if (Math.abs(dy) > 0.5){ state.cameraScroll = true; window.scrollBy(0, dy * 0.12); }
+    // The page scrolls under the spider at a steady pace (reference clip),
+    // independent of where the spider is. A manual scroll wins for 2.5 s.
+    const now = performance.now();
+    const dt = Math.min(0.05, (now - (state.camT || now)) / 1000);
+    state.camT = now;
+    if (state.userScrolledAt && now - state.userScrolledAt < 2500){ state.scrollPos = null; return; }
+    if (!walking() || state.paused || !state.rows) { state.scrollPos = null; return; }
+    if (state.scrollPos == null) state.scrollPos = window.scrollY;
+    state.scrollPos += SCROLL_SPEED * (state.speedMul || 1) * dt;
+    window.scrollTo(0, state.scrollPos);
   }
   addEventListener("wheel", () => { state.userScrolledAt = performance.now(); }, {passive: true});
   addEventListener("touchmove", () => { state.userScrolledAt = performance.now(); }, {passive: true});
@@ -398,12 +400,12 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     }
     if (!state.eyeEl.isConnected) spiderSvg.append(state.sightEl, state.eyeEl);
     const k = Math.floor(performance.now() / 140) % row.els.length;
-    const w = row.els[k];
+    const w = (state.eyeFocus && state.eyeFocus.isConnected) ? state.eyeFocus : row.els[k];
     const r = w.getBoundingClientRect(), dr = doc.getBoundingClientRect();
     const x = r.left - dr.left, y = r.top - dr.top;
     state.eyeEl.style.display = state.sightEl.style.display = "";
     state.eyeEl.setAttribute("x", clampN(x)); state.eyeEl.setAttribute("y", clampN(y));
-    state.eyeEl.setAttribute("width", clampN(Math.max(4, Math.min(r.width, 18)))); state.eyeEl.setAttribute("height", clampN(r.height));
+    state.eyeEl.setAttribute("width", clampN(Math.max(4, state.eyeFocus ? r.width : Math.min(r.width, 18)))); state.eyeEl.setAttribute("height", clampN(r.height));
     state.sightEl.setAttribute("x1", clampN(state.body.x)); state.sightEl.setAttribute("y1", clampN(state.body.y - 10));
     state.sightEl.setAttribute("x2", clampN(x + 4)); state.sightEl.setAttribute("y2", clampN(y + r.height / 2));
     state.eyeAt = {x: x + 4, y: y + r.height / 2};
@@ -411,7 +413,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   function drawSpider(){ state.drawnAt = performance.now(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawBody(); camera(); }
   // Keep the legs flexing and the eye scanning between steps too.
   // ---- crawl: body creeps continuously; legs step one or two at a time
-  const CRAWL_SPEED = 70;   // px per second at 1x
+  const CRAWL_SPEED = 105;  // px per second at 1x
   state.legAnim = {};
   function startLegStep(i, to, now){
     const from = state.feet[i] || {x: state.body.x, y: state.body.y};
@@ -460,13 +462,19 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (state.paused || !state.feet || !state.feet.length) return;
     const t = state.crawlTarget;
     if (t && walking()){
-      const dx = t.x - state.body.x, dy = t.y - state.body.y, d = Math.hypot(dx, dy);
-      if (d > 0.3){
-        let sp = CRAWL_SPEED * (state.speedMul || 1);
-        if (d < 24) sp *= Math.max(0.35, d / 24);
-        const st = Math.min(d, sp * dt);
-        state.body.x += dx / d * st; state.body.y += dy / d * st;
-      }
+      // Steering: constant speed; the heading turns toward the target at
+      // a limited rate, so direction changes are smooth arcs, never stops.
+      const want = Math.atan2(t.y - state.body.y, t.x - state.body.x);
+      if (state.heading == null) state.heading = want;
+      const mul = state.speedMul || 1;
+      let diff = want - state.heading;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+      const maxTurn = 2.8 * dt * mul;
+      state.heading += Math.max(-maxTurn, Math.min(maxTurn, diff));
+      const sp = CRAWL_SPEED * mul;
+      const dr = doc.getBoundingClientRect();
+      state.body.x = Math.min(dr.width - 20, Math.max(20, state.body.x + Math.cos(state.heading) * sp * dt));
+      state.body.y = Math.max(10, state.body.y + Math.sin(state.heading) * sp * dt);
       stepLegs(now);
     }
     advanceLegs(now);
@@ -919,34 +927,64 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (!rows.length){ state.walkState.done = true; walkFinished(); return; }
     const perRow = Math.max(120, Math.min(900, (duration_s * 1000) / rows.length));
     let i = 0;
+    // Reference-clip model: the page scrolls by itself at a steady pace
+    // (camera), a reading line sits mid-screen and every line is read as it
+    // passes; the spider roams the visible band just ahead of that line,
+    // the eye one target ahead of the body, never stopping.
+    function interest(w){
+      const t = w.textContent;
+      if (w.classList.contains("found") || state.touchedEls.has(w)) return 0;
+      let sc = 0;
+      if (/\d/.test(t)) sc += 3;
+      if (w.tagName === "A" || w.closest("a")) sc += 3;
+      if (/^[A-Z]/.test(t)) sc += 1;
+      sc += Math.min(3, t.replace(/[^A-Za-z]/g, "").length / 4);
+      return sc;
+    }
+    const readLineY = () => innerHeight * 0.5 - doc.getBoundingClientRect().top;
+    const rowY = (r) => docSpaceCenter(rows[r].els[0]).y;
+    function pickFocusNear(exclude){
+      const ry = readLineY();
+      let best = null, bs = -1e9;
+      for (let r = readIdx; r < rows.length; r++){
+        const y = rowY(r);
+        if (y > ry + 190) break;
+        if (y < ry - 30) continue;
+        for (const w of rows[r].els){
+          if (w === exclude) continue;
+          const c = docSpaceCenter(w);
+          const sc = interest(w) + Math.random() * 1.5 - Math.abs(c.x - state.body.x) / 110 - Math.abs(y - (ry + 70)) / 90;
+          if (sc > bs){ bs = sc; best = {w, r}; }
+        }
+      }
+      return best;
+    }
+    let readIdx = 0;
     function step(){
       if (state.walkState.docId !== doc_id || state.walkState.done) return;
       if (state.paused){ state.walkTimer = setTimeout(step, 150); return; }
-      if (i >= rows.length){ state.walkState.done = true; walkFinished(); return; }
-      const row = rows[i];
-      const d = doc.getBoundingClientRect();
-      // Live y from the row's first word (a .found fill can reflow lines).
-      const r0 = row.els[0].getBoundingClientRect();
-      const y = r0.top - d.top + r0.height/2;
-      const mid = (row.x0 + row.x1) / 2, amp = Math.max(0, (row.x1 - row.x0) / 3);
-      // Slow drift across the text (one sweep every ~90 lines) instead of
-      // a zigzag each line; constant pace so the glide never stutters.
-      const x = Math.min(d.width - HI_REACH, Math.max(HI_REACH, mid + amp * 0.8 * Math.sin(i * 0.07)));
-      // Crawl: the reader waits for the spider rather than dragging it.
-      // The path is smoothed so short lines and gaps do not make it jump.
-      const ct = state.crawlTarget;
-      if (ct && Math.hypot(ct.x - state.body.x, ct.y - state.body.y) > 6){ state.walkTimer = setTimeout(step, 40); return; }
-      state.crawlX = state.crawlX == null ? x : state.crawlX * 0.85 + x * 0.15;
-      state.crawlTarget = {x: state.crawlX, y};
-      const ms = 40;
-      if (state.onRow) state.onRow(row.els);
-      // Every ~10 lines the spider pulls a strand of the passage out as a
-      // pink bar (the clips' long diagonal beam carrying text).
-      if (i % 10 === 5){
-        fireBeam(x, y, x, y, "", row.els[Math.floor(row.els.length * 0.3)]);
+      const ry = readLineY();
+      const atBottom = window.scrollY + innerHeight >= document.documentElement.scrollHeight - 2;
+      while (readIdx < rows.length && (rowY(readIdx) <= ry + 20 || atBottom)){
+        if (state.onRow) state.onRow(rows[readIdx].els);
+        readIdx++;
       }
-      state.walkState.lineIdx = ++i;
-      state.walkTimer = setTimeout(step, ms);
+      state.walkState.lineIdx = readIdx;
+      if (readIdx >= rows.length){ state.walkState.done = true; state.eyeFocus = null; walkFinished(); return; }
+      const ct = state.crawlTarget;
+      if (!ct || Math.hypot(ct.x - state.body.x, ct.y - state.body.y) < 45 || ct.y < ry - 90){
+        const nf = state.nextFocus;
+        const f = (nf && nf.w.isConnected && rowY(nf.r) >= ry - 30) ? nf : pickFocusNear(ct && ct.el);
+        if (f){
+          const c = docSpaceCenter(f.w), d = doc.getBoundingClientRect();
+          state.crawlTarget = {x: Math.min(d.width - 40, Math.max(40, c.x)), y: c.y + 14, el: f.w};
+          state.beatN = (state.beatN || 0) + 1;
+          if (state.beatN % 3 === 1) fireBeam(c.x, c.y, c.x, c.y, "", f.w);
+          state.nextFocus = pickFocusNear(f.w);
+          state.eyeFocus = state.nextFocus ? state.nextFocus.w : f.w;
+        }
+      }
+      state.walkTimer = setTimeout(step, 40);
     }
     step();
   }
