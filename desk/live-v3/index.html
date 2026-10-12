@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desk live, hub | BMG Capital</title>
+<style>
+:root{--bg:#000;--fg:#c9ccd1;--dim:#5b6068;--mag:#ff3df2;--cyan:#27e3ff;--yel:#ffe14d;--org:#ff9f1c;--lime:#b6ff3b;--vio:#9d7bff;--pink:#ff3df2;--blue:#27e3ff}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.75 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.strip{position:fixed;top:0;left:0;right:0;height:36px;display:flex;align-items:center;gap:14px;padding:0 16px;background:rgba(0,0,0,.85);border-bottom:1px solid #15181d;font-size:12px;color:#9aa0a8;z-index:5}
+.strip b{color:#fff;font-weight:600}
+.strip .btn{padding:2px 9px;border:1px solid #2a2f37;border-radius:4px;color:#c9ccd1;background:transparent;font:inherit;cursor:pointer}
+.strip .on{background:var(--lime);color:#000;border-color:var(--lime)}
+.strip select{background:transparent;color:#c9ccd1;border:1px solid #2a2f37;border-radius:4px;padding:1px 6px;font:inherit}
+.strip .status{margin-left:auto;color:#c9ccd1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.doc{position:relative;max-width:900px;margin:72px auto 160px;padding:0 16px}
+h1{font:600 22px/1.3 ui-monospace,monospace;color:#fff;margin:0 0 18px;opacity:1}
+p{margin:0 0 14px;position:relative}
+.line{display:block;opacity:.78}
+.line.reading{opacity:1;background:rgba(255,255,255,.05)}
+.link{border-bottom:1px solid #2a3038;color:#8fa2ad;transition:border-color .3s ease,color .3s ease}
+.link.seen{border-bottom-color:var(--cyan);color:#8fd9e6}
+.hit{outline:1px solid #fff;outline-offset:1px;background:rgba(255,255,255,.08);padding:0 2px;border-radius:2px;color:#fff}
+svg.overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:2}
+svg.overlay line.web{stroke:var(--blue);stroke-width:1;opacity:.6}
+svg.overlay line.beam{stroke-width:3;opacity:.95;filter:drop-shadow(0 0 6px currentColor)}
+svg.overlay line.beam.pink{stroke:var(--pink);color:var(--pink)}
+svg.overlay line.beam.blue{stroke:var(--blue);color:var(--blue)}
+svg.overlay line.popthread{stroke:#4a5058;stroke-width:1;opacity:.6}
+svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,r .6s ease}
+.hub{position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 10px 2px #fff, 0 0 24px 6px rgba(255,255,255,.6);transform:translate(-7px,-7px);transition:left .4s ease,top .4s ease;z-index:4;pointer-events:none}
+.popout{position:absolute;z-index:3;color:#fff;background:rgba(0,0,0,.86);border:1px solid #2a2f37;border-radius:4px;padding:4px 8px;box-shadow:0 0 14px rgba(255,61,242,.35);transition:transform .4s ease,opacity .4s ease;pointer-events:none;min-width:40px}
+.popout.blue{box-shadow:0 0 14px rgba(39,227,255,.4)}
+.popout .pop-label{font-size:10px;color:#9aa0a8;letter-spacing:.2px;text-transform:uppercase;line-height:1.1}
+.popout .pop-value{font:600 46px/1 ui-monospace,monospace;color:#fff;margin-top:2px}
+.popout.pink .pop-value{color:#fff;text-shadow:0 0 10px var(--pink)}
+.popout.blue .pop-value{color:#fff;text-shadow:0 0 10px var(--blue)}
+.note{position:fixed;bottom:0;left:0;right:0;padding:6px 16px;font-size:11px;color:var(--dim);background:rgba(0,0,0,.85);border-top:1px solid #15181d}
+@media (max-width:600px){html,body{font-size:13px}.strip{height:auto;flex-wrap:wrap;padding:6px 12px}.strip .status{margin-left:0;width:100%;max-width:100%}.doc{margin-top:84px}.popout .pop-value{font-size:28px}.popout{padding:3px 6px}}
+</style>
+</head>
+<body>
+<div class="strip" role="toolbar">
+  <button class="btn on" data-mode="replay">Replay</button>  <button class="btn" data-mode="live">Live</button>  <select id="live-ticker"><option>GATX</option><option>GBX</option><option>TRN</option></select>  <select id="live-mode"><option value="new">New</option><option value="rewalk30" selected>Re-walk 120 days</option></select>  <button class="btn btn-run">Run</button>  <span class="status" id="status">idle</span>
+</div>
+<div class="doc" id="doc">
+  <svg class="overlay" id="overlay"></svg>
+  <div class="hub" id="hub"></div>
+  <div id="popouts" style="position:absolute;inset:0;pointer-events:none;z-index:3"></div>
+  <h1 id="doc-h1"></h1>
+  <div id="docbody"></div>
+</div>
+<div class="note">Live run streams /desk/events; Replay loads /desk/run/latest. Hub reads the text, web grows as it goes, beams fire on every stored number. Older designs: <a href="/desk/live-v2/" style="color:#5b6068">v2 (inline boxes)</a> &middot; <a href="/desk/live-v1/" style="color:#5b6068">v1 (two-pane)</a>.</div>
+<script>
+(() => {
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const doc = document.getElementById("doc");
+  const overlay = document.getElementById("overlay");
+  const hub = document.getElementById("hub");
+  const statusEl = document.getElementById("status");
+  const docBody = document.getElementById("docbody");
+  const h1 = document.getElementById("doc-h1");
+  const popoutLayer = document.getElementById("popouts");
+  const BLUE_FAMILIES = new Set(["Fleet","Utilization","Backlog units","Backlog $B","Disposition gains"]);
+  const MAX_NODES = 60;
+  const MAX_POPOUTS = 6;
+
+  let state = {mode:"replay", events:[], idx:0, speed:60, tickTimer:null,
+    currentDocId:null, docsLoaded:{}, docsSeen:{}, walkRaf:null,
+    walkState:{done:true, docId:null},
+    nodes:[], popouts:[], hubPos:{x:0,y:0},
+    totalDocs:0, totalFacts:0, es:null, running:false, currentText:"",
+    factBuffer:{}, lastRenderedCount:0, pendingRenderDoc:null,
+    currentHost:"", currentType:"", currentPub:""};
+
+  function escapeHTML(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function fmtDate(iso){if(!iso) return "";const d=new Date(iso);return isNaN(d)?iso:d.toLocaleString("en-US",{timeZone:"America/Chicago",month:"short",day:"2-digit",hour:"2-digit",minute:"2-digit"});}
+  async function fetchJSON(url){try{const r=await fetch(url,{cache:"no-store"});if(!r.ok) throw new Error(r.status);return await r.json();}catch(e){return {error:String(e)};}}
+  function setStatus(s){statusEl.innerHTML = s;}
+  function familyBlue(label){return BLUE_FAMILIES.has(label);}
+
+  function sizeOverlay(){const r = doc.getBoundingClientRect(); overlay.setAttribute("viewBox", `0 0 ${r.width} ${r.height}`); overlay.setAttribute("width", r.width); overlay.setAttribute("height", r.height);}
+
+  function moveHub(x, y){
+    state.hubPos = {x, y};
+    hub.style.left = x + "px";
+    hub.style.top = y + "px";
+    const dRect = doc.getBoundingClientRect();
+    const absY = y + dRect.top + window.scrollY;
+    if (absY > window.scrollY + window.innerHeight - 160) window.scrollTo({top: absY - window.innerHeight + 220, behavior:"smooth"});
+    else if (absY < window.scrollY + 100) window.scrollTo({top: Math.max(0, absY - 100), behavior:"smooth"});
+  }
+
+  function addWebNode(){
+    const {x,y} = state.hubPos;
+    const angle = Math.random() * Math.PI * 2;
+    const r = 20 + Math.random() * 36;
+    const nx = x + Math.cos(angle) * r;
+    const ny = y + Math.sin(angle) * r;
+    const line = document.createElementNS(SVG_NS, "line");
+    line.setAttribute("x1", x); line.setAttribute("y1", y);
+    line.setAttribute("x2", nx); line.setAttribute("y2", ny);
+    line.setAttribute("class", "web");
+    overlay.appendChild(line);
+    const c = document.createElementNS(SVG_NS, "circle");
+    c.setAttribute("cx", nx); c.setAttribute("cy", ny); c.setAttribute("r", 3);
+    c.setAttribute("class", "node");
+    overlay.appendChild(c);
+    state.nodes.push({line, c});
+    if (state.nodes.length > MAX_NODES){
+      const old = state.nodes.shift();
+      old.line.style.opacity = ".3";
+      old.c.style.opacity = ".3";
+    }
+  }
+
+  function clearWeb(){state.nodes.forEach(n => {n.line.remove(); n.c.remove();}); state.nodes = [];}
+  function clearPopouts(){state.popouts.forEach(p => {p.el.remove(); if (p.thread) p.thread.remove();}); state.popouts = [];}
+  function clearOverlay(){overlay.innerHTML = ""; state.nodes = []; state.popouts = [];}
+
+  function fireBeam(fromX, fromY, toX, toY, isBlue){
+    const line = document.createElementNS(SVG_NS, "line");
+    line.setAttribute("x1", fromX); line.setAttribute("y1", fromY);
+    line.setAttribute("x2", fromX); line.setAttribute("y2", fromY);
+    line.setAttribute("class", "beam " + (isBlue ? "blue" : "pink"));
+    overlay.appendChild(line);
+    const start = performance.now();
+    const dur = 350;
+    function step(now){
+      const t = Math.min(1, (now - start)/dur);
+      const e = 1 - Math.pow(1 - t, 3);
+      line.setAttribute("x2", fromX + (toX - fromX) * e);
+      line.setAttribute("y2", fromY + (toY - fromY) * e);
+      if (t < 1) requestAnimationFrame(step);
+      else setTimeout(() => line.remove(), 1200);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function addPopout(label, value, unit, x, y, isBlue){
+    const el = document.createElement("div");
+    el.className = "popout " + (isBlue ? "blue" : "pink");
+    const u = unit ? (" " + unit) : "";
+    el.innerHTML = `<div class="pop-label">${escapeHTML(label.toUpperCase())}</div><div class="pop-value">${escapeHTML(value)}${escapeHTML(u)}</div>`;
+    popoutLayer.appendChild(el);
+    // Measure, then position offset from value
+    const docRect = doc.getBoundingClientRect();
+    const w = el.offsetWidth, h = el.offsetHeight;
+    const isMobile = window.innerWidth < 600;
+    const off = isMobile ? 40 : 70;
+    let px = x + 20, py = y + off;
+    if (px + w > docRect.width - 10) px = Math.max(10, x - w - 20);
+    if (py + h > docRect.height - 10) py = Math.max(10, y - h - 20);
+    el.style.left = px + "px"; el.style.top = py + "px";
+    // Thin thread from popout corner to value
+    const thread = document.createElementNS(SVG_NS, "line");
+    const cx = px + w/2, cy = py + h/2;
+    thread.setAttribute("x1", cx); thread.setAttribute("y1", cy);
+    thread.setAttribute("x2", x); thread.setAttribute("y2", y);
+    thread.setAttribute("class", "popthread");
+    overlay.appendChild(thread);
+    state.popouts.push({el, thread});
+    while (state.popouts.length > MAX_POPOUTS){
+      const old = state.popouts.shift();
+      old.el.style.transform = "scale(.6)"; old.el.style.opacity = ".4";
+      old.thread && (old.thread.style.opacity = ".2");
+    }
+  }
+
+  function processReaderText(text){
+    // Split into lines wrapped in <span class="line">, link URLs, mark .link
+    const esc = escapeHTML(text);
+    const paras = esc.split(/\n\n+/).map(p => {
+      const linked = p.replace(/(https?:\/\/[^\s<]+)/g, m => `<a href="${m}" class="link" target="_blank" rel="noopener">${m}</a>`);
+      const lines = linked.split(/\n/).map(l => `<span class="line">${l || "&nbsp;"}</span>`).join("");
+      return `<p>${lines}</p>`;
+    }).join("");
+    return paras;
+  }
+
+  function headlineForDoc(ev){
+    const dt = (ev.doc_type || "DOC").replace("PRESS_RELEASE","Release");
+    const dstr = (ev.published_at || ev.fetched_at || "").slice(0, 10);
+    const t = (ev.title || "").trim();
+    return `${ev.ticker || ""} ${dt}${dstr ? " " + dstr : ""}${t ? ": " + t : ""}`;
+  }
+
+  async function loadDocAndWalk(ev){
+    state.currentDocId = ev.doc_id;
+    clearOverlay();
+    docBody.innerHTML = "";
+    h1.textContent = "";
+    const notext = (!ev.has_text || ["NEWS","4","SERIES"].includes(ev.doc_type));
+    if (notext){
+      let m;
+      if (ev.doc_type === "4") m = `fetched <b>${ev.host||""}</b> Form 4 CSV (derived artifact)`;
+      else if (ev.doc_type === "SERIES"){const mm = ev.meta || {}; m = `fetched <b>${ev.host||""}</b> ${mm.series_id || ev.title} = ${mm.last_value||""} (${mm.last_date||""})`;}
+      else if (ev.doc_type === "NEWS") m = `fetched headline (body never stored): ${(ev.title||"").slice(0,80)}`;
+      else m = `fetched ${ev.doc_type}, no stored text`;
+      setStatus(m);
+      return;
+    }
+    let d = state.docsLoaded[ev.doc_id];
+    if (!d){d = await fetchJSON("/desk/doc/" + encodeURIComponent(ev.doc_id) + "/text"); state.docsLoaded[ev.doc_id] = d;}
+    if (d.error){setStatus(`doc text error: ${d.error}`); return;}
+    const text = (d.text || "").slice(0, 60000);
+    state.currentText = text;
+    h1.textContent = headlineForDoc(ev);
+    docBody.innerHTML = processReaderText(text);
+    sizeOverlay();
+    const docRect = doc.getBoundingClientRect();
+    const h1Rect = h1.getBoundingClientRect();
+    moveHub(docRect.width/2, h1Rect.bottom - docRect.top + 20);
+    setStatus(`reading <b>${ev.host||""}</b> ${ev.doc_type} ${(ev.published_at||ev.fetched_at||"").slice(0,10)} &nbsp;&middot;&nbsp; 0 numbers found`);
+    const dur = computeWalkDuration(ev.doc_id, ev.fetched_at);
+    setTimeout(() => startWalk(ev.doc_id, dur), 80);
+  }
+
+  function computeWalkDuration(doc_id, fetched_at){
+    const facts = (state.events || []).filter(e => e.type === "fact" && e.doc_id === doc_id);
+    if (facts.length && fetched_at){
+      const tMax = facts.reduce((m,f) => {const t = new Date(f.at||f.fetched_at||0).getTime(); return Math.max(m, t);}, 0);
+      const t0 = new Date(fetched_at).getTime();
+      if (t0 > 0 && tMax > t0) return Math.max(3, Math.min(20, (tMax - t0)/1000));
+    }
+    return 7;
+  }
+
+  function startWalk(doc_id, duration_s){
+    state.walkState = {done:false, docId:doc_id};
+    const docRect = doc.getBoundingClientRect();
+    const lines = Array.from(docBody.querySelectorAll(".line"));
+    if (!lines.length) return;
+    const perLine = Math.max(60, Math.min(600, (duration_s * 1000) / Math.max(1, lines.length)));
+    let i = 0;
+    function stepLine(){
+      if (state.walkState.docId !== doc_id || state.walkState.done) return;
+      if (i >= lines.length){state.walkState.done = true; return;}
+      const l = lines[i];
+      docBody.querySelectorAll(".line.reading").forEach(x => x.classList.remove("reading"));
+      l.classList.add("reading");
+      const r = l.getBoundingClientRect(), dR = doc.getBoundingClientRect();
+      const y = r.top - dR.top + r.height/2;
+      const x = dR.width/2;
+      moveHub(x, y);
+      // Drop 1 or 2 web nodes near the hub
+      sizeOverlay();
+      addWebNode();
+      if (Math.random() < 0.5) addWebNode();
+      // Links in this line get .seen
+      l.querySelectorAll("a.link:not(.seen)").forEach(a => a.classList.add("seen"));
+      i++;
+      setTimeout(stepLine, perLine);
+    }
+    stepLine();
+  }
+
+  function markFactInDoc(ev){
+    if (ev.doc_id !== state.currentDocId) return;
+    const text = state.currentText || "";
+    if (!text) return;
+    let offset = ev.char_offset;
+    if (offset == null || offset < 0) offset = text.indexOf(ev.value);
+    if (offset < 0) return;
+    // Find the DOM span of a .line that contains char offset `offset`.
+    // Our paragraphs preserve offsets reasonably since we used escapeHTML + \n splits.
+    // Locate target: walk .line text content until cumulative offset matches.
+    const lines = Array.from(docBody.querySelectorAll(".line"));
+    let cum = 0, found = null, inLineOff = 0;
+    for (const l of lines){
+      const tx = l.textContent;
+      if (cum + tx.length + 1 >= offset){
+        found = l;
+        inLineOff = Math.max(0, offset - cum);
+        break;
+      }
+      cum += tx.length + 1; // +1 for newline between lines
+    }
+    if (!found) return;
+    // Wrap the matching substring inside the line with a .hit span, if not already wrapped.
+    const target = ev.value;
+    const html = found.innerHTML;
+    const t = found.textContent;
+    const idx = t.indexOf(target, Math.max(0, inLineOff - 2));
+    if (idx < 0) return;
+    // Walk nodes to split
+    try{ wrapHitInLine(found, idx, idx + target.length); }catch(e){}
+    // Compute hit DOM rect
+    const hitEl = found.querySelector(".hit:not(.beamed)");
+    if (!hitEl) return;
+    hitEl.classList.add("beamed");
+    const r = hitEl.getBoundingClientRect(), dR = doc.getBoundingClientRect();
+    const vx = r.left - dR.left + r.width/2, vy = r.top - dR.top + r.height/2;
+    sizeOverlay();
+    const isBlue = familyBlue(ev.label);
+    fireBeam(state.hubPos.x, state.hubPos.y, vx, vy, isBlue);
+    addPopout(ev.label, ev.value, ev.unit, vx, vy, isBlue);
+    state.totalFacts++;
+    setStatus(`reading <b>${state.currentHost||""}</b> ${state.currentType||""} ${(state.currentPub||"").slice(0,10)} &nbsp;&middot;&nbsp; ${state.totalFacts} numbers found`);
+  }
+
+  function wrapHitInLine(lineEl, start, end){
+    // Walk text nodes under lineEl, split at start/end, wrap middle in <span class="hit">
+    const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT, null);
+    let n, pos = 0;
+    const nodes = [];
+    while (n = walker.nextNode()) nodes.push(n);
+    for (const tn of nodes){
+      const tlen = tn.nodeValue.length;
+      if (pos + tlen < start){pos += tlen; continue;}
+      // Split
+      const sOff = Math.max(0, start - pos);
+      const eOff = Math.min(tlen, end - pos);
+      if (eOff <= sOff){pos += tlen; continue;}
+      const left = tn.nodeValue.slice(0, sOff);
+      const mid = tn.nodeValue.slice(sOff, eOff);
+      const right = tn.nodeValue.slice(eOff);
+      const span = document.createElement("span");
+      span.className = "hit";
+      span.textContent = mid;
+      const parent = tn.parentNode;
+      if (left) parent.insertBefore(document.createTextNode(left), tn);
+      parent.insertBefore(span, tn);
+      if (right) parent.insertBefore(document.createTextNode(right), tn);
+      parent.removeChild(tn);
+      return;
+    }
+  }
+
+  function processEvent(ev){
+    if (ev.type === "document"){
+      state.currentHost = ev.host; state.currentType = ev.doc_type; state.currentPub = ev.published_at || ev.fetched_at;
+      loadDocAndWalk(ev);
+      state.totalDocs++;
+    } else if (ev.type === "fact"){
+      markFactInDoc(ev);
+    }
+  }
+
+  async function initReplay(){
+    const data = await fetchJSON("/desk/run/latest?window=14400&limit=200");
+    if (data.error || !data.events || data.events.length === 0){setStatus("no completed run yet"); return;}
+    state.events = data.events;
+    const realSec = Math.max(1, Math.round((new Date(data.ended_at) - new Date(data.started_at))/1000));
+    const choices = [10, 60, 300];
+    let best = choices[0], bd = Infinity;
+    for (const s of choices){const t = Math.max(state.events.length * 0.08, realSec/s); const d = Math.abs(t - 75); if (d < bd){bd = d; best = s;}}
+    state.speed = best;
+    setStatus(`Replay ${fmtDate(data.started_at)} Central &nbsp;&middot;&nbsp; ${state.events.length} events &nbsp;&middot;&nbsp; ${realSec}s real time &nbsp;&middot;&nbsp; ${best}x`);
+    state.idx = 0;
+    replayTick();
+  }
+  function replayTick(){
+    if (state.idx >= state.events.length){setStatus(`done &nbsp;&middot;&nbsp; ${state.totalDocs} documents &nbsp;&middot;&nbsp; ${state.totalFacts} numbers found`); return;}
+    const ev = state.events[state.idx];
+    const nextIdx = state.idx + 1;
+    processEvent(ev);
+    state.idx = nextIdx;
+    let delay = 400;
+    if (nextIdx < state.events.length){
+      const t0 = new Date(ev.fetched_at || ev.at).getTime();
+      const t1 = new Date(state.events[nextIdx].fetched_at || state.events[nextIdx].at).getTime();
+      delay = Math.min(5000, Math.max(80, (t1 - t0) / state.speed));
+    }
+    clearTimeout(state.tickTimer);
+    state.tickTimer = setTimeout(replayTick, delay);
+  }
+  function stopLive(){if (state.es){try{state.es.close();}catch(e){} state.es = null;} state.running = false;}
+  function stopWalk(){state.walkState.done = true;}
+
+  function liveHandle(ev){
+    if (ev.type === "heartbeat" || ev.type === "hello") return;
+    if (ev.type === "job_start"){setStatus(`live run started ${fmtDate(ev.at)} Central`); return;}
+    if (ev.type === "fetch_start"){setStatus(`fetching <b>${ev.host}</b> ${(ev.url||"").slice(0,80)}`); return;}
+    if (ev.type === "fetch_done_insert" && ev.doc_id){
+      let host = ""; try{host = new URL(ev.source_url || "").hostname;}catch(e){}
+      const docEv = {type:"document", doc_id:ev.doc_id, host, url:ev.source_url, title:ev.title,
+        doc_type:ev.doc_type, ticker:ev.ticker, fetched_at:ev.at, published_at: ev.published_at || null,
+        has_text: !["SERIES","NEWS","4"].includes(ev.doc_type), meta:{}, dim:!!ev.skipped_dup};
+      state.docsSeen[ev.doc_id] = docEv;
+      if (docEv.dim){setStatus(`<b>${host}</b> ${ev.doc_type}: already stored`); return;}
+      processEvent(docEv);
+      return;
+    }
+    if (ev.type === "extract_fact"){
+      state.events = state.events || [];
+      const fact = {type:"fact", doc_id: ev.doc_id, label: ev.label, value: ev.value, unit: ev.unit, char_offset: ev.char_offset, at: ev.at};
+      state.events.push(fact);
+      state.idx = state.events.length;
+      state.factBuffer = state.factBuffer || {};
+      (state.factBuffer[ev.doc_id] = state.factBuffer[ev.doc_id] || []).push(fact);
+      let bestId = null, bestLen = 0;
+      for (const k of Object.keys(state.factBuffer)){ if (state.factBuffer[k].length > bestLen){bestLen = state.factBuffer[k].length; bestId = k;} }
+      if (!bestId) return;
+      const cached = state.docsSeen[bestId];
+      if (!cached) return;
+      if (state.currentDocId === bestId && state.lastRenderedCount === state.factBuffer[bestId].length - 1){
+        processEvent({type:"fact", doc_id: bestId, label: fact.label, value: fact.value, unit: fact.unit, char_offset: fact.char_offset});
+        state.lastRenderedCount = state.factBuffer[bestId].length;
+        return;
+      }
+      state.pendingRenderDoc = bestId;
+      (async () => {
+        if (state.currentDocId !== bestId){
+          await loadDocAndWalk(cached);
+          if (state.pendingRenderDoc !== bestId) return;
+          await new Promise(r => setTimeout(r, 60));
+        }
+        const facts = state.factBuffer[bestId] || [];
+        for (const f of facts){
+          processEvent({type:"fact", doc_id: bestId, label: f.label, value: f.value, unit: f.unit, char_offset: f.char_offset});
+        }
+        state.lastRenderedCount = facts.length;
+      })();
+      return;
+    }
+    if (ev.type === "job_done"){setStatus(`done &nbsp;&middot;&nbsp; ${state.totalDocs} documents &nbsp;&middot;&nbsp; ${state.totalFacts} numbers found`); stopLive(); const btn = document.querySelector("[data-mode='live']"); if (btn) btn.classList.remove("on"); return;}
+    if (ev.type === "job_error"){setStatus(`error ${ev.phase||""}: ${ev.message||""}`); return;}
+  }
+
+  document.querySelectorAll(".btn[data-mode]").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === b.dataset.mode));
+    state.mode = b.dataset.mode;
+    stopWalk(); stopLive(); clearTimeout(state.tickTimer);
+    clearOverlay(); docBody.innerHTML = ""; h1.textContent = "";
+    state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0; state.factBuffer = {}; state.lastRenderedCount = 0;
+    moveHub(0, 0);
+    if (b.dataset.mode === "replay") initReplay();
+    else setStatus("live mode. click Run.");
+  }));
+  const runBtn = document.querySelector(".btn-run");
+  runBtn.addEventListener("click", async () => {
+    if (state.running) return;
+    document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === "live"));
+    state.mode = "live"; state.running = true;
+    runBtn.classList.add("on"); runBtn.textContent = "Running";
+    clearOverlay(); docBody.innerHTML = ""; h1.textContent = "";
+    state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0; state.factBuffer = {}; state.lastRenderedCount = 0;
+    const ticker = document.getElementById("live-ticker").value;
+    const mode = document.getElementById("live-mode").value;
+    try{
+      state.es = new EventSource("/desk/events");
+      ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done"].forEach(t => {
+        state.es.addEventListener(t, (e) => {try{const d = JSON.parse(e.data); d.type = t; liveHandle(d);}catch(err){}});
+      });
+      state.es.onerror = () => setStatus("SSE connection lost");
+    }catch(e){setStatus("SSE unavailable");}
+    try{
+      const r = await fetch("/desk/_run/live", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ticker, mode})});
+      if (r.status === 409){const j = await r.json(); setStatus(`409: ${j.detail||"another live run active"}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
+      else if (!r.ok){setStatus(`error ${r.status}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
+    }catch(e){setStatus(`POST failed: ${e}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
+  });
+
+  const _params = new URLSearchParams(location.search);
+  const _auto = _params.get("autolive");
+  if (_auto && ["GATX","GBX","TRN"].includes(_auto)){
+    document.getElementById("live-ticker").value = _auto;
+    document.getElementById("live-mode").value = _params.get("automode") || "rewalk30";
+    (async () => {
+      try{
+        const sr = await fetch("/desk/_run/live/status");
+        const sj = sr.ok ? await sr.json() : {};
+        if (sj && sj.active){
+          document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === "live"));
+          state.mode = "live"; state.running = true;
+          runBtn.classList.add("on"); runBtn.textContent = "Running";
+          clearOverlay(); docBody.innerHTML = ""; h1.textContent = "";
+          state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0;
+          state.es = new EventSource("/desk/events");
+          ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done"].forEach(t => {
+            state.es.addEventListener(t, (e) => {try{const d = JSON.parse(e.data); d.type = t; liveHandle(d);}catch(err){}});
+          });
+          setStatus("attached to live run " + (sj.label||""));
+        } else {
+          runBtn.click();
+        }
+      }catch(e){ runBtn.click(); }
+    })();
+  } else {
+    initReplay();
+  }
+  window.addEventListener("resize", sizeOverlay);
+})();
+</script>
+</body></html>

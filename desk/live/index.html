@@ -3,40 +3,38 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Desk live, hub | BMG Capital</title>
+<title>Desk live, spider | BMG Capital</title>
 <style>
-:root{--bg:#000;--fg:#c9ccd1;--dim:#5b6068;--mag:#ff3df2;--cyan:#27e3ff;--yel:#ffe14d;--org:#ff9f1c;--lime:#b6ff3b;--vio:#9d7bff;--pink:#ff3df2;--blue:#27e3ff}
-html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.75 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-.strip{position:fixed;top:0;left:0;right:0;height:36px;display:flex;align-items:center;gap:14px;padding:0 16px;background:rgba(0,0,0,.85);border-bottom:1px solid #15181d;font-size:12px;color:#9aa0a8;z-index:5}
+:root{--bg:#000;--fg:#c9ccd1;--dim:#5b6068;--pink:#ff2bd6;--org:#ff9f1c;--blue:#4f7bff;--cyan:#27e3ff;--t1:#ff2bd6;--t2:#ff9f1c;--t3:#4f7bff;--t4:#27e3ff;--t5:#b6ff3b}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.8 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-x:hidden}
+.strip{position:fixed;top:0;left:0;right:0;height:36px;display:flex;align-items:center;gap:14px;padding:0 16px;background:rgba(0,0,0,.9);border-bottom:1px solid #15181d;font-size:12px;color:#9aa0a8;z-index:20}
 .strip b{color:#fff;font-weight:600}
 .strip .btn{padding:2px 9px;border:1px solid #2a2f37;border-radius:4px;color:#c9ccd1;background:transparent;font:inherit;cursor:pointer}
-.strip .on{background:var(--lime);color:#000;border-color:var(--lime)}
+.strip .on{background:#b6ff3b;color:#000;border-color:#b6ff3b}
 .strip select{background:transparent;color:#c9ccd1;border:1px solid #2a2f37;border-radius:4px;padding:1px 6px;font:inherit}
 .strip .status{margin-left:auto;color:#c9ccd1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
-.doc{position:relative;max-width:900px;margin:72px auto 160px;padding:0 16px}
-h1{font:600 22px/1.3 ui-monospace,monospace;color:#fff;margin:0 0 18px;opacity:1}
-p{margin:0 0 14px;position:relative}
-.line{display:block;opacity:.78}
-.line.reading{opacity:1;background:rgba(255,255,255,.05)}
-.link{border-bottom:1px solid #2a3038;color:#8fa2ad;transition:border-color .3s ease,color .3s ease}
-.link.seen{border-bottom-color:var(--cyan);color:#8fd9e6}
-.hit{outline:1px solid #fff;outline-offset:1px;background:rgba(255,255,255,.08);padding:0 2px;border-radius:2px;color:#fff}
-svg.overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:2}
-svg.overlay line.web{stroke:var(--blue);stroke-width:1;opacity:.6}
-svg.overlay line.beam{stroke-width:3;opacity:.95;filter:drop-shadow(0 0 6px currentColor)}
-svg.overlay line.beam.pink{stroke:var(--pink);color:var(--pink)}
-svg.overlay line.beam.blue{stroke:var(--blue);color:var(--blue)}
-svg.overlay line.popthread{stroke:#4a5058;stroke-width:1;opacity:.6}
-svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,r .6s ease}
-.hub{position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 10px 2px #fff, 0 0 24px 6px rgba(255,255,255,.6);transform:translate(-7px,-7px);transition:left .4s ease,top .4s ease;z-index:4;pointer-events:none}
-.popout{position:absolute;z-index:3;color:#fff;background:rgba(0,0,0,.86);border:1px solid #2a2f37;border-radius:4px;padding:4px 8px;box-shadow:0 0 14px rgba(255,61,242,.35);transition:transform .4s ease,opacity .4s ease;pointer-events:none;min-width:40px}
-.popout.blue{box-shadow:0 0 14px rgba(39,227,255,.4)}
-.popout .pop-label{font-size:10px;color:#9aa0a8;letter-spacing:.2px;text-transform:uppercase;line-height:1.1}
-.popout .pop-value{font:600 46px/1 ui-monospace,monospace;color:#fff;margin-top:2px}
-.popout.pink .pop-value{color:#fff;text-shadow:0 0 10px var(--pink)}
-.popout.blue .pop-value{color:#fff;text-shadow:0 0 10px var(--blue)}
-.note{position:fixed;bottom:0;left:0;right:0;padding:6px 16px;font-size:11px;color:var(--dim);background:rgba(0,0,0,.85);border-top:1px solid #15181d}
-@media (max-width:600px){html,body{font-size:13px}.strip{height:auto;flex-wrap:wrap;padding:6px 12px}.strip .status{margin-left:0;width:100%;max-width:100%}.doc{margin-top:84px}.popout .pop-value{font-size:28px}.popout{padding:3px 6px}}
+.doc{position:relative;max-width:980px;margin:70px auto 160px;padding:0 20px;opacity:1}
+h1{font:600 20px/1.3 ui-monospace,monospace;color:#e6e8eb;margin:0 0 16px}
+p{margin:0 0 12px}
+.w{display:inline;transition:color .2s ease,outline-color .2s ease}
+.a{color:#6ea8ff;border-bottom:1px solid rgba(110,168,255,.5)}
+.a.link{color:#8fd9e6;border-bottom-color:#27e3ff}
+.touch-t1{outline:1px solid var(--t1);outline-offset:1px;border-radius:2px}
+.touch-t2{outline:1px solid var(--t2);outline-offset:1px;border-radius:2px}
+.touch-t3{outline:1px solid var(--t3);outline-offset:1px;border-radius:2px}
+.touch-t4{outline:1px solid var(--t4);outline-offset:1px;border-radius:2px}
+.touch-t5{outline:1px solid var(--t5);outline-offset:1px;border-radius:2px}
+.found{font:700 20px/1 ui-serif,Georgia,serif;padding:0 4px;border-radius:3px;color:#fff}
+.found.pink{background:rgba(255,43,214,.22);box-shadow:0 0 10px rgba(255,43,214,.5)}
+.found.org{background:rgba(255,159,28,.22);box-shadow:0 0 10px rgba(255,159,28,.5)}
+.found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
+svg.spider{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
+svg.spider .body{fill:#fff;stroke:#fff;filter:drop-shadow(0 0 6px #fff) drop-shadow(0 0 14px rgba(79,123,255,.5))}
+svg.spider .leg{stroke:#fff;stroke-width:1.3;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 2px rgba(255,255,255,.5))}
+svg.spider .foot{fill:#fff;stroke:#fff}
+svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
+.note{position:fixed;bottom:0;left:0;right:0;padding:6px 16px;font-size:11px;color:var(--dim);background:rgba(0,0,0,.9);border-top:1px solid #15181d;z-index:20}
+@media (max-width:600px){html,body{font-size:13px}.found{font-size:16px}.strip{height:auto;flex-wrap:wrap;padding:6px 12px}.strip .status{margin-left:0;width:100%;max-width:100%}.doc{margin-top:84px}}
 </style>
 </head>
 <body>
@@ -44,32 +42,33 @@ svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,
   <button class="btn on" data-mode="replay">Replay</button>  <button class="btn" data-mode="live">Live</button>  <select id="live-ticker"><option>GATX</option><option>GBX</option><option>TRN</option></select>  <select id="live-mode"><option value="new">New</option><option value="rewalk30" selected>Re-walk 120 days</option></select>  <button class="btn btn-run">Run</button>  <span class="status" id="status">idle</span>
 </div>
 <div class="doc" id="doc">
-  <svg class="overlay" id="overlay"></svg>
-  <div class="hub" id="hub"></div>
-  <div id="popouts" style="position:absolute;inset:0;pointer-events:none;z-index:3"></div>
+  <svg class="spider" id="spider"></svg>
   <h1 id="doc-h1"></h1>
   <div id="docbody"></div>
 </div>
-<div class="note">Live run streams /desk/events; Replay loads /desk/run/latest. Hub reads the text, web grows as it goes, beams fire on every stored number. Older designs: <a href="/desk/live-v2/" style="color:#5b6068">v2 (inline boxes)</a> &middot; <a href="/desk/live-v1/" style="color:#5b6068">v1 (two-pane)</a>.</div>
+<div class="note">Live run streams /desk/events; Replay loads /desk/run/latest. Line-drawn spider walks the real text; feet plant on real words. Older designs: <a href="/desk/live-v3/" style="color:#5b6068">v3 (hub + beam)</a> &middot; <a href="/desk/live-v2/" style="color:#5b6068">v2 (inline boxes)</a> &middot; <a href="/desk/live-v1/" style="color:#5b6068">v1 (two-pane)</a>.</div>
 <script>
 (() => {
   const SVG_NS = "http://www.w3.org/2000/svg";
   const doc = document.getElementById("doc");
-  const overlay = document.getElementById("overlay");
-  const hub = document.getElementById("hub");
+  const spiderSvg = document.getElementById("spider");
   const statusEl = document.getElementById("status");
   const docBody = document.getElementById("docbody");
   const h1 = document.getElementById("doc-h1");
-  const popoutLayer = document.getElementById("popouts");
-  const BLUE_FAMILIES = new Set(["Fleet","Utilization","Backlog units","Backlog $B","Disposition gains"]);
-  const MAX_NODES = 60;
-  const MAX_POPOUTS = 6;
 
-  let state = {mode:"replay", events:[], idx:0, speed:60, tickTimer:null,
-    currentDocId:null, docsLoaded:{}, docsSeen:{}, walkRaf:null,
-    walkState:{done:true, docId:null},
-    nodes:[], popouts:[], hubPos:{x:0,y:0},
-    totalDocs:0, totalFacts:0, es:null, running:false, currentText:"",
+  const COLOR_FAM = {Revenue:"pink","Net income":"pink",Sales:"pink",EPS:"pink",
+    Dividend:"org","Disposition gains":"org",Buyback:"org",
+    Fleet:"blue",Utilization:"blue","Backlog units":"blue","Backlog $B":"blue",LPI:"blue"};
+  const BODY_W = 10, FOOT_R = 2.5, N_LEGS = 8;
+  const TOUCH_CYCLE = ["t1","t2","t3","t4","t5"];
+
+  let state = {
+    mode:"replay", events:[], idx:0, speed:60, tickTimer:null,
+    currentDocId:null, docsLoaded:{}, docsSeen:{},
+    walkState:{done:true, docId:null, lineIdx:0},
+    body:{x:0, y:0}, feet:[], feetEls:[], legEls:[], threads:[],
+    touchCycleIdx:0, foundCount:0, totalDocs:0, totalFacts:0,
+    es:null, running:false, currentText:"", touchedEls:new Set(),
     factBuffer:{}, lastRenderedCount:0, pendingRenderDoc:null,
     currentHost:"", currentType:"", currentPub:""};
 
@@ -77,117 +76,210 @@ svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,
   function fmtDate(iso){if(!iso) return "";const d=new Date(iso);return isNaN(d)?iso:d.toLocaleString("en-US",{timeZone:"America/Chicago",month:"short",day:"2-digit",hour:"2-digit",minute:"2-digit"});}
   async function fetchJSON(url){try{const r=await fetch(url,{cache:"no-store"});if(!r.ok) throw new Error(r.status);return await r.json();}catch(e){return {error:String(e)};}}
   function setStatus(s){statusEl.innerHTML = s;}
-  function familyBlue(label){return BLUE_FAMILIES.has(label);}
 
-  function sizeOverlay(){const r = doc.getBoundingClientRect(); overlay.setAttribute("viewBox", `0 0 ${r.width} ${r.height}`); overlay.setAttribute("width", r.width); overlay.setAttribute("height", r.height);}
+  function sizeSvg(){const r=doc.getBoundingClientRect(); spiderSvg.setAttribute("viewBox",`0 0 ${r.width} ${r.height}`); spiderSvg.setAttribute("width",r.width); spiderSvg.setAttribute("height",r.height);}
 
-  function moveHub(x, y){
-    state.hubPos = {x, y};
-    hub.style.left = x + "px";
-    hub.style.top = y + "px";
-    const dRect = doc.getBoundingClientRect();
-    const absY = y + dRect.top + window.scrollY;
-    if (absY > window.scrollY + window.innerHeight - 160) window.scrollTo({top: absY - window.innerHeight + 220, behavior:"smooth"});
-    else if (absY < window.scrollY + 100) window.scrollTo({top: Math.max(0, absY - 100), behavior:"smooth"});
+  function clearSpider(){
+    spiderSvg.innerHTML = "";
+    state.feet = []; state.feetEls = []; state.legEls = []; state.threads = [];
+    state.touchedEls = new Set();
   }
 
-  function addWebNode(){
-    const {x,y} = state.hubPos;
-    const angle = Math.random() * Math.PI * 2;
-    const r = 20 + Math.random() * 36;
-    const nx = x + Math.cos(angle) * r;
-    const ny = y + Math.sin(angle) * r;
-    const line = document.createElementNS(SVG_NS, "line");
-    line.setAttribute("x1", x); line.setAttribute("y1", y);
-    line.setAttribute("x2", nx); line.setAttribute("y2", ny);
-    line.setAttribute("class", "web");
-    overlay.appendChild(line);
-    const c = document.createElementNS(SVG_NS, "circle");
-    c.setAttribute("cx", nx); c.setAttribute("cy", ny); c.setAttribute("r", 3);
-    c.setAttribute("class", "node");
-    overlay.appendChild(c);
-    state.nodes.push({line, c});
-    if (state.nodes.length > MAX_NODES){
-      const old = state.nodes.shift();
-      old.line.style.opacity = ".3";
-      old.c.style.opacity = ".3";
-    }
-  }
-
-  function clearWeb(){state.nodes.forEach(n => {n.line.remove(); n.c.remove();}); state.nodes = [];}
-  function clearPopouts(){state.popouts.forEach(p => {p.el.remove(); if (p.thread) p.thread.remove();}); state.popouts = [];}
-  function clearOverlay(){overlay.innerHTML = ""; state.nodes = []; state.popouts = [];}
-
-  function fireBeam(fromX, fromY, toX, toY, isBlue){
-    const line = document.createElementNS(SVG_NS, "line");
-    line.setAttribute("x1", fromX); line.setAttribute("y1", fromY);
-    line.setAttribute("x2", fromX); line.setAttribute("y2", fromY);
-    line.setAttribute("class", "beam " + (isBlue ? "blue" : "pink"));
-    overlay.appendChild(line);
-    const start = performance.now();
-    const dur = 350;
-    function step(now){
-      const t = Math.min(1, (now - start)/dur);
-      const e = 1 - Math.pow(1 - t, 3);
-      line.setAttribute("x2", fromX + (toX - fromX) * e);
-      line.setAttribute("y2", fromY + (toY - fromY) * e);
-      if (t < 1) requestAnimationFrame(step);
-      else setTimeout(() => line.remove(), 1200);
-    }
-    requestAnimationFrame(step);
-  }
-
-  function addPopout(label, value, unit, x, y, isBlue){
-    const el = document.createElement("div");
-    el.className = "popout " + (isBlue ? "blue" : "pink");
-    const u = unit ? (" " + unit) : "";
-    el.innerHTML = `<div class="pop-label">${escapeHTML(label.toUpperCase())}</div><div class="pop-value">${escapeHTML(value)}${escapeHTML(u)}</div>`;
-    popoutLayer.appendChild(el);
-    // Measure, then position offset from value
-    const docRect = doc.getBoundingClientRect();
-    const w = el.offsetWidth, h = el.offsetHeight;
-    const isMobile = window.innerWidth < 600;
-    const off = isMobile ? 40 : 70;
-    let px = x + 20, py = y + off;
-    if (px + w > docRect.width - 10) px = Math.max(10, x - w - 20);
-    if (py + h > docRect.height - 10) py = Math.max(10, y - h - 20);
-    el.style.left = px + "px"; el.style.top = py + "px";
-    // Thin thread from popout corner to value
-    const thread = document.createElementNS(SVG_NS, "line");
-    const cx = px + w/2, cy = py + h/2;
-    thread.setAttribute("x1", cx); thread.setAttribute("y1", cy);
-    thread.setAttribute("x2", x); thread.setAttribute("y2", y);
-    thread.setAttribute("class", "popthread");
-    overlay.appendChild(thread);
-    state.popouts.push({el, thread});
-    while (state.popouts.length > MAX_POPOUTS){
-      const old = state.popouts.shift();
-      old.el.style.transform = "scale(.6)"; old.el.style.opacity = ".4";
-      old.thread && (old.thread.style.opacity = ".2");
-    }
-  }
-
-  function processReaderText(text){
-    // Split into lines wrapped in <span class="line">, link URLs, mark .link
-    const esc = escapeHTML(text);
-    const paras = esc.split(/\n\n+/).map(p => {
-      const linked = p.replace(/(https?:\/\/[^\s<]+)/g, m => `<a href="${m}" class="link" target="_blank" rel="noopener">${m}</a>`);
-      const lines = linked.split(/\n/).map(l => `<span class="line">${l || "&nbsp;"}</span>`).join("");
-      return `<p>${lines}</p>`;
+  function tokenize(text){
+    // Wrap every word, link, number in its own span.w so feet have targets.
+    // Preserve newlines by splitting into paragraphs.
+    const paras = text.split(/\n\n+/);
+    return paras.map(para => {
+      const lines = para.split(/\n/);
+      const htmlLines = lines.map(line => {
+        // Linkify first (URLs with surrounding spaces)
+        const parts = [];
+        let cursor = 0;
+        const re = /(https?:\/\/[^\s<]+)/g;
+        let m;
+        while ((m = re.exec(line)) !== null){
+          parts.push({type:"text", val: line.slice(cursor, m.index)});
+          parts.push({type:"link", val: m[0]});
+          cursor = m.index + m[0].length;
+        }
+        parts.push({type:"text", val: line.slice(cursor)});
+        return parts.map(part => {
+          if (part.type === "link"){
+            return `<a class="w a" href="${escapeHTML(part.val)}" target="_blank" rel="noopener">${escapeHTML(part.val)}</a>`;
+          }
+          // Tokenize text into word-like spans
+          const toks = part.val.split(/(\s+)/);
+          return toks.map(t => {
+            if (!t || /^\s+$/.test(t)) return escapeHTML(t);
+            return `<span class="w">${escapeHTML(t)}</span>`;
+          }).join("");
+        }).join("");
+      });
+      return "<p>" + htmlLines.join("<br>") + "</p>";
     }).join("");
-    return paras;
   }
+
+  function elCenter(el){
+    const r = el.getBoundingClientRect(), d = doc.getBoundingClientRect();
+    return {x: r.left - d.left + r.width/2, y: r.top - d.top + r.height/2};
+  }
+
+  function drawBody(){
+    // Remove old body
+    const old = spiderSvg.querySelector("rect.body"); if (old) old.remove();
+    const b = document.createElementNS(SVG_NS, "rect");
+    b.setAttribute("class", "body");
+    b.setAttribute("x", state.body.x - BODY_W/2);
+    b.setAttribute("y", state.body.y - BODY_W/2);
+    b.setAttribute("width", BODY_W);
+    b.setAttribute("height", BODY_W);
+    b.setAttribute("rx", 2);
+    spiderSvg.appendChild(b);
+  }
+
+  function kneeFor(bx, by, fx, fy, idx){
+    // Give each leg a knee between body and foot, offset perpendicular.
+    const mx = (bx + fx)/2, my = (by + fy)/2;
+    const dx = fx - bx, dy = fy - by;
+    const len = Math.max(1, Math.hypot(dx, dy));
+    const nx = -dy/len, ny = dx/len;
+    const bend = 6 + (idx % 3) * 2;
+    return {x: mx + nx * bend, y: my + ny * bend};
+  }
+
+  function drawLegs(){
+    // Remove old legs/feet
+    spiderSvg.querySelectorAll(".leg,.foot").forEach(e => e.remove());
+    state.legEls = []; state.feetEls = [];
+    for (let i = 0; i < state.feet.length; i++){
+      const f = state.feet[i];
+      const knee = kneeFor(state.body.x, state.body.y, f.x, f.y, i);
+      const poly = document.createElementNS(SVG_NS, "polyline");
+      poly.setAttribute("class", "leg");
+      poly.setAttribute("points", `${state.body.x},${state.body.y} ${knee.x},${knee.y} ${f.x},${f.y}`);
+      spiderSvg.appendChild(poly);
+      state.legEls.push(poly);
+      const dot = document.createElementNS(SVG_NS, "circle");
+      dot.setAttribute("class", "foot");
+      dot.setAttribute("cx", f.x);
+      dot.setAttribute("cy", f.y);
+      dot.setAttribute("r", FOOT_R);
+      spiderSvg.appendChild(dot);
+      state.feetEls.push(dot);
+    }
+  }
+
+  function addThread(toX, toY){
+    const t = document.createElementNS(SVG_NS, "line");
+    t.setAttribute("class", "thread");
+    t.setAttribute("x1", state.body.x);
+    t.setAttribute("y1", state.body.y);
+    t.setAttribute("x2", toX);
+    t.setAttribute("y2", toY);
+    spiderSvg.insertBefore(t, spiderSvg.firstChild);
+    state.threads.push(t);
+  }
+
+  function markTouch(el){
+    if (!el || state.touchedEls.has(el)) return;
+    const tier = TOUCH_CYCLE[state.touchCycleIdx % TOUCH_CYCLE.length];
+    el.classList.add("touch-" + tier);
+    state.touchCycleIdx++;
+    state.touchedEls.add(el);
+  }
+
+  function markLinkPassed(a){
+    if (!a.classList.contains("link")) a.classList.add("link");
+  }
+
+  function nearestUntouchedAhead(bodyY){
+    const words = Array.from(docBody.querySelectorAll(".w"));
+    const d = doc.getBoundingClientRect();
+    let best = null, bestDy = Infinity;
+    for (const w of words){
+      if (state.touchedEls.has(w)) continue;
+      const r = w.getBoundingClientRect();
+      const wy = r.top - d.top + r.height/2;
+      const dy = wy - bodyY;
+      if (dy >= -2 && dy < bestDy){ bestDy = dy; best = w; }
+    }
+    return best;
+  }
+
+  function stepFeetForward(){
+    // Lift the two feet whose y is farthest BEHIND body.y and place them on nearest untouched elements ahead
+    if (state.feet.length < 2) return;
+    const indexed = state.feet.map((f,i) => ({f, i}));
+    indexed.sort((a,b) => (state.body.y - a.f.y) - (state.body.y - b.f.y));
+    // Pop two "most behind" (largest body.y - f.y)
+    const toMove = indexed.slice(-2).map(x => x.i);
+    const steps = [];
+    for (const i of toMove){
+      const target = nearestUntouchedAhead(state.body.y) || nearestUntouchedAhead(state.body.y - 50);
+      if (!target) continue;
+      const tc = elCenter(target);
+      const from = {x: state.feet[i].x, y: state.feet[i].y};
+      steps.push({i, from, to: tc, target});
+    }
+    // Animate over 180ms
+    const start = performance.now(), dur = 180;
+    function tween(now){
+      const t = Math.min(1, (now - start)/dur);
+      for (const s of steps){
+        state.feet[s.i].x = s.from.x + (s.to.x - s.from.x) * t;
+        state.feet[s.i].y = s.from.y + (s.to.y - s.from.y) * t;
+      }
+      drawLegs();
+      if (t < 1) requestAnimationFrame(tween);
+      else {
+        for (const s of steps){
+          markTouch(s.target);
+          if (s.target.tagName === "A") markLinkPassed(s.target);
+          addThread(s.to.x, s.to.y);
+        }
+      }
+    }
+    requestAnimationFrame(tween);
+  }
+
+  function moveBody(x, y){
+    const dy = Math.hypot(x - state.body.x, y - state.body.y);
+    state.body.x = x; state.body.y = y;
+    drawBody(); drawLegs();
+    if (dy > 24) stepFeetForward();
+  }
+
+  function plantInitialFeet(){
+    // Pick the first N_LEGS .w elements nearest the body as the starting feet.
+    const words = Array.from(docBody.querySelectorAll(".w"));
+    if (!words.length) return;
+    const d = doc.getBoundingClientRect();
+    const scored = words.map(w => {
+      const r = w.getBoundingClientRect();
+      const wx = r.left - d.left + r.width/2;
+      const wy = r.top - d.top + r.height/2;
+      return {w, wx, wy, d2: Math.hypot(wx - state.body.x, wy - state.body.y)};
+    }).sort((a,b) => a.d2 - b.d2).slice(0, N_LEGS);
+    state.feet = scored.map(s => ({x: s.wx, y: s.wy}));
+    scored.forEach(s => { markTouch(s.w); if (s.w.tagName === "A") markLinkPassed(s.w); addThread(s.wx, s.wy); });
+    drawBody(); drawLegs();
+  }
+
+  function familyOf(label){return COLOR_FAM[label] || "pink";}
 
   function headlineForDoc(ev){
     const dt = (ev.doc_type || "DOC").replace("PRESS_RELEASE","Release");
-    const dstr = (ev.published_at || ev.fetched_at || "").slice(0, 10);
+    const pub = ev.published_at || ev.fetched_at || "";
+    // Try to format a date in YYYY-MM-DD; parse Date for both RFC and ISO
+    const d = pub ? new Date(pub) : null;
+    const dstr = d && !isNaN(d) ? d.toISOString().slice(0,10) : (pub || "").slice(0,10);
     const t = (ev.title || "").trim();
     return `${ev.ticker || ""} ${dt}${dstr ? " " + dstr : ""}${t ? ": " + t : ""}`;
   }
 
   async function loadDocAndWalk(ev){
     state.currentDocId = ev.doc_id;
-    clearOverlay();
+    clearSpider();
     docBody.innerHTML = "";
     h1.textContent = "";
     const notext = (!ev.has_text || ["NEWS","4","SERIES"].includes(ev.doc_type));
@@ -206,11 +298,12 @@ svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,
     const text = (d.text || "").slice(0, 60000);
     state.currentText = text;
     h1.textContent = headlineForDoc(ev);
-    docBody.innerHTML = processReaderText(text);
-    sizeOverlay();
-    const docRect = doc.getBoundingClientRect();
+    docBody.innerHTML = tokenize(text);
+    sizeSvg();
+    const dRect = doc.getBoundingClientRect();
     const h1Rect = h1.getBoundingClientRect();
-    moveHub(docRect.width/2, h1Rect.bottom - docRect.top + 20);
+    state.body = {x: dRect.width/2, y: h1Rect.bottom - dRect.top + 20};
+    plantInitialFeet();
     setStatus(`reading <b>${ev.host||""}</b> ${ev.doc_type} ${(ev.published_at||ev.fetched_at||"").slice(0,10)} &nbsp;&middot;&nbsp; 0 numbers found`);
     const dur = computeWalkDuration(ev.doc_id, ev.fetched_at);
     setTimeout(() => startWalk(ev.doc_id, dur), 80);
@@ -221,34 +314,51 @@ svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,
     if (facts.length && fetched_at){
       const tMax = facts.reduce((m,f) => {const t = new Date(f.at||f.fetched_at||0).getTime(); return Math.max(m, t);}, 0);
       const t0 = new Date(fetched_at).getTime();
-      if (t0 > 0 && tMax > t0) return Math.max(3, Math.min(20, (tMax - t0)/1000));
+      if (t0 > 0 && tMax > t0) return Math.max(4, Math.min(22, (tMax - t0)/1000));
     }
-    return 7;
+    return 10;
   }
 
   function startWalk(doc_id, duration_s){
-    state.walkState = {done:false, docId:doc_id};
-    const docRect = doc.getBoundingClientRect();
-    const lines = Array.from(docBody.querySelectorAll(".line"));
+    state.walkState = {done:false, docId:doc_id, lineIdx:0};
+    const paragraphs = Array.from(docBody.querySelectorAll("p"));
+    const lines = [];
+    paragraphs.forEach(p => {
+      // Treat each <br>-split chunk as a line by walking children
+      let currentLine = [];
+      Array.from(p.childNodes).forEach(c => {
+        if (c.nodeName === "BR"){
+          if (currentLine.length) lines.push(currentLine);
+          currentLine = [];
+        } else {
+          currentLine.push(c);
+        }
+      });
+      if (currentLine.length) lines.push(currentLine);
+    });
     if (!lines.length) return;
-    const perLine = Math.max(60, Math.min(600, (duration_s * 1000) / Math.max(1, lines.length)));
+    const perLine = Math.max(80, Math.min(800, (duration_s * 1000) / Math.max(1, lines.length)));
     let i = 0;
     function stepLine(){
       if (state.walkState.docId !== doc_id || state.walkState.done) return;
       if (i >= lines.length){state.walkState.done = true; return;}
-      const l = lines[i];
-      docBody.querySelectorAll(".line.reading").forEach(x => x.classList.remove("reading"));
-      l.classList.add("reading");
-      const r = l.getBoundingClientRect(), dR = doc.getBoundingClientRect();
-      const y = r.top - dR.top + r.height/2;
-      const x = dR.width/2;
-      moveHub(x, y);
-      // Drop 1 or 2 web nodes near the hub
-      sizeOverlay();
-      addWebNode();
-      if (Math.random() < 0.5) addWebNode();
-      // Links in this line get .seen
-      l.querySelectorAll("a.link:not(.seen)").forEach(a => a.classList.add("seen"));
+      const chunk = lines[i];
+      // Compute line y as mean of chunk element centers
+      const d = doc.getBoundingClientRect();
+      let ys = [], xs = [];
+      chunk.forEach(n => {
+        if (!(n instanceof Element)) return;
+        const r = n.getBoundingClientRect();
+        ys.push(r.top - d.top + r.height/2);
+        xs.push(r.left - d.left + r.width/2);
+      });
+      if (!ys.length){i++; setTimeout(stepLine, perLine); return;}
+      const y = ys.reduce((a,b) => a+b, 0)/ys.length;
+      const x = Math.min(d.width - 20, Math.max(20, xs[0] + 20));
+      moveBody(x, y);
+      // Scroll
+      const absY = y + d.top + window.scrollY;
+      if (absY > window.scrollY + window.innerHeight - 160) window.scrollTo({top: absY - window.innerHeight + 220, behavior:"smooth"});
       i++;
       setTimeout(stepLine, perLine);
     }
@@ -262,69 +372,35 @@ svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,
     let offset = ev.char_offset;
     if (offset == null || offset < 0) offset = text.indexOf(ev.value);
     if (offset < 0) return;
-    // Find the DOM span of a .line that contains char offset `offset`.
-    // Our paragraphs preserve offsets reasonably since we used escapeHTML + \n splits.
-    // Locate target: walk .line text content until cumulative offset matches.
-    const lines = Array.from(docBody.querySelectorAll(".line"));
-    let cum = 0, found = null, inLineOff = 0;
-    for (const l of lines){
-      const tx = l.textContent;
-      if (cum + tx.length + 1 >= offset){
-        found = l;
-        inLineOff = Math.max(0, offset - cum);
-        break;
-      }
-      cum += tx.length + 1; // +1 for newline between lines
+    // Find the .w span whose text content contains the value starting near offset
+    const words = Array.from(docBody.querySelectorAll(".w"));
+    let found = null;
+    for (const w of words){
+      if (w.textContent.includes(ev.value)){ found = w; break; }
     }
     if (!found) return;
-    // Wrap the matching substring inside the line with a .hit span, if not already wrapped.
-    const target = ev.value;
-    const html = found.innerHTML;
-    const t = found.textContent;
-    const idx = t.indexOf(target, Math.max(0, inLineOff - 2));
-    if (idx < 0) return;
-    // Walk nodes to split
-    try{ wrapHitInLine(found, idx, idx + target.length); }catch(e){}
-    // Compute hit DOM rect
-    const hitEl = found.querySelector(".hit:not(.beamed)");
-    if (!hitEl) return;
-    hitEl.classList.add("beamed");
-    const r = hitEl.getBoundingClientRect(), dR = doc.getBoundingClientRect();
-    const vx = r.left - dR.left + r.width/2, vy = r.top - dR.top + r.height/2;
-    sizeOverlay();
-    const isBlue = familyBlue(ev.label);
-    fireBeam(state.hubPos.x, state.hubPos.y, vx, vy, isBlue);
-    addPopout(ev.label, ev.value, ev.unit, vx, vy, isBlue);
-    state.totalFacts++;
-    setStatus(`reading <b>${state.currentHost||""}</b> ${state.currentType||""} ${(state.currentPub||"").slice(0,10)} &nbsp;&middot;&nbsp; ${state.totalFacts} numbers found`);
-  }
-
-  function wrapHitInLine(lineEl, start, end){
-    // Walk text nodes under lineEl, split at start/end, wrap middle in <span class="hit">
-    const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT, null);
-    let n, pos = 0;
-    const nodes = [];
-    while (n = walker.nextNode()) nodes.push(n);
-    for (const tn of nodes){
-      const tlen = tn.nodeValue.length;
-      if (pos + tlen < start){pos += tlen; continue;}
-      // Split
-      const sOff = Math.max(0, start - pos);
-      const eOff = Math.min(tlen, end - pos);
-      if (eOff <= sOff){pos += tlen; continue;}
-      const left = tn.nodeValue.slice(0, sOff);
-      const mid = tn.nodeValue.slice(sOff, eOff);
-      const right = tn.nodeValue.slice(eOff);
-      const span = document.createElement("span");
-      span.className = "hit";
-      span.textContent = mid;
-      const parent = tn.parentNode;
-      if (left) parent.insertBefore(document.createTextNode(left), tn);
-      parent.insertBefore(span, tn);
-      if (right) parent.insertBefore(document.createTextNode(right), tn);
-      parent.removeChild(tn);
-      return;
+    // Give it .found treatment
+    const fam = familyOf(ev.label);
+    found.classList.add("found", fam);
+    // Replace content to include the value nicely (keep whole text)
+    // Move body to this value and plant a foot on it
+    const c = elCenter(found);
+    moveBody(c.x, c.y);
+    // Replace one foot with this value's center
+    if (state.feet.length){
+      // find the foot farthest behind
+      let bi = 0, bd = -Infinity;
+      for (let i = 0; i < state.feet.length; i++){
+        const d2 = state.body.y - state.feet[i].y;
+        if (d2 > bd){bd = d2; bi = i;}
+      }
+      state.feet[bi] = {x: c.x, y: c.y};
+      drawLegs();
     }
+    markTouch(found);
+    addThread(c.x, c.y);
+    state.foundCount++;
+    setStatus(`reading <b>${state.currentHost||""}</b> ${state.currentType||""} ${(state.currentPub||"").slice(0,10)} &nbsp;&middot;&nbsp; ${state.foundCount} numbers found`);
   }
 
   function processEvent(ev){
@@ -334,6 +410,7 @@ svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,
       state.totalDocs++;
     } else if (ev.type === "fact"){
       markFactInDoc(ev);
+      state.totalFacts++;
     }
   }
 
@@ -422,9 +499,8 @@ svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,
     document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === b.dataset.mode));
     state.mode = b.dataset.mode;
     stopWalk(); stopLive(); clearTimeout(state.tickTimer);
-    clearOverlay(); docBody.innerHTML = ""; h1.textContent = "";
-    state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0; state.factBuffer = {}; state.lastRenderedCount = 0;
-    moveHub(0, 0);
+    clearSpider(); docBody.innerHTML = ""; h1.textContent = "";
+    state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0; state.foundCount = 0; state.factBuffer = {}; state.lastRenderedCount = 0;
     if (b.dataset.mode === "replay") initReplay();
     else setStatus("live mode. click Run.");
   }));
@@ -434,8 +510,8 @@ svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,
     document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === "live"));
     state.mode = "live"; state.running = true;
     runBtn.classList.add("on"); runBtn.textContent = "Running";
-    clearOverlay(); docBody.innerHTML = ""; h1.textContent = "";
-    state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0; state.factBuffer = {}; state.lastRenderedCount = 0;
+    clearSpider(); docBody.innerHTML = ""; h1.textContent = "";
+    state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0; state.foundCount = 0; state.factBuffer = {}; state.lastRenderedCount = 0;
     const ticker = document.getElementById("live-ticker").value;
     const mode = document.getElementById("live-mode").value;
     try{
@@ -454,6 +530,20 @@ svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,
 
   const _params = new URLSearchParams(location.search);
   const _auto = _params.get("autolive");
+  const _docId = _params.get("doc");
+  if (_docId){
+    (async () => {
+      const d = await fetchJSON("/desk/doc/" + encodeURIComponent(_docId));
+      if (d && !d.error){
+        processEvent({type:"document", doc_id:_docId, host:(d.source_url||"").split("/")[2]||"", url:d.source_url, title:d.title,
+          doc_type:d.type, ticker:(d.ticker||"GATX"), fetched_at:d.fetched_at, published_at:d.published_at,
+          has_text:true, meta:d.meta||{}, dim:false});
+        // Apply any stored facts
+        (d.facts||[]).forEach(f => processEvent({type:"fact", doc_id:_docId, label:f.label, value:f.value, unit:f.unit, char_offset:f.char_offset}));
+      } else { setStatus("doc load failed"); }
+    })();
+    return;
+  }
   if (_auto && ["GATX","GBX","TRN"].includes(_auto)){
     document.getElementById("live-ticker").value = _auto;
     document.getElementById("live-mode").value = _params.get("automode") || "rewalk30";
@@ -465,7 +555,7 @@ svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,
           document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === "live"));
           state.mode = "live"; state.running = true;
           runBtn.classList.add("on"); runBtn.textContent = "Running";
-          clearOverlay(); docBody.innerHTML = ""; h1.textContent = "";
+          clearSpider(); docBody.innerHTML = ""; h1.textContent = "";
           state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0;
           state.es = new EventSource("/desk/events");
           ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done"].forEach(t => {
@@ -480,7 +570,7 @@ svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,
   } else {
     initReplay();
   }
-  window.addEventListener("resize", sizeOverlay);
+  window.addEventListener("resize", sizeSvg);
 })();
 </script>
 </body></html>
