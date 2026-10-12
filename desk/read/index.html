@@ -419,6 +419,10 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   // ---- crawl: body creeps continuously; legs step one or two at a time
   const CRAWL_SPEED = 120;  // px per second at 1x, on top of riding the scroll
   state.legAnim = {};
+  function farOk(f, bx, by, i){
+    const c = docSpaceCenter(f.el), d = Math.hypot(c.x - bx, c.y - by);
+    return d >= MIN_REACH && d <= HI_REACH * 1.7 && sectorIndex(bx, by, c.x, c.y) === i;
+  }
   function startLegStep(i, to, now){
     const from = state.feet[i] || {x: state.body.x, y: state.body.y};
     state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 230 / (state.speedMul || 1)};
@@ -441,7 +445,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     for (let i = 0; i < N_LEGS; i++){
       if (state.legAnim[i]) continue;
       const f = state.feet[i];
-      if (!f || !f.el || !footValid(f.el, bx, by, i)) need.push(i);
+      if (!f || (f.el ? !(footValid(f.el, bx, by, i) || farOk(f, bx, by, i)) : !restOk(f, bx, by, i))) need.push(i);
     }
     const ff = state.forceFoot;
     if (ff){ const c = docSpaceCenter(ff); const si = sectorIndex(bx, by, c.x, c.y); if (!need.includes(si) && !state.legAnim[si]) need.unshift(si); }
@@ -454,7 +458,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     for (const i of need){
       if (moving + started >= 2) break;
       const g = target[i];
-      if (!g){ state.feet[i] = null; continue; }
+      if (!g) continue;
       if (state.feet[i] && state.feet[i].el === g.el) continue;
       startLegStep(i, g, now); state.lastParity = i % 2; started++;
     }
@@ -680,7 +684,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     // a long filing on every step would stall the animation.
     if (state.rows && state.rows.length){
       const by = state.body.y, out = [];
-      for (const r of state.rows){ if (Math.abs(r.y - by) <= HI_REACH + 60) out.push(...r.els); }
+      for (const r of state.rows){ if (Math.abs(r.y - by) <= HI_REACH * 1.7 + 30) out.push(...r.els); }
       if (h1.textContent.trim()) out.unshift(h1);
       return out;
     }
@@ -702,11 +706,12 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     // from the body center (70 to 80 only as a fallback; never closer
     // than 70). Aim for ~120 px so the spider spans about 250 px.
     // A planted foot stays put while it is still valid for its sector.
-    const cands = [];
+    const cands = [], far = [];
     for (const el of footTargets()){
       const c = docSpaceCenter(el);
       const d = Math.hypot(c.x - bx, c.y - by);
-      if (d < MIN_REACH || d > HI_REACH) continue;
+      if (d < MIN_REACH) continue;
+      if (d > HI_REACH){ if (d <= HI_REACH * 1.7) far.push({el, x: c.x, y: c.y, d, si: sectorIndex(bx, by, c.x, c.y)}); continue; }
       const score = Math.abs(d - TARGET_REACH) + (d < LO_REACH ? 40 : 0) + (state.touchedEls.has(el) ? 60 : 0);
       cands.push({el, x: c.x, y: c.y, d, si: sectorIndex(bx, by, c.x, c.y), score});
     }
@@ -723,8 +728,27 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       const f = cands.find(c => c.el === forceEl);
       if (f) bucket[f.si] = f;
     }
-    // A sector with no element in reach leaves that leg lifted.
-    return bucket.map(b => b ? {x: b.x, y: b.y, el: b.el} : null);
+    // Every leg always has a foot (reference clip): a sector with no word
+    // in reach takes the nearest word a little farther out, else keeps its
+    // resting foot, else rests on the page at normal leg length.
+    for (let i = 0; i < N_LEGS; i++){
+      if (bucket[i]) continue;
+      let best = null;
+      for (const c of far) if (c.si === i && (!best || c.d < best.d)) best = c;
+      if (best){ bucket[i] = best; continue; }
+      const p = prev[i];
+      if (p && restOk(p, bx, by, i)){ bucket[i] = {x: p.x, y: p.y, el: null}; continue; }
+      const a = (i + 0.5) * SECTOR_RAD;
+      bucket[i] = {x: bx + Math.cos(a) * TARGET_REACH, y: by + Math.sin(a) * TARGET_REACH, el: null};
+    }
+    return bucket.map(b => ({x: b.x, y: b.y, el: b.el}));
+  }
+
+  function restOk(f, bx, by, i){
+    // A resting foot (not on a word) is fine while it stays in its slice
+    // and within reach.
+    const d = Math.hypot(f.x - bx, f.y - by);
+    return d >= MIN_REACH && d <= HI_REACH * 1.3 && sectorIndex(bx, by, f.x, f.y) === i;
   }
 
   function landFeet(feet){
