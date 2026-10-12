@@ -63,8 +63,15 @@ async def poll_edgar(ticker: str, cik: str, *, since: Optional[str] = None, max_
         # Default to a 90-day lookback so cold-starts don't try to download 20+ years of history
         if since is None:
             since = (_dt.date.today() - _dt.timedelta(days=90)).isoformat()
+        want_forms = set(forms or list(FORMS))
         filings = co.get_filings(form=forms or list(FORMS))
-        for f in filings:
+        # Python-side filter FIRST so the max_filings cap cannot be filled by
+        # off-list filings (edgartools occasionally returns unrelated forms
+        # alongside the requested set). Then apply the cap. Then the date
+        # filter inside the loop. This is the fix the user flagged in
+        # DESK-5.3: without it, Form 4s crowded out 10-Qs within the top 20.
+        filtered = [f for f in filings if f.form in want_forms]
+        for f in filtered:
             if counts["scanned"] >= max_filings:
                 break
             form = f.form
@@ -73,6 +80,12 @@ async def poll_edgar(ticker: str, cik: str, *, since: Optional[str] = None, max_
             if filing_date < since:
                 continue
             counts["scanned"] += 1
+            try:
+                from .. import events as _events
+                _events.emit("fetch_start", url=f.filing_url if hasattr(f, "filing_url") else accession,
+                             host="sec.gov")
+            except Exception:
+                pass
             raw = _raw_dir(ticker, form, accession)
             # Primary doc
             try:
@@ -80,9 +93,22 @@ async def poll_edgar(ticker: str, cik: str, *, since: Optional[str] = None, max_
                 # Fetch primary and attachments via edgartools' built-in download
                 try:
                     f.download(path=str(raw), include_all=True)
-                except Exception:
-                    # Fallback: just fetch the index
-                    pass
+                except Exception as de:
+                    log.warning(f"edgartools download failed {accession}: {de}")
+                # Fallback: if the download produced no .htm/.html, pull the
+                # primary document directly via f.html / f.text so the 10-Q
+                # etc. ends up as an indexable row (seen on GATX 2026-10-12).
+                have_html = any(p.is_file() and p.suffix.lower() in (".htm", ".html") for p in raw.rglob("*"))
+                if not have_html and form in ("10-Q", "10-K", "8-K"):
+                    try:
+                        html_body = None
+                        if hasattr(f, "html"):
+                            html_body = f.html() if callable(getattr(f, "html")) else f.html
+                        if html_body:
+                            fname = f"{form}_{accession}.htm"
+                            (raw / fname).write_text(html_body if isinstance(html_body, str) else html_body.decode("utf-8", "ignore"))
+                    except Exception as he:
+                        log.warning(f"f.html fallback failed {accession}: {he}")
                 # Form 4: save to CSV
                 if form == "4":
                     try:

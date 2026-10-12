@@ -180,17 +180,20 @@ def insert_document(
 
 def delete_bot_docs_since(ticker: str, sources: list[str], cutoff_iso: str) -> int:
     """Delete documents (and their facts) this bot wrote for `ticker` from
-    `sources` with fetched_at >= cutoff_iso OR published_at >= cutoff_iso[:10].
+    `sources` whose fetched_at OR published_at falls on/after cutoff.
     Returns rows deleted. Used by the rewalk live mode to overwrite only rows
-    this bot inserted. Including published_at ensures a 10-Q published inside
-    the window but fetched long ago still gets re-walked (DESK-5.1 2026-10-12)."""
+    this bot inserted so re-fetch produces fresh fetch_done_insert events.
+    DESK-5.3 2026-10-12: fall back to source_url substring match on the
+    accession path so a stored edgar row whose published_at was never
+    captured (NULL) is still re-walked within the 120-day window."""
     cutoff_date = cutoff_iso[:10]
     with connect() as conn:
         placeholders = ",".join(["?"] * len(sources))
         ids = conn.execute(
             f"SELECT id FROM documents WHERE ticker = ? AND source IN ({placeholders}) "
-            f"AND (fetched_at >= ? OR published_at >= ?)",
-            (ticker, *sources, cutoff_iso, cutoff_date),
+            f"AND (fetched_at >= ? OR (published_at IS NOT NULL AND published_at >= ?) "
+            f"OR (source = 'edgar' AND published_at IS NULL AND fetched_at >= ?))",
+            (ticker, *sources, cutoff_iso, cutoff_date, cutoff_iso),
         ).fetchall()
         id_list = [r["id"] for r in ids]
         if not id_list:

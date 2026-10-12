@@ -309,6 +309,13 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     if (!d){d = await fetchJSON("/desk/doc/" + encodeURIComponent(ev.doc_id) + "/text"); state.docsLoaded[ev.doc_id] = d;}
     if (d.error){setStatus(`doc text error: ${d.error}`); return;}
     const text = (d.text || "").slice(0, 60000);
+    // DESK-5.3 fix: a press release / deck with no stored body (title only)
+    // used to render as a lone headline over a black page. Skip the viewer
+    // entirely in that case and leave the strip with the banner line.
+    if (text.replace(/\s+/g, "").length < 120 && ["PRESS_RELEASE","DECK"].includes(ev.doc_type)){
+      setStatus(`fetched <b>${ev.host||""}</b> ${ev.doc_type}: title only, body not stored - ${(ev.title||"").slice(0,80)}`);
+      return;
+    }
     state.currentText = text;
     h1.textContent = headlineForDoc(ev);
     docBody.innerHTML = tokenize(text);
