@@ -34,12 +34,12 @@
 .found.org{background:rgba(255,159,28,.22);box-shadow:0 0 10px rgba(255,159,28,.5)}
 .found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
 svg.spider{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
-svg.spider .eye{fill:rgba(79,139,255,.55)}
-svg.spider .sight{stroke:#4f8bff;stroke-width:.8;stroke-dasharray:2 3;opacity:.8}
-svg.spider .body{fill:#05070c;stroke:#4f8bff;stroke-width:1.6}
-svg.spider .head{fill:#4f8bff;stroke:#cfe0ff;stroke-width:1}
+svg.spider .eye{fill:rgba(143,216,255,.55)}
+svg.spider .sight{stroke:#8fd8ff;stroke-width:.8;stroke-dasharray:2 3;opacity:.8}
+svg.spider .body{fill:#05070c;stroke:#8fd8ff;stroke-width:1.6}
+svg.spider .head{fill:#8fd8ff;stroke:#e6f6ff;stroke-width:1}
 svg.spider .link-thread{stroke:#ff3d9a;stroke-width:1.2}
-svg.spider .leg{stroke:#4f8bff;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+svg.spider .leg{stroke:#8fd8ff;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
 svg.spider .foot{fill:#ff3d9a;stroke:none}
 svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.85}
 svg.spider .thread.t1{stroke:var(--t1)}svg.spider .thread.t2{stroke:var(--t2)}svg.spider .thread.t3{stroke:var(--t3)}svg.spider .thread.t4{stroke:var(--t4)}svg.spider .thread.t5{stroke:var(--t5)}
@@ -100,15 +100,15 @@ svg.spider .knee{fill:#ff3d9a}
 .stage .liftlbl{background:rgba(255,255,255,.92)}
 .stage .liftlbl.f1,.stage .liftlbl.f2{color:#2b4cd6}
 .stage .liftlbl.f3{color:#d01aa8}
-.stage svg.spider .leg{stroke:#2f6bff;stroke-width:1.6;filter:none}
+.stage svg.spider .leg{stroke:#5cc2ff;stroke-width:1.8;filter:none}
 .stage svg.spider .foot,.stage svg.spider .knee{fill:#ff2d8f;stroke:none}
 .stage svg.spider .tnode{fill:#fff;stroke:#4f7bff;stroke-width:1.2;opacity:1}
 .stage svg.spider .mesh{stroke:#5b6cff;stroke-width:1.2;opacity:.75}
 .stage svg.spider .thread{opacity:.9}
-.stage svg.spider .body{fill:#0b0d12;stroke:#2f6bff;stroke-width:1.6;filter:none}
-.stage svg.spider .head{fill:#2f6bff;stroke:#fff;stroke-width:1}
-.stage svg.spider .eye{fill:rgba(47,107,255,.45)}
-.stage svg.spider .sight{stroke:#2f6bff}
+.stage svg.spider .body{fill:#0b0d12;stroke:#5cc2ff;stroke-width:1.6;filter:none}
+.stage svg.spider .head{fill:#5cc2ff;stroke:#fff;stroke-width:1}
+.stage svg.spider .eye{fill:rgba(92,194,255,.45)}
+.stage svg.spider .sight{stroke:#5cc2ff}
 .stage svg.spider .link-thread{stroke:#e0207f;stroke-width:1.2}
 .stage{--t1:#4f7bff;--t2:#17b6dc;--t3:#6a5cff;--t4:#ff2bd6;--t5:#4f7bff}
 .read-page{padding:28px 0 48px}
@@ -254,6 +254,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   function clearSpider(){
     spiderSvg.innerHTML = "";
     state.bodyAnim++;
+    state.crawlTarget = null; state.crawlX = null; state.legAnim = {};
     state.feet = []; state.feetEls = []; state.legEls = []; state.threads = []; state.rows = null; state.meshPool = []; state.trail = []; state.links = []; state.linkPool = []; state.eyeEl = null; state.eyeAt = null;
     document.querySelectorAll(".liftlbl,.beam").forEach(e => e.remove()); state.beams = [];
     bumpLayout();
@@ -309,8 +310,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     }
     b.setAttribute("x", clampN(state.body.x - 6.5));
     b.setAttribute("y", clampN(state.body.y - 16));
-    let hx = state.body.x, hy = state.body.y - 10;
-    if (state.eyeAt){ const ex = state.eyeAt.x - hx, ey = state.eyeAt.y - hy, el = Math.hypot(ex, ey) || 1; hx += ex / el * 2.5; hy += ey / el * 2.5; }
+    // Eye centered at the top of the body (reference clip).
+    const hx = state.body.x, hy = state.body.y - 10;
     hd.setAttribute("cx", clampN(hx));
     hd.setAttribute("cy", clampN(hy));
     // Keep the body on top of legs and threads.
@@ -411,11 +412,68 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   }
   function drawSpider(){ state.drawnAt = performance.now(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawBody(); camera(); }
   // Keep the legs flexing and the eye scanning between steps too.
-  (function idle(){
-    requestAnimationFrame(idle);
+  // ---- crawl: body creeps continuously; legs step one or two at a time
+  const CRAWL_SPEED = 70;   // px per second at 1x
+  state.legAnim = {};
+  function startLegStep(i, to, now){
+    const from = state.feet[i] || {x: state.body.x, y: state.body.y};
+    state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 230 / (state.speedMul || 1)};
+  }
+  function advanceLegs(now){
+    for (const k of Object.keys(state.legAnim)){
+      const a = state.legAnim[k], i = +k;
+      const t = Math.min(1, (now - a.start) / a.dur), s = t * t * (3 - 2 * t);
+      if (t >= 1){ state.feet[i] = a.to; delete state.legAnim[k]; landFeet([a.to]); continue; }
+      state.feet[i] = {x: a.from.x + (a.to.x - a.from.x) * s, y: a.from.y + (a.to.y - a.from.y) * s - 7 * Math.sin(Math.PI * s), el: null};
+    }
+  }
+  function stepLegs(now){
+    if (now - (state.lastLegCheck || 0) < 70) return;
+    state.lastLegCheck = now;
+    const moving = Object.keys(state.legAnim).length;
+    if (moving >= 2) return;
+    const bx = state.body.x, by = state.body.y;
+    const need = [];
+    for (let i = 0; i < N_LEGS; i++){
+      if (state.legAnim[i]) continue;
+      const f = state.feet[i];
+      if (!f || !f.el || !footValid(f.el, bx, by, i)) need.push(i);
+    }
+    const ff = state.forceFoot;
+    if (ff){ const c = docSpaceCenter(ff); const si = sectorIndex(bx, by, c.x, c.y); if (!need.includes(si) && !state.legAnim[si]) need.unshift(si); }
+    if (!need.length) return;
+    const target = pickFeetBySector(bx, by, ff);
+    state.forceFoot = null;
+    // Alternate sides like a real gait: prefer legs of the other parity.
+    need.sort((a, b) => ((a % 2) === state.lastParity) - ((b % 2) === state.lastParity));
+    let started = 0;
+    for (const i of need){
+      if (moving + started >= 2) break;
+      const g = target[i];
+      if (!g){ state.feet[i] = null; continue; }
+      if (state.feet[i] && state.feet[i].el === g.el) continue;
+      startLegStep(i, g, now); state.lastParity = i % 2; started++;
+    }
+  }
+  (function crawl(now){
+    requestAnimationFrame(crawl);
+    const dt = Math.min(0.05, (now - (state.lastCrawl || now)) / 1000);
+    state.lastCrawl = now;
     if (state.paused || !state.feet || !state.feet.length) return;
-    if (performance.now() - (state.drawnAt || 0) > 12) drawSpider();
-  })();
+    const t = state.crawlTarget;
+    if (t && walking()){
+      const dx = t.x - state.body.x, dy = t.y - state.body.y, d = Math.hypot(dx, dy);
+      if (d > 0.3){
+        let sp = CRAWL_SPEED * (state.speedMul || 1);
+        if (d < 24) sp *= Math.max(0.35, d / 24);
+        const st = Math.min(d, sp * dt);
+        state.body.x += dx / d * st; state.body.y += dy / d * st;
+      }
+      stepLegs(now);
+    }
+    advanceLegs(now);
+    if (now - (state.drawnAt || 0) > 12) drawSpider();
+  })(performance.now());
 
   // Element centers in .doc space are scroll-invariant, so they are cached
   // until the layout changes (new doc, a .found fill, resize). Reading ~40
@@ -876,9 +934,13 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       // Slow drift across the text (one sweep every ~90 lines) instead of
       // a zigzag each line; constant pace so the glide never stutters.
       const x = Math.min(d.width - HI_REACH, Math.max(HI_REACH, mid + amp * 0.8 * Math.sin(i * 0.07)));
-      const ms = (state.rowMs || perRow) / (state.speedMul || 1);
-      const ff = state.forceFoot; state.forceFoot = null;
-      moveBody(x, y, ff, ms, true);
+      // Crawl: the reader waits for the spider rather than dragging it.
+      // The path is smoothed so short lines and gaps do not make it jump.
+      const ct = state.crawlTarget;
+      if (ct && Math.hypot(ct.x - state.body.x, ct.y - state.body.y) > 6){ state.walkTimer = setTimeout(step, 40); return; }
+      state.crawlX = state.crawlX == null ? x : state.crawlX * 0.85 + x * 0.15;
+      state.crawlTarget = {x: state.crawlX, y};
+      const ms = 40;
       if (state.onRow) state.onRow(row.els);
       // Every ~10 lines the spider pulls a strand of the passage out as a
       // pink bar (the clips' long diagonal beam carrying text).
