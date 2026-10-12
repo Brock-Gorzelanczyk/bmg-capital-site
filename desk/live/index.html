@@ -1024,7 +1024,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
 
   const STATUS_TXT = {NEW: "New", CHANGED: "Changed", KNOWN: "Already in vault", UNCOMPARED: "Not compared"};
   function esc(s){ return escapeHTML(String(s == null ? "" : s)); }
-  function fmtVal(f){ const u = f.unit || ""; return (u.startsWith("$") || u === "USD_m" ? "$" : "") + f.value + (u === "%" ? "%" : u === "$M" || u === "USD_m" ? "M" : u === "$B" ? "B" : ""); }
+  function fmtVal(f){ if (f.display) return f.display; const u = f.unit || ""; return (u.startsWith("$") || u === "USD_m" ? "$" : "") + f.value + (u === "%" ? "%" : u === "$M" || u === "USD_m" ? "M" : u === "$B" ? "B" : ""); }
 
   state.onRow = (els) => {
     // A finding is "found" when the spider's reading line reaches the word

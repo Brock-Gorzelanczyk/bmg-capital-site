@@ -1714,14 +1714,9 @@ async def read_document(request: Request,
         if st >= 0:
             seen_spans.append((st, st + len(val)))
         ctx = c.get("context") or ""
-        label = fc.map_to_line_item(ctx) or "Number"
-        if label != "Number":
-            # A context match is a mention near the line item (a change, a
-            # percent, a component), not the line item itself.
-            label = {"dps": "dividend per share", "eps": "EPS", "net_income": "net income"}.get(
-                label, label.replace("_", " "))
-            label = f"Number near {label}"
-        findings.append({"label": label, "src": "claim",
+        # Unlabeled: a context guess ("near EPS") was often wrong, so the
+        # figure is shown exactly as the document writes it instead.
+        findings.append({"label": "Figure", "src": "claim", "display": raw,
                          "value": val, "unit": c.get("unit"), "char_offset": st,
                          "snippet": re.sub(r"\s+", " ", c.get("sentence") or ctx)[:220]})
     # Keep every labeled finding first, then fill with bare numbers; the
