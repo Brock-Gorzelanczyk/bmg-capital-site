@@ -1001,6 +1001,19 @@ app = FastAPI(title="BMG Capital site + snapshot API")
 
 HTTP_CLIENT: Optional[httpx.AsyncClient] = None
 
+# Optional: /desk intake bot. Import is wrapped so the main site still deploys
+# if the extra dependencies (aiolimiter, tenacity, edgartools, feedparser,
+# trafilatura, pdfplumber, APScheduler, PyYAML) are not yet in requirements.txt.
+_INTAKE_AVAILABLE = False
+try:
+    from intake.api import router as _desk_router  # type: ignore
+    from intake.scheduler import start_scheduler as _start_scheduler, stop_scheduler as _stop_scheduler  # type: ignore
+    app.include_router(_desk_router)
+    _INTAKE_AVAILABLE = True
+    log.info("intake package mounted at /desk")
+except Exception as _ie:  # pragma: no cover - defensive
+    log.info("intake package not mounted: %s", _ie)
+
 
 @app.on_event("startup")
 async def _on_startup() -> None:
@@ -1008,6 +1021,11 @@ async def _on_startup() -> None:
     HTTP_CLIENT = httpx.AsyncClient(timeout=20.0, follow_redirects=True)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     log.info("startup: cache dir %s", CACHE_DIR)
+    if _INTAKE_AVAILABLE:
+        try:
+            _start_scheduler()
+        except Exception as e:
+            log.warning("intake scheduler failed to start: %s", e)
 
 
 @app.on_event("shutdown")
@@ -1015,6 +1033,11 @@ async def _on_shutdown() -> None:
     global HTTP_CLIENT
     if HTTP_CLIENT:
         await HTTP_CLIENT.aclose()
+    if _INTAKE_AVAILABLE:
+        try:
+            _stop_scheduler()
+        except Exception:
+            pass
 
 
 @app.get("/api/health")

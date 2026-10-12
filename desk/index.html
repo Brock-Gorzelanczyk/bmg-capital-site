@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Desk | BMG Capital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/site.187e1258.css">
+<style>
+/* /desk-specific layout rules (house CSS only, no new fonts, no animations). */
+.desk-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.desk-card { border: 1px solid #e3e3e3; border-radius: 4px; padding: 1rem; background: #fcfcfc; }
+.desk-card h3 { margin: 0 0 0.5rem 0; font-size: 1.1rem; }
+.desk-card .meta { font-size: 0.9rem; color: #666; }
+.kill-light { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.kill-green { background: #2b8a3e; }
+.kill-amber { background: #d9a21b; }
+.kill-red { background: #c62828; }
+.kill-unknown { background: #999; }
+.desk-timeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.desk-col { border: 1px solid #e3e3e3; border-radius: 4px; padding: 0.75rem; background: #fff; }
+.desk-col h3 { margin: 0 0 0.5rem 0; font-size: 1rem; border-bottom: 1px solid #eee; padding-bottom: 0.25rem; }
+.desk-item { padding: 0.4rem 0; border-bottom: 1px dotted #eee; font-size: 0.88rem; }
+.desk-item:last-child { border-bottom: 0; }
+.badge { display: inline-block; padding: 1px 5px; font-size: 0.72rem; border-radius: 3px; background: #eef; color: #335; margin-right: 4px; }
+.badge-new { background: #e8f5e9; color: #1b5e20; }
+.rail-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin: 1.5rem 0; padding: 1rem; border: 1px solid #e3e3e3; background: #f9f9f9; border-radius: 4px; }
+.rail-stat strong { display: block; font-size: 1.2rem; margin-bottom: 2px; }
+.rail-stat .lbl { font-size: 0.82rem; color: #666; }
+.desk-footer { margin-top: 2rem; padding: 1rem; border-top: 1px solid #eee; font-size: 0.9rem; color: #666; }
+.desk-honesty { margin-top: 0.5rem; }
+@media (max-width: 475px) {
+  .desk-strip, .desk-timeline, .rail-panel { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="brand" href="/" aria-label="BMG Capital home">
+      <span class="brand-mark">
+        <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden="true"><polyline points="5,23 12,15 18,19 27,8" fill="none" stroke="#3ddc84" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+      </span>
+      <span class="brand-wm">BMG CAPITAL</span>
+    </a>
+    <nav aria-label="Main" class="site-nav">
+      <a href="/">Home</a>
+      <a href="/tool/">Research tool</a>
+      <a href="/desk/" aria-current="page">Desk</a>
+      <a href="/research.html">Research</a>
+    </nav>
+  </div>
+</header>
+<main class="container">
+  <h1>The Desk</h1>
+  <p class="subtle">Live research intake. Every item below is a real row from <code>/desk/feed</code> with a real link. No animations, no fake activity, no article bodies, no paywalled sources.</p>
+
+  <section id="ticker-strip" aria-label="Covered tickers">
+    <div class="desk-strip" id="strip-cards">
+      <div class="desk-card" data-ticker="GATX">
+        <h3>GATX <span class="meta">NYSE: GATX</span></h3>
+        <div class="meta">Price <span data-field="price">loading</span> · <span data-field="price_date">...</span></div>
+        <div class="meta">Rating <span data-field="rating">HOLD</span> · Target <span data-field="target">$165.54</span></div>
+        <div class="meta"><span class="kill-light kill-unknown" data-field="kill-light"></span><span data-field="kill-note">kill criteria loading</span></div>
+      </div>
+      <div class="desk-card" data-ticker="GBX">
+        <h3>Greenbrier <span class="meta">NYSE: GBX</span></h3>
+        <div class="meta">Price <span data-field="price">loading</span> · <span data-field="price_date">...</span></div>
+        <div class="meta">Rating <span data-field="rating">pending</span> · Target <span data-field="target">pending</span></div>
+        <div class="meta"><span class="kill-light kill-unknown" data-field="kill-light"></span><span data-field="kill-note">no published rating; kill criteria N/A</span></div>
+      </div>
+      <div class="desk-card" data-ticker="TRN">
+        <h3>Trinity Industries <span class="meta">NYSE: TRN</span></h3>
+        <div class="meta">Price <span data-field="price">loading</span> · <span data-field="price_date">...</span></div>
+        <div class="meta">Rating <span data-field="rating">pending</span> · Target <span data-field="target">pending</span></div>
+        <div class="meta"><span class="kill-light kill-unknown" data-field="kill-light"></span><span data-field="kill-note">no published rating; kill criteria N/A</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="timeline" aria-label="Timeline">
+    <h2>Timeline</h2>
+    <div class="desk-timeline" id="timeline-cols">
+      <div class="desk-col" data-ticker="GATX"><h3>GATX</h3><div class="desk-items"><div class="desk-item subtle">loading feed...</div></div></div>
+      <div class="desk-col" data-ticker="GBX"><h3>GBX</h3><div class="desk-items"><div class="desk-item subtle">loading feed...</div></div></div>
+      <div class="desk-col" data-ticker="TRN"><h3>TRN</h3><div class="desk-items"><div class="desk-item subtle">loading feed...</div></div></div>
+    </div>
+  </section>
+
+  <section id="rail-rates" aria-label="Rail and rates">
+    <h2>Rail and rates</h2>
+    <div class="rail-panel" id="rail-panel">
+      <div class="rail-stat"><strong data-field="carloads">...</strong><span class="lbl">AAR US carloads, week ending <span data-field="aar_date">...</span></span></div>
+      <div class="rail-stat"><strong data-field="intermodal">...</strong><span class="lbl">AAR intermodal, week ending <span data-field="aar_date_2">...</span></span></div>
+      <div class="rail-stat"><strong data-field="dgs10">...</strong><span class="lbl">DGS10 (FRED), <span data-field="dgs10_date">...</span></span></div>
+      <div class="rail-stat"><strong data-field="sofr">...</strong><span class="lbl">SOFR (FRED), <span data-field="sofr_date">...</span></span></div>
+    </div>
+  </section>
+
+  <div class="desk-footer" id="footer-line">
+    <div><span data-field="last_run">Last run: loading...</span> Central</div>
+    <div class="desk-honesty">The desk pulls EDGAR filings, three IR RSS feeds, FRED macro series, AAR weekly rail traffic, and headlines (titles plus links only). It does not pull article bodies, paywalled sources, or opinions.</div>
+  </div>
+</main>
+
+<script>
+(() => {
+  const STATE = { priceCache: {}, lastGoodHealth: null };
+
+  function fmtDate(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d)) return iso.slice(0,10);
+    return d.toLocaleString("en-US", { timeZone: "America/Chicago", month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+
+  function badgeFor(type) {
+    const map = { "8-K":"8-K", "10-Q":"10-Q", "10-K":"10-K", "FORM4":"Form 4", "4":"Form 4", "EX-99":"EX-99", "PRESS_RELEASE":"Release", "DECK":"Deck", "NEWS":"News" };
+    return map[type] || type;
+  }
+
+  async function fetchJSON(url) {
+    try {
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) throw new Error(r.status);
+      return await r.json();
+    } catch (e) {
+      return { error: String(e) };
+    }
+  }
+
+  async function loadKpi(ticker) {
+    const url = "/data/" + ticker.toLowerCase() + "-kpis.json";
+    try {
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) return null;
+      return await r.json();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function killLight(kpi) {
+    if (!kpi || !kpi.kpis) return { cls: "kill-unknown", note: "kill criteria data not available" };
+    let anyFired = false, anyNear = false;
+    for (const k of kpi.kpis) {
+      if (k.line == null) continue;
+      const vals = (k.values || []).filter(v => v !== null && v !== undefined);
+      if (!vals.length) continue;
+      const latest = vals[vals.length - 1];
+      const dir = (k.line_rule === "below") ? -1 : 1;
+      const diff = dir * (latest - k.line);
+      if (diff <= 0) anyFired = true;
+      else if (Math.abs(latest - k.line) / Math.abs(k.line) < 0.10) anyNear = true;
+    }
+    if (anyFired) return { cls: "kill-red", note: "kill criterion fired" };
+    if (anyNear) return { cls: "kill-amber", note: "within 10% of a kill trigger" };
+    return { cls: "kill-green", note: "all kill triggers > 10% away" };
+  }
+
+  async function updateStrip() {
+    for (const card of document.querySelectorAll("#strip-cards .desk-card")) {
+      const t = card.dataset.ticker;
+      const kpi = await loadKpi(t);
+      if (kpi) {
+        const light = killLight(kpi);
+        const el = card.querySelector("[data-field='kill-light']");
+        el.className = "kill-light " + light.cls;
+        card.querySelector("[data-field='kill-note']").textContent = light.note;
+      }
+    }
+  }
+
+  async function updateTimeline() {
+    const data = await fetchJSON("/desk/feed?limit=75");
+    if (data.error) {
+      for (const col of document.querySelectorAll("#timeline-cols .desk-col")) {
+        col.querySelector(".desk-items").innerHTML = '<div class="desk-item subtle">feed endpoint not deployed yet (' + data.error + ')</div>';
+      }
+      return;
+    }
+    const byTicker = { GATX: [], GBX: [], TRN: [] };
+    for (const it of (data.items || [])) {
+      if (byTicker[it.ticker]) byTicker[it.ticker].push(it);
+    }
+    const now = Date.now();
+    for (const col of document.querySelectorAll("#timeline-cols .desk-col")) {
+      const t = col.dataset.ticker;
+      const items = (byTicker[t] || []).slice(0, 25);
+      const html = items.length ? items.map(it => {
+        const fetched = new Date(it.fetched_at);
+        const isNew = (now - fetched.getTime()) < 24*3600*1000;
+        const docLink = it.text_path ? '<a href="/desk/doc/' + it.id + '">text</a>' : '';
+        const src = it.source_url ? '<a href="' + it.source_url + '" rel="noopener">source</a>' : '';
+        return '<div class="desk-item"><span class="badge">' + badgeFor(it.type) + '</span>' + (isNew ? '<span class="badge badge-new">new</span>' : '') + ' ' + (it.title||"(no title)") + ' <span class="meta">' + fmtDate(it.published_at||it.fetched_at) + '</span> ' + src + ' ' + docLink + '</div>';
+      }).join("") : '<div class="desk-item subtle">no items in last 90 days</div>';
+      col.querySelector(".desk-items").innerHTML = html;
+    }
+  }
+
+  async function updateRailPanel() {
+    const data = await fetchJSON("/desk/feed?ticker=MACRO&limit=50");
+    const panel = document.getElementById("rail-panel");
+    if (data.error) {
+      panel.querySelectorAll("[data-field]").forEach(e => e.textContent = "feed not deployed");
+      return;
+    }
+    const items = data.items || [];
+    const aar = items.find(i => i.type === "RAIL_TRAFFIC" && i.meta && (i.meta.carloads||i.meta.intermodal));
+    const dgs10 = items.find(i => i.type === "SERIES" && i.meta && i.meta.series_id === "DGS10");
+    const sofr = items.find(i => i.type === "SERIES" && i.meta && i.meta.series_id === "SOFR");
+    if (aar) {
+      panel.querySelector("[data-field='carloads']").textContent = aar.meta.carloads ? Number(aar.meta.carloads).toLocaleString() : "-";
+      panel.querySelector("[data-field='intermodal']").textContent = aar.meta.intermodal ? Number(aar.meta.intermodal).toLocaleString() : "-";
+      panel.querySelector("[data-field='aar_date']").textContent = aar.published_at || "";
+      panel.querySelector("[data-field='aar_date_2']").textContent = aar.published_at || "";
+    }
+    if (dgs10) {
+      panel.querySelector("[data-field='dgs10']").textContent = dgs10.meta.last_value || "-";
+      panel.querySelector("[data-field='dgs10_date']").textContent = dgs10.meta.last_date || "";
+    }
+    if (sofr) {
+      panel.querySelector("[data-field='sofr']").textContent = sofr.meta.last_value || "-";
+      panel.querySelector("[data-field='sofr_date']").textContent = sofr.meta.last_date || "";
+    }
+  }
+
+  async function updateFooter() {
+    const health = await fetchJSON("/desk/health");
+    if (health.error) {
+      document.querySelector("#footer-line [data-field='last_run']").textContent = "Last run: /desk/health not deployed (" + health.error + ")";
+      return;
+    }
+    let total = 0, errors = 0;
+    for (const [job, info] of Object.entries(health.jobs || {})) {
+      total++;
+      if (info.ok === 0) errors++;
+    }
+    const latestTs = Object.values(health.jobs || {}).map(j => j.started_at).filter(x=>x).sort().slice(-1)[0] || "";
+    document.querySelector("#footer-line [data-field='last_run']").textContent = "Last run: " + fmtDate(latestTs) + ", " + (total-errors) + " jobs ok, " + errors + " errors";
+  }
+
+  async function refresh() {
+    await updateStrip();
+    await updateTimeline();
+    await updateRailPanel();
+    await updateFooter();
+  }
+
+  refresh();
+  setInterval(refresh, 60 * 1000);
+})();
+</script>
+</body>
+</html>
