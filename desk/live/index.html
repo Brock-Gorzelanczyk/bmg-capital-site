@@ -496,6 +496,11 @@ body { background: #0f1115; color: #d7dbe3; }
   }
 
   async function init() {
+    // Short-circuit when autolive URL param is set so we do not race the Live
+    // mode activation (which the IIFE at the end of this script calls
+    // immediately after init()). The autolive handler owns the title and
+    // doc-pane state.
+    if (new URLSearchParams(location.search).get("autolive")) return;
     const data = await fetchJSON("/desk/run/latest?window=14400&limit=200");
     if (data.error || !data.events || data.events.length === 0) {
       document.getElementById("replay-title").innerHTML = "No completed run yet";
