@@ -62,14 +62,93 @@ def extract_pdf_to_md(pdf_path: Path) -> Path:
     return out
 
 
+import re as _re
+
+
+# Fact-extractor regexes. Each entry: (label, pattern, group_index, unit).
+# Patterns run against the extracted markdown text; `group_index` is which
+# capture group holds the printable value. Char offset is `match.start(group)`.
+# Facts are stored per-document in SQLite so /desk/live can draw a box
+# around the matching substring in the client-side text pane.
+_FACT_PATTERNS: list[tuple] = [
+    ("Revenue",        _re.compile(r'Revenues?\s*[|$\s]*\$\s*([\d,]+\.?\d*)'),            1, "$M"),
+    ("EPS",            _re.compile(r'(?:diluted earnings per (?:common )?share|EPS|earnings per common share)[^$]{0,80}?\$([\d.]+)', _re.I), 1, "$/sh"),
+    ("Backlog units",  _re.compile(r'backlog[^.]{0,80}?([\d,]{4,7})\s*(?:unit|railcar|cars)', _re.I), 1, "units"),
+    ("Backlog $B",     _re.compile(r'backlog[^.]{0,80}?\$?([\d.]+)\s*billion', _re.I), 1, "$B"),
+    ("Fleet",          _re.compile(r'([\d,]{3,6})\s*railcars'), 1, "cars"),
+    ("Utilization",    _re.compile(r'utilization[^.]{0,80}?([\d.]+)\s*%', _re.I), 1, "%"),
+    ("Dividend",       _re.compile(r'(?:dividend|per\s+share\s+dividend)[^$]{0,60}?\$([\d.]+)', _re.I), 1, "$/sh"),
+    ("Net income",     _re.compile(r'Net (?:earnings|income)\s*[|$\s]*\$\s*([\d,]+\.?\d*)'), 1, "$M"),
+]
+
+
+def _extract_facts_from_text(doc_id: str, text: str) -> int:
+    """Scan text with _FACT_PATTERNS, insert any matches into facts table.
+    Dedup within one call by (label, char_offset)."""
+    inserted = 0
+    seen: set[tuple] = set()
+    for label, pat, grp, unit in _FACT_PATTERNS:
+        for m in pat.finditer(text):
+            try:
+                val = m.group(grp)
+            except IndexError:
+                continue
+            offset = m.start(grp)
+            key = (label, offset)
+            if key in seen:
+                continue
+            seen.add(key)
+            try:
+                store.insert_fact(document_id=doc_id, label=label, value=val,
+                                   unit=unit, char_offset=offset)
+                inserted += 1
+            except Exception as e:
+                log.warning(f"insert_fact failed {doc_id} {label}: {e}")
+            if inserted >= 10:
+                return inserted
+    return inserted
+
+
+def _extract_facts_from_meta(doc_id: str, doc_type: str, meta: dict, text_sample: str = "") -> int:
+    """Meta-driven facts (AAR carloads/intermodal, FRED series value)."""
+    inserted = 0
+    if doc_type == "SERIES":
+        sid = meta.get("series_id") or ""
+        val = meta.get("last_value")
+        last = meta.get("last_date")
+        if sid and val is not None:
+            try:
+                store.insert_fact(document_id=doc_id, label=sid, value=str(val),
+                                   unit=str(last) if last else None, char_offset=None)
+                inserted += 1
+            except Exception as e:
+                log.warning(f"insert_fact SERIES {sid} failed: {e}")
+    if doc_type == "RAIL_TRAFFIC":
+        for key, label in (("carloads", "Carloads"), ("intermodal", "Intermodal")):
+            v = meta.get(key)
+            if v:
+                offset = text_sample.find(str(v)) if text_sample else None
+                if offset == -1:
+                    offset = None
+                try:
+                    store.insert_fact(document_id=doc_id, label=label, value=str(v),
+                                       unit="units/week", char_offset=offset)
+                    inserted += 1
+                except Exception as e:
+                    log.warning(f"insert_fact {label} failed: {e}")
+    return inserted
+
+
 def extract_all_pending() -> dict:
     """Walk /data/raw and extract any file whose text/ counterpart is missing.
 
     Also UPDATES the document row's text_path so /desk/doc/{id} can serve the
     extracted markdown. Prior version wrote the .md file but left text_path
     NULL in SQLite, so /desk/doc returned no text (observed on live 2026-10-11).
+    Also runs the fact extractor on the extracted text and populates the
+    facts table so /desk/live can draw a box around each stored match.
     """
-    counts = {"html": 0, "pdf": 0, "skipped": 0, "errors": [], "linked": 0}
+    counts = {"html": 0, "pdf": 0, "skipped": 0, "errors": [], "linked": 0, "facts": 0}
     raw_root = store.DATA_DIR / "raw"
     if not raw_root.exists():
         return counts
@@ -97,6 +176,7 @@ def extract_all_pending() -> dict:
                 log.warning(f"extract failed {p}: {e}")
                 continue
         # Link the document row to its extracted text (idempotent)
+        doc_id = None
         try:
             with store.connect() as conn:
                 r = conn.execute(
@@ -105,6 +185,48 @@ def extract_all_pending() -> dict:
                 )
                 if r.rowcount > 0:
                     counts["linked"] += 1
+                row = conn.execute(
+                    "SELECT id, type, meta_json FROM documents WHERE raw_path = ?",
+                    (raw_rel,),
+                ).fetchone()
+                if row:
+                    doc_id = row["id"]
+                    doc_type = row["type"]
+                    import json as _json
+                    try:
+                        meta = _json.loads(row["meta_json"] or "{}")
+                    except Exception:
+                        meta = {}
         except Exception as e:
             counts["errors"].append(f"link {p}: {e}")
+            doc_id = None
+            doc_type = None
+            meta = {}
+        # Fact extraction (idempotent via (label, char_offset) uniqueness within doc)
+        if doc_id and text_target.exists():
+            try:
+                existing = len(store.facts_for_doc(doc_id))
+                if existing == 0:
+                    text = text_target.read_text(errors="ignore")
+                    counts["facts"] += _extract_facts_from_text(doc_id, text)
+                    counts["facts"] += _extract_facts_from_meta(doc_id, doc_type, meta, text)
+            except Exception as e:
+                counts["errors"].append(f"fact-extract {doc_id}: {e}")
+    # Also mine facts from SERIES/RAIL_TRAFFIC rows that have meta but no text
+    try:
+        with store.connect() as conn:
+            rows = conn.execute(
+                "SELECT id, type, meta_json FROM documents "
+                "WHERE type IN ('SERIES','RAIL_TRAFFIC') "
+                "AND id NOT IN (SELECT document_id FROM facts)"
+            ).fetchall()
+        import json as _json
+        for row in rows:
+            try:
+                meta = _json.loads(row["meta_json"] or "{}")
+            except Exception:
+                meta = {}
+            counts["facts"] += _extract_facts_from_meta(row["id"], row["type"], meta, "")
+    except Exception as e:
+        counts["errors"].append(f"meta-mine: {e}")
     return counts

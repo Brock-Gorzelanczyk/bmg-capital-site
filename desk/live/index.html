@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desk live, replay of the last run | BMG Capital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/site.187e1258.css">
+<style>
+body { background: #0f1115; color: #d7dbe3; }
+.site-header { background: #0f1115; border-bottom: 1px solid #22262e; }
+.live-root { max-width: 1280px; margin: 0 auto; padding: 0.75rem 1rem 2rem; font-family: "IBM Plex Sans", sans-serif; }
+.topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 0.6rem 0.9rem; background: #141822; border: 1px solid #22262e; border-radius: 4px; margin-bottom: 0.75rem; }
+.topbar .title { flex: 1; min-width: 240px; font-size: 0.92rem; color: #a9afbb; }
+.topbar .title b { color: #e8ecf3; }
+.topbar button { background: #22262e; color: #d7dbe3; border: 1px solid #2d3240; padding: 4px 10px; border-radius: 3px; font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; cursor: pointer; }
+.topbar button.active { background: #3ddc84; color: #0f1115; border-color: #3ddc84; }
+.topbar button:hover { background: #2d3240; }
+.progressbar { flex-basis: 100%; height: 3px; background: #22262e; border-radius: 2px; margin-top: 0.4rem; overflow: hidden; }
+.progressbar .fill { height: 100%; background: #3ddc84; width: 0; transition: width 0.3s linear; }
+.live-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 0.75rem; }
+.doc-pane { background: #141822; border: 1px solid #22262e; border-radius: 4px; padding: 0.75rem; max-height: 72vh; overflow: auto; position: relative; }
+.doc-pane .doc-header { font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; color: #8089a0; margin-bottom: 0.5rem; padding-bottom: 0.4rem; border-bottom: 1px dashed #22262e; }
+.doc-text { font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; line-height: 1.5; white-space: pre-wrap; color: #a9afbb; position: relative; }
+.fact-mark { background: transparent; border: 1px solid #3ddc84; border-radius: 2px; padding: 0 2px; color: #e8ecf3; position: relative; }
+.fact-mark.rev { border-color: #ffb44f; }
+.fact-mark.eps { border-color: #3ddc84; }
+.fact-mark.bl { border-color: #7ac2ff; }
+.fact-mark.ut { border-color: #c084ff; }
+.fact-mark.di { border-color: #ff7a97; }
+.fact-mark.ni { border-color: #ffdd59; }
+.fact-mark.fl { border-color: #68d4a4; }
+.fact-tag { display: inline-block; margin-left: 4px; padding: 1px 4px; font-size: 0.7rem; background: #22262e; color: #a9afbb; border-radius: 2px; }
+.map-pane { background: #141822; border: 1px solid #22262e; border-radius: 4px; padding: 0.4rem; min-height: 72vh; max-height: 72vh; overflow: hidden; position: relative; }
+.map-pane svg { display: block; width: 100%; height: 100%; }
+.statusline { margin-top: 0.75rem; padding: 0.4rem 0.75rem; background: #141822; border: 1px solid #22262e; border-radius: 4px; font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; color: #a9afbb; min-height: 1.2em; }
+.statusline b { color: #3ddc84; }
+.loading { padding: 1rem; color: #8089a0; }
+.rules { margin-top: 1rem; font-size: 0.75rem; color: #6b7083; }
+@media (max-width: 475px) {
+  .live-grid { grid-template-columns: 1fr; }
+  .doc-pane, .map-pane { max-height: 50vh; min-height: 300px; }
+}
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="brand" href="/" aria-label="BMG Capital home">
+      <span class="brand-mark">
+        <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden="true"><polyline points="5,23 12,15 18,19 27,8" fill="none" stroke="#3ddc84" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
+      </span>
+      <span class="brand-wm">BMG CAPITAL</span>
+    </a>
+    <nav aria-label="Main" class="site-nav">
+      <a href="/">Home</a>
+      <a href="/tool/">Research tool</a>
+      <a href="/desk/">Desk</a>
+      <a href="/desk/live/" aria-current="page">Desk live</a>
+      <a href="/research.html">Research</a>
+    </nav>
+  </div>
+</header>
+<main class="live-root">
+  <div class="topbar">
+    <div class="title" id="replay-title">Loading replay...</div>
+    <button id="btn-play" aria-pressed="true">Pause</button>
+    <button class="speed-btn" data-speed="10">10x</button>
+    <button class="speed-btn active" data-speed="60">60x</button>
+    <button class="speed-btn" data-speed="300">300x</button>
+    <div class="progressbar"><div class="fill" id="progress-fill"></div></div>
+  </div>
+  <div class="live-grid">
+    <div class="doc-pane">
+      <div class="doc-header" id="doc-header">(no document yet)</div>
+      <div class="doc-text" id="doc-text"><div class="loading">waiting for /desk/run/latest...</div></div>
+    </div>
+    <div class="map-pane">
+      <svg id="map-svg" viewBox="0 0 400 720" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </div>
+  <div class="statusline" id="statusline">idle</div>
+  <div class="rules">Playback pacing is synthetic and labeled above. Every box is a stored row from <code>/data/intake.db</code>. No article bodies, no paywalled sources, no fake activity.</div>
+</main>
+
+<script>
+(() => {
+  const state = {
+    events: [],
+    idx: 0,
+    speed: 60,
+    playing: true,
+    runStart: null,
+    runEnd: null,
+    tickTimer: null,
+    nodes: {}, // doc_id -> {x,y} or host -> {x,y}
+    docsLoaded: {}, // doc_id -> text
+    currentDocId: null,
+  };
+
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const svg = document.getElementById("map-svg");
+
+  function fmt(ts) {
+    if (!ts) return "";
+    const d = new Date(ts);
+    return isNaN(d) ? ts : d.toLocaleString("en-US", { timeZone: "America/Chicago", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  function colorForLabel(label) {
+    const m = {Revenue:"rev", EPS:"eps", "Backlog units":"bl", "Backlog $B":"bl", Fleet:"fl", Utilization:"ut", Dividend:"di", "Net income":"ni", Carloads:"bl", Intermodal:"bl", DGS10:"rev", DGS2:"rev", DGS5:"rev", DGS30:"rev", SOFR:"di", DFF:"di", BAMLC0A0CM:"ni", BAMLH0A0HYM2:"ni", T10Y2Y:"eps", INDPRO:"fl", RAILFRTCARLOADSD11:"bl", RAILFRTINTERMODALD11:"bl"};
+    return m[label] || "ut";
+  }
+
+  async function fetchJSON(url) {
+    try { const r = await fetch(url, {cache: "no-store"}); if (!r.ok) throw new Error(r.status); return await r.json(); }
+    catch (e) { return {error: String(e)}; }
+  }
+
+  async function init() {
+    const data = await fetchJSON("/desk/run/latest?window=14400&limit=200");
+    if (data.error || !data.events || data.events.length === 0) {
+      document.getElementById("replay-title").innerHTML = "No completed run yet";
+      document.getElementById("doc-text").innerHTML = '<div class="loading">no completed run yet</div>';
+      const h = await fetchJSON("/desk/health");
+      document.getElementById("statusline").textContent = JSON.stringify(h, null, 2).slice(0, 500);
+      return;
+    }
+    state.events = data.events;
+    state.runStart = new Date(data.started_at);
+    state.runEnd = new Date(data.ended_at || data.started_at);
+    const n = state.events.length;
+    const d = state.runEnd - state.runStart;
+    const title = document.getElementById("replay-title");
+    title.innerHTML = `Replay of run <b>${fmt(data.started_at)} Central</b> playing at <b>${state.speed}x</b>. ${n} events, ${Math.round(d/1000)} s real time. Every box is a stored row.`;
+    tick();
+  }
+
+  function tick() {
+    if (!state.playing) return;
+    if (state.idx >= state.events.length) { state.playing = false; document.getElementById("btn-play").textContent = "Replay done"; return; }
+    const ev = state.events[state.idx];
+    const nextIdx = state.idx + 1;
+    renderEvent(ev);
+    state.idx = nextIdx;
+    // Compute next delay: real gap scaled by speed, clamped to 50-5000ms
+    let delay = 400;
+    if (nextIdx < state.events.length) {
+      const t0 = new Date(ev.fetched_at || ev.at || state.runStart).getTime();
+      const t1 = new Date(state.events[nextIdx].fetched_at || state.events[nextIdx].at || t0).getTime();
+      const real_ms = Math.max(0, t1 - t0);
+      delay = Math.min(5000, Math.max(50, real_ms / state.speed));
+    }
+    // Progress bar
+    const pct = Math.round((state.idx / state.events.length) * 100);
+    document.getElementById("progress-fill").style.width = pct + "%";
+    clearTimeout(state.tickTimer);
+    state.tickTimer = setTimeout(tick, delay);
+  }
+
+  function renderEvent(ev) {
+    const status = document.getElementById("statusline");
+    if (ev.type === "document") {
+      status.innerHTML = `<b>${ev.job || ""}</b> fetching ${ev.host} <span style="color:#6b7083">${ev.url.slice(0, 100)}</span>`;
+      addMapNode(ev);
+      loadDoc(ev);
+    } else if (ev.type === "fact") {
+      status.innerHTML = `fact extracted: <b>${ev.label}</b> = ${ev.value} ${ev.unit || ""}`;
+      addMapFact(ev);
+      markFactInDoc(ev);
+    }
+  }
+
+  async function loadDoc(ev) {
+    document.getElementById("doc-header").textContent = `${ev.ticker || ""} ${ev.doc_type}: ${(ev.title || "").slice(0, 120)}`;
+    const pane = document.getElementById("doc-text");
+    pane.scrollTop = 0;
+    state.currentDocId = ev.doc_id;
+    if (ev.doc_type === "NEWS") {
+      pane.innerHTML = `<div style="color:#8089a0">Headline only (article body never stored):</div><div style="margin-top:6px">${(ev.title || "").replace(/</g,"&lt;")}</div>`;
+      return;
+    }
+    if (!ev.has_text) {
+      pane.innerHTML = `<div style="color:#8089a0">(no extracted text for this document)</div>`;
+      return;
+    }
+    let doc = state.docsLoaded[ev.doc_id];
+    if (!doc) {
+      doc = await fetchJSON("/desk/doc/" + encodeURIComponent(ev.doc_id) + "/text");
+      state.docsLoaded[ev.doc_id] = doc;
+    }
+    if (doc.error) {
+      pane.innerHTML = `<div style="color:#ff7a97">doc text error: ${doc.error}</div>`;
+      return;
+    }
+    const text = (doc.text || "").slice(0, 60000);
+    pane.setAttribute("data-doc-id", ev.doc_id);
+    pane.innerHTML = escapeHTML(text);
+  }
+
+  function escapeHTML(s) {
+    return (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  function markFactInDoc(ev) {
+    if (ev.doc_id !== state.currentDocId) return;
+    const pane = document.getElementById("doc-text");
+    const doc = state.docsLoaded[ev.doc_id];
+    if (!doc || !doc.text) return;
+    const text = doc.text;
+    let offset = ev.char_offset;
+    if (offset == null || offset < 0) {
+      offset = text.indexOf(ev.value);
+      if (offset < 0) return;
+    }
+    // Rebuild the pane preserving existing marks: we work on the original text
+    // and apply all currently-shown marks for this doc up to this event.
+    const facts = state.events.filter(e => e.type === "fact" && e.doc_id === ev.doc_id).slice(0, state.idx + 1).filter(e => state.events.indexOf(e) <= state.idx);
+    const ranges = [];
+    facts.forEach(f => {
+      let off = f.char_offset;
+      let v = f.value || "";
+      if (!v) return;
+      if (off == null || off < 0) off = text.indexOf(v);
+      if (off < 0) return;
+      ranges.push({start: off, end: off + v.length, label: f.label, value: v, unit: f.unit, cls: colorForLabel(f.label)});
+    });
+    ranges.sort((a,b) => a.start - b.start);
+    // Collapse overlaps
+    const merged = [];
+    ranges.forEach(r => {
+      const last = merged[merged.length - 1];
+      if (last && r.start < last.end) return;
+      merged.push(r);
+    });
+    let html = "";
+    let cursor = 0;
+    merged.forEach(r => {
+      html += escapeHTML(text.slice(cursor, r.start));
+      html += `<span class="fact-mark ${r.cls}">${escapeHTML(text.slice(r.start, r.end))}<span class="fact-tag">${r.label} ${r.value}${r.unit ? " " + r.unit : ""}</span></span>`;
+      cursor = r.end;
+    });
+    html += escapeHTML(text.slice(cursor));
+    pane.innerHTML = html;
+    // Scroll to the newest mark
+    const marks = pane.querySelectorAll(".fact-mark");
+    if (marks.length) marks[marks.length - 1].scrollIntoView({block:"center", behavior:"smooth"});
+  }
+
+  // Map pane: fixed columns per host, docs stack under each host, facts stack under their doc
+  const HOSTS = ["data.sec.gov", "www.sec.gov", "ir.gatx.com", "pressroom.gbrx.com", "www.trin.net", "fred.stlouisfed.org", "api.stlouisfed.org", "www.aar.org", "www.stb.gov"];
+  const HOST_LABELS = { "data.sec.gov": "sec.gov", "www.sec.gov": "sec.gov", "ir.gatx.com": "ir.gatx.com", "pressroom.gbrx.com": "pressroom.gbrx.com", "www.trin.net": "trin.net", "fred.stlouisfed.org": "fred", "api.stlouisfed.org": "fred", "www.aar.org": "aar", "www.stb.gov": "stb" };
+  const HOST_X = {};
+  const HOST_SEEN = {};
+  function hostX(host) {
+    if (HOST_X[host] != null) return HOST_X[host];
+    const idx = Object.keys(HOST_X).length;
+    HOST_X[host] = 50 + idx * 50;
+    const t = document.createElementNS(SVG_NS, "text");
+    t.setAttribute("x", HOST_X[host]);
+    t.setAttribute("y", 15);
+    t.setAttribute("fill", "#8089a0");
+    t.setAttribute("font-size", "9");
+    t.setAttribute("text-anchor", "middle");
+    t.textContent = HOST_LABELS[host] || host;
+    svg.appendChild(t);
+    const c = document.createElementNS(SVG_NS, "circle");
+    c.setAttribute("cx", HOST_X[host]); c.setAttribute("cy", 25); c.setAttribute("r", 4);
+    c.setAttribute("fill", "#3ddc84");
+    svg.appendChild(c);
+    HOST_SEEN[host] = 25;
+    return HOST_X[host];
+  }
+  function addMapNode(ev) {
+    const host = ev.host || "unknown";
+    const x = hostX(host);
+    HOST_SEEN[host] = (HOST_SEEN[host] || 25) + 18;
+    const y = HOST_SEEN[host];
+    if (y > 700) return; // cap vertical growth
+    state.nodes[ev.doc_id] = {x, y, host};
+    const line = document.createElementNS(SVG_NS, "line");
+    line.setAttribute("x1", x); line.setAttribute("y1", 25); line.setAttribute("x2", x); line.setAttribute("y2", y);
+    line.setAttribute("stroke", "#2d3240"); line.setAttribute("stroke-width", "1");
+    svg.appendChild(line);
+    const c = document.createElementNS(SVG_NS, "circle");
+    c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 2.5);
+    c.setAttribute("fill", "#7ac2ff");
+    c.setAttribute("data-doc-id", ev.doc_id);
+    svg.appendChild(c);
+  }
+  function addMapFact(ev) {
+    const node = state.nodes[ev.doc_id];
+    if (!node) return;
+    HOST_SEEN[node.host] = (HOST_SEEN[node.host] || node.y) + 6;
+    const y = HOST_SEEN[node.host];
+    if (y > 700) return;
+    const line = document.createElementNS(SVG_NS, "line");
+    line.setAttribute("x1", node.x); line.setAttribute("y1", node.y); line.setAttribute("x2", node.x); line.setAttribute("y2", y);
+    line.setAttribute("stroke", "#2d3240"); line.setAttribute("stroke-width", "0.5");
+    svg.appendChild(line);
+    const c = document.createElementNS(SVG_NS, "circle");
+    c.setAttribute("cx", node.x); c.setAttribute("cy", y); c.setAttribute("r", 1.5);
+    c.setAttribute("fill", "#ffb44f");
+    svg.appendChild(c);
+  }
+
+  // Controls
+  document.getElementById("btn-play").addEventListener("click", (e) => {
+    state.playing = !state.playing;
+    e.target.textContent = state.playing ? "Pause" : "Play";
+    if (state.playing) tick();
+  });
+  document.querySelectorAll(".speed-btn").forEach(b => {
+    b.addEventListener("click", (e) => {
+      state.speed = parseInt(b.dataset.speed, 10) || 60;
+      document.querySelectorAll(".speed-btn").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      const title = document.getElementById("replay-title");
+      if (title && title.innerHTML.includes("playing at")) {
+        title.innerHTML = title.innerHTML.replace(/playing at <b>\d+x<\/b>/, `playing at <b>${state.speed}x</b>`);
+      }
+    });
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>

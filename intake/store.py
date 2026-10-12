@@ -57,6 +57,17 @@ CREATE TABLE IF NOT EXISTS runs (
     counts_json TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_run_job ON runs(job, started_at DESC);
+
+CREATE TABLE IF NOT EXISTS facts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id TEXT NOT NULL,
+    label TEXT NOT NULL,
+    value TEXT NOT NULL,
+    unit TEXT,
+    char_offset INTEGER,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_facts_doc ON facts(document_id);
 """
 
 
@@ -258,6 +269,144 @@ def health_summary() -> dict:
         out["volume_bytes"] = total_sz
     except Exception:
         out["volume_bytes"] = None
+    return out
+
+
+def insert_fact(*, document_id: str, label: str, value: str,
+                 unit: Optional[str] = None, char_offset: Optional[int] = None) -> int:
+    """Insert an extracted fact. Returns new fact id."""
+    with connect() as conn:
+        cur = conn.execute(
+            "INSERT INTO facts (document_id, label, value, unit, char_offset, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (document_id, label, value, unit, char_offset,
+             time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())),
+        )
+        return cur.lastrowid
+
+
+def facts_for_doc(document_id: str) -> list[dict]:
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT id, label, value, unit, char_offset, created_at FROM facts "
+            "WHERE document_id = ? ORDER BY char_offset NULLS LAST, id ASC",
+            (document_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def latest_run_events(window_seconds: int = 7200, limit: int = 200) -> dict:
+    """Return the most recent 'run' as an ordered event list.
+
+    A run here means the window ending at the latest document.fetched_at and
+    starting `window_seconds` earlier (default 2 h) OR all documents since the
+    latest digest run, whichever is more inclusive. Capped at `limit` events.
+
+    Each event is either a `document` event (ticker row fetched) or a `fact`
+    event (fact extracted from a document). Events ordered by fetched_at ASC
+    across all documents; each document's facts follow immediately after
+    (fact.created_at >= doc.fetched_at by construction).
+    """
+    import json as _json
+    with connect() as conn:
+        # Window end = latest doc fetched_at; start = window_end - window_seconds
+        last = conn.execute(
+            "SELECT MAX(fetched_at) FROM documents"
+        ).fetchone()[0]
+        if not last:
+            return {"started_at": None, "ended_at": None, "events": [],
+                    "job_statuses": _job_statuses(conn), "note": "no documents in db"}
+        # Pull docs in the window, oldest first for replay
+        docs = conn.execute(
+            """SELECT id, ticker, type, title, source, source_url, published_at,
+                      fetched_at, text_path, meta_json
+               FROM documents
+               WHERE fetched_at >= datetime(?, ?)
+               ORDER BY fetched_at ASC
+               LIMIT ?""",
+            (last, f"-{int(window_seconds)} seconds", limit),
+        ).fetchall()
+        if not docs:
+            docs = conn.execute(
+                "SELECT id, ticker, type, title, source, source_url, published_at, "
+                "fetched_at, text_path, meta_json FROM documents "
+                "ORDER BY fetched_at DESC LIMIT ?", (limit,)
+            ).fetchall()
+            docs = list(reversed(docs))
+        events: list[dict] = []
+        for d in docs:
+            dd = dict(d)
+            meta = {}
+            try:
+                meta = _json.loads(dd.get("meta_json") or "{}")
+            except Exception:
+                pass
+            from urllib.parse import urlparse
+            host = urlparse(dd.get("source_url") or "").hostname or ""
+            events.append({
+                "type": "document",
+                "doc_id": dd["id"],
+                "host": host,
+                "url": dd["source_url"],
+                "title": dd["title"],
+                "doc_type": dd["type"],
+                "ticker": dd["ticker"],
+                "fetched_at": dd["fetched_at"],
+                "job": _job_for_source(dd["source"], dd["ticker"]),
+                "has_text": bool(dd.get("text_path")),
+                "meta": meta,
+            })
+            if len(events) >= limit:
+                break
+            facts = conn.execute(
+                "SELECT id, label, value, unit, char_offset, created_at FROM facts "
+                "WHERE document_id = ? ORDER BY char_offset NULLS LAST, id ASC LIMIT 10",
+                (dd["id"],),
+            ).fetchall()
+            for f in facts:
+                if len(events) >= limit:
+                    break
+                fd = dict(f)
+                events.append({
+                    "type": "fact",
+                    "doc_id": dd["id"],
+                    "fact_id": fd["id"],
+                    "label": fd["label"],
+                    "value": fd["value"],
+                    "unit": fd["unit"],
+                    "char_offset": fd["char_offset"],
+                    "at": fd["created_at"],
+                })
+        return {
+            "started_at": events[0].get("fetched_at") if events else None,
+            "ended_at": events[-1].get("fetched_at") or events[-1].get("at") if events else None,
+            "events": events,
+            "job_statuses": _job_statuses(conn),
+        }
+
+
+def _job_for_source(source: str, ticker: str) -> str:
+    if source == "edgar": return f"edgar_poll:{ticker}"
+    if source == "ir": return f"ir_feeds:{ticker}"
+    if source == "gnews": return f"news:{ticker}"
+    if source == "fred": return "fred"
+    if source == "aar": return "aar_weekly"
+    if source == "stb": return "stb_ep724"
+    if source == "rsi": return "rsi_arci"
+    return source
+
+
+def _job_statuses(conn) -> dict:
+    jobs = ["edgar_poll", "ir_feeds", "news", "fred", "aar_weekly",
+            "stb_ep724", "rsi_arci", "digest"]
+    out = {}
+    for j in jobs:
+        r = conn.execute(
+            "SELECT started_at, ended_at, ok FROM runs "
+            "WHERE job = ? OR job LIKE ? ORDER BY started_at DESC LIMIT 1",
+            (j, f"{j}:%"),
+        ).fetchone()
+        out[j] = dict(r) if r else {"started_at": None, "ok": None}
     return out
 
 

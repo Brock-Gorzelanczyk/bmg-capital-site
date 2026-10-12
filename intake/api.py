@@ -143,6 +143,36 @@ async def run_job(job: str, request: Request) -> dict:
     return counts
 
 
+@router.get("/run/latest")
+async def run_latest(request: Request, window: int = Query(7200, ge=60, le=86400),
+                      limit: int = Query(200, ge=1, le=500)) -> dict:
+    """Last completed run as an ordered event list. See WORK-ORDER-DESK-2.md."""
+    _check_rate(request)
+    return store.latest_run_events(window_seconds=window, limit=limit)
+
+
+@router.get("/doc/{doc_id}/text")
+async def doc_text(doc_id: str, request: Request) -> dict:
+    """Stored extracted markdown for a document. NEWS rows return title only."""
+    _check_rate(request)
+    row = store.get_doc(doc_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="not found")
+    if row["type"] == "NEWS":
+        return {"id": row["id"], "type": "NEWS", "title": row["title"],
+                "text": None,
+                "attribution": "Headline only; article body never stored."}
+    text = ""
+    if row.get("text_path"):
+        p = store.DATA_DIR / row["text_path"]
+        if p.exists():
+            text = p.read_text(errors="ignore")
+    facts = store.facts_for_doc(doc_id)
+    return {"id": row["id"], "type": row["type"], "title": row["title"],
+            "source_url": row["source_url"], "fetched_at": row["fetched_at"],
+            "text": text, "facts": facts, "bytes": len(text.encode("utf-8"))}
+
+
 @router.get("/doc/{doc_id}")
 async def doc(doc_id: str, request: Request) -> dict:
     _check_rate(request)
