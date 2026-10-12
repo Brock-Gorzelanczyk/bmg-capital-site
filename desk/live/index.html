@@ -318,25 +318,28 @@ svg.thread line{stroke-width:1.2;opacity:.85;stroke-dasharray:1000;stroke-dashof
       const fact = {type:"fact", doc_id: ev.doc_id, label: ev.label, value: ev.value, unit: ev.unit, char_offset: ev.char_offset, at: ev.at};
       state.events.push(fact);
       state.idx = state.events.length;
-      // Extract phase emits facts for several docs in a burst within ~1s.
-      // Buffer them, debounce, then pick the doc with the most facts and
-      // render all its facts in order. This keeps the thread drawing between
-      // >=5 boxes on one doc instead of toggling between docs.
+      // Extract phase emits facts for several docs in a burst. Buffer per-doc,
+      // and on each fact navigate (if needed) to the doc with the MOST
+      // accumulated facts in this burst and render all of them. This keeps
+      // the thread drawing between many boxes on the best doc.
       state.factBuffer = state.factBuffer || {};
       (state.factBuffer[ev.doc_id] = state.factBuffer[ev.doc_id] || []).push(fact);
-      clearTimeout(state.factFlushTimer);
-      state.factFlushTimer = setTimeout(async () => {
-        const buf = state.factBuffer || {};
-        let bestId = null, bestLen = 0;
-        for (const k of Object.keys(buf)){ if (buf[k].length > bestLen){bestLen = buf[k].length; bestId = k;} }
-        if (!bestId) return;
-        const cached = state.docsSeen && state.docsSeen[bestId];
-        if (cached) await loadDocAndWalk(cached);
-        for (const f of buf[bestId]){
+      let bestId = null, bestLen = 0;
+      for (const k of Object.keys(state.factBuffer)){ if (state.factBuffer[k].length > bestLen){bestLen = state.factBuffer[k].length; bestId = k;} }
+      if (!bestId) return;
+      const cached = state.docsSeen && state.docsSeen[bestId];
+      if (!cached) return;
+      const facts = state.factBuffer[bestId];
+      (async () => {
+        if (state.currentDocId !== bestId){
+          state.pendingRenderDoc = bestId;
+          await loadDocAndWalk(cached);
+          if (state.pendingRenderDoc !== bestId) return;
+        }
+        for (const f of facts){
           processEvent({type:"fact", doc_id: bestId, label: f.label, value: f.value, unit: f.unit, char_offset: f.char_offset});
         }
-        state.factBuffer = {};
-      }, 250);
+      })();
       return;
     }
     if (ev.type === "job_done"){setStatus(`done &nbsp;&middot;&nbsp; ${state.totalDocs} documents &nbsp;&middot;&nbsp; ${state.totalFacts} numbers found`); stopLive(); const btn = document.querySelector("[data-mode='live']"); if (btn) btn.classList.remove("on"); return;}
