@@ -161,13 +161,13 @@ svg.thread line{stroke-width:1.2;opacity:.85;stroke-dasharray:1000;stroke-dashof
     thread.innerHTML = "";
     docBody.innerHTML = "";
     h1.textContent = "";
-    // No-text (banner only, 1.5 s)
-    const notext = (!ev.has_text || ["NEWS","4","SERIES","PRESS_RELEASE","DECK"].includes(ev.doc_type));
+    // No-text (banner only, 1.5 s). Only truly text-less types short-circuit.
+    // PRESS_RELEASE and DECK docs do have stored text (fetched via IR source);
+    // facts carry real char_offsets into that text, so route them to the reader.
+    const notext = (!ev.has_text || ["NEWS","4","SERIES"].includes(ev.doc_type));
     if (notext){
       let m;
-      if (ev.doc_type === "PRESS_RELEASE" || ev.doc_type === "DECK")
-        m = `fetched <b>${ev.host||""}</b> press release, title only, not stored: ${(ev.title||"").slice(0,80)}`;
-      else if (ev.doc_type === "4") m = `fetched <b>${ev.host||""}</b> Form 4 CSV (derived artifact)`;
+      if (ev.doc_type === "4") m = `fetched <b>${ev.host||""}</b> Form 4 CSV (derived artifact)`;
       else if (ev.doc_type === "SERIES"){const mm = ev.meta || {}; m = `fetched <b>${ev.host||""}</b> ${mm.series_id || ev.title} = ${mm.last_value||""} (${mm.last_date||""})`;}
       else if (ev.doc_type === "NEWS") m = `fetched headline (body never stored): ${(ev.title||"").slice(0,80)}`;
       else m = `fetched ${ev.doc_type}, no stored text`;
@@ -306,7 +306,7 @@ svg.thread line{stroke-width:1.2;opacity:.85;stroke-dasharray:1000;stroke-dashof
       let host = ""; try{host = new URL(ev.source_url || "").hostname;}catch(e){}
       const docEv = {type:"document", doc_id:ev.doc_id, host, url:ev.source_url, title:ev.title,
         doc_type:ev.doc_type, ticker:ev.ticker, fetched_at:ev.at,
-        has_text: !["SERIES","NEWS","4","PRESS_RELEASE","DECK"].includes(ev.doc_type), meta:{}, dim:!!ev.skipped_dup};
+        has_text: !["SERIES","NEWS","4"].includes(ev.doc_type), meta:{}, dim:!!ev.skipped_dup};
       if (docEv.dim){setStatus(`<b>${host}</b> ${ev.doc_type}: already stored`); return;}
       processEvent(docEv);
       return;
