@@ -246,8 +246,12 @@ svg.spider .knee{fill:#ff3d9a}
     if (state.userScrolledAt && now - state.userScrolledAt < 2500){ state.scrollPos = null; return; }
     if (!walking() || state.paused || !state.rows) { state.scrollPos = null; return; }
     if (state.scrollPos == null) state.scrollPos = window.scrollY;
+    const before = window.scrollY;
     state.scrollPos += SCROLL_SPEED * (state.speedMul || 1) * dt;
     window.scrollTo(0, state.scrollPos);
+    // The spider rides the scroll: it moves with the page view, so its own
+    // crawl only moves it around inside the frame (reference clip).
+    state.body.y += window.scrollY - before;
   }
   addEventListener("wheel", () => { state.userScrolledAt = performance.now(); }, {passive: true});
   addEventListener("touchmove", () => { state.userScrolledAt = performance.now(); }, {passive: true});
@@ -277,7 +281,7 @@ svg.spider .knee{fill:#ff3d9a}
   function drawSpider(){ state.drawnAt = performance.now(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawBody(); camera(); }
   // Keep the legs flexing and the eye scanning between steps too.
   // ---- crawl: body creeps continuously; legs step one or two at a time
-  const CRAWL_SPEED = 105;  // px per second at 1x
+  const CRAWL_SPEED = 120;  // px per second at 1x, on top of riding the scroll
   state.legAnim = {};
   function startLegStep(i, to, now){
     const from = state.feet[i] || {x: state.body.x, y: state.body.y};
@@ -339,6 +343,9 @@ svg.spider .knee{fill:#ff3d9a}
       const dr = doc.getBoundingClientRect();
       state.body.x = Math.min(dr.width - 20, Math.max(20, state.body.x + Math.cos(state.heading) * sp * dt));
       state.body.y = Math.max(10, state.body.y + Math.sin(state.heading) * sp * dt);
+      // Never leave the frame: ease back inside 15%..80% of the screen.
+      const sy = dr.top + state.body.y, lo = innerHeight * 0.15, hi = innerHeight * 0.8;
+      if (sy > hi) state.body.y -= (sy - hi) * 0.2; else if (sy < lo) state.body.y += (lo - sy) * 0.2;
       stepLegs(now);
     }
     advanceLegs(now);
