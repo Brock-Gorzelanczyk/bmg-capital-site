@@ -39,7 +39,7 @@ def _text_dir(ticker: str, form: str, accession: str) -> Path:
     return d
 
 
-async def poll_edgar(ticker: str, cik: str, *, since: Optional[str] = None, max_filings: int = 20) -> dict:
+async def poll_edgar(ticker: str, cik: str, *, since: Optional[str] = None, max_filings: int = 20, forms: Optional[list] = None) -> dict:
     """Pull new filings since `since` for one CIK. Returns run counts.
 
     Idempotent: a second run adds zero rows via the UNIQUE(source_url) constraint.
@@ -47,6 +47,10 @@ async def poll_edgar(ticker: str, cik: str, *, since: Optional[str] = None, max_
     use since=last_poll_date so each call only sees a handful of new filings; the
     cap defends against a cold-start pulling the whole history and OOM-ing the
     container (seen 2026-10-11 live run).
+
+    `forms` filters the edgartools query (defaults to all FORMS). Rewalk30
+    callers pass ["8-K","10-Q","10-K"] first then ["4"] so priority filings
+    hit the UI before insider forms.
     """
     import datetime as _dt
     counts = {"ticker": ticker, "new": 0, "by_form": {}, "errors": [], "scanned": 0}
@@ -59,7 +63,7 @@ async def poll_edgar(ticker: str, cik: str, *, since: Optional[str] = None, max_
         # Default to a 90-day lookback so cold-starts don't try to download 20+ years of history
         if since is None:
             since = (_dt.date.today() - _dt.timedelta(days=90)).isoformat()
-        filings = co.get_filings(form=list(FORMS))
+        filings = co.get_filings(form=forms or list(FORMS))
         for f in filings:
             if counts["scanned"] >= max_filings:
                 break

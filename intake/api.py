@@ -237,8 +237,16 @@ async def run_live(request: Request, body: dict) -> dict:
             else:
                 since = None
             try:
-                r1 = await edgar_src.poll_edgar(ticker, tcfg["cik"], since=since, max_filings=30)
-                _events_mod.emit("job_log", label=label, msg=f"edgar: {r1.get('new',0)} new / {r1.get('scanned',0)} scanned")
+                if mode == "rewalk30":
+                    # Priority forms first so 8-K/10-Q/10-K/EX-99 land on the UI
+                    # ahead of insider Form 4s during the rewalk animation.
+                    r1a = await edgar_src.poll_edgar(ticker, tcfg["cik"], since=since, max_filings=20, forms=["8-K","10-Q","10-K"])
+                    _events_mod.emit("job_log", label=label, msg=f"edgar priority forms: {r1a.get('new',0)} new")
+                    r1b = await edgar_src.poll_edgar(ticker, tcfg["cik"], since=since, max_filings=20, forms=["4"])
+                    _events_mod.emit("job_log", label=label, msg=f"edgar Form 4: {r1b.get('new',0)} new")
+                else:
+                    r1 = await edgar_src.poll_edgar(ticker, tcfg["cik"], since=since, max_filings=30)
+                    _events_mod.emit("job_log", label=label, msg=f"edgar: {r1.get('new',0)} new / {r1.get('scanned',0)} scanned")
             except Exception as e:
                 _events_mod.emit("job_error", label=label, phase="edgar", message=str(e))
             try:

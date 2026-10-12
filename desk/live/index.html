@@ -24,15 +24,32 @@ body { background: #0f1115; color: #d7dbe3; }
 .doc-pane { background: #141822; border: 1px solid #22262e; border-radius: 4px; padding: 0.75rem; max-height: 72vh; overflow: auto; position: relative; }
 .doc-pane .doc-header { font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; color: #8089a0; margin-bottom: 0.5rem; padding-bottom: 0.4rem; border-bottom: 1px dashed #22262e; }
 .doc-text { font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; line-height: 1.5; white-space: pre-wrap; color: #a9afbb; position: relative; }
-.fact-mark { background: transparent; border: 1px solid #3ddc84; border-radius: 2px; padding: 0 2px; color: #e8ecf3; position: relative; }
-.fact-mark.rev { border-color: #ffb44f; }
-.fact-mark.eps { border-color: #3ddc84; }
-.fact-mark.bl { border-color: #7ac2ff; }
-.fact-mark.ut { border-color: #c084ff; }
-.fact-mark.di { border-color: #ff7a97; }
-.fact-mark.ni { border-color: #ffdd59; }
-.fact-mark.fl { border-color: #68d4a4; }
-.fact-tag { display: inline-block; margin-left: 4px; padding: 1px 4px; font-size: 0.7rem; background: #22262e; color: #a9afbb; border-radius: 2px; }
+/* Fact box color families (DESK-3.2 f): */
+.fact-mark { background: transparent; border: 1px solid #9d7bff; border-radius: 2px; padding: 0 2px; color: #e8ecf3; position: relative; box-shadow: 0 0 6px rgba(157,123,255,0.6); }
+.fact-mark.eps,   .fact-mark.earn { border-color: #ff3df2; box-shadow: 0 0 6px rgba(255,61,242,0.6); }
+.fact-mark.rev { border-color: #27e3ff; box-shadow: 0 0 6px rgba(39,227,255,0.6); }
+.fact-mark.fl, .fact-mark.ut, .fact-mark.bl { border-color: #ffe14d; box-shadow: 0 0 6px rgba(255,225,77,0.6); }
+.fact-mark.di, .fact-mark.bb { border-color: #ff9f1c; box-shadow: 0 0 6px rgba(255,159,28,0.6); }
+.fact-mark.rate, .fact-mark.macro { border-color: #b6ff3b; box-shadow: 0 0 6px rgba(182,255,59,0.6); }
+.fact-tag { display: inline-block; margin-left: 4px; padding: 1px 5px; font-size: 0.7rem; background: #9d7bff; color: #0f1115; border-radius: 2px; font-weight: 600; }
+.fact-mark.eps .fact-tag, .fact-mark.earn .fact-tag { background: #ff3df2; }
+.fact-mark.rev .fact-tag { background: #27e3ff; }
+.fact-mark.fl .fact-tag, .fact-mark.ut .fact-tag, .fact-mark.bl .fact-tag { background: #ffe14d; }
+.fact-mark.di .fact-tag, .fact-mark.bb .fact-tag { background: #ff9f1c; }
+.fact-mark.rate .fact-tag, .fact-mark.macro .fact-tag { background: #b6ff3b; }
+/* host-colored map edges */
+.map-pane .edge-host-sec { stroke: #27e3ff; }
+.map-pane .edge-host-gatx { stroke: #ff3df2; }
+.map-pane .edge-host-gbrx { stroke: #ffe14d; }
+.map-pane .edge-host-trin { stroke: #ff9f1c; }
+.map-pane .edge-host-fred { stroke: #b6ff3b; }
+.map-pane .edge-host-aar  { stroke: #9d7bff; }
+.map-pane .edge-host-stb  { stroke: #b6ff3b; }
+/* Doc-pane overlay: thin line from fact box to its map node */
+#fact-link-layer { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 20; }
+#fact-link-layer line { stroke-width: 1; fill: none; }
+#fact-link-layer line.anim { stroke-dasharray: 400; stroke-dashoffset: 400; transition: stroke-dashoffset 300ms linear, opacity 300ms linear 300ms; opacity: 1; }
+#fact-link-layer line.anim.drawn { stroke-dashoffset: 0; opacity: 0.35; }
 .map-pane { background: #141822; border: 1px solid #22262e; border-radius: 4px; padding: 0; min-height: 72vh; max-height: 72vh; overflow: hidden; position: relative; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: #a9afbb; }
 .map-pane svg { display: block; width: 100%; height: 100%; }
 .map-pane .n-host { fill: #3ddc84; }
@@ -48,7 +65,14 @@ body { background: #0f1115; color: #d7dbe3; }
 .map-pane text.lbl-doc { fill: #7ac2ff; }
 .map-pane text.lbl-fact { fill: #ffb44f; }
 .map-pane text.lbl-doc.dup { opacity: 0.4; }
-.spider { position: absolute; width: 18px; height: 18px; pointer-events: none; z-index: 10; transform: translate(0px, 0px); transition: transform 400ms cubic-bezier(.4,.2,.2,1); will-change: transform; }
+.spider { position: absolute; width: 18px; height: 18px; pointer-events: none; z-index: 10; transform: translate(0px, 0px); transition: transform 400ms cubic-bezier(.4,.2,.2,1), filter 300ms linear; will-change: transform; filter: drop-shadow(0 0 4px #9d7bff); }
+.spider.c-eps  { filter: drop-shadow(0 0 6px #ff3df2); }
+.spider.c-rev  { filter: drop-shadow(0 0 6px #27e3ff); }
+.spider.c-yel  { filter: drop-shadow(0 0 6px #ffe14d); }
+.spider.c-ora  { filter: drop-shadow(0 0 6px #ff9f1c); }
+.spider.c-lime { filter: drop-shadow(0 0 6px #b6ff3b); }
+.spider.c-vio  { filter: drop-shadow(0 0 6px #9d7bff); }
+.reader-highlight { position: absolute; left: 0; right: 0; height: 20px; background: rgba(255,255,255,0.06); pointer-events: none; z-index: 5; transition: top 400ms cubic-bezier(.4,.2,.2,1); }
 .pr-card { background: #1a1f2a; border: 1px solid #22262e; border-left: 3px solid #3ddc84; border-radius: 4px; padding: 0.9rem 1rem; max-width: 560px; }
 .pr-card .k { color: #8089a0; margin-right: 8px; font-size: 0.78rem; display: inline-block; width: 70px; }
 .pr-card .v { color: #e8ecf3; }
@@ -81,7 +105,7 @@ body { background: #0f1115; color: #d7dbe3; }
       <a href="/">Home</a>
       <a href="/tool/">Research tool</a>
       <a href="/desk/">Desk</a>
-      <a href="/desk/live/" aria-current="page">Desk live</a>
+      <a href="/desk/live/" aria-current="page">Live</a>
       <a href="/research.html">Research</a>
     </nav>
   </div>
@@ -105,7 +129,7 @@ body { background: #0f1115; color: #d7dbe3; }
       </select>
       <select id="live-mode" style="background:#22262e;color:#d7dbe3;border:1px solid #2d3240;padding:3px 6px;border-radius:3px;font-family:inherit;font-size:0.8rem">
         <option value="new">New only</option>
-        <option value="rewalk30">Re-walk 30 days</option>
+        <option value="rewalk30" selected>Re-walk 30 days</option>
       </select>
       <button id="btn-run" style="background:#3ddc84;color:#0f1115;border:none;padding:4px 12px;border-radius:3px;font-weight:600;cursor:pointer">Run</button>
       <span id="live-status" style="color:#8089a0;font-size:0.8rem"></span>
@@ -114,19 +138,21 @@ body { background: #0f1115; color: #d7dbe3; }
   </div>
   <div class="live-grid">
     <div class="doc-pane" id="doc-pane">
+      <div class="reader-highlight" id="reader-highlight" style="top:-30px"></div>
       <svg class="spider" id="spider" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="4" fill="#3ddc84"/>
-        <g stroke="#3ddc84" stroke-width="1.4" stroke-linecap="round">
-          <line x1="12" y1="12" x2="2"  y2="4"/>
-          <line x1="12" y1="12" x2="2"  y2="12"/>
-          <line x1="12" y1="12" x2="2"  y2="20"/>
-          <line x1="12" y1="12" x2="7"  y2="22"/>
-          <line x1="12" y1="12" x2="17" y2="22"/>
-          <line x1="12" y1="12" x2="22" y2="20"/>
-          <line x1="12" y1="12" x2="22" y2="12"/>
-          <line x1="12" y1="12" x2="22" y2="4"/>
+        <g stroke-width="1.6" stroke-linecap="round" fill="none">
+          <line x1="12" y1="12" x2="2"  y2="4"  stroke="#ff3df2"/>
+          <line x1="12" y1="12" x2="2"  y2="12" stroke="#27e3ff"/>
+          <line x1="12" y1="12" x2="2"  y2="20" stroke="#ffe14d"/>
+          <line x1="12" y1="12" x2="7"  y2="22" stroke="#ff9f1c"/>
+          <line x1="12" y1="12" x2="17" y2="22" stroke="#b6ff3b"/>
+          <line x1="12" y1="12" x2="22" y2="20" stroke="#9d7bff"/>
+          <line x1="12" y1="12" x2="22" y2="12" stroke="#ff3df2"/>
+          <line x1="12" y1="12" x2="22" y2="4"  stroke="#27e3ff"/>
         </g>
+        <circle cx="12" cy="12" r="4" fill="#ffffff"/>
       </svg>
+      <svg id="fact-link-layer" aria-hidden="true"></svg>
       <div class="doc-header" id="doc-header">(no document yet)</div>
       <div class="doc-text" id="doc-text"><div class="loading">waiting for /desk/run/latest...</div></div>
     </div>
@@ -160,13 +186,26 @@ body { background: #0f1115; color: #d7dbe3; }
   const HOST_R = 150, DOC_R = 46, FACT_R = 16;
   const hostBlocks = {}; // host -> {pos:{x,y}, nextDocAngle, docs: {doc_id: {pos,el,factCount,factAngle}}}
   let placeholders = {}; // url -> {el, host}
+  let mapBounds = {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity};
+
+  function expandMapBounds(x, y, pad=28) {
+    mapBounds.minX = Math.min(mapBounds.minX, x - pad);
+    mapBounds.minY = Math.min(mapBounds.minY, y - pad);
+    mapBounds.maxX = Math.max(mapBounds.maxX, x + pad);
+    mapBounds.maxY = Math.max(mapBounds.maxY, y + pad);
+    if (!mapSvg) return;
+    const w = Math.max(60, mapBounds.maxX - mapBounds.minX);
+    const h = Math.max(60, mapBounds.maxY - mapBounds.minY);
+    mapSvg.setAttribute("viewBox", `${mapBounds.minX} ${mapBounds.minY} ${w} ${h}`);
+  }
 
   function resetMap() {
     // Rebuild the SVG so stale references after innerHTML wipes don't leak
-    mapPane.innerHTML = '<svg id="map-svg" viewBox="0 0 400 720" preserveAspectRatio="xMidYMid meet"></svg>';
+    mapPane.innerHTML = '<svg id="map-svg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet"></svg>';
     mapSvg = document.getElementById("map-svg");
     for (const k in hostBlocks) delete hostBlocks[k];
     placeholders = {};
+    mapBounds = {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity};
   }
 
   function hostBlock(host) {
@@ -190,6 +229,7 @@ body { background: #0f1115; color: #d7dbe3; }
     g.appendChild(t);
     mapSvg.appendChild(g);
     hostBlocks[host] = {pos: {x, y}, nextDocAngle: 0, docs: {}, el: g};
+    expandMapBounds(x, y, 60);
     return hostBlocks[host];
   }
 
@@ -200,7 +240,7 @@ body { background: #0f1115; color: #d7dbe3; }
     const edge = document.createElementNS(SVG_NS, "line");
     edge.setAttribute("x1", hb.pos.x); edge.setAttribute("y1", hb.pos.y);
     edge.setAttribute("x2", dx); edge.setAttribute("y2", dy);
-    edge.setAttribute("class", "edge-anim");
+    edge.setAttribute("class", "edge-anim " + hostEdgeClass(host));
     mapSvg.appendChild(edge);
     // Trigger CSS transition on next frame
     requestAnimationFrame(() => edge.classList.add("drawn"));
@@ -209,6 +249,7 @@ body { background: #0f1115; color: #d7dbe3; }
     c.setAttribute("class", "n-placeholder");
     mapSvg.appendChild(c);
     placeholders[url] = {edge, circ: c, host, x: dx, y: dy};
+    expandMapBounds(dx, dy, 20);
     return placeholders[url];
   }
 
@@ -228,7 +269,7 @@ body { background: #0f1115; color: #d7dbe3; }
       const edge = document.createElementNS(SVG_NS, "line");
       edge.setAttribute("x1", hb.pos.x); edge.setAttribute("y1", hb.pos.y);
       edge.setAttribute("x2", x); edge.setAttribute("y2", y);
-      edge.setAttribute("class", "edge");
+      edge.setAttribute("class", "edge " + hostEdgeClass(docEv.host || host || ""));
       mapSvg.appendChild(edge);
       const c = document.createElementNS(SVG_NS, "circle");
       c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 3);
@@ -247,6 +288,7 @@ body { background: #0f1115; color: #d7dbe3; }
     mapSvg.appendChild(t);
     hb.docs[docEv.doc_id] = {pos: {x, y}, el: circ, factAngle: 0, dim: !!docEv.dim};
     state.nodes[docEv.doc_id] = {host: docEv.host, el: null, pos: {x, y}};
+    expandMapBounds(x, y, 30);
   }
 
   function addMapFactSVG(ev) {
@@ -261,29 +303,75 @@ body { background: #0f1115; color: #d7dbe3; }
     const edge = document.createElementNS(SVG_NS, "line");
     edge.setAttribute("x1", docInfo.pos.x); edge.setAttribute("y1", docInfo.pos.y);
     edge.setAttribute("x2", x); edge.setAttribute("y2", y);
-    edge.setAttribute("class", "edge");
+    edge.setAttribute("class", "edge " + hostEdgeClass(host));
     mapSvg.appendChild(edge);
+    const cls = colorForLabel(ev.label);
+    const color = familyColor(cls);
     const c = document.createElementNS(SVG_NS, "circle");
-    c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 2);
+    c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 2.5);
     c.setAttribute("class", "n-fact");
+    c.setAttribute("fill", color);
+    c.setAttribute("data-fact-key", ev.doc_id + "|" + ev.label + "|" + ev.value);
     mapSvg.appendChild(c);
     const t = document.createElementNS(SVG_NS, "text");
     t.setAttribute("x", x + 4); t.setAttribute("y", y + 2);
     t.setAttribute("class", "lbl-fact");
+    t.setAttribute("fill", color);
     t.textContent = `${ev.label} = ${ev.value}`;
     mapSvg.appendChild(t);
+    expandMapBounds(x, y, 18);
+    // Draw a thin line from the latest fact box in the doc pane to this node
+    drawFactLink(ev.doc_id, ev.label, ev.value, cls, c);
   }
 
-  // Spider glyph: moves on fetch_done (to top of pane) and on extract_fact (to the fact's text).
+  function drawFactLink(doc_id, label, value, cls, mapCirc) {
+    try {
+      const linkLayer = document.getElementById("fact-link-layer");
+      if (!linkLayer) return;
+      // Size the link-layer to viewport
+      linkLayer.setAttribute("viewBox", `0 0 ${window.innerWidth} ${window.innerHeight}`);
+      linkLayer.setAttribute("width", window.innerWidth);
+      linkLayer.setAttribute("height", window.innerHeight);
+      const dtxt = document.getElementById("doc-text");
+      const marks = dtxt.querySelectorAll(".fact-mark");
+      if (!marks.length) return;
+      const mark = marks[marks.length - 1];
+      const mr = mark.getBoundingClientRect();
+      const cr = mapCirc.getBoundingClientRect();
+      const x1 = mr.right, y1 = mr.top + mr.height / 2;
+      const x2 = cr.left + cr.width / 2, y2 = cr.top + cr.height / 2;
+      const line = document.createElementNS(SVG_NS, "line");
+      line.setAttribute("x1", x1); line.setAttribute("y1", y1);
+      line.setAttribute("x2", x2); line.setAttribute("y2", y2);
+      line.setAttribute("stroke", familyColor(cls));
+      line.setAttribute("class", "anim");
+      linkLayer.appendChild(line);
+      requestAnimationFrame(() => line.classList.add("drawn"));
+    } catch (e) {}
+  }
+
+  // Spider glyph + reader walk. Spider follows text line by line over a
+  // computed duration (clamped 3-20s). extract_fact jumps the spider to the
+  // fact position and continues walking from there.
   const spider = document.getElementById("spider");
+  const readerHL = document.getElementById("reader-highlight");
+  let walkState = { docId: null, raf: null, startTs: 0, duration: 10000, startY: 24, endY: 0, done: false };
+
   function moveSpiderTo(x, y) {
     spider.style.transform = `translate(${x}px, ${y}px)`;
+    readerHL.style.top = (y - 2) + "px";
+    // Scroll pane to keep the spider on screen (y relative to pane content)
+    const pane = document.getElementById("doc-pane");
+    const paneRect = pane.getBoundingClientRect();
+    const visibleMid = paneRect.height / 2;
+    if (y > pane.scrollTop + paneRect.height - 60) pane.scrollTop = y - paneRect.height + 100;
+    else if (y < pane.scrollTop + 40) pane.scrollTop = Math.max(0, y - 40);
   }
   function moveSpiderToPaneTop() {
     moveSpiderTo(4, 24);
+    readerHL.style.top = "22px";
   }
   function moveSpiderToFactOffset(doc_id, charOffset, value) {
-    // Find the newest fact-mark element in the doc-text pane
     const pane = document.getElementById("doc-pane");
     const dtxt = document.getElementById("doc-text");
     const marks = dtxt.querySelectorAll(".fact-mark");
@@ -294,6 +382,55 @@ body { background: #0f1115; color: #d7dbe3; }
     const x = markRect.left - paneRect.left + pane.scrollLeft - 24;
     const y = markRect.top  - paneRect.top  + pane.scrollTop  - 2;
     moveSpiderTo(Math.max(2, x), Math.max(2, y));
+    // Spider glow: pick the color of the fact it is heading to
+    const cls = colorForLabel(arguments[2] && arguments[3] ? arguments[3] : "");
+    // We don't have the fact object here; the caller (markFactInDoc) sets the glow
+    if (walkState.docId === doc_id && !walkState.done) {
+      walkState.startY = y;
+      walkState.startTs = performance.now();
+    }
+  }
+  function setSpiderGlowFor(label) {
+    const cls = colorForLabel(label);
+    const gc = spiderGlowClass(cls);
+    spider.className = "spider " + gc;
+  }
+
+  function stopWalk() {
+    if (walkState.raf) cancelAnimationFrame(walkState.raf);
+    walkState = { docId: null, raf: null, startTs: 0, duration: 10000, startY: 24, endY: 0, done: true };
+  }
+
+  function startWalk(doc_id, duration_s) {
+    stopWalk();
+    const pane = document.getElementById("doc-pane");
+    const dtxt = document.getElementById("doc-text");
+    // Content height of the doc-text (what the spider traverses)
+    const contentH = dtxt.getBoundingClientRect().height;
+    const paneH = pane.getBoundingClientRect().height;
+    const endY = Math.max(24, Math.min(contentH, contentH - 20));
+    const clampedS = Math.min(20, Math.max(3, duration_s));
+    walkState = { docId: doc_id, raf: null, startTs: performance.now(), duration: clampedS * 1000, startY: 24, endY, done: false };
+    moveSpiderTo(4, 24);
+    function tick(now) {
+      if (walkState.docId !== doc_id) return;
+      const prog = Math.min(1, (now - walkState.startTs) / walkState.duration);
+      const y = walkState.startY + (walkState.endY - walkState.startY) * prog;
+      moveSpiderTo(4, y);
+      if (prog < 1) walkState.raf = requestAnimationFrame(tick);
+      else { walkState.done = true; }
+    }
+    walkState.raf = requestAnimationFrame(tick);
+  }
+
+  function computeDocWalkDuration(doc_id, fetched_at) {
+    // In replay mode state.events has all events; find max fact.at for this doc
+    const facts = (state.events || []).filter(e => e.type === "fact" && e.doc_id === doc_id);
+    if (!facts.length || !fetched_at) return 10;
+    const latestAt = facts.map(f => new Date(f.at || f.fetched_at).getTime()).reduce((a,b) => Math.max(a,b), 0);
+    const ft = new Date(fetched_at).getTime();
+    if (!latestAt || !ft) return 10;
+    return Math.max(3, Math.min(20, (latestAt - ft) / 1000));
   }
 
   function pickDefaultSpeed(nEvents, totalRealSec) {
@@ -321,9 +458,36 @@ body { background: #0f1115; color: #d7dbe3; }
     return isNaN(d) ? ts : d.toLocaleString("en-US", { timeZone: "America/Chicago", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
   }
 
+  // 6-family color taxonomy (DESK-3.2 f)
   function colorForLabel(label) {
-    const m = {Revenue:"rev", EPS:"eps", "Backlog units":"bl", "Backlog $B":"bl", Fleet:"fl", Utilization:"ut", Dividend:"di", "Net income":"ni", Carloads:"bl", Intermodal:"bl", DGS10:"rev", DGS2:"rev", DGS5:"rev", DGS30:"rev", SOFR:"di", DFF:"di", BAMLC0A0CM:"ni", BAMLH0A0HYM2:"ni", T10Y2Y:"eps", INDPRO:"fl", RAILFRTCARLOADSD11:"bl", RAILFRTINTERMODALD11:"bl"};
-    return m[label] || "ut";
+    const m = {Revenue:"rev", Sales:"rev", EPS:"eps", "Net income":"earn",
+      "Backlog units":"bl", "Backlog $B":"bl", Fleet:"fl", Utilization:"ut",
+      Dividend:"di", Buyback:"bb", Carloads:"macro", Intermodal:"macro",
+      DGS10:"rate", DGS2:"rate", DGS5:"rate", DGS30:"rate", SOFR:"rate",
+      DFF:"rate", BAMLC0A0CM:"rate", BAMLH0A0HYM2:"rate", T10Y2Y:"rate",
+      INDPRO:"macro", RAILFRTCARLOADSD11:"macro", RAILFRTINTERMODALD11:"macro"};
+    return m[label] || "vio";
+  }
+  function familyColor(cls) {
+    const c = {eps:"#ff3df2", earn:"#ff3df2", rev:"#27e3ff", fl:"#ffe14d",
+                ut:"#ffe14d", bl:"#ffe14d", di:"#ff9f1c", bb:"#ff9f1c",
+                rate:"#b6ff3b", macro:"#b6ff3b", vio:"#9d7bff"};
+    return c[cls] || c.vio;
+  }
+  function spiderGlowClass(cls) {
+    const m = {eps:"c-eps", earn:"c-eps", rev:"c-rev", fl:"c-yel", ut:"c-yel", bl:"c-yel", di:"c-ora", bb:"c-ora", rate:"c-lime", macro:"c-lime"};
+    return m[cls] || "c-vio";
+  }
+  function hostEdgeClass(host) {
+    const h = (host || "").toLowerCase();
+    if (h.includes("sec.gov")) return "edge-host-sec";
+    if (h.includes("gatx")) return "edge-host-gatx";
+    if (h.includes("gbrx")) return "edge-host-gbrx";
+    if (h.includes("trin")) return "edge-host-trin";
+    if (h.includes("fred") || h.includes("stlouis")) return "edge-host-fred";
+    if (h.includes("aar"))  return "edge-host-aar";
+    if (h.includes("stb"))  return "edge-host-stb";
+    return "";
   }
 
   async function fetchJSON(url) {
@@ -397,9 +561,17 @@ body { background: #0f1115; color: #d7dbe3; }
     document.getElementById("doc-pane").scrollTop = 0;
     state.currentDocId = ev.doc_id;
     // Spider moves to top of new document (triggered by fetch_done arrival)
+    stopWalk();
     moveSpiderToPaneTop();
+    // Short-circuit docs with no stored text to 1.5 s display: NEWS, Form 4 CSV,
+    // SERIES in live mode, PR cards all land in this branch via loadDoc.
     if (ev.doc_type === "NEWS") {
       pane.innerHTML = `<div style="color:#8089a0">Headline only (article body never stored):</div><div style="margin-top:6px">${(ev.title || "").replace(/</g,"&lt;")}</div>`;
+      // No walk; the next fetch_done moves us on
+      return;
+    }
+    if (ev.doc_type === "4") {
+      pane.innerHTML = `<div class="pr-card"><div class="row"><span class="k">Form 4:</span><span class="v">${(ev.title || "").replace(/</g,"&lt;")}</span></div><div class="row"><span class="k">host:</span><span class="v">${ev.host || ""}</span></div><div class="row"><span class="k">link:</span><a href="${(ev.url || "")}" target="_blank" rel="noopener">${(ev.url || "")}</a></div><div class="note">Form 4 CSV is a derived artifact; the original XML is at the SEC accession folder.</div></div>`;
       return;
     }
     if (ev.doc_type === "PRESS_RELEASE" || ev.doc_type === "DECK") {
@@ -459,6 +631,10 @@ url:    ${ev.url}
     const text = (doc.text || "").slice(0, 60000);
     pane.setAttribute("data-doc-id", ev.doc_id);
     pane.innerHTML = escapeHTML(text);
+    // Start the reader walk; duration from timing between fetch_done and last fact (replay) or default 10s (live)
+    const dur = computeDocWalkDuration(ev.doc_id, ev.fetched_at);
+    // Defer so layout settles
+    setTimeout(() => startWalk(ev.doc_id, dur), 50);
   }
 
   function escapeHTML(s) {
@@ -512,7 +688,7 @@ url:    ${ev.url}
     const marks = pane.querySelectorAll(".fact-mark");
     if (marks.length) {
       marks[marks.length - 1].scrollIntoView({block:"center", behavior:"smooth"});
-      // Wait a tick for scroll to settle, then move spider
+      setSpiderGlowFor(ev.label);
       setTimeout(() => moveSpiderToFactOffset(ev.doc_id, ev.char_offset, ev.value), 60);
     }
   }
