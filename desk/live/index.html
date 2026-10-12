@@ -33,16 +33,29 @@ body { background: #0f1115; color: #d7dbe3; }
 .fact-mark.ni { border-color: #ffdd59; }
 .fact-mark.fl { border-color: #68d4a4; }
 .fact-tag { display: inline-block; margin-left: 4px; padding: 1px 4px; font-size: 0.7rem; background: #22262e; color: #a9afbb; border-radius: 2px; }
-.map-pane { background: #141822; border: 1px solid #22262e; border-radius: 4px; padding: 0.5rem 0.6rem; min-height: 72vh; max-height: 72vh; overflow: auto; position: relative; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: #a9afbb; }
-.map-host { margin: 0 0 0.5rem; padding: 0 0 0.35rem; border-bottom: 1px dashed #22262e; }
-.map-host .host-label { color: #3ddc84; font-weight: 600; font-size: 11px; display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
-.map-host .host-label .dot { width: 7px; height: 7px; border-radius: 50%; background: #3ddc84; display: inline-block; }
-.map-doc { margin: 2px 0 2px 14px; color: #7ac2ff; font-size: 11px; display: flex; align-items: baseline; gap: 6px; }
-.map-doc .dot { width: 5px; height: 5px; border-radius: 50%; background: #7ac2ff; display: inline-block; flex-shrink: 0; }
-.map-doc .meta { color: #6b7083; }
-.map-fact { margin: 1px 0 1px 32px; color: #ffb44f; font-size: 11px; display: flex; align-items: baseline; gap: 6px; }
-.map-fact .dot { width: 4px; height: 4px; border-radius: 50%; background: #ffb44f; display: inline-block; flex-shrink: 0; }
-.map-fact .lv { color: #d7dbe3; }
+.map-pane { background: #141822; border: 1px solid #22262e; border-radius: 4px; padding: 0; min-height: 72vh; max-height: 72vh; overflow: hidden; position: relative; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: #a9afbb; }
+.map-pane svg { display: block; width: 100%; height: 100%; }
+.map-pane .n-host { fill: #3ddc84; }
+.map-pane .n-doc { fill: #7ac2ff; }
+.map-pane .n-doc.dup { opacity: 0.4; }
+.map-pane .n-fact { fill: #ffb44f; }
+.map-pane .n-placeholder { fill: none; stroke: #3ddc84; stroke-dasharray: 2 2; }
+.map-pane .edge { stroke: #2d3240; stroke-width: 1; fill: none; }
+.map-pane .edge-anim { stroke: #3ddc84; stroke-width: 1; fill: none; stroke-dasharray: 60; stroke-dashoffset: 60; transition: stroke-dashoffset 300ms linear; }
+.map-pane .edge-anim.drawn { stroke-dashoffset: 0; stroke: #2d3240; }
+.map-pane text { fill: #a9afbb; font-size: 10px; font-family: "IBM Plex Mono", monospace; pointer-events: none; }
+.map-pane text.lbl-host { fill: #3ddc84; font-size: 11px; font-weight: 600; }
+.map-pane text.lbl-doc { fill: #7ac2ff; }
+.map-pane text.lbl-fact { fill: #ffb44f; }
+.map-pane text.lbl-doc.dup { opacity: 0.4; }
+.spider { position: absolute; width: 18px; height: 18px; pointer-events: none; z-index: 10; transform: translate(0px, 0px); transition: transform 400ms cubic-bezier(.4,.2,.2,1); will-change: transform; }
+.pr-card { background: #1a1f2a; border: 1px solid #22262e; border-left: 3px solid #3ddc84; border-radius: 4px; padding: 0.9rem 1rem; max-width: 560px; }
+.pr-card .k { color: #8089a0; margin-right: 8px; font-size: 0.78rem; display: inline-block; width: 70px; }
+.pr-card .v { color: #e8ecf3; }
+.pr-card .row { margin: 0.3rem 0; font-family: "IBM Plex Mono", monospace; font-size: 0.82rem; }
+.pr-card a { color: #3ddc84; text-decoration: none; word-break: break-all; }
+.pr-card a:hover { text-decoration: underline; }
+.pr-card .note { margin-top: 0.6rem; color: #6b7083; font-size: 0.72rem; }
 .series-synth .k { color: #8089a0; margin-right: 8px; }
 .series-synth .v { color: #e8ecf3; }
 .statusline { margin-top: 0.75rem; padding: 0.4rem 0.75rem; background: #141822; border: 1px solid #22262e; border-radius: 4px; font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; color: #a9afbb; min-height: 1.2em; }
@@ -100,11 +113,26 @@ body { background: #0f1115; color: #d7dbe3; }
     <div class="progressbar"><div class="fill" id="progress-fill"></div></div>
   </div>
   <div class="live-grid">
-    <div class="doc-pane">
+    <div class="doc-pane" id="doc-pane">
+      <svg class="spider" id="spider" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4" fill="#3ddc84"/>
+        <g stroke="#3ddc84" stroke-width="1.4" stroke-linecap="round">
+          <line x1="12" y1="12" x2="2"  y2="4"/>
+          <line x1="12" y1="12" x2="2"  y2="12"/>
+          <line x1="12" y1="12" x2="2"  y2="20"/>
+          <line x1="12" y1="12" x2="7"  y2="22"/>
+          <line x1="12" y1="12" x2="17" y2="22"/>
+          <line x1="12" y1="12" x2="22" y2="20"/>
+          <line x1="12" y1="12" x2="22" y2="12"/>
+          <line x1="12" y1="12" x2="22" y2="4"/>
+        </g>
+      </svg>
       <div class="doc-header" id="doc-header">(no document yet)</div>
       <div class="doc-text" id="doc-text"><div class="loading">waiting for /desk/run/latest...</div></div>
     </div>
-    <div class="map-pane" id="map-pane">(loading map)</div>
+    <div class="map-pane" id="map-pane">
+      <svg id="map-svg" viewBox="0 0 400 720" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
   </div>
   <div class="statusline" id="statusline">idle</div>
   <div class="rules">Playback pacing is synthetic and labeled above. Every box is a stored row from <code>/data/intake.db</code>. No article bodies, no paywalled sources, no fake activity.</div>
@@ -126,17 +154,144 @@ body { background: #0f1115; color: #d7dbe3; }
   };
 
   const mapPane = document.getElementById("map-pane");
-  mapPane.innerHTML = "";
-  const hostBlocks = {}; // host -> {el, docs: {doc_id: el}}
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  let mapSvg = document.getElementById("map-svg");
+  const MAP_W = 400, MAP_H = 720, CX = MAP_W/2, CY = MAP_H/2;
+  const HOST_R = 150, DOC_R = 46, FACT_R = 16;
+  const hostBlocks = {}; // host -> {pos:{x,y}, nextDocAngle, docs: {doc_id: {pos,el,factCount,factAngle}}}
+  let placeholders = {}; // url -> {el, host}
+
+  function resetMap() {
+    mapSvg.innerHTML = "";
+    for (const k in hostBlocks) delete hostBlocks[k];
+    placeholders = {};
+  }
 
   function hostBlock(host) {
     if (hostBlocks[host]) return hostBlocks[host];
-    const el = document.createElement("div");
-    el.className = "map-host";
-    el.innerHTML = `<div class="host-label"><span class="dot"></span><span>${host}</span></div>`;
-    mapPane.appendChild(el);
-    hostBlocks[host] = {el, docs: {}};
+    const idx = Object.keys(hostBlocks).length;
+    // Radial layout: angle = (idx + 0.5) / 8 * 2pi; room for ~8 hosts
+    const angle = ((idx + 0.5) / 8) * 2 * Math.PI - Math.PI / 2;
+    const x = CX + Math.cos(angle) * HOST_R;
+    const y = CY + Math.sin(angle) * HOST_R;
+    const g = document.createElementNS(SVG_NS, "g");
+    g.setAttribute("class", "map-host-group");
+    const c = document.createElementNS(SVG_NS, "circle");
+    c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 5);
+    c.setAttribute("class", "n-host");
+    g.appendChild(c);
+    const t = document.createElementNS(SVG_NS, "text");
+    t.setAttribute("x", x); t.setAttribute("y", y - 10);
+    t.setAttribute("text-anchor", "middle");
+    t.setAttribute("class", "lbl-host");
+    t.textContent = host;
+    g.appendChild(t);
+    mapSvg.appendChild(g);
+    hostBlocks[host] = {pos: {x, y}, nextDocAngle: 0, docs: {}, el: g};
     return hostBlocks[host];
+  }
+
+  function placeholderNode(url, host) {
+    if (placeholders[url]) return placeholders[url];
+    const hb = hostBlock(host);
+    const dx = hb.pos.x + 20, dy = hb.pos.y - 20;
+    const edge = document.createElementNS(SVG_NS, "line");
+    edge.setAttribute("x1", hb.pos.x); edge.setAttribute("y1", hb.pos.y);
+    edge.setAttribute("x2", dx); edge.setAttribute("y2", dy);
+    edge.setAttribute("class", "edge-anim");
+    mapSvg.appendChild(edge);
+    // Trigger CSS transition on next frame
+    requestAnimationFrame(() => edge.classList.add("drawn"));
+    const c = document.createElementNS(SVG_NS, "circle");
+    c.setAttribute("cx", dx); c.setAttribute("cy", dy); c.setAttribute("r", 3);
+    c.setAttribute("class", "n-placeholder");
+    mapSvg.appendChild(c);
+    placeholders[url] = {edge, circ: c, host, x: dx, y: dy};
+    return placeholders[url];
+  }
+
+  function upgradePlaceholder(url, docEv) {
+    const ph = placeholders[url];
+    const hb = hostBlock(docEv.host || "unknown");
+    const angle = (hb.nextDocAngle++) * (Math.PI / 4) + Math.PI / 8;
+    const x = hb.pos.x + Math.cos(angle) * DOC_R;
+    const y = hb.pos.y + Math.sin(angle) * DOC_R;
+    if (ph) {
+      ph.circ.setAttribute("cx", x); ph.circ.setAttribute("cy", y);
+      ph.circ.setAttribute("class", "n-doc" + (docEv.dim ? " dup" : ""));
+      ph.edge.setAttribute("x2", x); ph.edge.setAttribute("y2", y);
+      delete placeholders[url];
+    }
+    const circ = ph ? ph.circ : (() => {
+      const edge = document.createElementNS(SVG_NS, "line");
+      edge.setAttribute("x1", hb.pos.x); edge.setAttribute("y1", hb.pos.y);
+      edge.setAttribute("x2", x); edge.setAttribute("y2", y);
+      edge.setAttribute("class", "edge");
+      mapSvg.appendChild(edge);
+      const c = document.createElementNS(SVG_NS, "circle");
+      c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 3);
+      c.setAttribute("class", "n-doc" + (docEv.dim ? " dup" : ""));
+      mapSvg.appendChild(c);
+      return c;
+    })();
+    const label = (docEv.doc_type || "") + " " + (docEv.ticker || "");
+    const t = document.createElementNS(SVG_NS, "text");
+    t.setAttribute("x", x + 5); t.setAttribute("y", y + 3);
+    t.setAttribute("class", "lbl-doc" + (docEv.dim ? " dup" : ""));
+    t.textContent = label + (docEv.dim ? " dup" : "");
+    const tt = document.createElementNS(SVG_NS, "title");
+    tt.textContent = docEv.title || docEv.url || "";
+    t.appendChild(tt);
+    mapSvg.appendChild(t);
+    hb.docs[docEv.doc_id] = {pos: {x, y}, el: circ, factAngle: 0, dim: !!docEv.dim};
+    state.nodes[docEv.doc_id] = {host: docEv.host, el: null, pos: {x, y}};
+  }
+
+  function addMapFactSVG(ev) {
+    const node = state.nodes[ev.doc_id];
+    if (!node || !node.pos) return;
+    const host = node.host;
+    const docInfo = hostBlocks[host] && hostBlocks[host].docs[ev.doc_id];
+    if (!docInfo) return;
+    const angle = (docInfo.factAngle++) * (Math.PI / 3);
+    const x = docInfo.pos.x + Math.cos(angle) * FACT_R;
+    const y = docInfo.pos.y + Math.sin(angle) * FACT_R;
+    const edge = document.createElementNS(SVG_NS, "line");
+    edge.setAttribute("x1", docInfo.pos.x); edge.setAttribute("y1", docInfo.pos.y);
+    edge.setAttribute("x2", x); edge.setAttribute("y2", y);
+    edge.setAttribute("class", "edge");
+    mapSvg.appendChild(edge);
+    const c = document.createElementNS(SVG_NS, "circle");
+    c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 2);
+    c.setAttribute("class", "n-fact");
+    mapSvg.appendChild(c);
+    const t = document.createElementNS(SVG_NS, "text");
+    t.setAttribute("x", x + 4); t.setAttribute("y", y + 2);
+    t.setAttribute("class", "lbl-fact");
+    t.textContent = `${ev.label} = ${ev.value}`;
+    mapSvg.appendChild(t);
+  }
+
+  // Spider glyph: moves on fetch_done (to top of pane) and on extract_fact (to the fact's text).
+  const spider = document.getElementById("spider");
+  function moveSpiderTo(x, y) {
+    spider.style.transform = `translate(${x}px, ${y}px)`;
+  }
+  function moveSpiderToPaneTop() {
+    moveSpiderTo(4, 24);
+  }
+  function moveSpiderToFactOffset(doc_id, charOffset, value) {
+    // Find the newest fact-mark element in the doc-text pane
+    const pane = document.getElementById("doc-pane");
+    const dtxt = document.getElementById("doc-text");
+    const marks = dtxt.querySelectorAll(".fact-mark");
+    if (!marks.length) return;
+    const mark = marks[marks.length - 1];
+    const paneRect = pane.getBoundingClientRect();
+    const markRect = mark.getBoundingClientRect();
+    const x = markRect.left - paneRect.left + pane.scrollLeft - 24;
+    const y = markRect.top  - paneRect.top  + pane.scrollTop  - 2;
+    moveSpiderTo(Math.max(2, x), Math.max(2, y));
   }
 
   function pickDefaultSpeed(nEvents, totalRealSec) {
@@ -236,9 +391,30 @@ body { background: #0f1115; color: #d7dbe3; }
     document.getElementById("doc-header").textContent = `${ev.ticker || ""} ${ev.doc_type}: ${(ev.title || "").slice(0, 120)}`;
     const pane = document.getElementById("doc-text");
     pane.scrollTop = 0;
+    // Scroll pane container to top so spider lands correctly
+    document.getElementById("doc-pane").scrollTop = 0;
     state.currentDocId = ev.doc_id;
+    // Spider moves to top of new document (triggered by fetch_done arrival)
+    moveSpiderToPaneTop();
     if (ev.doc_type === "NEWS") {
       pane.innerHTML = `<div style="color:#8089a0">Headline only (article body never stored):</div><div style="margin-top:6px">${(ev.title || "").replace(/</g,"&lt;")}</div>`;
+      return;
+    }
+    if (ev.doc_type === "PRESS_RELEASE" || ev.doc_type === "DECK") {
+      // We fetch and store the release HTML/PDF to disk, but render a card
+      // instead of raw markdown. The card gives title, date, host, link.
+      const safeTitle = (ev.title || "").replace(/</g,"&lt;");
+      const url = (ev.url || "").replace(/</g,"&lt;");
+      const dt = (ev.fetched_at || "").slice(0, 10);
+      pane.innerHTML = `<div class="pr-card">
+  <div class="row"><span class="k">title:</span><span class="v">${safeTitle}</span></div>
+  <div class="row"><span class="k">published:</span><span class="v">${dt}</span></div>
+  <div class="row"><span class="k">host:</span><span class="v">${ev.host || ""}</span></div>
+  <div class="row"><span class="k">link:</span><a href="${url}" target="_blank" rel="noopener">${url}</a></div>
+  <div class="note">Press release and deck bodies are not stored on the public site. The card above comes from stored metadata rows; click the link for the publisher's own copy.</div>
+</div>`;
+      // Mark text with the title so fact extractor can still box values if any
+      state.docsLoaded[ev.doc_id] = {text: safeTitle, synthetic: true};
       return;
     }
     // SERIES rows have no extracted text file; synthesize a short body from the
@@ -327,40 +503,24 @@ url:    ${ev.url}
     });
     html += escapeHTML(text.slice(cursor));
     pane.innerHTML = html;
-    // Scroll to the newest mark
+    // Scroll to the newest mark, then glide the spider to its position
     const marks = pane.querySelectorAll(".fact-mark");
-    if (marks.length) marks[marks.length - 1].scrollIntoView({block:"center", behavior:"smooth"});
+    if (marks.length) {
+      marks[marks.length - 1].scrollIntoView({block:"center", behavior:"smooth"});
+      // Wait a tick for scroll to settle, then move spider
+      setTimeout(() => moveSpiderToFactOffset(ev.doc_id, ev.char_offset, ev.value), 60);
+    }
   }
 
-  // HTML-based map: hosts as labeled sections, docs under each host with
-  // "DOC_TYPE TICKER" label and full title on hover, facts under each doc
-  // with "label = value" text. 11px min font. Scrollable when it fills up.
+  // SVG node graph: hosts positioned radially, docs orbit host, facts orbit doc.
+  // addMapNode is called for every document event (both from replay and from
+  // the SSE fetch_done_insert handler). addMapFact draws the fact node and
+  // its edge. The spider is moved by the renderEvent / liveHandle wrappers.
   function addMapNode(ev) {
-    const host = ev.host || "unknown";
-    const hb = hostBlock(host);
-    if (hb.docs[ev.doc_id]) return;
-    const docEl = document.createElement("div");
-    docEl.className = "map-doc";
-    const metaBits = [ev.doc_type || "", ev.ticker || ""].filter(Boolean).join(" ");
-    docEl.innerHTML = `<span class="dot"></span><span>${metaBits}</span><span class="meta" title="${(ev.title || "").replace(/"/g, "&quot;")}">${(ev.title || "").slice(0, 42)}${(ev.title || "").length > 42 ? "..." : ""}</span>`;
-    docEl.title = ev.title || ev.url || "";
-    hb.el.appendChild(docEl);
-    hb.docs[ev.doc_id] = docEl;
-    state.nodes[ev.doc_id] = {host, el: docEl};
-    // Autoscroll map pane so newest entry is visible
-    mapPane.scrollTop = mapPane.scrollHeight;
+    upgradePlaceholder(ev.url, ev);
   }
   function addMapFact(ev) {
-    const node = state.nodes[ev.doc_id];
-    if (!node) return;
-    const factEl = document.createElement("div");
-    factEl.className = "map-fact";
-    const unit = ev.unit ? " " + ev.unit : "";
-    factEl.innerHTML = `<span class="dot"></span><span class="lv">${ev.label} = ${ev.value}${unit}</span>`;
-    factEl.title = `${ev.label} = ${ev.value}${unit}`;
-    // Insert immediately after the doc row (so facts cluster under their doc)
-    node.el.insertAdjacentElement("afterend", factEl);
-    mapPane.scrollTop = mapPane.scrollHeight;
+    addMapFactSVG(ev);
   }
 
   // Controls
