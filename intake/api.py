@@ -213,8 +213,13 @@ async def run_live(request: Request, body: dict) -> dict:
     mode = (body or {}).get("mode", "new")
     if ticker not in ("GATX", "GBX", "TRN"):
         raise HTTPException(400, "ticker must be GATX, GBX, or TRN")
+    # Accept "rewalk120" as the canonical name alongside the legacy
+    # "rewalk30" so URL params + dropdown value stay in sync with the
+    # 120-day window the backend actually uses (DESK-5.4).
+    if mode == "rewalk120":
+        mode = "rewalk30"
     if mode not in ("new", "rewalk30"):
-        raise HTTPException(400, "mode must be new or rewalk30")
+        raise HTTPException(400, "mode must be new, rewalk30, or rewalk120")
 
     label = f"live:{mode}:{ticker}"
     if not _events_mod.try_start(label):
@@ -259,6 +264,10 @@ async def run_live(request: Request, body: dict) -> dict:
                     _events_mod.emit("job_log", label=label, msg=f"edgar: {r1.get('new',0)} new / {r1.get('scanned',0)} scanned")
             except Exception as e:
                 _events_mod.emit("job_error", label=label, phase="edgar", message=str(e))
+            # DESK-5.4: gate IR behind an explicit edgar_done signal so the UI
+            # knows no more EDGAR inserts are coming before press releases
+            # fill the stream.
+            _events_mod.emit("edgar_done", label=label, ticker=ticker)
             try:
                 r2 = await ir_feeds.poll_feed(ticker, tcfg["ir_rss"])
                 _events_mod.emit("job_log", label=label, msg=f"ir_feeds: {r2.get('new',0)} new")
@@ -284,6 +293,21 @@ async def run_live(request: Request, body: dict) -> dict:
 async def run_live_status(request: Request) -> dict:
     _check_rate(request)
     return _events_mod.is_active()
+
+
+@router.get("/latest_doc")
+async def latest_doc(ticker: str, request: Request, type: str = "10-Q") -> dict:
+    """Return the most recent stored document for a ticker/type (DESK-5.4).
+    Used by the live viewer so the screen is never empty on cold load:
+    the autolive handler fetches this and shows the 10-Q with its facts
+    until the first text document arrives on the SSE stream."""
+    _check_rate(request)
+    rows = store.feed_rows(ticker=ticker, limit=1, types=[type], since=None)
+    if not rows:
+        return {"error": "no stored doc"}
+    return {"doc_id": rows[0]["id"], "ticker": rows[0]["ticker"], "type": rows[0]["type"],
+            "title": rows[0]["title"], "published_at": rows[0].get("published_at"),
+            "fetched_at": rows[0].get("fetched_at")}
 
 
 @router.get("/doc/{doc_id}/text")

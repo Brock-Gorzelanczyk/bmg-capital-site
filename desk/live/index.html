@@ -540,7 +540,7 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     const mode = document.getElementById("live-mode").value;
     try{
       state.es = new EventSource("/desk/events");
-      ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done"].forEach(t => {
+      ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done","edgar_done"].forEach(t => {
         state.es.addEventListener(t, (e) => {try{const d = JSON.parse(e.data); d.type = t; liveHandle(d);}catch(err){}});
       });
       state.es.onerror = () => setStatus("SSE connection lost");
@@ -573,8 +573,34 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
   }
   if (_auto && ["GATX","GBX","TRN"].includes(_auto)){
     document.getElementById("live-ticker").value = _auto;
-    document.getElementById("live-mode").value = _params.get("automode") || "rewalk30";
+    // DESK-5.4: default automode to rewalk120 (backend accepts it as an
+    // alias for the legacy "rewalk30" value in /desk/_run/live).
+    const mode = _params.get("automode") || "rewalk120";
+    const mapped = mode === "rewalk120" ? "rewalk30" : mode;
+    document.getElementById("live-mode").value = mapped;
     (async () => {
+      // Prefetch the most recent stored 10-Q and show it so the screen is
+      // never empty while the live run spins up. When the first text doc
+      // arrives on SSE, the normal handler takes over and swaps to it.
+      try{
+        const lr = await fetch("/desk/latest_doc?ticker=" + encodeURIComponent(_auto) + "&type=10-Q");
+        if (lr.ok){
+          const lj = await lr.json();
+          if (lj && lj.doc_id){
+            const d = await fetchJSON("/desk/doc/" + encodeURIComponent(lj.doc_id) + "/text");
+            if (d && !d.error){
+              const docEv = {type:"document", doc_id:lj.doc_id, host:"www.sec.gov", url:d.source_url, title:d.title,
+                doc_type:"10-Q", ticker:_auto, fetched_at:d.fetched_at, published_at:d.published_at,
+                has_text:true, meta:d.meta||{}, dim:false};
+              state.docsSeen[lj.doc_id] = docEv;
+              state.currentHost = "www.sec.gov"; state.currentType = "10-Q"; state.currentPub = d.published_at || d.fetched_at;
+              await loadDocAndWalk(docEv);
+              (d.facts||[]).forEach(f => processEvent({type:"fact", doc_id:lj.doc_id, label:f.label, value:f.value, unit:f.unit, char_offset:f.char_offset}));
+              state.coldStartDocId = lj.doc_id;
+            }
+          }
+        }
+      }catch(e){}
       try{
         const sr = await fetch("/desk/_run/live/status");
         const sj = sr.ok ? await sr.json() : {};
@@ -582,10 +608,8 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
           document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.toggle("on", x.dataset.mode === "live"));
           state.mode = "live"; state.running = true;
           runBtn.classList.add("on"); runBtn.textContent = "Running";
-          clearSpider(); docBody.innerHTML = ""; h1.textContent = "";
-          state.events = []; state.idx = 0; state.totalDocs = 0; state.totalFacts = 0;
           state.es = new EventSource("/desk/events");
-          ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done"].forEach(t => {
+          ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done","edgar_done"].forEach(t => {
             state.es.addEventListener(t, (e) => {try{const d = JSON.parse(e.data); d.type = t; liveHandle(d);}catch(err){}});
           });
           setStatus("attached to live run " + (sj.label||""));
