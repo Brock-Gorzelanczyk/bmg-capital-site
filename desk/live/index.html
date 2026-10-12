@@ -162,7 +162,9 @@ body { background: #0f1115; color: #d7dbe3; }
   let placeholders = {}; // url -> {el, host}
 
   function resetMap() {
-    mapSvg.innerHTML = "";
+    // Rebuild the SVG so stale references after innerHTML wipes don't leak
+    mapPane.innerHTML = '<svg id="map-svg" viewBox="0 0 400 720" preserveAspectRatio="xMidYMid meet"></svg>';
+    mapSvg = document.getElementById("map-svg");
     for (const k in hostBlocks) delete hostBlocks[k];
     placeholders = {};
   }
@@ -468,6 +470,9 @@ url:    ${ev.url}
     const pane = document.getElementById("doc-text");
     const doc = state.docsLoaded[ev.doc_id];
     if (!doc || !doc.text) return;
+    // PR cards and other synthetic bodies: do not rebuild innerHTML; the card
+    // keeps its layout and the facts simply route to the map pane.
+    if (doc.synthetic && pane.querySelector(".pr-card")) return;
     const text = doc.text;
     let offset = ev.char_offset;
     if (offset == null || offset < 0) {
@@ -554,8 +559,7 @@ url:    ${ev.url}
       document.getElementById("doc-text").innerHTML = '<div class="loading">waiting for Run...</div>';
       document.getElementById("doc-header").textContent = "(no document yet)";
       // Reset map
-      mapPane.innerHTML = "";
-      for (const k in hostBlocks) delete hostBlocks[k];
+      resetMap();
       for (const k in state.nodes) delete state.nodes[k];
     } else {
       stopLive();
@@ -585,6 +589,8 @@ url:    ${ev.url}
     }
     if (t === "fetch_start") {
       status.innerHTML = `<b>fetching</b> ${ev.host} <span style="color:#6b7083">${(ev.url || "").slice(0, 110)}</span>`;
+      // Draw an animated edge to a placeholder node on the map
+      try { placeholderNode(ev.url, ev.host || "unknown"); } catch(e) {}
       return;
     }
     if (t === "fetch_done" || t === "fetch_done_insert") {
@@ -650,8 +656,7 @@ url:    ${ev.url}
     document.getElementById("btn-run").disabled = true;
     document.getElementById("btn-run").textContent = "Running...";
     document.getElementById("doc-text").innerHTML = '<div class="loading">live run starting...</div>';
-    mapPane.innerHTML = "";
-    for (const k in hostBlocks) delete hostBlocks[k];
+    resetMap();
     for (const k in state.nodes) delete state.nodes[k];
     state.events = []; state.idx = 0;
     liveState.startedAt = new Date();
