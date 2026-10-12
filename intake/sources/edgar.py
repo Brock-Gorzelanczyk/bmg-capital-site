@@ -39,25 +39,36 @@ def _text_dir(ticker: str, form: str, accession: str) -> Path:
     return d
 
 
-async def poll_edgar(ticker: str, cik: str, *, since: Optional[str] = None) -> dict:
+async def poll_edgar(ticker: str, cik: str, *, since: Optional[str] = None, max_filings: int = 20) -> dict:
     """Pull new filings since `since` for one CIK. Returns run counts.
 
     Idempotent: a second run adds zero rows via the UNIQUE(source_url) constraint.
+    Bounded: at most `max_filings` filings are processed per call. Scheduled runs
+    use since=last_poll_date so each call only sees a handful of new filings; the
+    cap defends against a cold-start pulling the whole history and OOM-ing the
+    container (seen 2026-10-11 live run).
     """
-    counts = {"ticker": ticker, "new": 0, "by_form": {}, "errors": []}
+    import datetime as _dt
+    counts = {"ticker": ticker, "new": 0, "by_form": {}, "errors": [], "scanned": 0}
     run_id = store.start_run(f"edgar_poll:{ticker}")
     try:
         if not EDGAR_OK:
             raise RuntimeError("edgartools not installed; install site/server/requirements-intake.txt")
         from edgar import Company
         co = Company(cik)
+        # Default to a 90-day lookback so cold-starts don't try to download 20+ years of history
+        if since is None:
+            since = (_dt.date.today() - _dt.timedelta(days=90)).isoformat()
         filings = co.get_filings(form=list(FORMS))
         for f in filings:
+            if counts["scanned"] >= max_filings:
+                break
             form = f.form
             accession = f.accession_no if hasattr(f, "accession_no") else str(f.accession_number)
             filing_date = str(f.filing_date)
-            if since and filing_date < since:
+            if filing_date < since:
                 continue
+            counts["scanned"] += 1
             raw = _raw_dir(ticker, form, accession)
             # Primary doc
             try:
