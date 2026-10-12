@@ -504,7 +504,8 @@ svg.spider .knee{fill:#ff3d9a}
   function drawLinks(bx, by){
     // One thin line from the body to each item highlighted right now.
     const now = performance.now();
-    state.links = (state.links || []).filter(l => l.until > now && l.el.isConnected);
+    state.links = (state.links || []).filter(l => l.until > now && l.el.isConnected
+      && Math.hypot(docSpaceCenter(l.el).x - bx, docSpaceCenter(l.el).y - by) < HI_REACH * 1.5);
     state.linkPool = state.linkPool || [];
     while (state.linkPool.length < state.links.length){
       const l = document.createElementNS(SVG_NS, "line"); l.setAttribute("class", "link-thread");
@@ -515,6 +516,7 @@ svg.spider .knee{fill:#ff3d9a}
       if (!o){ l.style.display = "none"; return; }
       const c = docSpaceCenter(o.el);
       l.style.display = "";
+      l.style.opacity = Math.max(0, Math.min(1, (o.until - now) / 300)).toFixed(2);
       l.setAttribute("x1", bx); l.setAttribute("y1", by);
       l.setAttribute("x2", clampN(c.x)); l.setAttribute("y2", clampN(c.y));
     });
@@ -969,8 +971,8 @@ svg.spider .knee{fill:#ff3d9a}
     state.lastBeam = now;
     state.beamN = (state.beamN || 0) + 1;
     highlightRun(el.classList.contains("found") ? [el] : phraseFrom(el, 4), state.beamN % 4 === 0 ? "cyan" : "pink");
-    state.links = state.links || [];
-    state.links.push({el, until: now + 3600});
+    // A quick scan: one line at a time, held ~0.7 s, then it lets go.
+    state.links = [{el, start: now, until: now + 700}];
   }
 
   function drawBeams(){
