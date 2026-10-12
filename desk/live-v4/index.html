@@ -31,7 +31,7 @@ p{margin:0 0 12px}
 .found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
 svg.spider{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
 svg.spider .eye{fill:rgba(143,216,255,.55)}
-svg.spider .sight{stroke:#8fd8ff;stroke-width:.8;stroke-dasharray:2 3;opacity:.8}
+svg.spider .sight{stroke:#5fe6ff;stroke-width:1.4;stroke-linecap:round}
 svg.spider .body{fill:#05070c;stroke:#3b6cff;stroke-width:2}
 svg.spider .head{fill:#4fe3ff;stroke:none}
 svg.spider .link-thread{stroke:#ff3d9a;stroke-width:1.6;stroke-linecap:round}
@@ -53,6 +53,7 @@ svg.spider .knee{fill:#ff3d9a}
 .w.hl-cyan{background:rgba(39,200,255,.8);color:#002a36;border-radius:2px;transition:background .6s ease,color .6s ease}
 .w.hl-out{background:transparent!important;color:inherit!important}
 .w.hl-ping{background:rgba(255,45,143,.32);box-shadow:0 0 0 1px #ff2d8f;border-radius:2px}
+.w.hl-bping{background:rgba(39,200,255,.32);box-shadow:0 0 0 1px #27c8ff;border-radius:2px}
 .w.hl-blue{background:rgba(79,123,255,.18);box-shadow:0 0 0 1px rgba(79,123,255,.75);border-radius:2px}
 .beam.cyan{background:rgba(39,200,255,.85);color:#00384a;box-shadow:0 0 12px rgba(39,200,255,.5)}
 .w.cyanfill{background:#27e3ff;color:#001a22;border-radius:2px}
@@ -124,7 +125,7 @@ svg.spider .knee{fill:#ff3d9a}
     state.bodyAnim++;
     state.boost = 1; state.boostTarget = 1;
     state.crawlTarget = null; state.crawlX = null; state.legAnim = {}; state.eyeFocus = null; state.nextFocus = null; state.heading = null; state.faceHeading = null; state.vel = null; state.lastBodyP = null; state.lastSet = null;
-    state.feet = []; state.feetEls = []; state.legEls = []; state.threads = []; state.rows = null; state.meshPool = []; state.trail = []; state.links = []; state.linkPool = []; state.ping = null; state.pingLine = null; state.lastPingEl = null; state.silkEl = null; state.silkAnchor = null; state.rideSince = 0; state.eyeEl = null; state.eyeAt = null;
+    state.feet = []; state.feetEls = []; state.legEls = []; state.legJ = []; state.legLast = []; state.bodyVel = null; state.threads = []; state.rows = null; state.meshPool = []; state.trail = []; state.links = []; state.linkPool = []; state.ping = null; state.pingLine = null; state.lastPingEl = null; state.silkEl = null; state.silkAnchor = null; state.rideSince = 0; state.eyeEl = null; state.eyeAt = null; state.bping = null;
     document.querySelectorAll(".liftlbl,.beam").forEach(e => e.remove()); state.beams = [];
     bumpLayout();
     state.touchedEls = new Set(); state.touchOrder = [];
@@ -172,18 +173,18 @@ svg.spider .knee{fill:#ff3d9a}
     let b = spiderSvg.querySelector("rect.body"), hd = spiderSvg.querySelector("circle.head");
     if (!b){
       b = document.createElementNS(SVG_NS, "rect");
-      b.setAttribute("class", "body"); b.setAttribute("width", 15 * U); b.setAttribute("height", 36 * U); b.setAttribute("rx", 2 * U);
+      b.setAttribute("class", "body"); b.setAttribute("width", BODY_WID * U); b.setAttribute("height", BODY_LEN * U); b.setAttribute("rx", 2 * U);
       hd = document.createElementNS(SVG_NS, "circle");
       hd.setAttribute("class", "head"); hd.setAttribute("r", Math.max(2.5, 3.6 * U));
       spiderSvg.append(b, hd);
     }
-    b.setAttribute("x", clampN(state.body.x - 7.5 * U));
-    b.setAttribute("y", clampN(state.body.y - 18 * U));
+    b.setAttribute("x", clampN(state.body.x - BODY_WID * U / 2));
+    b.setAttribute("y", clampN(state.body.y - BODY_LEN * U / 2));
     // The body faces where it is going (mostly down the page), eye at the
     // front end, as in the reference clip.
     const hd0 = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
     b.setAttribute("transform", `rotate(${(hd0 * 180 / Math.PI - 90).toFixed(2)} ${clampN(state.body.x)} ${clampN(state.body.y)})`);
-    const hx = state.body.x + Math.cos(hd0) * 12 * U, hy = state.body.y + Math.sin(hd0) * 12 * U;
+    const hx = state.body.x + Math.cos(hd0) * 16 * U, hy = state.body.y + Math.sin(hd0) * 16 * U;
     hd.setAttribute("cx", clampN(hx));
     hd.setAttribute("cy", clampN(hy));
     // Keep the body on top of legs and threads.
@@ -213,9 +214,10 @@ svg.spider .knee{fill:#ff3d9a}
     let L = state.legEls[i];
     if (!L || !L.poly.isConnected){
       const poly = document.createElementNS(SVG_NS, "polyline"); poly.setAttribute("class", "leg");
-      const foot = document.createElementNS(SVG_NS, "circle"); foot.setAttribute("class", "foot"); foot.setAttribute("r", Math.max(1.6, 2 * U));
-      const knee = document.createElementNS(SVG_NS, "circle"); knee.setAttribute("class", "knee"); knee.setAttribute("r", Math.max(1.6, 2 * U));
-      const ankle = document.createElementNS(SVG_NS, "circle"); ankle.setAttribute("class", "knee ankle"); ankle.setAttribute("r", Math.max(0.8, 1 * U));
+      const mr = Math.max(1.8, 2.5 * U);
+      const foot = document.createElementNS(SVG_NS, "circle"); foot.setAttribute("class", "foot"); foot.setAttribute("r", mr);
+      const knee = document.createElementNS(SVG_NS, "circle"); knee.setAttribute("class", "knee"); knee.setAttribute("r", mr);
+      const ankle = document.createElementNS(SVG_NS, "circle"); ankle.setAttribute("class", "knee ankle"); ankle.setAttribute("r", mr);
       spiderSvg.append(poly, knee, ankle, foot);
       L = state.legEls[i] = {poly, foot, knee, ankle};
     }
@@ -231,31 +233,55 @@ svg.spider .knee{fill:#ff3d9a}
       if (!f || !finite(f.x) || !finite(f.y)){ L.poly.style.display = L.foot.style.display = L.knee.style.display = L.ankle.style.display = "none"; continue; }
       // Planted feet follow their element's position (cached until reflow).
       if (f.el && f.el.isConnected) f = state.feet[i] = Object.assign({el: f.el}, docSpaceCenter(f.el));
-      // Real spider leg seen from above (reference clip): it leaves the
-      // body at a hip along the body's side (front legs near the head,
-      // back legs near the rear), rises to a knee set well off the
-      // hip-foot line (front legs bend forward, back legs backward), then
-      // angles down through an ankle to the foot.
+      // Three rigid segments per leg (reference: 24 markers = 2 joints +
+      // 1 foot per leg), solved by FABRIK from the previous frame's shape
+      // so the folds stay continuous, with a steady outward bend so the
+      // joints never flip.
       const h = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
       const ux = Math.cos(h), uy = Math.sin(h);
       const side = i < 4 ? -1 : 1, k4 = i % 4;
       const sx = Math.cos(h + side * Math.PI / 2), sy = Math.sin(h + side * Math.PI / 2);
-      const along = [13, 5, -5, -13][k4] * U;
-      const hipX = state.body.x + ux * along + sx * 7 * U, hipY = state.body.y + uy * along + sy * 7 * U;
-      const lx = f.x - hipX, ly = f.y - hipY, len = Math.max(1, Math.hypot(lx, ly));
-      let nx = -ly / len, ny = lx / len;                 // perpendicular to the leg line
-      const wantFwd = k4 < 2 ? 1 : -1;                   // front bend forward, back bend back
-      if ((nx * ux + ny * uy) * wantFwd < 0){ nx = -nx; ny = -ny; }
-      // Two segments, knee ~70% of the way out (measured), bent outward.
-      const bend = len * 0.24;
-      const knee = {x: hipX + lx * 0.6 + nx * bend, y: hipY + ly * 0.6 + ny * bend};
-      const ax = (knee.x + f.x) / 2, ay = (knee.y + f.y) / 2;
+      const along = [0.38, 0.13, -0.12, -0.36][k4] * BODY_LEN * U;
+      const hip = {x: state.body.x + ux * along + sx * 0.5 * BODY_WID * U, y: state.body.y + uy * along + sy * 0.5 * BODY_WID * U};
+      const pts = solveLeg(i, hip, f, sx, sy);
       L.poly.style.display = L.foot.style.display = L.knee.style.display = L.ankle.style.display = "";
-      L.poly.setAttribute("points", `${clampN(hipX)},${clampN(hipY)} ${clampN(knee.x)},${clampN(knee.y)} ${clampN(ax)},${clampN(ay)} ${clampN(f.x)},${clampN(f.y)}`);
+      L.poly.setAttribute("points", pts.map(q => `${clampN(q.x)},${clampN(q.y)}`).join(" "));
       L.foot.setAttribute("cx", clampN(f.x)); L.foot.setAttribute("cy", clampN(f.y));
-      L.knee.setAttribute("cx", clampN(knee.x)); L.knee.setAttribute("cy", clampN(knee.y));
-      L.ankle.style.display = "none";
+      L.knee.setAttribute("cx", clampN(pts[1].x)); L.knee.setAttribute("cy", clampN(pts[1].y));
+      L.ankle.setAttribute("cx", clampN(pts[2].x)); L.ankle.setAttribute("cy", clampN(pts[2].y));
+      if (DEBUG) L.foot.style.fill = state.legAnim[i] ? "#ff9f1c" : "#3ddc84";
     }
+  }
+
+  const BODY_LEN = 45, BODY_WID = 15, SEG0 = 46;   // px per unit (reference: 90x30 body, 100 px segments at 1440)
+  const DEBUG = /[?&]debug=1/.test(location.search);
+  state.legJ = [];
+  function solveLeg(i, hip, foot, sx, sy){
+    const L = SEG0 * U;
+    let j = state.legJ[i];
+    if (!j){
+      // first pose: knee out to the side, then down to the foot
+      j = [{x: hip.x, y: hip.y}, {x: hip.x + sx * L, y: hip.y + sy * L}, {x: (hip.x + sx * L + foot.x) / 2 + sx * L * 0.3, y: (hip.y + sy * L + foot.y) / 2 + sy * L * 0.3}, {x: foot.x, y: foot.y}];
+    }
+    // steady outward bend preference on the two joints
+    j[1].x += sx * 0.5 * U; j[1].y += sy * 0.5 * U;
+    j[2].x += sx * 0.15 * U; j[2].y += sy * 0.15 * U;
+    for (let it = 0; it < 10; it++){
+      j[3] = {x: foot.x, y: foot.y};
+      for (let k = 2; k >= 0; k--){
+        const dx = j[k].x - j[k + 1].x, dy = j[k].y - j[k + 1].y, d = Math.hypot(dx, dy) || 1;
+        j[k] = {x: j[k + 1].x + dx / d * L, y: j[k + 1].y + dy / d * L};
+      }
+      j[0] = {x: hip.x, y: hip.y};
+      for (let k = 1; k <= 3; k++){
+        const dx = j[k].x - j[k - 1].x, dy = j[k].y - j[k - 1].y, d = Math.hypot(dx, dy) || 1;
+        j[k] = {x: j[k - 1].x + dx / d * L, y: j[k - 1].y + dy / d * L};
+      }
+      if (Math.hypot(j[3].x - foot.x, j[3].y - foot.y) < 0.3) break;
+    }
+    state.legJ[i] = j;
+    // The foot drawn where it is planted (an out-of-reach foot triggers a step).
+    return [j[0], j[1], j[2], {x: foot.x, y: foot.y}];
   }
 
   const SCROLL_SPEED = 140;   // px per second at 1x, matched to the clip (lines per second)
@@ -286,28 +312,42 @@ svg.spider .knee{fill:#ff3d9a}
   addEventListener("wheel", () => { state.userScrolledAt = performance.now(); }, {passive: true});
   addEventListener("touchmove", () => { state.userScrolledAt = performance.now(); }, {passive: true});
   function drawEye(){
-    // The eye: a small blue block sweeping word by word across the line
-    // just ahead of the spider, with a sight line from the head (clip).
+    // The eye's blue line pings like the pink one (reference clip): it
+    // shoots from the head to a word on the line ahead, the word flashes
+    // blue in place, the line fades, then it jumps to the next word. It
+    // runs half a beat out of phase with the pink ping.
     const rows = state.rows;
-    if (!rows || !rows.length){ if (state.eyeEl) state.eyeEl.style.display = "none"; return; }
-    let ri = Math.min(rows.length - 1, (state.walkState.lineIdx || 0) + 1);
-    const row = rows[ri];
-    if (!state.eyeEl){
-      state.eyeEl = document.createElementNS(SVG_NS, "rect"); state.eyeEl.setAttribute("class", "eye");
+    if (!state.sightEl){
       state.sightEl = document.createElementNS(SVG_NS, "line"); state.sightEl.setAttribute("class", "sight");
     }
-    if (!state.eyeEl.isConnected) spiderSvg.append(state.sightEl, state.eyeEl);
-    const k = Math.floor(performance.now() / 140) % row.els.length;
-    const w = (state.eyeFocus && state.eyeFocus.isConnected) ? state.eyeFocus : row.els[k];
-    const r = w.getBoundingClientRect(), dr = doc.getBoundingClientRect();
-    const x = r.left - dr.left, y = r.top - dr.top;
-    state.eyeEl.style.display = state.sightEl.style.display = "";
-    state.eyeEl.setAttribute("x", clampN(x)); state.eyeEl.setAttribute("y", clampN(y));
-    state.eyeEl.setAttribute("width", clampN(Math.max(4, state.eyeFocus ? r.width : Math.min(r.width, 18)))); state.eyeEl.setAttribute("height", clampN(r.height));
+    if (!state.sightEl.isConnected) spiderSvg.appendChild(state.sightEl);
+    const now = performance.now();
+    const mul = (state.speedMul || 1) * Math.sqrt(state.boost || 1);
+    let p = state.bping;
+    if (rows && rows.length && (!p || now - p.start > 300 / mul) && now - (state.lastPingAt || 0) > 110 / mul){
+      const ri = Math.min(rows.length - 1, (state.walkState.lineIdx || 0) + 1 + Math.floor(Math.random() * 2));
+      const els = rows[ri].els;
+      state.eyeK = ((state.eyeK || 0) + 1 + Math.floor(Math.random() * 3)) % Math.max(1, els.length);
+      const w = (state.eyeFocus && state.eyeFocus.isConnected && state.eyeFocus !== state.lastEyeFocus) ? state.eyeFocus : els[state.eyeK];
+      state.lastEyeFocus = state.eyeFocus;
+      if (w && w !== state.lastPingEl){
+        p = state.bping = {el: w, start: now};
+        w.classList.add("hl-bping");
+        setTimeout(() => w.classList.remove("hl-bping"), 420 / mul);
+      }
+    }
+    const l = state.sightEl;
+    if (!p || !p.el.isConnected || now - p.start > PING_MS / mul){ l.style.display = "none"; return; }
+    const t = (now - p.start) / (PING_MS / mul);
     const fh = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
-    state.sightEl.setAttribute("x1", clampN(state.body.x + Math.cos(fh) * 12 * U)); state.sightEl.setAttribute("y1", clampN(state.body.y + Math.sin(fh) * 12 * U));
-    state.sightEl.setAttribute("x2", clampN(x + 4)); state.sightEl.setAttribute("y2", clampN(y + r.height / 2));
-    state.eyeAt = {x: x + 4, y: y + r.height / 2};
+    const hx = state.body.x + Math.cos(fh) * 16 * U, hy = state.body.y + Math.sin(fh) * 16 * U;
+    const c = docSpaceCenter(p.el);
+    const grow = Math.min(1, t / 0.25);
+    const fade = t < 0.55 ? 1 : Math.max(0, 1 - (t - 0.55) / 0.45);
+    l.style.display = ""; l.style.opacity = fade.toFixed(2);
+    l.setAttribute("x1", clampN(hx)); l.setAttribute("y1", clampN(hy));
+    l.setAttribute("x2", clampN(hx + (c.x - hx) * grow)); l.setAttribute("y2", clampN(hy + (c.y - hy) * grow));
+    state.eyeAt = {x: c.x, y: c.y};
   }
   function drawSilk(){
     // A silk thread from the spider's back end to an anchor behind it
@@ -340,14 +380,17 @@ svg.spider .knee{fill:#ff3d9a}
   }
   function startLegStep(i, to, now){
     const from = state.feet[i] || {x: state.body.x, y: state.body.y};
-    state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 125 / (state.speedMul || 1)};
+    state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 180 / (state.speedMul || 1)};
   }
   function advanceLegs(now){
     for (const k of Object.keys(state.legAnim)){
       const a = state.legAnim[k], i = +k;
       const t = Math.min(1, (now - a.start) / a.dur), s = t * t * (3 - 2 * t);
       if (t >= 1){ state.feet[i] = {x: a.to.x, y: a.to.y, el: null}; delete state.legAnim[k]; if (a.to.el) landFeet([a.to]); continue; }
-      state.feet[i] = {x: a.from.x + (a.to.x - a.from.x) * s, y: a.from.y + (a.to.y - a.from.y) * s - 2 * Math.sin(Math.PI * s), el: null};
+      // smooth start and finish, small side arc in the page plane
+      const ddx = a.to.x - a.from.x, ddy = a.to.y - a.from.y, dl = Math.hypot(ddx, ddy) || 1;
+      const arc = Math.min(6 * U, dl * 0.12) * Math.sin(Math.PI * t);
+      state.feet[i] = {x: a.from.x + ddx * s - ddy / dl * arc, y: a.from.y + ddy * s + ddx / dl * arc, el: null};
     }
   }
   // Gait (reference clip): each leg has a resting spot around the body,
@@ -357,9 +400,9 @@ svg.spider .knee{fill:#ff3d9a}
   const LEG_ANG = [-0.55, -1.15, -1.95, -2.55, 0.55, 1.15, 1.95, 2.55];
   // Measured from the original video: feet ~8.5 text lines from the eye,
   // knees ~70% of the way out, strides ~1.5 lines.
-  const LEG_R0 = [116, 122, 120, 110, 116, 122, 120, 110];   // px per unit
+  const LEG_R0 = [112, 118, 116, 106, 112, 118, 116, 106];   // px per unit
   const LEG_SET = [0, 1, 0, 1, 1, 0, 1, 0];
-  const STRIDE0 = 12;   // px per unit (~1.5 lines)
+  const STEP0 = 18;     // px per unit (~1.3 lines; tuned to the reference step rate)
   function restPoint(i, lead){
     const h = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
     const a = h + LEG_ANG[i];
@@ -383,28 +426,49 @@ svg.spider .knee{fill:#ff3d9a}
     return out;
   }
   function stepLegs(now){
-    // Wave gait (reference clip): each leg steps on its own when its foot
-    // falls a stride behind its resting spot; up to three legs move at
-    // once, in slow overlapping strides, so the feet flow rather than snap.
+    // A leg steps when its planted foot is ~2.5 lines from where it wants to
+    // be, or the leg is near full reach. At most four swing at once (reference: ~48% of feet in motion), each
+    // with a short cooldown, preferring to keep neighbours planted.
     if (now - (state.lastLegCheck || 0) < 16) return;
     state.lastLegCheck = now;
     const moving = Object.keys(state.legAnim).length;
-    if (moving >= 5) return;
-    const errs = [];
+    if (moving >= 4) return;
+    state.legLast = state.legLast || [];
+    // world (page) velocity, scroll ride included: feet are planted on the
+    // page, so they must be placed ahead of where the body is carried
+    const v = state.vel || {x: 0, y: 0};
+    const reachMax = 3 * SEG0 * U * 0.88;
+    const cand = [];
     for (let i = 0; i < N_LEGS; i++){
-      if (state.legAnim[i]) continue;
-      // Never lift a leg whose neighbour on the same side is in the air.
-      const nb = [i - 1, i + 1].filter(j => j >= 0 && j < N_LEGS && Math.floor(j / 4) === Math.floor(i / 4));
-      if (nb.filter(j => state.legAnim[j]).length >= 2) continue;
-      const f = state.feet[i], r = restPoint(i, 0);
-      const e = f ? Math.hypot(f.x - r.x, f.y - r.y) : 999;
-      if (e > STRIDE0 * U) errs.push([e, i]);
+      if (state.legAnim[i] || now - (state.legLast[i] || 0) < 40) continue;
+      const f = state.feet[i];
+      // Strain is measured from the neutral spot; the new foot lands half a
+      // stride ahead of it, so a planted foot sweeps from +s/2 to -s/2 as
+      // the body is carried past (fast scroll = longer strides, not more).
+      const rest = restPoint(i, 0);
+      const vm = Math.hypot(v.x, v.y);
+      const half = Math.max(STEP0 * U, Math.min(80 * U, vm * 0.24));
+      // plus the distance the body travels during the swing itself
+      const sw = 0.18 / (state.speedMul || 1);
+      const pref = vm > 1 ? {x: rest.x + v.x / vm * half + v.x * sw, y: rest.y + v.y / vm * half + v.y * sw} : rest;
+      const hj = state.legJ[i] ? state.legJ[i][0] : state.body;
+      // how far the foot has fallen behind its neutral spot along travel,
+      // plus any sideways drift
+      const dist = f ? Math.hypot(f.x - rest.x, f.y - rest.y) : 999;
+      const behind = f && vm > 1 ? ((rest.x - f.x) * v.x + (rest.y - f.y) * v.y) / vm : dist;
+      const strain = Math.max(behind, dist - 1.5 * half);
+      const reach = f ? Math.hypot(f.x - hj.x, f.y - hj.y) : 999;
+      if (strain > half || reach > reachMax){
+        const nb = [i - 1, i + 1].filter(j => j >= 0 && j < N_LEGS && Math.floor(j / 4) === Math.floor(i / 4));
+        const urgency = strain + (reach > reachMax ? 999 : 0) - (nb.some(j => state.legAnim[j]) ? 60 * U : 0) + (i % 3) * 0.1;
+        cand.push([urgency, i, pref]);
+      }
     }
-    if (!errs.length) return;
-    errs.sort((a, b) => b[0] - a[0]);
-    const mul = state.speedMul || 1;
-    const lead = Math.min(18 * U, (CRAWL_BASE * U) * mul * 0.12);
-    for (const [, i] of errs.slice(0, 5 - moving)) startLegStep(i, snapToWord(restPoint(i, lead)), now);
+    cand.sort((a, b) => b[0] - a[0]);
+    for (const [, i, pref] of cand.slice(0, 4 - moving)){
+      startLegStep(i, snapToWord(pref), now);
+      state.legLast[i] = now;
+    }
   }
   (function crawl(now){
     requestAnimationFrame(crawl);
@@ -413,37 +477,35 @@ svg.spider .knee{fill:#ff3d9a}
     if (state.paused || !state.feet || !state.feet.length) return;
     const t = state.crawlTarget;
     if (t && walking()){
-      // Steering: constant speed; the heading turns toward the target at
-      // a limited rate, so direction changes are smooth arcs, never stops.
-      const want = Math.atan2(t.y - state.body.y, t.x - state.body.x);
-      if (state.heading == null) state.heading = want;
+      // Body: damped spring toward the goal with a capped speed, so it
+      // follows with a slight lag and the legs catch up (Astra brief).
       const mul = state.speedMul || 1;
-      let diff = want - state.heading;
-      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-      const maxTurn = 2.8 * dt * mul;
-      state.heading += Math.max(-maxTurn, Math.min(maxTurn, diff));
-
-      const sp = (CRAWL_BASE * U) * mul;
+      const bv = state.bodyVel || (state.bodyVel = {x: 0, y: 0});
+      const k = 7, c = 4.6, vmax = (CRAWL_BASE * U) * mul;
+      bv.x += (k * (t.x - state.body.x) - c * bv.x) * dt;
+      bv.y += (k * (t.y - state.body.y) - c * bv.y) * dt;
+      const vm = Math.hypot(bv.x, bv.y);
+      if (vm > vmax){ bv.x *= vmax / vm; bv.y *= vmax / vm; }
       const dr = doc.getBoundingClientRect();
       const edge = 125 * U;   // keep the legs on the page too
-      state.body.x = Math.min(dr.width - edge, Math.max(edge, state.body.x + Math.cos(state.heading) * sp * dt));
-      state.body.y = Math.max(10, state.body.y + Math.sin(state.heading) * sp * dt);
+      state.body.x = Math.min(dr.width - edge, Math.max(edge, state.body.x + bv.x * dt));
+      state.body.y = Math.max(10, state.body.y + bv.y * dt);
       // Never leave the frame: ease back inside 15%..80% of the screen.
       const sy = dr.top + state.body.y, lo = innerHeight * 0.22, hi = innerHeight * 0.72;
       if (sy > hi) state.body.y -= (sy - hi) * 0.25; else if (sy < lo) state.body.y += (lo - sy) * 0.25;
       // Face the actual direction of travel over the page (crawl plus the
       // scroll it rides), which while reading is mostly down the page.
       if (state.lastBodyP && dt > 0){
-        // On-screen motion only (the scroll ride is not the spider walking),
-        // so it can face any way as it roams, as in the clip.
-        const vx = (state.body.x - state.lastBodyP.x) / dt, vy = (state.body.y - state.lastBodyP.y - (state.rideSince || 0)) / dt;
+        // Page-space travel (crawl plus the scroll it rides); the heading
+        // follows it with a short lag.
+        const vx = (state.body.x - state.lastBodyP.x) / dt, vy = (state.body.y - state.lastBodyP.y) / dt;
         state.rideSince = 0;
         state.vel = state.vel ? {x: state.vel.x * 0.92 + vx * 0.08, y: state.vel.y * 0.92 + vy * 0.08} : {x: vx, y: vy};
         if (Math.hypot(state.vel.x, state.vel.y) > 8){
           const want = Math.atan2(state.vel.y, state.vel.x);
           if (state.faceHeading == null) state.faceHeading = want;
           let fd = want - state.faceHeading; fd = Math.atan2(Math.sin(fd), Math.cos(fd));
-          state.faceHeading = Math.atan2(Math.sin(state.faceHeading + fd * Math.min(1, dt * 3)), Math.cos(state.faceHeading + fd * Math.min(1, dt * 3)));
+          state.faceHeading = Math.atan2(Math.sin(state.faceHeading + fd * Math.min(1, dt * 5)), Math.cos(state.faceHeading + fd * Math.min(1, dt * 5)));
         }
       }
       state.lastBodyP = {x: state.body.x, y: state.body.y};

@@ -1610,6 +1610,165 @@ def _norm_num(v: str) -> str:
         return v
 
 
+# --- /api/read finding classifier -------------------------------------
+# Every figure gets the line item it sits on, a category, and a scale, so
+# the reader panel can say what it found instead of "Figure".
+_READ_CATS = [
+    ("Revenue", r"revenue|net sales|\bsales\b|deliveries|orders?\b|backlog"),
+    ("Profitability", r"gross margin|gross profit|operating income|operating margin|net income|earnings|ebitda|per share|\beps\b|cost of sales|research and development|selling, general"),
+    ("Cash flow", r"cash flows?|operating activities|investing activities|financing activities|capital expenditure|purchases? of property|repurchase|buyback|dividend"),
+    ("Debt and financing", r"\bdebt\b|notes? due|senior notes|borrowing|credit facility|commercial paper|term loan|interest expense|leases?\b|maturit"),
+    ("Hedging and FX", r"hedg|derivative|foreign (?:exchange|currency)|swap|forward contracts?|interest rate contracts?"),
+    ("Balance sheet", r"inventor|receivable|payable|total assets|total liabilities|shareholders.? equity|stockholders.? equity|goodwill|intangible|property, plant|cash and cash equivalents|marketable securities|deferred revenue|accrued"),
+    ("Equity", r"^balance (?:at |as of )?[A-Z]?[a-z]+|retained earnings|comprehensive (?:income|loss)|attributable to|noncontrolling|additional paid-in"),
+    ("Tax", r"\btax"),
+    ("Shares", r"shares? (?:of|outstanding|repurchased|issued)|common stock|par value|share-based|stock-based"),
+    ("Segments", r"americas|europe|greater china|japan|rest of asia|segment|north america|international"),
+    ("Fleet and operations", r"railcars?|fleet|utilization|units|deliveries|employees|headcount"),
+]
+_READ_CATS = [(n, re.compile(pat, re.I)) for n, pat in _READ_CATS]
+_LABEL_RE = re.compile(r"([A-Za-z][A-Za-z ,'\u2019&()/\-]{1,80}?)[\s:$\u2014\-]*(?:\(?\$?\s?-?[\d,]+(?:\.\d+)?\)?%?\s*|\$\s*|—\s*)*$")
+
+
+def _read_line_item(body: str, st: int) -> tuple[str, str]:
+    """(line item, section heading) for the figure at char offset st."""
+    ls = body.rfind("\n", 0, st) + 1
+    le = body.find("\n", st)
+    le = len(body) if le < 0 else le
+    before = body[ls:st]
+    # a folded table line keeps its cells two spaces apart: the row label is
+    # the last text cell, and a bare title cell before it is its parent
+    cells = before.split("  ")
+    parent = ""
+    for c in reversed(cells[:-1]):
+        c = c.strip()
+        if c and not re.search(r"\d", c) and len(c.split()) <= 5 and c[:1].isupper():
+            parent = c.strip("()")
+            break
+        if re.search(r"[A-Za-z]{3,}", c):
+            break
+    seg = before
+    while "  " in seg and not re.search(r"[A-Za-z]{3,}", seg[seg.rfind("  "):]):
+        seg = seg[:seg.rfind("  ")]
+    seg = seg[seg.rfind("  ") + 2:] if "  " in seg else seg
+    m = _LABEL_RE.search(seg)
+    item = (m.group(1) if m else "").strip(" ,-(")
+    if not item:
+        # a number inside a sentence: the words just before it
+        sent = re.split(r"[.;:]\s", before)[-1]
+        words = [w for w in re.sub(r"[$\d,.%()]+", " ", sent).split() if w]
+        item = " ".join(words[-6:])
+    item = re.sub(r"\s+", " ", item)
+    if len(item.split()) > 7:
+        item = " ".join(item.split()[-7:])
+    # prose fragments ("million and", "respectively, and") are not labels
+    junk = {"increased", "decreased", "totaled", "rose", "fell", "grew", "declined", "compared", "approximately", "were", "be", "and", "or", "of", "the", "million", "billion", "thousand", "respectively", "to", "in", "was", "were", "by", "for", "from", "as", "at", "approximately", "which", "with", "is", "a", "an"}
+    toks = [w for w in re.findall(r"[A-Za-z']+", item)]
+    while toks and toks[-1].lower() in junk:
+        toks.pop()
+    while toks and toks[0].lower() in junk:
+        toks.pop(0)
+    if not toks or len(" ".join(toks)) < 4 or not any(w.lower() not in junk for w in toks):
+        item = ""
+    else:
+        item = " ".join(toks)
+    # section: nearest short title-like line above (no long numbers)
+    sect = ""
+    pos, hops = ls - 1, 0
+    while pos > 0 and hops < 25:
+        ps = body.rfind("\n", 0, pos) + 1
+        ln = body[ps:pos].strip()
+        pos, hops = ps - 1, hops + 1
+        words = ln.split()
+        caps = sum(1 for w in words if w[:1].isupper()) / max(1, len(words))
+        if (3 <= len(ln) <= 70 and not re.search(r"\d", ln) and ln[:1].isupper() and not ln.endswith((".", ",", ";"))
+                and (caps >= 0.6 or re.match(r"(?:Condensed|Consolidated|Notes?|Item|Part|Statements?)\b", ln))):
+            sect = re.sub(r"\s+", " ", ln)
+            break
+    if parent and parent != item:
+        sect = parent
+    return item, sect
+
+
+def _read_scale(body: str, st: int, raw: str) -> str:
+    after = body[st:st + len(raw) + 14].lower()
+    for w, v in (("billion", "B"), ("million", "M"), ("thousand", "K")):
+        if re.match(r"[\d,.$\s]*" + w, after):
+            return v
+    low = (raw or "").lower()
+    for w in ("billion", "million", "thousand"):
+        if w in low:
+            return ""
+    back = body[max(0, st - 6000):st].lower()
+    hits = [(m.start(), m.group(1)) for m in re.finditer(r"\(\s*(?:dollars |amounts |\$ )?in (millions|billions|thousands)", back)]
+    return {"millions": "M", "billions": "B", "thousands": "K"}[hits[-1][1]] if hits else ""
+
+
+def _read_classify(body: str, f: dict) -> None:
+    st = f.get("char_offset")
+    if st is None or st < 0:
+        f.update(item="", section="", category="Other", scale="")
+        return
+    item, sect = _read_line_item(body, st)
+    text = " ".join([f.get("label") if f.get("src") == "desk" else "", item, sect, f.get("snippet") or ""])
+    # the line item decides first, then the section, then the sentence
+    cat = "Other"
+    for src in (item, sect, text):
+        hit = next((name for name, rx in _READ_CATS if rx.search(src)), None)
+        if hit:
+            cat = hit
+            break
+    snip = re.sub(r"\s+", " ", f.get("snippet") or "").strip()
+    if snip[:1].islower():
+        snip = snip.split(" ", 1)[-1]   # drop a word cut in half
+    f["snippet"] = snip
+    raw = f.get("display") or f.get("value") or ""
+    unit = f.get("unit") or ""
+    kind = "percent" if "%" in raw or unit == "%" else "per share" if re.search(r"per (?:\w+ )?share", item + " " + body[st:st + 40], re.I) else "amount"
+    # table position: which of the numbers that follow this row label it is
+    ls = body.rfind("\n", 0, st) + 1
+    le = body.find("\n", st); le = len(body) if le < 0 else le
+    line = body[ls:le]
+    col = ncols = 0
+    k = line.rfind(item) if item else -1
+    if k >= 0 and len(line) < 220:
+        rest = line[k + len(item):]
+        nxt = re.search(r"[A-Za-z]{3,}", rest)       # next row label on a folded line
+        rest = rest[:nxt.start()] if nxt else rest
+        if not re.fullmatch(r"[\s$\d,.()%\u2014\-]*", rest):
+            rest = ""
+        base = ls + k + len(item)
+        cells = [base + m.start() for m in re.finditer(r"\d[\d,]*(?:\.\d+)?", rest)]
+        hit = [i for i, c in enumerate(cells) if c <= st < c + 12 and body[c:st + 1].strip()]
+        if len(cells) > 1 and hit:
+            ncols = len(cells)
+            col = 1 + min(hit, key=lambda i: abs(cells[i] - st))
+    f.update(item=item, section=sect, category=cat, kind=kind, col=col, ncols=ncols,
+             scale=_read_scale(body, st, raw) if kind == "amount" else "")
+
+
+_TICKER_COVER_RE = re.compile(r"\b([A-Z]{1,5}(?:\.[A-Z])?)\s+(?:The\s+)?(?:Nasdaq|New York Stock Exchange|NYSE|Chicago Stock Exchange)", re.I)
+
+
+def _read_detect_ticker(body: str) -> Optional[str]:
+    head = body[:8000]
+    for m in _TICKER_COVER_RE.finditer(head):
+        t = m.group(1).upper()
+        if t not in {"THE", "LLC", "INC", "NEW", "PAR"}:
+            return t
+    m = re.search(r"Trading Symbol\(?s?\)?[^\n]{0,80}?\n?[^\n]{0,80}?\b([A-Z]{2,5})\b", head)
+    return m.group(1) if m else None
+
+
+def _read_covered_tickers() -> set:
+    try:
+        from intake import store as _store
+        with _store.connect() as conn:
+            return {r[0] for r in conn.execute("SELECT DISTINCT d.ticker FROM facts f JOIN documents d ON d.id = f.document_id").fetchall() if r[0]}
+    except Exception:
+        return set()
+
+
 def _stored_facts_for_ticker(ticker: str) -> list[dict]:
     try:
         from intake import store as _store
@@ -1727,7 +1886,17 @@ async def read_document(request: Request,
     findings.sort(key=lambda f: (f["char_offset"] if f["char_offset"] is not None and f["char_offset"] >= 0 else 10**9))
 
     # Compare with the stored facts for the ticker.
+    for f in findings:
+        _read_classify(body, f)
+    # No ticker picked: read it off the cover page and compare if the vault
+    # covers it; otherwise every figure is simply new to the vault.
     t = _validate_ticker(ticker) if ticker else None
+    detected = None
+    if not t:
+        detected = _read_detect_ticker(body)
+        if detected and detected in _read_covered_tickers():
+            t = detected
+    covered = bool(t)
     stored = _stored_facts_for_ticker(t) if t else []
     known_vals: dict[str, set] = {}
     latest: dict[str, dict] = {}
@@ -1736,7 +1905,7 @@ async def read_document(request: Request,
         latest.setdefault(r["label"], r)
     for f in findings:
         if not t:
-            f["status"] = "UNCOMPARED"
+            f["status"] = "NOT_COVERED"
             continue
         lab = f["label"]
         if _norm_num(f["value"]) in known_vals.get(lab, set()):
@@ -1756,6 +1925,7 @@ async def read_document(request: Request,
     doc_id = "upload-" + hashlib.sha256(data).hexdigest()[:16]
     return JSONResponse(content={
         "doc_id": doc_id, "title": title, "kind": kind, "ticker": t,
+        "detected_ticker": detected, "covered": covered,
         "chars": len(body), "text": body, "findings": findings, "counts": counts,
         "stored_facts": len(stored)})
 
