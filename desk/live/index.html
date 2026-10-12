@@ -318,10 +318,9 @@ svg.thread line{stroke-width:1.2;opacity:.85;stroke-dasharray:1000;stroke-dashof
       const fact = {type:"fact", doc_id: ev.doc_id, label: ev.label, value: ev.value, unit: ev.unit, char_offset: ev.char_offset, at: ev.at};
       state.events.push(fact);
       state.idx = state.events.length;
-      // Extract phase emits facts for several docs in a burst. Buffer per-doc,
-      // and on each fact navigate (if needed) to the doc with the MOST
-      // accumulated facts in this burst and render all of them. This keeps
-      // the thread drawing between many boxes on the best doc.
+      // Extract phase emits facts for several docs in a burst. Accumulate
+      // counts per doc; after the first fact for the doc with the current
+      // winning count arrives, navigate to it and render all its facts.
       state.factBuffer = state.factBuffer || {};
       (state.factBuffer[ev.doc_id] = state.factBuffer[ev.doc_id] || []).push(fact);
       let bestId = null, bestLen = 0;
@@ -329,16 +328,24 @@ svg.thread line{stroke-width:1.2;opacity:.85;stroke-dasharray:1000;stroke-dashof
       if (!bestId) return;
       const cached = state.docsSeen && state.docsSeen[bestId];
       if (!cached) return;
-      const facts = state.factBuffer[bestId];
+      // If we are already on this doc, just mark the single new fact.
+      if (state.currentDocId === bestId && state.lastRenderedCount === state.factBuffer[bestId].length - 1){
+        processEvent({type:"fact", doc_id: bestId, label: fact.label, value: fact.value, unit: fact.unit, char_offset: fact.char_offset});
+        state.lastRenderedCount = state.factBuffer[bestId].length;
+        return;
+      }
+      // Otherwise navigate + render all facts for best doc.
+      state.pendingRenderDoc = bestId;
       (async () => {
         if (state.currentDocId !== bestId){
-          state.pendingRenderDoc = bestId;
           await loadDocAndWalk(cached);
           if (state.pendingRenderDoc !== bestId) return;
         }
+        const facts = state.factBuffer[bestId] || [];
         for (const f of facts){
           processEvent({type:"fact", doc_id: bestId, label: f.label, value: f.value, unit: f.unit, char_offset: f.char_offset});
         }
+        state.lastRenderedCount = facts.length;
       })();
       return;
     }
