@@ -86,6 +86,63 @@ async def health(request: Request) -> dict:
     return store.health_summary()
 
 
+@router.post("/_run/{job}")
+async def run_job(job: str, request: Request) -> dict:
+    """Manually trigger a scheduler job. Idempotent (jobs dedup on source_url).
+
+    Allowed names: edgar, ir, news, fred, aar, stb, rsi, digest, extract.
+    Rate-limited per IP (same as every /desk endpoint); no auth required because
+    every underlying source is public and every writer is dedup-safe.
+    """
+    _check_rate(request)
+    import asyncio
+    from .scheduler import _load_tickers
+    from . import digest as digest_mod, extract as extract_mod
+    from .sources import edgar as edgar_src, ir_feeds, macro, news as news_src
+    counts = {"job": job, "ran": [], "errors": []}
+    try:
+        if job == "edgar":
+            for t in _load_tickers():
+                try:
+                    r = await edgar_src.poll_edgar(t["ticker"], t["cik"])
+                    counts["ran"].append({t["ticker"]: r})
+                except Exception as e:
+                    counts["errors"].append(f"{t['ticker']}: {e}")
+        elif job == "ir":
+            for t in _load_tickers():
+                try:
+                    r = await ir_feeds.poll_feed(t["ticker"], t["ir_rss"])
+                    counts["ran"].append({t["ticker"]: r})
+                except Exception as e:
+                    counts["errors"].append(f"{t['ticker']}: {e}")
+        elif job == "news":
+            for t in _load_tickers():
+                try:
+                    r = await news_src.poll_news(t["ticker"], t["news_query"])
+                    counts["ran"].append({t["ticker"]: r})
+                except Exception as e:
+                    counts["errors"].append(f"{t['ticker']}: {e}")
+        elif job == "fred":
+            counts["ran"].append(await macro.poll_fred())
+        elif job == "aar":
+            counts["ran"].append(await macro.poll_aar())
+        elif job == "stb":
+            counts["ran"].append(await macro.poll_stb())
+        elif job == "rsi":
+            counts["ran"].append(await macro.poll_rsi())
+        elif job == "extract":
+            counts["ran"].append(extract_mod.extract_all_pending())
+        elif job == "digest":
+            counts["ran"].append(str(digest_mod.build_digest()))
+        else:
+            raise HTTPException(status_code=400, detail=f"unknown job: {job}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        counts["errors"].append(str(e))
+    return counts
+
+
 @router.get("/doc/{doc_id}")
 async def doc(doc_id: str, request: Request) -> dict:
     _check_rate(request)
