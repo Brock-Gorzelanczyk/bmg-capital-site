@@ -149,6 +149,12 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
     return {x: finite(kx) ? kx : mx, y: finite(ky) ? ky : my};
   }
 
+  function clampN(v){
+    if (!finite(v)) return 0;
+    if (v > 100000) return 100000;
+    if (v < -100000) return -100000;
+    return Math.round(v * 100) / 100;
+  }
   function drawLegs(){
     // Remove old legs/feet
     spiderSvg.querySelectorAll(".leg,.foot").forEach(e => e.remove());
@@ -158,9 +164,12 @@ svg.spider .thread{stroke:#4a5058;stroke-width:1;opacity:.55}
       if (!finite(f.x) || !finite(f.y)) continue;
       if (!finite(state.body.x) || !finite(state.body.y)) continue;
       const knee = kneeFor(state.body.x, state.body.y, f.x, f.y, i);
+      const bx = clampN(state.body.x), by = clampN(state.body.y);
+      const kx = clampN(knee.x), ky = clampN(knee.y);
+      const fx = clampN(f.x), fy = clampN(f.y);
       const poly = document.createElementNS(SVG_NS, "polyline");
       poly.setAttribute("class", "leg");
-      poly.setAttribute("points", `${state.body.x},${state.body.y} ${knee.x},${knee.y} ${f.x},${f.y}`);
+      poly.setAttribute("points", `${bx},${by} ${kx},${ky} ${fx},${fy}`);
       spiderSvg.appendChild(poly);
       state.legEls.push(poly);
       const dot = document.createElementNS(SVG_NS, "circle");
