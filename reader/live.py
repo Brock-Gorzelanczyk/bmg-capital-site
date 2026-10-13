@@ -28,6 +28,17 @@ def plan(rep: dict) -> dict:
     for f in rep["findings"]:
         if f.get("ref"):
             by_ref.setdefault(f["ref"], f["id"])
+    # a fact printed on the same row as a found one (consolidated net income on the
+    # net income line) is revealed by that finding
+    by_row = {}
+    for ref, fid in by_ref.items():
+        x = facts.get(ref)
+        if x and (x.get("source") or {}).get("offset") is not None:
+            by_row.setdefault(((x["source"]["offset"]), (x.get("period") or {}).get("end")), fid)
+    for i, x in facts.items():
+        k = ((x.get("source") or {}).get("offset"), (x.get("period") or {}).get("end"))
+        if i not in by_ref and k[0] is not None and k in by_row:
+            by_ref[i] = by_row[k]
 
     def leaves(i, depth=0):
         if depth > 5 or not live(i):
@@ -89,5 +100,5 @@ def plan(rep: dict) -> dict:
     fact_pages = {i: (facts[i].get("source") or {}).get("pdf_page") for i in leaf_ids if i in facts}
     fact_offsets = {i: (facts[i].get("source") or {}).get("offset") for i in leaf_ids if i in facts}
     return {"version": 1, "sections": sections, "ratios": ratios, "signals": sigs, "cells": cells,
-            "fact_to_finding": {k: v for k, v in by_ref.items() if k in cells or any(k in c["requires"] for c in cells.values())},
+            "fact_to_finding": {k: v for k, v in by_ref.items() if k in cells or k in leaf_ids},
             "pages": pages, "fact_pages": fact_pages, "fact_offsets": fact_offsets, "basis": "Replay of an analysis already completed on the server, revealed in the order the spider reaches each source line."}

@@ -176,7 +176,7 @@ details.paste textarea{width:100%;min-height:110px;margin-top:8px;font:13px 'IBM
 @media (prefers-reduced-motion:reduce){.lr-c.flash,.lr-sig.flash{animation:none}}
 @media (max-width:900px){.read-side{position:fixed!important;left:0;right:0;bottom:0;top:auto;max-height:46vh!important;border-radius:12px 12px 0 0;z-index:40;box-shadow:0 -6px 20px rgba(0,0,0,.12)}.rs-sheet{display:inline-block}.read-side.collapsed{max-height:44px!important;overflow:hidden}.read-grid{padding-bottom:48vh}}
 body.rec .read-side{position:fixed!important;left:0;right:0;bottom:0;top:auto;height:var(--rec-h,40vh);max-height:none!important;border-radius:0;border:0;border-top:1px solid #e3e3dc;overflow:hidden;z-index:40}
-body.rec .rs-tabs{display:none}body.rec #pane-found{display:none!important}body.rec #read-live{display:block!important}body.rec .lr{font-size:15px}body.rec .lr-t td{padding:4px 6px}
+body.rec .rs-tabs{display:none}body.rec #pane-found{display:none!important}body.rec #read-live{display:block!important;height:100%;overflow:hidden}body.rec .lr{font-size:15px}body.rec .lr-top{position:sticky;top:0;z-index:3;background:#fff;padding-bottom:4px;border-bottom:1px solid #eceee9}body.rec .lr-top::after{content:;position:absolute;left:0;right:0;bottom:-26px;height:26px;background:linear-gradient(#fff,rgba(255,255,255,0));pointer-events:none}body.rec .lr-t td{padding:4px 6px}
 .read-side h2{font:600 15px 'IBM Plex Sans',sans-serif;margin:0 0 2px}
 #read-count{font:12px 'IBM Plex Mono',monospace;color:#6b6f76}
 #read-findings{list-style:none;margin:10px 0 0;padding:0}
@@ -2277,10 +2277,10 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (!L || typeof LiveReportModel === "undefined"){ liveEl.innerHTML = `<p class="muted">The live report is not available for this result.</p>`; return; }
     state.live = new LiveReportModel(L);
     const co = rep.company || {};
-    liveEl.innerHTML = `<header class="lr-head"><div class="lr-brand">BMG Capital <span>report</span>${BMG_LINE}</div>
+    liveEl.innerHTML = `<div class="lr-top"><header class="lr-head"><div class="lr-brand">BMG Capital <span>report</span>${BMG_LINE}</div>
         <div class="lr-co"><b>${esc(co.name || "")}</b> ${esc([co.ticker, co.form, co.period].filter(Boolean).join(" · "))}</div>
         <div class="lr-basis" title="${esc(L.basis)}">Replay of completed analysis</div></header>
-      <div class="lr-prog" id="lr-prog" aria-live="polite"></div>
+      <div class="lr-prog" id="lr-prog" aria-live="polite"></div></div>
       ${L.sections.map(s => `<section class="lr-sec" data-sec="${s.id}"><h4>${esc(s.title)}</h4><table class="lr-t"><thead><tr><th></th>${((s.rows[0] || {}).cells || []).map(c => `<th>${esc(L.cells[c].period || "")}</th>`).join("")}</tr></thead>
         <tbody>${s.rows.map(r => `<tr><td>${esc(r.label)}</td>${r.cells.map(c => `<td class="lr-c" data-cell="${esc(c)}"><span class="ph" aria-label="not read yet">···</span></td>`).join("")}</tr>`).join("")}</tbody></table></section>`).join("")}
       ${L.ratios.length ? `<section class="lr-sec"><h4>Calculated <small>shown once every input has been read</small></h4><table class="lr-t lr-r"><tbody>${L.ratios.map(r => `<tr><td>${esc(r.label)}<small>${esc(L.cells[r.id].formula || "")}</small></td><td class="lr-c" data-cell="${esc(r.id)}"><span class="ph">waiting for inputs</span></td></tr>`).join("")}</tbody></table></section>` : ""}
@@ -2302,17 +2302,40 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
         li.addEventListener("click", () => { const f = (state.readRes.findings || []).find(x => x.id === sg.anchor); if (f) scrollToFinding(f); });
         ol.appendChild(li);
         const ph = document.getElementById("lr-sigs-ph");
-        if (ph){ const left = state.live.plan.signals.length - ol.children.length; ph.textContent = left > 0 ? `${left} pending` : ""; }
+        if (ph){ const left = state.live.plan.signals.length - ol.children.length; ph.textContent = left > 0 ? `${left} pending` : ""; ph.hidden = !left; }
+        liveFollow(ph && !ph.hidden ? ph : li);      // keep the last line fully in view
         setTimeout(() => li.classList.remove("flash"), 1400);
         continue;
       }
       const td = liveEl.querySelector(`[data-cell="${CSS.escape(ch.id)}"]`);
       if (!td) continue;
       td.innerHTML = liveCellHTML(ch.id, ch);
+      liveFollow(td);
       td.classList.toggle("is-w", ch.state === "withdrawn");
       td.classList.add("flash"); setTimeout(() => td.classList.remove("flash"), 1400);
     }
     liveProgress();
+  }
+  // recording layout: the panel is shorter than the report, so it glides to each new figure
+  let followAnim = 0;
+  function liveFollow(el){
+    if (!document.body.classList.contains("rec") || !liveEl) return;
+    const box = liveEl.getBoundingClientRect(), r = el.getBoundingClientRect();
+    const top = liveEl.querySelector(".lr-top"), head = top ? top.offsetHeight : 0;
+    const pad = 28, from = liveEl.scrollTop;
+    let to = from;
+    if (r.bottom > box.bottom - pad) to = from + (r.bottom - box.bottom) + pad;
+    else if (r.top < box.top + head + pad) to = Math.max(0, from - (box.top + head + pad - r.top));
+    if (Math.abs(to - from) < 2) return;
+    if (REDUCED){ liveEl.scrollTop = to; return; }
+    const id = ++followAnim, t0 = performance.now(), dur = 420;
+    const step = now => {
+      if (id !== followAnim) return;
+      const k = Math.min(1, (now - t0) / dur), e = k < .5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+      liveEl.scrollTop = from + (to - from) * e;
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   }
   function liveProgress(final){
     if (!state.live) return;
@@ -2834,7 +2857,16 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
         if (a){ e.preventDefault(); if (!jumpToSource(+a.dataset.page, a.dataset.val)) a.classList.add("rp-nodoc"); }
         if (e.target === o) closeReport();
       });
-      addEventListener("keydown", e => { if (e.key === "Escape") closeReport(); });
+      addEventListener("keydown", e => {
+        if (e.key === "Escape") closeReport();
+        if (e.key === "Tab" && !o.hidden){      // keep focus inside the open report
+          const f = [...o.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter(x => x.offsetParent !== null);
+          if (!f.length) return;
+          const first = f[0], last = f[f.length - 1];
+          if (e.shiftKey && (document.activeElement === first || !o.contains(document.activeElement))){ e.preventDefault(); last.focus(); }
+          else if (!e.shiftKey && (document.activeElement === last || !o.contains(document.activeElement))){ e.preventDefault(); first.focus(); }
+        }
+      });
     }
     o.dataset.mode = mode || "report";
     o.setAttribute("aria-label", mode === "compare" ? "BMG Capital company comparison" : "BMG Capital company report");

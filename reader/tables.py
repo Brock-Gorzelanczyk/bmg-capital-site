@@ -41,6 +41,11 @@ _SCOPE_RX = [
 ]
 
 
+# a label or heading that continues on the next line ends mid-phrase:
+# "... attributable to noncontrolling interests and", "... net loss per"
+_WRAPS = re.compile(r"\b(and|or|of|in|to|for|per|from|by|on|with|attributable|the|net|less)\s*$|,\s*$", re.I)
+
+
 def _total_heading(groups: list, heading: str, toks: list) -> str:
     """Name an unlabeled total by the sections it actually sums. A total
     printed under a sub-heading can cover rows above that sub-heading too
@@ -321,10 +326,10 @@ def parse(doc) -> list[dict]:
         elif not toks:
             if len(s) <= 90 and re.match(r"[A-Z]", s) and not s.endswith("."):
                 prev_heading, heading = heading, s.strip(" :")
-                label_head = s if not s.rstrip().endswith(":") else None
+                label_head = s if _WRAPS.search(s) else None
             elif len(s) <= 90 and re.match(r"[a-z]", s) and heading and label_head:
                 heading = f"{heading} {s.strip(' :')}"          # a heading wrapped onto a second line
-                label_head = None if s.rstrip().endswith(":") else f"{label_head.strip()} {s.strip()}"
+                label_head = f"{label_head.strip()} {s.strip()}" if _WRAPS.search(s) else None
             continue
         # "Recourse 6,431.5 5,887.5  6,448.8 5,905.6": a row and the unlabeled
         # total under it fused onto one text line. Split only when the second
