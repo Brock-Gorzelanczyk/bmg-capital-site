@@ -127,6 +127,20 @@ def calculations(fb, bank: bool = False) -> None:
                              [("Cash and cash equivalents", cash), ("Total debt", debt)], lambda a, b: (a - b, ""), "USD"))
 
 
+def _body_pages(doc, pages: list) -> list:
+    """Pages that belong to the report itself: anything after Item 15
+    (exhibits, signatures, attached agreements) does not count against
+    coverage, since the statements and notes come before it."""
+    cut = max((sec.page for sec in getattr(doc, "sections", []) or [] if sec.item in ("15", "16") and sec.page), default=None)
+    return [p for p in pages if cut is None or p < cut]
+
+
+def _body_complete(doc) -> bool:
+    """Text was cut at the size limit, but only after Item 15 (exhibits):
+    the report itself was read in full."""
+    return any(sec.item in ("15", "16") for sec in getattr(doc, "sections", []) or [])
+
+
 def build(doc, rows: list, fb: "F.FactBook", claims: Optional[list] = None, analysis: Optional[dict] = None) -> dict:
     now = datetime.now(timezone.utc)
     co = _company(doc)
@@ -238,7 +252,7 @@ def build(doc, rows: list, fb: "F.FactBook", claims: Optional[list] = None, anal
                                       f"was located on {'PDF ' if doc.kind == 'pdf' else ''}page {pg} but its table could not be read; "
                                       "its figures are missing from this report rather than estimated."})
     limited = len(published) < 4
-    status = "Partial" if (not all(stm.values()) or limited or any(i["type"] == "unreadable_statement" for i in issues) or doc.warnings and any(w["code"] in ("truncated", "incomplete") or (w["code"] == "empty_pages" and len(w.get("pages", [])) > max(3, len(doc.pages) * 0.05))
+    status = "Partial" if (not all(stm.values()) or limited or any(i["type"] == "unreadable_statement" for i in issues) or doc.warnings and any(w["code"] == "incomplete" or (w["code"] == "truncated" and not _body_complete(doc)) or (w["code"] == "empty_pages" and len(_body_pages(doc, w.get("pages", []))) > max(3, len(doc.pages) * 0.05))
                                     for w in doc.warnings)) else "Complete for the items listed"
     if limited:
         status = "Limited"

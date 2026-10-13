@@ -247,6 +247,7 @@ def parse(doc) -> list[dict]:
     restated = False
     table_id, row_index = 0, 0
     groups = []      # [heading, [values of each row]] for the open sections of this table, in order
+    label_head, prev_heading = None, ""
     pos = 0
     for line in body.split("\n"):
         start = pos
@@ -319,13 +320,37 @@ def parse(doc) -> list[dict]:
                 continue
         elif not toks:
             if len(s) <= 90 and re.match(r"[A-Z]", s) and not s.endswith("."):
-                heading = s.strip(" :")
+                prev_heading, heading = heading, s.strip(" :")
+                label_head = s if not s.rstrip().endswith(":") else None
+            elif len(s) <= 90 and re.match(r"[a-z]", s) and heading and label_head:
+                heading = f"{heading} {s.strip(' :')}"          # a heading wrapped onto a second line
+                label_head = None if s.rstrip().endswith(":") else f"{label_head.strip()} {s.strip()}"
             continue
+        # "Recourse 6,431.5 5,887.5  6,448.8 5,905.6": a row and the unlabeled
+        # total under it fused onto one text line. Split only when the second
+        # half is the section's sum including the first half.
+        fused = None
+        if n >= 2 and len(toks) == 2 * n and not unlabeled and k > 0 and heading:
+            v1, v2 = [parse_number(t) for t in toks[:n]], [parse_number(t) for t in toks[n:]]
+            if None not in v1 and None not in v2 and _total_heading(groups + [[heading, [v1]]], "", toks[n:]):
+                toks, fused = toks[:n], toks[n:]
         if len(toks) < 2 or len(toks) != n:
             continue
         vals = [parse_number(t) for t in toks]
         if any(v is None for v in vals):
             continue
+        # a label wrapped onto a second line: "Net income (loss) attributable to noncontrolling
+        # interests and" / "redeemable noncontrolling interests in subsidiaries  87  (87)"
+        if label_head and re.match(r"[a-z]", label) and not unlabeled:
+            segs = [x.strip() for x in re.split(r"\s{2,}", s) if x.strip()]
+            if len(segs) >= 2 and re.match(r"[a-z]", segs[0]) and re.match(r"[A-Z]", segs[1]) and label.startswith(segs[0]):
+                # "share of common stock  Basic  177": the end of a wrapped heading, then the row's own label
+                heading = f"{label_head.strip()} {segs[0]}"
+                label = label[len(segs[0]):].strip()
+            else:
+                label = f"{label_head.strip()} {label}"
+                heading = prev_heading
+        label_head = None
         label = re.sub(r"\s*\((?:\d|[a-z])\)$", "", label).strip()          # footnote marker
         footnote = bool(re.search(r"\((?:\d|[a-z])\)$", " ".join(parts[:k])))
         # "Earnings per share: Basic" -> heading "Earnings per share", label "Basic"
@@ -361,6 +386,21 @@ def parse(doc) -> list[dict]:
             groups[-1][1].append(vals)
         else:
             groups.append([heading, [vals]])
+        if fused:
+            tl = "Total " + (_total_heading(groups, heading, fused) or heading)
+            rows.append(dict(rows[-1], label=tl, full_label=tl, key=re.sub(r"[^a-z0-9]+", " ", tl.lower()).strip(),
+                             values=[parse_number(t) for t in fused], raw=fused, unlabeled_total=True, row_index=row_index))
+            row_index += 1
+            groups = []
+            close_after = True
         if close_after or label.lower().startswith("total "):
             heading = next_heading or ""
+    # a combined statement of income and comprehensive income ("Consolidated
+    # Statements of Comprehensive Income" running from revenue to EPS) is the
+    # income statement
+    combined = {r["table_id"] for r in rows if r["statement"] == "comprehensive"
+                and re.match(r"^(total )?(net )?(revenues?|sales|net sales|operating revenues?)$", r["key"])}
+    for r in rows:
+        if r["table_id"] in combined:
+            r["statement"] = "income"
     return rows

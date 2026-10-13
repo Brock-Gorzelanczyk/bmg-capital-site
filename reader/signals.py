@@ -241,7 +241,7 @@ def analyze(fb, profile: str, kpis: list, watch: Optional[list] = None) -> list[
         years, ins = [], []
         for w in range(3):
             gn, pt = g("gains_on_dispositions", w), g("pretax_income", w)
-            if same(gn, pt) and pt["value"] > 0:
+            if same(gn, pt) and pt["value"] > 0 and gn["period"].get("type") == gn0["period"].get("type"):    # same length as the latest
                 years.append((gn["period"].get("short") or gn["period"]["label"], abs(gn["value"]) / pt["value"] * 100, gn, pt))
                 ins += [gn, pt]
         sh = years[0][1]
@@ -249,10 +249,12 @@ def analyze(fb, profile: str, kpis: list, watch: Optional[list] = None) -> list[
             series = ", ".join(f"{y}: {v:.0f}%" for y, v, _, _ in years)
             shares = [v for _, v, _, _ in years]
             steady = len(shares) >= 2 and min(shares) >= 0.6 * max(shares)
+            unit = "year" if gn0["period"].get("type") == "FY" else "period"
             text = (f"Gains on asset dispositions as a share of income before income taxes: {series}. " +
-                    ("The share is similar in every year shown, so disposals appear to be a regular part of how the company earns, "
+                    ("Only one period of this length is shown, so recurrence cannot be judged from this filing." if len(shares) < 2 else
+                     f"The share is similar in every {unit} shown, so disposals appear to be a regular part of how the company earns, "
                      "though the amounts depend on the timing and pricing of sales." if steady else
-                     "The share varies across the years shown, so earnings depend partly on when sales happen."))
+                     f"The share varies across the {unit}s shown, so earnings depend partly on when sales happen."))
             itemized = _rows_like(fb, "income", r"divestiture|sale of (business|subsidiary|interest)", gn0["source"].get("table_id"))
             if itemized and itemized[0]["values"][0]:
                 rr = itemized[0]

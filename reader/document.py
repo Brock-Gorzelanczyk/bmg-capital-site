@@ -169,7 +169,7 @@ def _strip_boilerplate(pages_raw: list[list[str]]) -> tuple[list[list[str]], lis
     return out, printed, removed
 
 
-_ITEM = re.compile(r"(?m)^[ \t ]*(?:PART[ \t ]+[IV]+[ \t ]+)?Item[ \t ]+(\d{1,2}[A-C]?)\.?[ \t ]+([A-Z\[][^\n]{2,160}?)(?=[ \t ]{2,}|$)")
+_ITEM = re.compile(r"(?m)^[ \t\u00a0]*(?:PART[ \t\u00a0]+[IV]+[ \t\u00a0]+)?(?:Item|ITEM)[ \t\u00a0]+(\d{1,2}[A-C]?)\.?(?:[ \t\u00a0]+|[ \t\u00a0]*\n[ \t\u00a0]*)([A-Z\[][^\n]{2,160}?)(?=[ \t\u00a0]{2,}|$)")
 
 
 def _sections(body: str, doc: "Document") -> list[Section]:
@@ -177,11 +177,20 @@ def _sections(body: str, doc: "Document") -> list[Section]:
     if not hits:
         return []
     per_page = Counter(doc.page_at(o) for o, _, _ in hits)
+    # the table of contents: many items on one page, most followed by a page number
+    def line_of(o):
+        e = body.find("\n", o)
+        return body[o:e if e >= 0 else len(body)]
+    numbered = Counter(doc.page_at(o) for o, _, _ in hits if re.search(r"\s\d{1,3}\s*$", line_of(o)))
+    # ... or most of its items appear again further on (where the sections really start)
+    repeated = Counter(doc.page_at(o) for o, it, _ in hits if any(o2 > o and it2 == it and doc.page_at(o2) != doc.page_at(o) for o2, it2, _ in hits))
     out: dict[str, Section] = {}
     for off, item, title in hits:
         pg = doc.page_at(off)
-        if per_page[pg] >= 5:          # the table of contents page
+        if per_page[pg] >= 5 and (numbered[pg] >= per_page[pg] * 0.5 or repeated[pg] >= per_page[pg] * 0.5):
             continue
+        if per_page[pg] >= 3 and pg and pg <= max(3, len(doc.pages) * 0.05) and repeated[pg] >= 1:
+            continue                   # a contents page near the front whose lines wrapped
         title = re.sub(r"\s+\d{1,3}$", "", title)   # "Business 1" in a contents line
         if item not in out:
             out[item] = Section(item=item, title=title[:80], offset=off, page=pg or 0)
@@ -193,13 +202,24 @@ def _sections(body: str, doc: "Document") -> list[Section]:
 _SHIFTED = re.compile(r"^\$?\s?\(?[\d,]{3,}(?:\.\d+)?\s?\)?(?:[\s\xa0]+\$?\s?\(?[\d,.]+\s?\)?){1,5}[\s\xa0]+[A-Z][A-Za-z]")
 
 
+_VALUES_ONLY = re.compile(r"^(?:\$?\s?\(?[\d,]+(?:\.\d+)?\s?\)?%?|—|-)(?:[\s\xa0]+(?:\$?\s?\(?[\d,]+(?:\.\d+)?\s?\)?%?|—|-)){1,6}$")
+
+
+_LONE_NUMBER = re.compile(r"^(?:\$\s?)?\(?[\d,]+(?:\.\d+)?\s?\)?%?$|^—$")
+
+
 def _rows_by_position(page) -> str:
     """Re-read one PDF page from word positions: words on the same baseline
     form a line, and a wide horizontal gap becomes a column break."""
     words = page.extract_words(use_text_flow=False, keep_blank_chars=False, x_tolerance=1.5, y_tolerance=2.5)
     lines: list[list[dict]] = []
+    def same_line(a: dict, w: dict) -> bool:
+        # vertical overlap of at least half the smaller word height: labels and
+        # their numbers can sit a couple of points apart on the same row
+        ov = min(a["bottom"], w["bottom"]) - max(a["top"], w["top"])
+        return ov >= 0.5 * min(a["bottom"] - a["top"], w["bottom"] - w["top"])
     for w in sorted(words, key=lambda w: (round(w["top"]), w["x0"])):
-        if lines and abs(lines[-1][0]["top"] - w["top"]) <= 2.5:
+        if lines and same_line(lines[-1][0], w):
             lines[-1].append(w)
         else:
             lines.append([w])
@@ -217,7 +237,19 @@ def _repair_shifted_rows(data: bytes, pages: list[dict]) -> list[dict]:
     """Some PDFs (Apple's 2018 10-K, for one) store each table row's numbers
     and the next row's label as one text run, so every statement line comes
     out shifted. Those pages, and only those, are re-read by position."""
-    bad = [i for i, p in enumerate(pages) if sum(1 for ln in (p.get("text") or "").split("\n") if _SHIFTED.match(ln.strip())) >= 4]
+    def broken(text: str) -> bool:
+        lines = [ln.strip() for ln in text.split("\n")]
+        shifted = sum(1 for ln in lines if _SHIFTED.match(ln))
+        # a label alone on its line, its numbers alone on the next
+        split = sum(1 for a, b in zip(lines, lines[1:]) if a and re.search(r"[A-Za-z]{3}", a) and not re.search(r"\d", a)
+                    and _VALUES_ONLY.match(b))
+        # every cell on its own line ("Cash and cash equivalents", "$ 6,268", "$ 3,686")
+        lone = sum(1 for ln in lines if _LONE_NUMBER.match(ln))
+        return shifted >= 4 or split >= 6 or lone >= 12
+    # pages after Item 15 are exhibits and agreements; at most 80 pages are re-read
+    ex = [i for i, p in enumerate(pages) if re.search(r"(?im)^\W*item\s*15\.?\s+exhibits", p.get("text") or "")]
+    stop = ex[-1] if ex and ex[-1] > len(pages) * 0.3 else len(pages)
+    bad = [i for i, p in enumerate(pages[:stop + 1]) if broken(p.get("text") or "")][:80]
     if not bad:
         return pages
     try:
@@ -248,6 +280,8 @@ def _pages_from(data: bytes, kind: str) -> list[dict]:
         pages = fc.extract(data, kind)
         if kind == "pdf":
             pages = _repair_shifted_rows(data, pages)
+            for p in pages:      # a drop capital extracted as its own line: "I" / "TEM 7."
+                p["text"] = re.sub(r"(?m)^[ \t]*([A-Z])[ \t]*\n[ \t]*([A-Z]{2,}\b)", r"\1\2", p.get("text") or "")
         return pages
     except Exception as e:
         raise ReadError(400, f"Could not extract text from this {kind.upper()} file ({e.__class__.__name__}). "
