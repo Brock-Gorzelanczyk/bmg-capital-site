@@ -17,6 +17,7 @@ import re
 from typing import Optional
 
 _YEAR = re.compile(r"\b(19|20)\d\d\b")
+_DAY_YEAR = re.compile(r"\b(\d{1,2}),((?:19|20)\d\d)\b")
 _DATE = re.compile(r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+((?:19|20)\d\d)\b")
 _CELL = re.compile(r"\(?-?\$?\d[\d,]*(?:\.\d+)?\)?%?|\$|%|\u2014|\u2013|-")
 _PHRASE = re.compile(r"\b(three|six|nine|twelve|3|6|9|12)[ -]months? ended\s+([A-Z][a-z]+\.? \d{1,2})|\b(years?|fiscal years?) ended\s+([A-Z][a-z]+\.? \d{1,2})", re.I)
@@ -130,6 +131,9 @@ def _kinds(text: str) -> list:
 def header_periods(line: str, context: str) -> Optional[dict]:
     """A column header: two or more period columns. `context` is the line(s)
     just above, which may carry "Three months ended May 31"."""
+    # "December 27,2025" (no space after the comma, as some inline-XBRL filings print it)
+    line = _DAY_YEAR.sub(r"\1, \2", line)
+    context = _DAY_YEAR.sub(r"\1, \2", context)
     years = [m.group(0) for m in _YEAR.finditer(line)]
     if len(years) < 2:
         return None

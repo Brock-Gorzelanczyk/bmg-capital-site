@@ -72,7 +72,7 @@ METRICS = [
      [r"^(payments for dividends and dividend equivalents|payments for dividends|dividends paid|cash dividends paid|payments of dividends|cash dividends|dividends|dividends paid to (common )?(stockholders|shareholders))$"], "USD"),
 ]
 METRIC_NAMES = {k: n for k, n, *_ in METRICS}
-DEBT_COMPONENTS = r"^(commercial paper|term debt|long term debt|current portion of long term debt|short term debt|short term borrowings|notes payable|revolving notes|senior notes|current maturities of long term debt|long term debt net|debt net|recourse|non recourse|recourse debt|non recourse debt|total non recourse|total non recourse debt|current portion of debt and finance leases|debt and finance leases net of current portion)$"
+DEBT_COMPONENTS = r"^(commercial paper|term debt|long term debt|current portion of long term debt|short term debt|short term borrowings|notes payable|revolving notes|senior notes|current maturities of long term debt|long term debt net|debt net|recourse|non recourse|recourse debt|non recourse debt|total non recourse|total non recourse debt|current portion of debt and finance leases|debt and finance leases net of current portion|current portion of long term debt net|long term debt net of current portion)$"
 TOTAL_DEBT = r"^(total debt|total debt net|total term debt|total borrowings)$"
 
 

@@ -176,17 +176,27 @@ def watch_items(doc, rows: list) -> tuple[list[dict], list[str]]:
         # a schedule printed sideways: years as column headings, one row per
         # instrument and a "Total ..." row that gives each year's principal
         horiz = None
-        for m in re.finditer(r"(?m)^((?:20\d\d\s+){3,}20\d\d)\s+Thereafter(\s+Total)?\s*$", body):
+        for m in re.finditer(r"(?mi)^(?:fiscal years?\s+)?((?:20\d\d\s+){3,}20\d\d)\s+(?:20\d\d and )?thereafter(\s+total)?\s*$", body):
             ctx = body[max(0, m.start() - 500):m.start()].lower()
             if not re.search(r"principal|debt|borrowings|maturit", ctx) or re.search(r"affiliat|joint venture|unconsolidated|lease (liabilities|payments)", ctx[-300:]):
                 continue
             years = re.findall(r"20\d\d", m.group(1)) + ["Thereafter"]
-            for ln in body[m.end():m.end() + 6000].split("\n")[:80]:
+            cells = lambda ln: [("0" if t == "\u2014" else t) for t in re.findall(r"\(?[\d,]+(?:\.\d+)?\)?|\u2014", ln.split("  ", 1)[-1])]
+            lines = body[m.end():m.end() + 6000].split("\n")[:80]
+            for ln in lines:
                 if re.match(r"(?i)total\b", ln):
-                    nums = re.findall(r"\(?[\d,]+(?:\.\d+)?\)?", ln.split("  ", 1)[-1])
+                    nums = cells(ln)
                     if len(nums) >= len(years):
                         horiz = (m, years, nums[:len(years)], ln, body.find(ln, m.end()))
                         break
+            if not horiz:
+                # one row for the whole schedule: "Term Debt (Principal only)  $ 875  $ —  $ 625 ..."
+                for ln in lines[:6]:
+                    if re.match(r"(?i)[a-z][^\d]*(debt|principal|notes|borrowings)", ln) and not re.search(r"(?i)interest|lease", ln.split("  ", 1)[0]):
+                        nums = cells(ln)
+                        if len(nums) >= len(years):
+                            horiz = (m, years, nums[:len(years)], ln, body.find(ln, m.end()))
+                            break
             if horiz:
                 break
         if horiz:
