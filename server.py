@@ -1962,7 +1962,14 @@ async def _read_core(data: bytes, kind: str, title: str, ticker: Optional[str]) 
     for f in findings:
         counts[f["status"]] = counts.get(f["status"], 0) + 1
     sha = hashlib.sha256(data).hexdigest()
+    try:
+        import report as _report
+        company_report = _report.build_report(body, page_starts, title, t or detected)
+    except Exception as e:      # the read still works if the report cannot be built
+        log.warning(f"/api/read report failed: {e.__class__.__name__}: {e}")
+        company_report = None
     return {
+        "report": company_report,
         "doc_id": "upload-" + sha[:16], "sha256": sha, "title": title, "kind": kind, "ticker": t,
         "detected_ticker": detected, "covered": covered,
         "chars": len(body), "text": body, "findings": findings, "counts": counts,
@@ -2179,6 +2186,10 @@ async def read_save(request: Request,
             f"{folder}/findings.json": json.dumps(record, indent=1, ensure_ascii=False).encode(),
             f"{folder}/summary.md": _read_summary_md(res, name, read_at).encode(),
         }
+        if res.get("report"):
+            import report as _report
+            files[f"{folder}/report.json"] = json.dumps(res["report"], indent=1, ensure_ascii=False).encode()
+            files[f"{folder}/report.md"] = _report.report_markdown(res["report"], name, read_at).encode()
         if len(data) <= READ_SAVE_SOURCE_MAX:
             files[f"{folder}/source{ext}"] = data
         commit = await _vault_commit(files, f"reader run: {t} {name} ({len(res['findings'])} figures)")

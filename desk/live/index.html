@@ -189,6 +189,37 @@ details.paste textarea{width:100%;min-height:110px;margin-top:8px;font:13px 'IBM
 .rs-save{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 14px;margin:0 0 14px;border:1px solid #e3e3dc;border-radius:10px;background:#fafaf7;font-size:13px}
 .rs-save button{height:34px;padding:0 16px;background:#0f7d47;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer}
 .rs-save .ok{color:#0f7d47;font-weight:600}.rs-save .err{color:#b42318}.rs-save a{color:#0f5fc7;word-break:break-all}
+.rp-ready{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;padding:16px 18px;margin:0 0 14px;border:1px solid #bfe3cf;border-radius:12px;background:linear-gradient(180deg,#f3fbf6,#fff)}
+.rp-ready-brand{display:flex;align-items:center;gap:4px;font:800 18px/1 'IBM Plex Sans',sans-serif;letter-spacing:-.02em;color:#161819}.rp-ready-brand svg,.rp-brand svg,.rp-foot svg{width:20px;height:17px}
+.rp-ready-txt{display:flex;flex-direction:column;gap:2px;flex:1;min-width:200px}.rp-ready-txt b{font-size:15px}.rp-ready-txt span{font-size:13px;color:#4a4a4a}
+.rp-ready button,.rp-bar button{height:38px;padding:0 16px;border-radius:8px;font-weight:600;cursor:pointer;border:1px solid #0f7d47}
+.rp-ready .rp-view,.rp-bar .rp-pdf{background:#0f7d47;color:#fff}.rp-ready .rp-dl,.rp-bar .rp-close{background:#fff;color:#0f7d47}
+#bmg-report{position:fixed;inset:0;z-index:2000;background:rgba(20,22,24,.55);display:flex;flex-direction:column;align-items:center}
+#bmg-report[hidden]{display:none}
+body.rp-open{overflow:hidden}
+#bmg-report .rp-bar{display:flex;gap:8px;justify-content:flex-end;width:min(900px,100%);padding:12px 16px 8px;box-sizing:border-box}
+#bmg-report .rp-scroll{overflow:auto;width:100%;flex:1;padding:0 16px 40px;box-sizing:border-box}
+.rp-doc{max-width:860px;margin:0 auto;background:#fff;color:#141414;border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:44px 56px;font:15px/1.6 'IBM Plex Sans',sans-serif}
+.rp-head{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #141414;padding-bottom:12px;margin-bottom:22px}
+.rp-brand{display:flex;align-items:center;gap:5px;font:800 24px/1 'IBM Plex Sans',sans-serif;letter-spacing:-.03em}
+.rp-brand svg{width:26px;height:22px}
+.rp-kind{font:600 12px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.12em;color:#0f7d47}
+.rp-doc h1{font:700 34px/1.15 'Source Serif 4',Georgia,serif;margin:0 0 4px}.rp-tk{font:600 18px 'IBM Plex Mono',monospace;color:#0f7d47;vertical-align:middle}
+.rp-sub{margin:0 0 6px;color:#3a3a3a}.rp-meta{margin:0 0 20px;font-size:13px;color:#6b6f76}
+.rp-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 26px}.rp-tile{border:1px solid #e3e3dc;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.rp-tile span{font-size:12px;color:#6b6f76;text-transform:uppercase;letter-spacing:.06em}.rp-tile b{font:600 24px/1.1 'IBM Plex Mono',monospace}.rp-tile em{font-style:normal;font-weight:600;font-size:13px}.rp-tile small{font-size:11px;color:#6b6f76}
+.rp-doc h2{font:700 20px/1.3 'Source Serif 4',Georgia,serif;margin:26px 0 8px;padding-top:10px;border-top:1px solid #e3e3dc}.rp-doc h3{font:600 14px 'IBM Plex Sans',sans-serif;margin:16px 0 6px}
+.rp-take li{margin:0 0 6px}.rp-table{width:100%;border-collapse:collapse;font-size:13.5px}.rp-table th{text-align:left;border-bottom:2px solid #141414;padding:6px 8px;font-size:11.5px;line-height:1.3;vertical-align:bottom}
+.rp-table th.num{white-space:normal;text-align:right;max-width:130px}.rp-table td:first-child{width:36%}
+.rp-table td{border-bottom:1px solid #eee;padding:6px 8px;vertical-align:top}.rp-table .num{text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+.rp-table tr.calc td:first-child{font-style:italic}.rp-formula{display:block;font-size:11px;color:#6b6f76;font-style:normal}.rp-table tr.nf td{color:#9aa0a8}.rp-table tr.tot td{font-weight:600;border-top:1px solid #141414}
+.up{color:#0f7d47}.down{color:#b42318}.muted{color:#6b6f76}.rp-note{font-size:12px;color:#6b6f76}
+.rp-meter i{display:inline-block;height:6px;background:#2fdc74;border-radius:3px;vertical-align:middle}.rp-table .rp-meter{display:inline-block;width:60px;margin-right:6px;background:#eef2ef;border-radius:3px;line-height:0}
+.rp-risks{padding-left:18px}.rp-risks li{margin:0 0 6px}.rp-rk{display:inline-block;font:600 10px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.06em;color:#b86e00;margin-right:6px}
+.rp-src{font:600 11px 'IBM Plex Mono',monospace;color:#0f5fc7;text-decoration:none;border:1px solid #cfe0f7;border-radius:4px;padding:0 4px;white-space:nowrap}.rp-src:hover{background:#eef4fd}
+.rp-foot{display:flex;align-items:center;gap:6px;margin-top:30px;padding-top:12px;border-top:2px solid #141414;font:800 14px 'IBM Plex Sans',sans-serif}.rp-foot .muted{font:400 12px 'IBM Plex Sans',sans-serif;margin-left:auto}
+@media (max-width:700px){.rp-doc{padding:24px 18px}.rp-tiles{grid-template-columns:repeat(2,1fr)}}
+@media print{body.rp-open>*:not(#bmg-report){display:none!important}#bmg-report{position:static;background:none;display:block}#bmg-report .rp-bar{display:none}#bmg-report .rp-scroll{overflow:visible;padding:0}.rp-doc{box-shadow:none;max-width:none;padding:0}.rp-src{border:none;color:#141414}.rp-doc h2{break-after:avoid}.rp-table tr{break-inside:avoid}@page{margin:16mm}}
 #read-summary{margin-top:28px}
 #read-summary h2{font-family:'Source Serif 4',Georgia,serif;font-size:28px;margin:0 0 6px}
 #read-summary h3{font:600 16px 'IBM Plex Sans',sans-serif;margin:22px 0 6px}
@@ -2083,6 +2114,94 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     sumEl.hidden = false;
   }
 
+
+  // ---- BMG Capital company report (built by the server from the filing) ----
+  const BMG_LINE = '<svg class="bmg-line" viewBox="0 0 100 86" aria-hidden="true"><polyline points="6,80 40,46 62,64 92,22" fill="none" stroke="#2fdc74" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><circle cx="92" cy="16" r="14" fill="#2fdc74"/></svg>';
+  const NF = "Not found in the reviewed sources";
+  function src(page, val){ return page ? `<a class="rp-src" href="#" data-page="${page}" data-val="${esc(val || "")}">p.&nbsp;${page}</a>` : ""; }
+  function chgTxt(f){ return f.chg != null ? `${f.chg >= 0 ? "+" : ""}${f.chg.toFixed(1)}%` : f.chg_pp != null ? `${f.chg_pp >= 0 ? "+" : ""}${f.chg_pp.toFixed(1)} pts` : ""; }
+  function chgCls(f){ const v = f.chg != null ? f.chg : f.chg_pp; return v == null ? "" : v >= 0 ? "up" : "down"; }
+  function reportHTML(rep, res){
+    const sn = rep.snapshot, fin = rep.financials;
+    const tile = (k, label) => { const f = fin[k] || {}; return `<div class="rp-tile"><span>${esc(label)}</span><b>${f.found ? esc(f.cur_txt) : "n/a"}</b><em class="${chgCls(f)}">${f.found ? esc(chgTxt(f)) : ""}</em><small>${f.found ? esc(f.period || "") : NF}</small></div>`; };
+    const order = [["revenue"],["gross_profit"],["gross_margin_pct"],["operating_income"],["operating_margin_pct"],["net_income"],["net_margin_pct"],["eps_diluted"],["cash"],["debt"],["total_assets"],["total_liabilities"],["equity"],["cfo"],["capex"],["fcf"],["buybacks"],["dividends"]];
+    const frow = ([k]) => { const f = fin[k] || {name: k};
+      if (!f.found) return `<tr class="nf"><td>${esc(f.name)}</td><td colspan="3">${NF}</td><td></td></tr>`;
+      return `<tr${f.calc ? ' class="calc"' : ""}><td>${esc(f.name)}${f.formula ? `<span class="rp-formula">${esc(f.formula)}</span>` : ""}</td><td class="num">${esc(f.cur_txt)}</td><td class="num muted">${esc(f.prev_txt || "")}</td><td class="num ${chgCls(f)}">${esc(chgTxt(f))}</td><td>${src(f.page, f.raw)}</td></tr>`; };
+    const periodHdr = (fin.revenue && fin.revenue.found) ? [fin.revenue.period, fin.revenue.prev_period] : (fin.net_income && fin.net_income.found ? [fin.net_income.period, fin.net_income.prev_period] : ["Current", "Prior"]);
+    const bd = (rep.breakdowns || []).map(b => `<h3>${esc(b.title)} <span class="muted">${esc(b.period)}</span></h3>
+      <table class="rp-table"><tr><th>Line</th><th class="num">Value</th><th class="num">Share</th><th class="num">Change</th><th></th></tr>
+      ${b.items.map(i => `<tr><td>${esc(i.name)}</td><td class="num">${esc(i.cur_txt)}</td><td class="num"><span class="rp-meter"><i style="width:${Math.max(2, Math.min(100, i.share || 0)).toFixed(0)}%"></i></span>${i.share != null ? i.share.toFixed(0) + "%" : ""}</td><td class="num ${i.chg == null ? "" : i.chg >= 0 ? "up" : "down"}">${i.chg != null ? (i.chg >= 0 ? "+" : "") + i.chg.toFixed(1) + "%" : ""}</td><td>${src(i.page)}</td></tr>`).join("")}
+      <tr class="tot"><td>Total</td><td class="num">${esc(b.total_txt)}</td><td></td><td></td><td></td></tr></table>`).join("");
+    const ind = rep.industry || {items: []};
+    const date = new Date().toLocaleDateString(undefined, {year: "numeric", month: "long", day: "numeric"});
+    return `<article class="rp-doc">
+      <header class="rp-head"><div class="rp-brand"><span>BMG Capital</span>${BMG_LINE}</div><div class="rp-kind">Company Report</div></header>
+      <h1>${esc(sn.name)} <span class="rp-tk">${esc(sn.ticker !== NF ? sn.ticker : "")}</span></h1>
+      <p class="rp-sub">${[sn.form, sn.period, sn.exchange].filter(x => x && x !== NF).map(esc).join(" &middot; ")}</p>
+      <p class="rp-meta">Prepared ${esc(date)} from <b>${esc(res.title)}</b> by the BMG Capital reader. Every figure links to its page in the filing.</p>
+      <section class="rp-tiles">${tile("revenue", "Revenue")}${tile("net_income", "Net income")}${tile("eps_diluted", "Diluted EPS")}${tile("fcf", "Free cash flow")}</section>
+      <h2>Company snapshot</h2>
+      <p>${esc(sn.description)} ${src(sn.description_page)}</p>
+      <p><b>Segments.</b> ${esc(sn.segments)} ${src(sn.segments_page)}</p>
+      <h2>Key takeaways</h2>
+      <ol class="rp-take">${(rep.takeaways || []).map(t => `<li>${esc(t.text)} ${src(t.page)}</li>`).join("") || `<li>${NF}</li>`}</ol>
+      <h2>Financial overview</h2>
+      <table class="rp-table"><tr><th>Metric</th><th class="num">${esc(periodHdr[0] || "Current")}</th><th class="num">${esc(periodHdr[1] || "Prior")}</th><th class="num">Change</th><th>Source</th></tr>${order.map(frow).join("")}</table>
+      <p class="rp-note">Periods differ by statement: a 10-Q's balance sheet is at the quarter end and its cash flows are year to date. Rows in italics are calculated; the formula is shown under the name.</p>
+      ${bd ? `<h2>Revenue breakdown</h2>${bd}` : ""}
+      <h2>Company-specific metrics <span class="muted">${esc(ind.profile || "")}</span></h2>
+      <table class="rp-table">${(ind.items || []).map(i => `<tr${i.value === NF ? ' class="nf"' : ""}><td>${esc(i.name)}</td><td class="num">${esc(i.value)}</td><td class="muted">${esc(i.period || "")}</td><td>${src(i.page)}</td></tr>`).join("") || `<tr class="nf"><td>${NF}</td></tr>`}</table>
+      <h2>Risks and watch items</h2>
+      <ul class="rp-risks">${(rep.risks || []).map(x => `<li><span class="rp-rk">${esc(x.kind)}</span>${esc(x.text)} ${src(x.page)}</li>`).join("") || `<li>${NF}</li>`}</ul>
+      <h2>Sources and method</h2>
+      <p class="rp-note">Source document: ${esc(res.title)}${res.sha256 ? ` (sha256 ${esc(res.sha256.slice(0, 16))}...)` : ""}, read in full (${(res.chars || 0).toLocaleString()} characters, ${(res.findings || []).length} figures). Values are copied as printed; line items, periods and categories are read automatically from the filing's tables and text, and should be checked against the cited page before use in a model or note. "${NF}" means the filing did not state it in a form the reader could match.</p>
+      <footer class="rp-foot"><span>BMG Capital</span>${BMG_LINE}<span class="muted">Company report &middot; for research purposes, not investment advice</span></footer>
+    </article>`;
+  }
+  function jumpToSource(page, val){
+    closeReport();
+    const pg = docBody.querySelectorAll(".pdfpage")[page - 1];
+    let target = pg || null;
+    if (pg && val){
+      const digits = String(val).replace(/[^\d.]/g, "");
+      const w = [...pg.querySelectorAll(".w")].find(x => digits && x.textContent.replace(/[^\d.]/g, "") === digits);
+      if (w) target = w;
+    }
+    if (!target) return;
+    const r = target.getBoundingClientRect();
+    window.scrollTo({top: r.top + window.scrollY - innerHeight * 0.4, behavior: "smooth"});
+    if (target.classList.contains("w")){ target.classList.add("hl-bping"); setTimeout(() => target.classList.remove("hl-bping"), 2400); }
+  }
+  function closeReport(){ const o = document.getElementById("bmg-report"); if (o) o.hidden = true; document.body.classList.remove("rp-open"); }
+  function openReport(print){
+    const res = state.readRes; if (!res || !res.report) return;
+    let o = document.getElementById("bmg-report");
+    if (!o){
+      o = document.createElement("div"); o.id = "bmg-report";
+      o.innerHTML = `<div class="rp-bar"><button type="button" class="rp-pdf">Download PDF</button><button type="button" class="rp-close" aria-label="Close report">Close</button></div><div class="rp-scroll"></div>`;
+      document.body.appendChild(o);
+      o.querySelector(".rp-close").onclick = closeReport;
+      o.querySelector(".rp-pdf").onclick = () => window.print();
+      o.addEventListener("click", e => { const a = e.target.closest(".rp-src"); if (a){ e.preventDefault(); jumpToSource(+a.dataset.page, a.dataset.val); } if (e.target === o) closeReport(); });
+      addEventListener("keydown", e => { if (e.key === "Escape") closeReport(); });
+    }
+    o.querySelector(".rp-scroll").innerHTML = reportHTML(res.report, res);
+    o.hidden = false; document.body.classList.add("rp-open");
+    o.querySelector(".rp-scroll").scrollTop = 0;
+    if (print) setTimeout(() => window.print(), 300);
+  }
+  function showReportReady(res){
+    if (!res.report) return;
+    let card = document.getElementById("read-report-ready");
+    if (!card){ card = document.createElement("div"); card.id = "read-report-ready"; card.className = "rp-ready"; }
+    sumEl.prepend(card);
+    const sn = res.report.snapshot;
+    card.innerHTML = `<div class="rp-ready-brand">BMG Capital ${BMG_LINE}</div><div class="rp-ready-txt"><b>Your BMG Capital report is ready</b><span>${esc(sn.name !== NF ? sn.name : res.title)}${sn.period !== NF ? " &middot; " + esc(sn.period) : ""}</span></div><button type="button" class="rp-view">View report</button><button type="button" class="rp-dl">Download PDF</button>`;
+    card.querySelector(".rp-view").onclick = () => openReport(false);
+    card.querySelector(".rp-dl").onclick = () => openReport(true);
+  }
+
   // Save the finished read to the vault on GitHub (free storage). Only the
   // owner can: the server asks for a save key, which this browser remembers
   // after the first successful save, so later reads save themselves.
@@ -2171,6 +2290,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       setStatus(`done &nbsp;&middot;&nbsp; ${state.readFound} figures found`);
       renderSummary(res);
       saveRun(false);
+      showReportReady(res);
       runRead.disabled = false; runRead.textContent = "Run again";
     };
   });
