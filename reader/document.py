@@ -54,6 +54,7 @@ class Document:
     warnings: list[dict] = field(default_factory=list)
     removed_boilerplate: int = 0
     xbrl: list[dict] = field(default_factory=list)                     # inline XBRL facts (HTML filings)
+    dei: dict = field(default_factory=dict)                            # cover facts tagged in iXBRL (dei:)
 
     def page_at(self, offset: int) -> Optional[int]:
         pg = None
@@ -189,6 +190,14 @@ def _sections(body: str, doc: "Document") -> list[Section]:
 
 def _pages_from(data: bytes, kind: str) -> list[dict]:
     import fact_checker as fc
+    if kind == "html":
+        try:
+            from . import htmltext
+            pages = htmltext.to_pages(data)
+            if sum(len(p["text"]) for p in pages) > 200:
+                return pages
+        except Exception:
+            pass                       # fall back to the generic extractor
     try:
         return fc.extract(data, kind)
     except Exception as e:
@@ -200,12 +209,12 @@ def load(data: bytes, kind: str, title: str, max_chars: int = 600_000) -> Docume
     sha = hashlib.sha256(data).hexdigest()
     raw = _pages_from(data, kind)
     pages_raw = [[l for l in (p.get("text") or "").split("\n")] for p in raw]
-    cleaned, printed, removed = _strip_boilerplate(pages_raw) if kind == "pdf" else (pages_raw, [None] * len(pages_raw), 0)
+    cleaned, printed, removed = _strip_boilerplate(pages_raw) if (kind == "pdf" or len(pages_raw) >= 5) else (pages_raw, [None] * len(pages_raw), 0)
     doc = Document(sha256=sha, title=title, kind=kind, pages=[], removed_boilerplate=removed)
     parts, pos = [], 0
     empty = []
     for i, lines in enumerate(cleaned):
-        t = _fold("\n".join(lines).strip())
+        t = _fold("\n".join(lines).strip()) if kind != "html" else "\n".join(lines).strip()
         idx = i + 1
         doc.pages.append(Page(index=idx, printed=printed[i], text=t, chars=len(t)))
         if len(re.sub(r"\s+", "", t)) < 20:
@@ -245,6 +254,7 @@ def load(data: bytes, kind: str, title: str, max_chars: int = 600_000) -> Docume
         try:
             from . import xbrl
             doc.xbrl = xbrl.parse(data)
+            doc.dei = xbrl.dei(data)
         except Exception as e:
             doc.warnings.append({"code": "xbrl_failed", "message": f"Inline XBRL tags could not be read ({e.__class__.__name__}); tables were used instead."})
     return doc

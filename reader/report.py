@@ -20,8 +20,11 @@ NF = "Not found in the reviewed filing"
 
 def _company(doc) -> dict:
     head = doc.body[:15000]
+    dei = getattr(doc, "dei", None) or {}
     loc = lambda m: doc.location(m.start()) if m else {}
     name_m = re.search(r"\n([^\n]{2,90})\n\s*\(Exact name of (?:registrant|Registrant)", "\n" + head)
+    if name_m and re.search(r"commission file|file number|^\s*\(|form 10|securities and exchange", name_m.group(1), re.I):
+        name_m = None
     form_m = re.search(r"FORM\s+(10-K(?:/A)?|10-Q(?:/A)?|20-F|40-F)", head, re.I)
     per_m = re.search(r"for the (fiscal year|quarterly period) ended\s+([A-Z][a-z]+\s+\d{1,2},\s+\d{4})", head, re.I)
     exch_m = re.search(r"(The Nasdaq Stock Market LLC|Nasdaq Global Select Market|New York Stock Exchange|NYSE American|NYSE)", head)
@@ -33,8 +36,8 @@ def _company(doc) -> dict:
     sig = re.search(r"SIGNATURES[\s\S]{0,4000}?Date:\s*([A-Z][a-z]+ \d{1,2}, \d{4})", doc.body)
     form = form_m.group(1).upper() if form_m else None
     return {
-        "name": re.sub(r"\s+", " ", name_m.group(1)).strip() if name_m else None,
-        "ticker": tick, "form": form, "amendment": bool(form and form.endswith("/A")),
+        "name": dei.get("EntityRegistrantName") or (re.sub(r"\s+", " ", name_m.group(1)).strip() if name_m else None),
+        "ticker": tick or (dei.get("TradingSymbol") or None), "form": form or (dei.get("DocumentType") or None), "amendment": bool(form and form.endswith("/A")),
         "period": ((("Fiscal year ended " if per_m.group(1).lower() == "fiscal year" else "Quarter ended ") + re.sub(r"\s+", " ", per_m.group(2))) if per_m else None),
         "exchange": exch_m.group(1) if exch_m else None,
         "signature_date": sig.group(1) if sig else None,
@@ -99,7 +102,32 @@ ROWS_POS = [("cash", None), ("total_debt", None), ("total_assets", None), ("tota
             ("cfo", None), ("capex", None), ("buybacks", None), ("dividends", None)]
 
 
-def build(doc, rows: list, fb: "F.FactBook", claims: Optional[list] = None) -> dict:
+def calculations(fb, bank: bool = False) -> None:
+    """Margins, free cash flow, capital returned and net cash for the current
+    and prior period: formula and cited inputs, same period only."""
+    calcs = []
+    for which in (0, 1):
+        sfx = "cur" if which == 0 else "prior"
+        rev, gp, oi, ni = fb.get("revenue", which), fb.get("gross_profit", which), fb.get("operating_income", which), fb.get("net_income", which)
+        if not bank:
+            calcs.append(fb.calc(f"gross_margin:{sfx}", "Gross margin", "Gross profit / Revenue", [("Gross profit", gp), ("Revenue", rev)], F.ratio, "percent"))
+        calcs.append(fb.calc(f"operating_margin:{sfx}", "Operating margin", "Operating income / Revenue", [("Operating income", oi), ("Revenue", rev)], F.ratio, "percent"))
+        calcs.append(fb.calc(f"net_margin:{sfx}", "Net margin", "Net income / Revenue", [("Net income", ni), ("Revenue", rev)], F.ratio, "percent"))
+        if not bank:
+            cfo, capex = fb.get("cfo", which), fb.get("capex", which)
+            calcs.append(fb.calc(f"fcf:{sfx}", "Free cash flow", "Operating cash flow - |Capital expenditures|",
+                                 [("Operating cash flow", cfo), ("Capital expenditures", capex)], lambda a, b: (a - abs(b), ""), "USD"))
+        bb, dv = fb.get("buybacks", which), fb.get("dividends", which)
+        if bb or dv:
+            ins = [(n, x) for n, x in (("Share repurchases", bb), ("Dividends paid", dv)) if x]
+            calcs.append(fb.calc(f"capital_returned:{sfx}", "Capital returned to shareholders", " + ".join(f"|{n}|" for n, _ in ins), ins,
+                                 lambda *v: (sum(abs(x) for x in v), ""), "USD"))
+        cash, debt = fb.get("cash", which), fb.get("total_debt", which)
+        calcs.append(fb.calc(f"net_cash:{sfx}", "Net cash (cash minus total debt)", "Cash and cash equivalents - Total debt",
+                             [("Cash and cash equivalents", cash), ("Total debt", debt)], lambda a, b: (a - b, ""), "USD"))
+
+
+def build(doc, rows: list, fb: "F.FactBook", claims: Optional[list] = None, analysis: Optional[dict] = None) -> dict:
     now = datetime.now(timezone.utc)
     co = _company(doc)
     prof = profiles.kpis(doc, rows)
@@ -124,27 +152,7 @@ def build(doc, rows: list, fb: "F.FactBook", claims: Optional[list] = None) -> d
     perf = [row(k) for k, _ in ROWS_PERF]
     pos = [row(k) for k, _ in ROWS_POS]
 
-    # calculations (formula + cited inputs, same period only)
-    calcs = []
-    for which in (0, 1):
-        sfx = "cur" if which == 0 else "prior"
-        rev, gp, oi, ni = fb.get("revenue", which), fb.get("gross_profit", which), fb.get("operating_income", which), fb.get("net_income", which)
-        if not bank:
-            calcs.append(fb.calc(f"gross_margin:{sfx}", "Gross margin", "Gross profit / Revenue", [("Gross profit", gp), ("Revenue", rev)], F.ratio, "percent"))
-        calcs.append(fb.calc(f"operating_margin:{sfx}", "Operating margin", "Operating income / Revenue", [("Operating income", oi), ("Revenue", rev)], F.ratio, "percent"))
-        calcs.append(fb.calc(f"net_margin:{sfx}", "Net margin", "Net income / Revenue", [("Net income", ni), ("Revenue", rev)], F.ratio, "percent"))
-        if not bank:
-            cfo, capex = fb.get("cfo", which), fb.get("capex", which)
-            calcs.append(fb.calc(f"fcf:{sfx}", "Free cash flow", "Operating cash flow - |Capital expenditures|",
-                                 [("Operating cash flow", cfo), ("Capital expenditures", capex)], lambda a, b: (a - abs(b), ""), "USD"))
-        bb, dv = fb.get("buybacks", which), fb.get("dividends", which)
-        if bb or dv:
-            ins = [(n, x) for n, x in (("Share repurchases", bb), ("Dividends paid", dv)) if x]
-            calcs.append(fb.calc(f"capital_returned:{sfx}", "Capital returned to shareholders", " + ".join(f"|{n}|" for n, _ in ins), ins,
-                                 lambda *v: (sum(abs(x) for x in v), ""), "USD"))
-        cash, debt = fb.get("cash", which), fb.get("total_debt", which)
-        calcs.append(fb.calc(f"net_cash:{sfx}", "Net cash (cash minus total debt)", "Cash and cash equivalents - Total debt",
-                             [("Cash and cash equivalents", cash), ("Total debt", debt)], lambda a, b: (a - b, ""), "USD"))
+    calculations(fb, bank)
     calc_rows = []
     for base in ("gross_margin", "operating_margin", "net_margin", "fcf", "capital_returned", "net_cash"):
         c, p = fb.calcs.get(f"{base}:cur"), fb.calcs.get(f"{base}:prior")
@@ -156,7 +164,8 @@ def build(doc, rows: list, fb: "F.FactBook", claims: Optional[list] = None) -> d
                 ch = {"pp": c["value"] - p["value"], "display": f"{c['value'] - p['value']:+.1f} pts"}
             else:
                 ch = _change(c, p)
-        calc_rows.append({"metric": base, "name": c["name"], "current": c["id"], "prior": p["id"] if p else None, "change": ch,
+        ok = lambda x: x is not None and x.get("value") is not None
+        calc_rows.append({"metric": base, "name": c["name"], "current": c["id"] if ok(c) else None, "prior": p["id"] if ok(p) else None, "change": ch,
                           "status": c["status"], "formula": c["formula"], "reason": "; ".join(c.get("reasons", []))})
 
     # takeaways: each sentence cites the facts it rests on
@@ -211,7 +220,8 @@ def build(doc, rows: list, fb: "F.FactBook", claims: Optional[list] = None) -> d
     published = [r for r in perf + pos if r.get("current")]
     issues = list(fb.issues)
     limited = len(published) < 4
-    status = "Partial" if (not all(stm.values()) or limited or doc.warnings and any(w["code"] in ("truncated", "empty_pages", "incomplete") for w in doc.warnings)) else "Complete for the items listed"
+    status = "Partial" if (not all(stm.values()) or limited or doc.warnings and any(w["code"] in ("truncated", "incomplete") or (w["code"] == "empty_pages" and len(w.get("pages", [])) > max(3, len(doc.pages) * 0.05))
+                                    for w in doc.warnings)) else "Complete for the items listed"
     if limited:
         status = "Limited"
     followups = []
@@ -260,7 +270,42 @@ def build(doc, rows: list, fb: "F.FactBook", claims: Optional[list] = None) -> d
         "evidence": {"facts": fb.facts, "calcs": fb.calcs},
     }
     rep["findings"] = findings(rep, fb, claims or [])
+    if analysis:
+        rep["brief"] = analysis.get("brief")
+        rep["signals"] = analysis.get("signals", [])
+        _anchor_signals(rep)
+    else:
+        rep["brief"], rep["signals"] = None, []
     return rep
+
+
+def _anchor_signals(rep: dict) -> None:
+    """Each signal pops where the spider finds the last of its inputs: the
+    finding of the input fact that sits deepest in the document."""
+    facts, calcs = rep["evidence"]["facts"], rep["evidence"]["calcs"]
+    by_ref = {f["ref"]: f for f in rep["findings"] if f.get("ref")}
+
+    def leaves(fid, depth=0):
+        if depth > 4:
+            return []
+        if fid in facts:
+            return [fid]
+        c = calcs.get(fid)
+        return [x for i in (c or {}).get("inputs", []) for x in leaves(i, depth + 1)]
+
+    for sg in rep["signals"]:
+        cands = [by_ref[f] for i in sg["inputs"] for f in leaves(i) if f in by_ref]
+        if not cands and sg.get("id") == "maturity_wall":
+            cands = [f for f in rep["findings"] if f["group"] == "Risks" and f["label"] == "Scheduled debt maturities"]
+        if not cands and sg.get("kpi"):
+            cands = [f for f in rep["findings"] if f["group"] == "Operating metrics" and f["label"] == sg["kpi"]]
+        cands = [c for c in cands if c.get("offset") is not None and c["offset"] >= 0]
+        if not cands:
+            sg["anchor"] = None
+            continue
+        a = max(cands, key=lambda c: c["offset"])
+        sg["anchor"] = {"finding": a["id"], "pdf_page": a.get("pdf_page"), "offset": a["offset"]}
+        a.setdefault("signals", []).append(sg["id"])
 
 
 def findings(rep: dict, fb, claims: list) -> list[dict]:
@@ -348,6 +393,14 @@ def markdown(rep: dict, source_name: str, read_at: str) -> str:
         out.append(f"- {t['text']} [{t['basis']}; " + "; ".join(dict.fromkeys(loc(ev(r)) for r in t["refs"])) + "]")
     if rep["overview"].get("market_value_note"):
         out += ["", rep["overview"]["market_value_note"]["text"]]
+    if rep.get("brief") or rep.get("signals"):
+        out += ["", "## What the numbers say", ""]
+        if rep.get("brief"):
+            out += [f"Read as: {rep['brief']['profile']}. {rep['brief']['why']}", ""]
+        for sg in rep.get("signals") or []:
+            out.append(f"- **{sg['severity'].upper()}** {sg['headline']}: {sg['text']} ({sg['rule']}; " + "; ".join(dict.fromkeys(loc(ev(i)) for i in sg["inputs"])) + ")")
+        if rep.get("brief"):
+            out += ["", "What we looked for:", ""] + [f"- {it['title']}: {it.get('answer') or it.get('note') or 'Not found in the reviewed filing.'}" for it in rep["brief"]["items"]]
     out += ["", "## Financial overview", "", "| Metric | Current | Prior | Change | Status | Source |", "|---|---|---|---|---|---|"]
     for r in rep["financials"]["performance"] + rep["financials"]["calculated"] + rep["position"]["rows"]:
         c, p = ev(r.get("current")), ev(r.get("prior"))

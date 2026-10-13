@@ -29,7 +29,8 @@ def check_fact(f: dict) -> list[str]:
     if not (src.get("pdf_page") or src.get("anchor") or src.get("offset", -1) >= 0):
         errs.append(f"{f.get('id')}: no source location")
     raw, ex = _digits(src.get("raw", "")), _digits(src.get("excerpt", ""))
-    if not raw or raw not in ex:
+    nil = (src.get("raw") or "").strip() in ("\u2014", "\u2013", "-") and v == 0 and (src.get("raw") or "").strip() in (src.get("excerpt") or "")
+    if not nil and (not raw or raw not in ex):
         errs.append(f"{f.get('id')}: excerpt does not contain the printed value {src.get('raw')!r}")
     if not (f.get("period") or {}).get("label"):
         errs.append(f"{f.get('id')}: no period")
@@ -91,6 +92,23 @@ def validate(rep: dict) -> dict:
     rep["risks"]["items"] = [r for r in rep["risks"]["items"] if (r.get("source") or {}).get("excerpt")]
     rep["risks"]["watch"] = [r for r in rep["risks"]["watch"] if (r.get("source") or {}).get("excerpt")]
     rep["findings"] = [f for f in rep.get("findings", []) if not (f.get("ref") and f["ref"] in bad)]
+    # signals: every input must be a published fact or calculation
+    keep_s = []
+    for sg in rep.get("signals") or []:
+        ok = all((i in facts or i in calcs) and i not in bad and (facts.get(i) or calcs.get(i) or {}).get("status") != "Unavailable"
+                 for i in sg.get("inputs", []))
+        ok = ok and sg.get("severity") in ("risk", "watch", "strength", "info") and (sg.get("inputs") or (sg.get("source") or {}).get("excerpt"))
+        if ok:
+            keep_s.append(sg)
+        else:
+            errors.append(f"signal withdrawn (unsupported): {sg.get('id')}")
+    rep["signals"] = keep_s
+    live = {sg["id"] for sg in keep_s}
+    for it in (rep.get("brief") or {}).get("items", []):
+        it["signals"] = [x for x in it.get("signals", []) if x in live]
+    for f in rep["findings"]:
+        if f.get("signals"):
+            f["signals"] = [x for x in f["signals"] if x in live]
     rep["validation"] = {"passed": not errors, "errors": errors[:50], "withdrawn": sorted(bad)}
     if errors:
         rep["coverage"]["issues"].append({"type": "validation", "message": f"{len(errors)} item(s) failed evidence validation and were withdrawn."})

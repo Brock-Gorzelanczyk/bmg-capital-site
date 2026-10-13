@@ -18,14 +18,16 @@ _GEO = re.compile(r"americas|europe|greater china|china|japan|asia|pacific|emea|
 
 # name, vocabulary (profile score), KPI specs: (label, row pattern, sentence pattern with value group, unit)
 PROFILES = {
-    "Railcar leasing": (r"lease fleet|railcar leasing|fleet utilization|lease price index|renewal success|railcars? (?:on|for) lease", [
-        ("Fleet utilization", r"^(fleet )?utilization( rate)?$", r"utilization (?:rate )?(?:was|of|at|remained)[^.%]{0,40}?(\d{2}(?:\.\d)?)%", "percent"),
-        ("Lease price index", r"^lease price index$", r"lease price index[^.%]{0,80}?(-?\d+(?:\.\d)?)%", "percent"),
+    "Railcar leasing": (r"lease fleet|railcar leasing|fleet utilization|lease price index|renewal success|railcars? (?:on|for) lease|lease revenue|as lessor|"
+                        r"lease rates?|lease terms?|utilization|operating lease", [
+        ("Fleet utilization", r"^(fleet )?utilization( rate)?( at (year|period) end)?$", r"utilization (?:rate )?(?:was|of|at|remained)[^.%]{0,40}?(\d{2}(?:\.\d)?)%", "percent"),
+        ("Lease price index", r"^lease price index$", r"(?:lease price index|\bLPI\b)[^.%]{0,60}?(?:was |of )?((?:positive |negative |-)?\d+(?:\.\d)?)%", "percent"),
         ("Renewal success rate", r"^renewal success rate$", r"renewal success rate[^.%]{0,60}?(\d{2}(?:\.\d)?)%", "percent"),
         ("Fleet size (cars)", r"^(total )?(railcars|cars) (owned|in fleet)$|^fleet size$", r"fleet (?:of|consisting of|totaled)[^.]{0,60}?([\d,]{4,}) (?:railcars|cars)", "count"),
         ("Investment volume", r"^investment volume$", r"investment volume (?:was|of|totaled)[^.]{0,40}?\$\s?([\d.,]+)\s?(billion|million)", "USD"),
     ]),
-    "Railcar manufacturing": (r"railcar deliveries|new railcar orders|railcar backlog|manufacturing backlog|deliveries of|railcars?|manufacturing", [
+    "Railcar manufacturing": (r"railcar deliveries|new railcar orders|railcar backlog|manufacturing backlog|deliveries of|\bbacklog\b|\bdeliveries\b|"
+                              r"manufacturing facilit|production rates?|new orders", [
         ("Deliveries (units)", r"^(new railcar )?deliveries( units)?$", r"deliver(?:ies|ed)[^.]{0,40}?([\d,]{3,}) (?:units|railcars|new railcars)", "count"),
         ("New orders (units)", r"^(new railcar )?orders( units)?$", r"orders? (?:for|of|totaling|received)[^.]{0,40}?([\d,]{3,}) (?:units|railcars|new railcars)", "count"),
         ("Backlog (units)", r"^backlog( units)?$", r"backlog (?:of|was|totaled)[^.]{0,60}?([\d,]{3,}) (?:units|railcars|new railcars)", "count"),
@@ -57,10 +59,22 @@ _OPERATING = re.compile(r"\b(units|customers|subscribers|stores|employees|backlo
 
 
 def profile_for(doc) -> tuple[str, dict]:
+    """The industry profile; two joined by " + " when the business clearly
+    does both (a railcar builder that also leases, for example)."""
     low = doc.body.lower()
     scores = {name: len(re.findall(vocab, low)) for name, (vocab, _) in PROFILES.items()}
-    best = max(scores, key=scores.get)
-    return (best if scores[best] >= 3 else "General"), scores
+    ranked = sorted(scores, key=scores.get, reverse=True)
+    best = ranked[0]
+    if scores[best] < 3:
+        return "General", scores
+    second = ranked[1]
+    if scores[second] >= 20 and scores[second] >= 0.5 * scores[best] and "Banking" not in (best, second):
+        return f"{best} + {second}", scores
+    return best, scores
+
+
+def parts(profile: str) -> list:
+    return [p for p in (profile or "").split(" + ") if p in PROFILES]
 
 
 def _definition(doc, label: str) -> Optional[dict]:
@@ -92,8 +106,8 @@ def _row_kpi(doc, rows: list, label: str, pat: str, unit: str) -> Optional[dict]
         return {"name": label, "value": v, "display": fmt_value(v, u) if u in ("USD", "percent") else f"{v:,.0f}",
                 "prior": prev, "prior_display": (fmt_value(prev, u) if u in ("USD", "percent") else f"{prev:,.0f}") if prev is not None else "",
                 "period": _plabel(r, 0), "prior_period": _plabel(r, 1) if len(r["cols"]) > 1 else "",
-                "kind": "reported", "status": "Source matched",
-                "source": {"pdf_page": r["pdf_page"], "printed_page": r["printed_page"], "section": r["section"], "table_title": r["table_title"],
+                "kind": "reported", "status": "Source matched", "scope": r.get("block") or "",
+                "source": {"pdf_page": r["pdf_page"], "printed_page": r["printed_page"], "section": r["section"], "table_title": r["table_title"] or r.get("block") or "",
                            "row_label": r["full_label"], "excerpt": r["line"], "raw": r["raw"][0], "offset": r["offset"]}}
     return None
 
@@ -103,6 +117,8 @@ def _sentence_kpi(doc, label: str, pat: str, unit: str) -> Optional[dict]:
     if not m or not m.groups():
         return None
     raw = m.group(1)
+    if raw.lower().startswith(("positive ", "negative ")):
+        raw = ("-" if raw.lower().startswith("negative") else "") + raw.split()[1]
     mult = {"billion": 1e9, "million": 1e6}.get((m.group(2) or "").lower(), 1.0) if (m.lastindex or 0) >= 2 else 1.0
     try:
         v = float(raw.replace(",", "")) * mult
@@ -119,8 +135,8 @@ def _sentence_kpi(doc, label: str, pat: str, unit: str) -> Optional[dict]:
 def kpis(doc, rows: list) -> dict:
     prof, scores = profile_for(doc)
     items = []
-    if prof != "General":
-        for label, rpat, spat, unit in PROFILES[prof][1]:
+    for part in parts(prof):
+        for label, rpat, spat, unit in PROFILES[part][1]:
             k = (_row_kpi(doc, rows, label, rpat, unit) if rpat else None) or (_sentence_kpi(doc, label, spat, unit) if spat else None)
             if k:
                 d = _definition(doc, label)
@@ -137,8 +153,15 @@ def kpis(doc, rows: list) -> dict:
             continue
         if not _OPERATING.search(r["full_label"]) or r["full_label"].lower() in seen:
             continue
-        u = "percent" if r["raw"][0].endswith("%") else ("USD" if r["unit"] == "USD" and r["scale"] else "count")
-        k = _row_kpi(doc, [r], r["full_label"], "^" + re.escape(r["key"]) + "$", u)
+        if re.search(r"external customers|intersegment|eliminations", r["full_label"], re.I):
+            continue                     # revenue lines, not operating measures
+        counted = re.search(r"\bunits\b|number of|\bcars\b|railcars|employees|customers|stores", r["full_label"], re.I)
+        u = "percent" if r["raw"][0].endswith("%") else ("count" if counted or not r["scale"] else "USD")
+        if u == "USD":
+            continue                     # dollar rows belong to the financial statements, not operating KPIs
+        if any((i.get("source") or {}).get("offset") == r["offset"] for i in items):
+            continue                     # already shown as a profile KPI
+        k = _row_kpi(doc, [r], r["full_label"] + (f" ({r['block']})" if r.get("block") else ""), "^" + re.escape(r["key"]) + "$", u)
         if k:
             k["company_specific"] = True
             items.append(k)

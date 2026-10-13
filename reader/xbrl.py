@@ -15,6 +15,9 @@ CONCEPTS = {
     "gross_profit": ["us-gaap:GrossProfit"],
     "operating_income": ["us-gaap:OperatingIncomeLoss"],
     "net_income": ["us-gaap:NetIncomeLoss", "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic"],
+    "pretax_income": ["us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+                      "us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"],
+    "interest_expense": ["us-gaap:InterestExpense", "us-gaap:InterestExpenseNonoperating", "us-gaap:InterestExpenseNet"],
     "eps_basic": ["us-gaap:EarningsPerShareBasic"],
     "eps_diluted": ["us-gaap:EarningsPerShareDiluted"],
     "shares_diluted": ["us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding"],
@@ -22,7 +25,7 @@ CONCEPTS = {
     "inventories": ["us-gaap:InventoryNet"],
     "total_assets": ["us-gaap:Assets"],
     "total_liabilities": ["us-gaap:Liabilities"],
-    "equity": ["us-gaap:StockholdersEquity"],
+    "equity": ["us-gaap:StockholdersEquity", "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"],
     "liab_and_equity": ["us-gaap:LiabilitiesAndStockholdersEquity"],
     "cfo": ["us-gaap:NetCashProvidedByUsedInOperatingActivities"],
     "capex": ["us-gaap:PaymentsToAcquirePropertyPlantAndEquipment"],
@@ -94,3 +97,17 @@ def find(xfacts: list, metric: str, end: Optional[str], instant: bool, months: O
                 continue
         hits.append(f)
     return hits
+
+
+def dei(data: bytes) -> dict:
+    """Cover-page facts the filer tagged (dei:EntityRegistrantName,
+    dei:TradingSymbol, dei:DocumentType, dei:DocumentPeriodEndDate)."""
+    out = {}
+    for m in re.finditer(rb'<ix:nonNumeric[^>]*name="dei:(EntityRegistrantName|TradingSymbol|DocumentType|DocumentPeriodEndDate|SecurityExchangeName)"[^>]*>(.*?)</ix:nonNumeric>',
+                         data[:3_000_000], re.I | re.S):
+        k = m.group(1).decode()
+        if k in out:
+            continue
+        txt = re.sub(rb"<[^>]+>", b" ", m.group(2)).decode("utf-8", "replace")
+        out[k] = re.sub(r"\s+", " ", txt.replace("&amp;", "&").replace("&#160;", " ").replace("&nbsp;", " ")).strip()
+    return out

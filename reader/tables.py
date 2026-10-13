@@ -81,7 +81,7 @@ def header_periods(line: str, context: str) -> Optional[dict]:
     other = [t for t in nums if not _YEAR.fullmatch(re.sub(r"[^\d]", "", t)) and not re.fullmatch(r"\d{1,2},?", t.strip())]
     if len(other) > 1:
         return None
-    words = re.findall(r"[A-Za-z]+", line)
+    words = re.findall(r"[A-Za-z]+", re.sub(r"\([^)]*\)", " ", line))      # a scale caption may share the line
     allowed = {"january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december",
                "change", "years", "year", "ended", "months", "three", "six", "nine", "twelve", "fiscal", "as", "of", "and", "at", "net", "sales",
                "total", "unaudited", "restated", "q", "fy"}
@@ -116,6 +116,12 @@ def header_periods(line: str, context: str) -> Optional[dict]:
                 cols.append({"label": f"{mon[:3]} {day}, {y}" if md else y, "end": _iso(mon, day, y) if md else None, "year": y, "type": k})
         return {"cols": cols, "change_cols": change_cols, "text": (context[-120:] + " | " + line)[:220]}
     k = "FY" if ("year" in low or "fiscal" in low or "year" in context.lower()) else ""
+    # "December 31  2025 2024": one month and day for every year column
+    md = re.search(r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})\b", line) \
+        or re.search(r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s*$", context.strip())
+    if md:
+        return {"cols": [{"label": f"{md.group(1)[:3]} {int(md.group(2))}, {y}", "end": _iso(md.group(1), md.group(2), y), "year": y, "type": k}
+                         for y in years], "change_cols": change_cols, "text": line[:200]}
     return {"cols": [{"label": y, "end": None, "year": y, "type": k} for y in years], "change_cols": change_cols, "text": line[:200]}
 
 
@@ -131,8 +137,8 @@ def _caption(body: str, off: int) -> dict:
     sm = re.search(r"shares?[^.]{0,60}?(?:in|reflected in) (thousands|millions)", rest)
     if sm:
         shares_scale = {"thousands": "K", "millions": "M"}[sm.group(1)]
-    elif "except" in rest and "share" in rest:
-        shares_scale = ""          # "except share data": share counts are actual
+    elif "except" in rest and "share" in re.sub(r"per[ -]share[a-z ]*", "", rest):
+        shares_scale = ""          # "except share data": share counts are actual ("except per share amounts" leaves them scaled)
     return {"scale": scale, "shares_scale": shares_scale, "text": m.group(0)[:200]}
 
 
@@ -157,6 +163,8 @@ def _unit(label: str, heading: str, raw0: str) -> str:
     ctx = (heading + " " + label).lower()
     if raw0.endswith("%"):
         return "percent"
+    if re.match(r"shares? (repurchased|withheld|purchased)|purchase of shares", label.lower()) and "activities" in heading.lower():
+        return "USD"                    # a cash flow line, not a share count
     if re.match(r"(shares|weighted[- ]average|number of shares)", heading.lower()) or re.match(r"(shares|weighted[- ]average)", label.lower()):
         return "shares"
     if re.search(r"per (?:common |diluted |basic )?share|earnings per share|net income per share|loss per share", ctx) or (
@@ -176,6 +184,7 @@ def parse(doc) -> list[dict]:
     heading = ""
     title = ""
     prev: list[str] = []
+    block = ""
     pos = 0
     for line in body.split("\n"):
         start = pos
@@ -194,6 +203,10 @@ def parse(doc) -> list[dict]:
         h = header_periods(s, ctx) if len(s) < 260 else None
         if h:
             hdr, hdr_age, heading = h, 0, ""
+            # the table's own caption: a short heading-like line just above
+            # ("Rail North America Fleet Data"), which says whose figures these are
+            block = next((x for x in reversed(prev[-7:-1]) if 3 <= len(x) <= 70 and not re.search(r"\d", x) and x[:1].isupper()
+                          and not x.endswith((".", ":", ",")) and statement_of(x) == "other" and not re.match(r"\(", x)), "")
             tail = re.sub(r"^.*\b(19|20)\d\d\b", "", s).strip(" :")
             if tail and re.match(r"[A-Za-z]", tail):
                 heading = tail
@@ -204,13 +217,17 @@ def parse(doc) -> list[dict]:
                 hdr = None
             continue
         n = len(hdr["cols"])
-        parts = s.replace("$", " $ ").split()
+        parts = re.sub(r"(\d)\s+%", r"\1%", s).replace("$", " $ ").split()       # "99.0 %" is one cell
         k = len(parts)
         while k > 0 and _CELL.fullmatch(parts[k - 1]):
             k -= 1
         label = " ".join(parts[:k]).strip(" :")
         toks = _cells(parts[k:], hdr["change_cols"])
+        if len(toks) == n + 1 and re.fullmatch(r"\((?:\d|[a-z])\)", toks[0]) and label:
+            toks = toks[1:]                 # a footnote marker after the label: "Utilization rate (1) 99.0%"
+            label += f" {parts[k]}"
         unlabeled = False
+        close_after, next_heading = False, None
         if k == 0 or not re.match(r"[A-Za-z(]", label or "x"):
             j = 0
             while j < len(parts) and _CELL.fullmatch(parts[j]):
@@ -219,8 +236,9 @@ def parse(doc) -> list[dict]:
             if len(lead) == n and heading:
                 label, toks, unlabeled = "Total " + heading, lead, True
                 rest = " ".join(parts[j:]).strip(" :")
+                close_after = True               # a total ends its section
                 if rest and re.match(r"[A-Za-z]", rest):
-                    heading = rest
+                    next_heading = rest
             else:
                 continue
         elif not toks:
@@ -255,7 +273,9 @@ def parse(doc) -> list[dict]:
             "label": label, "full_label": full, "key": re.sub(r"[^a-z0-9]+", " ", label.lower()).strip(),
             "heading": heading, "values": vals, "raw": toks, "cols": cols, "header_text": hdr["text"],
             "unit": unit, "scale": scale, "caption": cap["text"], "table_title": title,
-            "statement": statement, "unlabeled_total": unlabeled, "footnote": footnote,
+            "statement": statement, "unlabeled_total": unlabeled, "footnote": footnote, "block": block,
             "offset": start, "line": s[:240], **loc,
         })
+        if close_after or label.lower().startswith("total "):
+            heading = next_heading or ""
     return rows

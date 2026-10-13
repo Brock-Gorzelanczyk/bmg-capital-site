@@ -2372,6 +2372,33 @@ async def reader_job_save(request: Request, job_id: str,
                                  "figures": len(rep["findings"])})
 
 
+def _compare_jobs(request: Request, a: str, b: str):
+    ja, jb = _job_or_404(request, a, None), _job_or_404(request, b, None)
+    if ja.state != "done" or jb.state != "done":
+        raise HTTPException(status_code=409, detail="Both reports must be finished before they can be compared.")
+    from reader import compare as _rcompare
+    return _rcompare.build(ja.result["report"], jb.result["report"])
+
+
+@app.get("/api/read/compare")
+async def reader_compare(request: Request, a: str, b: str) -> JSONResponse:
+    """Two of the caller's finished reports side by side (owner-scoped)."""
+    return JSONResponse(content=_compare_jobs(request, a, b))
+
+
+@app.get("/api/read/compare.pdf")
+async def reader_compare_pdf(request: Request, a: str, b: str):
+    cmp = _compare_jobs(request, a, b)
+    from reader import pdf as _rpdf
+    try:
+        data = await asyncio.to_thread(_rpdf.render_compare, cmp)
+    except Exception as e:
+        log.exception("compare pdf failed")
+        return JSONResponse(status_code=500, content={"error": f"The comparison PDF could not be generated ({e.__class__.__name__})."})
+    name = re.sub(r"[^A-Za-z0-9]+", "-", f"BMG-Capital-{cmp['a'].get('ticker') or 'A'}-vs-{cmp['b'].get('ticker') or 'B'}").strip("-")
+    return Response(content=data, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{name}.pdf"', "Cache-Control": "private, no-store"})
+
+
 @app.get("/api/read/jobs/{job_id}/events")
 async def reader_job_events(request: Request, job_id: str, after: int = 0):
     """Server-Sent Events. Resumes after Last-Event-ID (or ?after=)."""

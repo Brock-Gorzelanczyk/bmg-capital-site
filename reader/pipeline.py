@@ -11,14 +11,14 @@ import re
 import time
 from typing import Callable, Optional
 
-from . import document, facts as F, report, schema, tables
+from . import document, facts as F, profiles, report, schema, signals, tables
 
 
 class Cancelled(Exception):
     pass
 
 
-STAGES = ["Upload", "Parse", "Extract", "Validate", "Build report", "Ready"]
+STAGES = ["Upload", "Parse", "Identify", "Extract", "Validate", "Analyze", "Build report", "Ready"]
 
 
 def _claims(doc) -> list[dict]:
@@ -67,6 +67,14 @@ def run(data: bytes, kind: str, title: str, ticker: Optional[str] = None,
     doc = document.load(data, kind, title)
     done("Parse", t, pages=len(doc.pages), sections=len(doc.sections), warnings=len(doc.warnings))
 
+    # Identify: who this is, what kind of business, and what to look for,
+    # before any figure is extracted.
+    t = stage("Identify")
+    co = report._company(doc)
+    prof, scores = profiles.profile_for(doc)
+    br = signals.brief(co, prof, scores)
+    done("Identify", t, company=co.get("name"), ticker=co.get("ticker") or ticker, form=co.get("form"), profile=prof, brief=br)
+
     t = stage("Extract")
     rows = tables.parse(doc)
     fb = F.FactBook(doc, rows).extract()
@@ -77,8 +85,28 @@ def run(data: bytes, kind: str, title: str, ticker: Optional[str] = None,
     checks = len(fb.checks)
     done("Validate", t, checks=checks, failed=sum(1 for c in fb.checks if not c["passed"]), conflicts=len(fb.issues))
 
+    t = stage("Analyze")
+    if " + " in prof:
+        # list the larger business first, by the revenue lines that name them
+        a_, b_ = prof.split(" + ")
+        word = lambda p: "leas" if "leasing" in p.lower() else "manufactur" if "manufactur" in p.lower() else p.split()[0].lower()
+        rev = lambda w: sum(r["values"][0] for r in rows if r["statement"] == "income" and r["unit"] == "USD"
+                            and r["key"].startswith(w) and len(r["key"].split()) <= 5)
+        if rev(word(b_)) > rev(word(a_)):
+            prof = f"{b_} + {a_}"
+            br["profile"] = prof
+            br["why"] = br["why"].replace(f"{a_.lower()} + {b_.lower()}", f"{b_.lower()} + {a_.lower()}") + f" {b_} is listed first because it is the larger revenue line."
+    report.calculations(fb, prof == "Banking")
+    kp = profiles.kpis(doc, rows)
+    from . import risks as _risks
+    watch, _ = _risks.watch_items(doc, rows)
+    sigs = signals.analyze(fb, prof, kp["items"], watch)
+    signals.focus_status(br, sigs, kp["items"], fb)
+    sev = {k: sum(1 for x in sigs if x["severity"] == k) for k in signals.SEVERITIES}
+    done("Analyze", t, signals=len(sigs), **sev, highlights=[{"headline": x["headline"], "severity": x["severity"]} for x in sigs[:8]])
+
     t = stage("Build report")
-    rep = report.build(doc, rows, fb, claims)
+    rep = report.build(doc, rows, fb, claims, analysis={"brief": br, "signals": sigs})
     if ticker and not rep["company"].get("ticker"):
         rep["company"]["ticker_hint"] = ticker
     rep = schema.validate(rep)

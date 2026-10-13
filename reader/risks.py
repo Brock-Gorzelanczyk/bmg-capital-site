@@ -173,7 +173,26 @@ def watch_items(doc, rows: list) -> tuple[list[dict], list[str]]:
                       "source": {"pdf_page": mats[0]["pdf_page"], "printed_page": mats[0]["printed_page"], "section": mats[0]["section"],
                                  "table_title": mats[0]["table_title"], "excerpt": mats[0]["line"], "offset": mats[0]["offset"]}})
     else:
-        hit = first("matur", r"matur\w+[^.]{0,200}\$\s?[\d.,]+\s?(?:billion|million)")
+        # a schedule printed as one run of year / amount pairs, below a debt
+        # caption: "2026 $ 653.3  2027 854.5 ... Thereafter 5,605.2"
+        sched = None
+        for m in re.finditer(r"\b(20\d\d)\s+\$?\s?([\d,]+(?:\.\d+)?)(?:\s+(20\d\d)\s+\$?\s?[\d,]+(?:\.\d+)?){3,}(?:\s+Thereafter\s+\$?\s?[\d,]+(?:\.\d+)?)?", body):
+            ctx = body[max(0, m.start() - 1500):m.start()].lower()
+            if re.search(r"debt|borrowings|notes due|term loans", ctx[-700:]) and not re.search(r"lease (liabilities|payments)|operating leases", ctx[-400:]) \
+                    and not re.search(r"affiliat|joint venture|unconsolidated|equity method|investee", ctx[-300:]):      # another entity's debt
+                sched = m
+                break
+        hit = None if sched else first("matur", r"matur\w+[^.]{0,200}\$\s?[\d.,]+\s?(?:billion|million)")
+        if sched:
+            from .tables import _caption
+            from .facts import SCALE, fmt_value
+            cap = _caption(body, sched.start())
+            mult = SCALE.get(cap["scale"], 1.0)
+            pairs = re.findall(r"(20\d\d|Thereafter)\s+\$?\s?([\d,]+(?:\.\d+)?)", sched.group(0))
+            lines = [f"{y}: {fmt_value(float(v.replace(',', '')) * mult, 'USD')}" for y, v in pairs[:7]]
+            items.append({"category": "Liquidity and refinancing", "title": "Scheduled debt maturities", "text": "; ".join(lines) + ".",
+                          "why_it_may_matter": "Large near-term maturities must be repaid or refinanced.", "kind": "reported",
+                          "source": {**doc.location(sched.start()), "excerpt": re.sub(r"\s+", " ", sched.group(0))[:300], "offset": sched.start()}})
         if hit:
             items.append({"category": "Liquidity and refinancing", "title": "Debt maturities", "text": hit[1][:360],
                           "why_it_may_matter": "Large near-term maturities must be repaid or refinanced.", "kind": "reported",
