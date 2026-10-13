@@ -155,6 +155,28 @@ details.paste textarea{width:100%;min-height:110px;margin-top:8px;font:13px 'IBM
 .read-grid[hidden]{display:none}
 .read-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
 .read-side{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;border:1px solid #e3e3dc;border-radius:10px;padding:12px 14px;background:#fff}
+.read-grid{grid-template-columns:minmax(0,1fr) 360px}
+.rs-tabs{display:flex;gap:4px;align-items:center;margin:0 0 10px;border-bottom:1px solid #e3e3dc}
+.rs-tabs [role=tab]{font:600 12px 'IBM Plex Mono',monospace;background:none;border:0;border-bottom:2px solid transparent;padding:6px 10px;margin-bottom:-1px;color:#6b6f76;cursor:pointer}
+.rs-tabs [role=tab][aria-selected=true]{color:#141414;border-bottom-color:#141414}.rs-tabs [role=tab]:focus-visible{outline:2px solid #3e7bfa;outline-offset:2px}
+.rs-sheet{display:none;margin-left:auto;font:500 11px 'IBM Plex Mono',monospace;background:#f4f4f0;border:1px solid #d9d9d2;border-radius:6px;padding:3px 8px;cursor:pointer}
+.lr{font-size:12.5px;line-height:1.35}.lr h4{margin:12px 0 4px;font:600 11px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.6px;color:#141414}.lr h4 small{font:400 10px 'IBM Plex Mono',monospace;text-transform:none;letter-spacing:0;color:#8a9099;margin-left:4px}
+.lr-head{border-bottom:1px solid #eceee9;padding-bottom:6px}.lr-brand{display:flex;align-items:center;gap:6px;font:700 13px 'IBM Plex Sans',sans-serif}.lr-brand span{font-weight:400;color:#6b6f76}.lr-brand .bmg-line{width:16px;height:14px;order:-1}
+.lr-co{margin-top:2px}.lr-basis{display:inline-block;margin-top:4px;font:600 10px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.05em;color:#6b4e00;background:#fff4d1;border-radius:4px;padding:1px 6px}
+.lr-prog{font:500 11px 'IBM Plex Mono',monospace;color:#4a4a4a;margin:6px 0 2px}.lr .muted,.lr .ph{color:#9aa0a8}
+.lr-t{width:100%;border-collapse:collapse;table-layout:fixed}.lr-t th{font:500 10px 'IBM Plex Mono',monospace;color:#8a9099;text-align:right;padding:2px 4px}.lr-t td{padding:3px 4px;border-top:1px solid #f0f0ec;vertical-align:top}
+.lr-t td:first-child{width:44%;color:#2a2a2a}.lr-t td small{display:block;color:#9aa0a8;font-size:10px}.lr-t.lr-r td:first-child{width:62%}
+.lr-c{text-align:right;height:30px}.lr-c .ph{font:400 11px 'IBM Plex Mono',monospace}.lr-v{font:600 12.5px 'IBM Plex Mono',monospace;background:none;border:0;padding:0;color:#141414;cursor:pointer;text-decoration:underline dotted #b5b5ae;text-underline-offset:3px}
+.lr-v:hover,.lr-v:focus-visible{color:#1f5fd6}.lr-src{display:block;font:400 9.5px 'IBM Plex Mono',monospace;color:#9aa0a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lr-b{display:inline-block;font:600 9px 'IBM Plex Mono',monospace;font-style:normal;text-transform:uppercase;border-radius:3px;padding:0 4px}.lr-b.corr{background:#e7efff;color:#1f5fd6}.lr-b.stale{background:#fff1e0;color:#a35d00}.lr-w{color:#c0262c;text-decoration:line-through;font:500 11px 'IBM Plex Mono',monospace}
+.lr-c.flash,.lr-sig.flash{animation:lrflash 1.4s ease}@keyframes lrflash{0%{background:#fff3b8}100%{background:transparent}}
+#lr-sigs{list-style:none;margin:0;padding:0}.lr-sig{border-left:3px solid var(--c,#3e7bfa);padding:4px 8px;margin:0 0 5px;cursor:pointer;border-radius:0 5px 5px 0;background:#fbfbf9}.lr-sig b{display:block;font-size:12.5px;margin-top:2px}.lr-sig small{display:block;color:#8a9099;font-size:10px}
+.lr-sig.s-flag{--c:#e5484d}.lr-sig.s-watch{--c:#e8920c}.lr-sig.s-observation{--c:#3e7bfa}.lr-sig:focus-visible{outline:2px solid #3e7bfa}
+.lr-foot{margin-top:10px;font-size:11.5px;color:#4a4a4a}.lr-open{margin-left:4px;font:600 11px 'IBM Plex Mono',monospace;background:#141414;color:#fff;border:0;border-radius:6px;padding:4px 9px;cursor:pointer}
+@media (prefers-reduced-motion:reduce){.lr-c.flash,.lr-sig.flash{animation:none}}
+@media (max-width:900px){.read-side{position:fixed!important;left:0;right:0;bottom:0;top:auto;max-height:46vh!important;border-radius:12px 12px 0 0;z-index:40;box-shadow:0 -6px 20px rgba(0,0,0,.12)}.rs-sheet{display:inline-block}.read-side.collapsed{max-height:44px!important;overflow:hidden}.read-grid{padding-bottom:48vh}}
+body.rec .read-side{position:fixed!important;left:0;right:0;bottom:0;top:auto;height:var(--rec-h,40vh);max-height:none!important;border-radius:0;border:0;border-top:1px solid #e3e3dc;overflow:hidden;z-index:40}
+body.rec .rs-tabs{display:none}body.rec #pane-found{display:none!important}body.rec #read-live{display:block!important}body.rec .lr{font-size:15px}body.rec .lr-t td{padding:4px 6px}
 .read-side h2{font:600 15px 'IBM Plex Sans',sans-serif;margin:0 0 2px}
 #read-count{font:12px 'IBM Plex Mono',monospace;color:#6b6f76}
 #read-findings{list-style:none;margin:10px 0 0;padding:0}
@@ -230,24 +252,24 @@ body.rp-open{overflow:hidden}
 .bf-list li i{width:10px;height:10px;margin-top:3px;border-radius:50%;border:2px solid #c9c9c4;box-sizing:border-box}.bf-list li.ind span{font-weight:600}
 .bf-list li em{grid-column:2;font:500 11px 'IBM Plex Mono',monospace;font-style:normal;color:#6b6f76}.bf-list li.wait i{border-color:#9aa0a8;border-top-color:transparent;animation:stspin 1.1s linear infinite}
 .bf-list li.ok i{background:#12a150;border-color:#12a150}.bf-list li.ok em{color:#141414}.bf-list li.nf{opacity:.6}.bf-list li.nf i{border-style:dashed}
-.bf-list li.s-risk i{background:#e5484d;border-color:#e5484d}.bf-list li.s-risk em{color:#c0262c}.bf-list li.s-watch i{background:#e8920c;border-color:#e8920c}.bf-list li.s-watch em{color:#a35d00}.bf-list li.s-strength em{color:#0f7d47}
+.bf-list li.s-flag i{background:#e5484d;border-color:#e5484d}.bf-list li.s-flag em{color:#c0262c}.bf-list li.s-watch i{background:#e8920c;border-color:#e8920c}.bf-list li.s-watch em{color:#a35d00}
 .bf-list li.pop{animation:bfpop .6s ease}@keyframes bfpop{0%{background:#fff7d6}100%{background:transparent}}
 .bf-sum{display:flex;flex-wrap:wrap;gap:5px;align-items:center}.bf-sum small{flex-basis:100%;font-size:11px;color:#6b6f76}
 .sev{display:inline-block;font:700 9.5px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:10px;color:#fff;white-space:nowrap}
-.sev.s-risk{background:#e5484d}.sev.s-watch{background:#e8920c}.sev.s-strength{background:#12a150}.sev.s-info{background:#3e7bfa}
+.sev.s-flag{background:#e5484d}.sev.s-watch{background:#e8920c}.sev.s-observation{background:#3e7bfa}
 .sg-group{margin:4px 0 10px}.sg-group[hidden]{display:none}.sg-group h4{margin:0 0 6px;font:600 11px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.6px;color:#141414;display:flex;gap:6px;align-items:center}.sg-group h4 .n{margin-left:auto;color:#9aa0a8}
 .sg-group ol{list-style:none;margin:0;padding:0}.sg{border-left:3px solid var(--c,#3e7bfa);padding:6px 8px;margin:0 0 7px;font-size:12.5px;cursor:pointer;animation:rfin .35s ease;background:#fcfcfa;border-radius:0 6px 6px 0}
-.sg.s-risk{--c:#e5484d;background:#fff6f6}.sg.s-watch{--c:#e8920c;background:#fffaf1}.sg.s-strength{--c:#12a150;background:#f4fbf6}.sg.s-info{--c:#3e7bfa}
+.sg.s-flag{--c:#e5484d;background:#fff6f6}.sg.s-watch{--c:#e8920c;background:#fffaf1}.sg.s-observation{--c:#3e7bfa}
 .sg b{display:block;margin:3px 0 1px;font-size:13px}.sg .sg-t{display:block;color:#3a3a3a;font-size:12px;line-height:1.35}.sg small{display:block;color:#8a9099;font-size:10.5px;margin-top:2px}
 .sig-pop{position:absolute;z-index:26;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(15,20,30,.22),0 0 0 1px rgba(0,0,0,.05);border-left:5px solid var(--c);padding:9px 12px 8px;font:13px/1.35 'IBM Plex Sans',sans-serif;color:#141414;pointer-events:none;transform-origin:left center;animation:sigin .45s cubic-bezier(.2,1.5,.4,1)}
 .sig-pop{transform-origin:var(--ax) bottom}.sig-pop::after{content:'';position:absolute;left:calc(var(--ax) - 8px);bottom:-8px;width:14px;height:14px;background:#fff;transform:rotate(45deg);box-shadow:3px 3px 4px rgba(15,20,30,.10)}.sig-pop.below::after{bottom:auto;top:-8px;box-shadow:-2px -2px 3px rgba(15,20,30,.08)}.sig-pop.below{transform-origin:var(--ax) top}.sig-pop b{display:block;font-size:14.5px;margin:4px 0 2px}.sig-pop span:not(.sev){display:block;color:#3a3a3a}.sig-pop small{display:block;color:#8a9099;font-size:10.5px;margin-top:4px}
-.sig-pop.s-risk{--c:#e5484d}.sig-pop.s-watch{--c:#e8920c}.sig-pop.s-strength{--c:#12a150}.sig-pop.s-info{--c:#3e7bfa}.sig-pop.out{opacity:0;transform:translateY(-6px) scale(.97);transition:opacity .4s,transform .4s}
+.sig-pop.s-flag{--c:#e5484d}.sig-pop.s-watch{--c:#e8920c}.sig-pop.s-observation{--c:#3e7bfa}.sig-pop.out{opacity:0;transform:translateY(-6px) scale(.97);transition:opacity .4s,transform .4s}
 @keyframes sigin{0%{opacity:0;transform:scale(.6)}100%{opacity:1;transform:scale(1)}}
-.pdftext .w.sig-mark,.htmldoc .w.sig-mark{outline:2.5px solid var(--c);outline-offset:2px;border-radius:3px}.w.sig-risk{--c:#e5484d}.w.sig-watch{--c:#e8920c}.w.sig-strength{--c:#12a150}.w.sig-info{--c:#3e7bfa}
-.pdftext .w.sig-mark.sig-risk{background:rgba(229,72,77,.32)!important}.pdftext .w.sig-mark.sig-watch{background:rgba(232,146,12,.3)!important}.pdftext .w.sig-mark.sig-strength{background:rgba(18,161,80,.28)!important}
+.pdftext .w.sig-mark,.htmldoc .w.sig-mark{outline:2.5px solid var(--c);outline-offset:2px;border-radius:3px}.w.sig-flag{--c:#e5484d}.w.sig-watch{--c:#e8920c}.w.sig-observation{--c:#3e7bfa}
+.pdftext .w.sig-mark.sig-flag{background:rgba(229,72,77,.32)!important}.pdftext .w.sig-mark.sig-watch{background:rgba(232,146,12,.3)!important}
 .rp-compare{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;border-top:1px solid #d9eee1;padding-top:10px}.rp-compare>div{display:flex;flex-direction:column;flex:1;min-width:220px;font-size:13px}.rp-compare>div span{color:#4a4a4a;font-size:12.5px}
 .cmp-pick span,.rp-compare .cmp-open{display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:8px;border:1px dashed #0f7d47;color:#0f7d47;font-weight:600;cursor:pointer;background:#fff;font-size:13.5px}.rp-compare.busy .cmp-pick span{opacity:.5;pointer-events:none}.cmp-status{font-size:12.5px;color:#4a4a4a}
-.rp-sigs{list-style:none;padding:0}.rp-sigs li{border-left:4px solid var(--c,#3e7bfa);padding:6px 10px;margin:0 0 10px;background:#fbfbf9}.rp-sigs li.s-risk{--c:#e5484d}.rp-sigs li.s-watch{--c:#e8920c}.rp-sigs li.s-strength{--c:#12a150}
+.rp-sigs{list-style:none;padding:0}.rp-sigs li{border-left:4px solid var(--c,#3e7bfa);padding:6px 10px;margin:0 0 10px;background:#fbfbf9}.rp-sigs li.s-flag{--c:#e5484d}.rp-sigs li.s-watch{--c:#e8920c}
 .rp-sigs li p{margin:3px 0;font-size:13.5px}.rp-sigs li small{color:#6b6f76;font-size:11.5px}.rp-sigs li b{margin-left:6px}
 .cmp h1 .vs{font:600 16px 'IBM Plex Mono',monospace;color:#6b6f76}.cmp-sum{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0 18px}.cmp-sum div{border:1px solid #e3e3dc;border-radius:10px;padding:10px 12px}.cmp-sum h3{margin:0 0 4px!important}.cmp-sum p{margin:0;font-size:13.5px}
 .cmp-t td small{display:block;font-size:10.5px;color:#8a9099;font-family:'IBM Plex Sans',sans-serif}.cmp-t tr.cg td{font:600 11px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.06em;color:#0f7d47;border-bottom:1px solid #141414;padding-top:14px}
@@ -278,6 +300,7 @@ html,body{overflow-x:clip}
 .rp-cov{font-size:13px;margin:0 0 16px;padding:8px 12px;background:#f6f8f7;border-radius:8px}
 .rp-st{display:inline-block;font:600 10px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.04em;padding:1px 6px;border-radius:10px;border:1px solid #d8d8d2;white-space:nowrap}.rp-st.ok{color:#0f7d47;border-color:#b7dfc8}.rp-st.warn{color:#b86e00;border-color:#f0d2a6}.rp-st.dim{color:#8a9099}
 .rp-table td small{display:block;font-size:10.5px;color:#8a9099;font-family:'IBM Plex Sans',sans-serif}.rp-tw{overflow-x:auto}.rp-basis{font:600 10px 'IBM Plex Mono',monospace;color:#6b6f76;text-transform:uppercase}
+.cmp-t .who small{display:block;color:#6b6f76;font-size:11px}.cmp-t .nc{font:600 10px 'IBM Plex Mono',monospace;text-transform:uppercase;color:#a35d00}
 .rp-risks{list-style:none;padding:0}.rp-risks li{margin:0 0 14px}.rp-risks blockquote{margin:4px 0;padding:2px 10px;border-left:3px solid #e3e3dc;color:#3a3a3a;font-size:13px}.rp-why{margin:2px 0 0;font-size:13px}.rp-why span{font:600 10px 'IBM Plex Mono',monospace;color:#7a3cff;text-transform:uppercase;margin-right:4px}
 .rp-method,.rp-follow{font-size:13px;padding-left:18px}.rp-ev q{font-size:11.5px}.rp-src.rp-nodoc{opacity:.6;cursor:help}
 @media (prefers-reduced-motion: reduce){.rf{animation:none}.rd-stages .running .dot{animation:none}.pdftext .w,.htmldoc .w{transition:none!important;animation:none!important}}
@@ -342,11 +365,149 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       <div id="docbody"></div>
     </div>
   </div>
-  <aside class="read-side"><div id="read-brief" class="bf" hidden aria-live="polite"></div><div class="rs-head"><h2>Found</h2><div id="read-count">0 found</div></div><div id="read-scope"></div><section id="read-signals" class="sg-group" hidden><h4><i></i>Signals <span class="n">0</span></h4><ol></ol></section><div id="read-chips"></div><div id="read-findings"></div></aside>
+  <aside class="read-side" aria-label="Report and findings"><div class="rs-tabs" role="tablist"><button type="button" role="tab" id="tab-live" aria-controls="read-live" aria-selected="true">Report</button><button type="button" role="tab" id="tab-found" aria-controls="pane-found" aria-selected="false" tabindex="-1">Found</button><button type="button" class="rs-sheet" id="rs-sheet" aria-expanded="true">Hide</button></div><section id="read-live" class="lr" role="tabpanel" aria-labelledby="tab-live" aria-live="off"><p class="muted lr-empty">The BMG Capital report builds here as the spider reaches each figure.</p></section><div id="pane-found" role="tabpanel" aria-labelledby="tab-found" hidden><div id="read-brief" class="bf" hidden aria-live="polite"></div><div class="rs-head"><h2>Found</h2><div id="read-count">0 found</div></div><div id="read-scope"></div><section id="read-signals" class="sg-group" hidden><h4><i></i>Signals <span class="n">0</span></h4><ol></ol></section><div id="read-chips"></div><div id="read-findings"></div></div></aside>
 </div>
 <section id="read-summary" hidden></section>
 <p class="older muted">Older designs: <a href="/desk/live-v4/">v4 (black)</a> &middot; <a href="/desk/live-v3/">v3</a> &middot; <a href="/desk/live-v2/">v2</a> &middot; <a href="/desk/live-v1/">v1</a></p>
 </main>
+<script>// Live report model: what the BMG Capital report panel shows at each moment
+// of a walk. Pure logic (no DOM), shared by the reader page and its tests.
+//
+// A cell (fact or calculation) is shown only once every fact it rests on has
+// been revealed; a signal only once its inputs and its anchor finding have.
+// Facts are revealed by findings the spider reaches, or marked as read
+// earlier when the walk starts part-way through the document (the panel
+// says so). Events carry a sequence number: duplicates are ignored and
+// out-of-order events wait for the gap to fill, so a reconnect cannot
+// double a row or lose a correction.
+(function (root) {
+  function LiveReportModel(plan) {
+    this.plan = plan;
+    this.revealed = new Map();        // fact id -> "walk" | "earlier"
+    this.foundSeen = new Set();
+    this.shown = new Map();           // cell or signal id -> {state, display, earlier, reason}
+    this.overrides = new Map();       // corrections that arrived before the cell was shown
+    this.applied = new Set();
+    this.buffer = new Map();
+    this.nextSeq = 1;
+    this.byFinding = {};
+    for (const [fact, fd] of Object.entries(plan.fact_to_finding || {})) (this.byFinding[fd] = this.byFinding[fd] || []).push(fact);
+  }
+  const P = LiveReportModel.prototype;
+
+  P._ready = function (reqs) { return reqs.length > 0 && reqs.every(r => this.revealed.has(r)); };
+  // how the inputs became known: "walk" (spider reached them), "earlier" (read
+  // before the replayed excerpt began) or "server" (after the walk ended)
+  P._via = function (reqs) {
+    const v = reqs.map(r => this.revealed.get(r));
+    return v.includes("server") ? "server" : v.includes("earlier") ? "earlier" : "walk";
+  };
+
+  P._evaluate = function () {
+    const out = [];
+    for (const [id, c] of Object.entries(this.plan.cells || {})) {
+      if (this.shown.has(id) || !this._ready(c.requires)) continue;
+      const ov = this.overrides.get(id);
+      const st = {state: ov ? ov.state : "shown", display: ov && ov.display != null ? ov.display : c.display, via: this._via(c.requires), reason: ov ? ov.reason : null};
+      if (ov && ov.state === "withdrawn") st.display = null;
+      this.shown.set(id, st);
+      out.push({op: "show", kind: c.kind === "calculated" ? "calc" : "fact", id, ...st});
+    }
+    for (const s of this.plan.signals || []) {
+      if (this.shown.has("sig:" + s.id)) continue;
+      const anchorOk = !s.anchor || this.foundSeen.has(s.anchor) || this._ready(s.requires);
+      if (!(s.requires.length ? this._ready(s.requires) : this.foundSeen.has(s.anchor)) || !anchorOk) continue;
+      const st = {state: "shown", via: this._via(s.requires)};
+      this.shown.set("sig:" + s.id, st);
+      out.push({op: "show", kind: "signal", id: s.id, ...st});
+    }
+    return out;
+  };
+
+  // A finding reached by the spider.
+  P.revealFinding = function (findingId) {
+    if (this.foundSeen.has(findingId)) return [];
+    this.foundSeen.add(findingId);
+    for (const f of this.byFinding[findingId] || []) if (!this.revealed.has(f)) this.revealed.set(f, "walk");
+    return this._evaluate();
+  };
+
+  // The walk starts at a later point: everything before it was read by the
+  // server before the replay began.
+  P.markEarlier = function (beforeOffset) {
+    for (const [f, off] of Object.entries(this.plan.fact_offsets || {}))
+      if (off != null && off >= 0 && off < beforeOffset && !this.revealed.has(f)) this.revealed.set(f, "earlier");
+    return this._evaluate();
+  };
+
+  // End of the walk: the rest of the report assembles from the same data.
+  P.finish = function () {
+    for (const f of Object.keys(this.plan.fact_offsets || {})) if (!this.revealed.has(f)) this.revealed.set(f, "server");
+    return this._evaluate();
+  };
+
+  P._dependents = function (factOrCell) {
+    const ids = [];
+    for (const [id, c] of Object.entries(this.plan.cells || {})) if (id !== factOrCell && c.requires.includes(factOrCell)) ids.push(id);
+    const sigs = (this.plan.signals || []).filter(s => s.requires.includes(factOrCell)).map(s => "sig:" + s.id);
+    return ids.concat(sigs);
+  };
+
+  P._correct = function (ev) {
+    const out = [];
+    const target = ev.id;
+    const state = ev.type === "withdraw" ? "withdrawn" : "corrected";
+    const apply = (id, st) => {
+      if (this.shown.has(id)) {
+        const cur = this.shown.get(id);
+        const nx = {...cur, state: st.state, reason: st.reason, display: st.display !== undefined ? st.display : cur.display};
+        this.shown.set(id, nx);
+        out.push({op: "update", id, ...nx});
+      } else this.overrides.set(id, st);
+    };
+    apply(target, {state, reason: ev.reason || null, display: state === "withdrawn" ? null : ev.display});
+    // everything resting on it is stale until the server sends recomputed values
+    for (const d of this._dependents(target)) {
+      const upd = (ev.recomputed || {})[d];
+      if (upd !== undefined) apply(d, {state: upd === null ? "withdrawn" : "recomputed", reason: "An input was corrected.", display: upd});
+      else apply(d, {state: state === "withdrawn" ? "withdrawn" : "stale", reason: state === "withdrawn" ? "An input was withdrawn." : "An input was corrected; value pending recalculation."});
+    }
+    return out;
+  };
+
+  // Stream events: {seq, type: "reveal"|"correct"|"withdraw", ...}.
+  P.apply = function (ev) {
+    if (ev.seq == null) return this._handle(ev);
+    if (this.applied.has(ev.seq) || ev.seq < this.nextSeq) return [];
+    this.buffer.set(ev.seq, ev);
+    let out = [];
+    while (this.buffer.has(this.nextSeq)) {
+      const e = this.buffer.get(this.nextSeq);
+      this.buffer.delete(this.nextSeq);
+      this.applied.add(this.nextSeq);
+      this.nextSeq++;
+      out = out.concat(this._handle(e));
+    }
+    return out;
+  };
+  P._handle = function (ev) {
+    if (ev.type === "reveal") return this.revealFinding(ev.finding);
+    if (ev.type === "correct" || ev.type === "withdraw") return this._correct(ev);
+    return [];
+  };
+
+  P.counts = function () {
+    let walk = 0, earlier = 0, server = 0;
+    for (const v of this.revealed.values()) v === "walk" ? walk++ : v === "earlier" ? earlier++ : server++;
+    const cells = Object.keys(this.plan.cells || {}).length;
+    const shown = [...this.shown.keys()].filter(k => !k.startsWith("sig:")).length;
+    return {walk, earlier, server, cells, shown, signals: [...this.shown.keys()].filter(k => k.startsWith("sig:")).length};
+  };
+
+  if (typeof module !== "undefined" && module.exports) module.exports = LiveReportModel;
+  else root.LiveReportModel = LiveReportModel;
+})(typeof window !== "undefined" ? window : this);
+</script>
 <script>
 (() => {
   const SVG_NS = "http://www.w3.org/2000/svg";
@@ -2115,6 +2276,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     renderChips();
     state.readFound = state.panelIds.size;
     countEl.textContent = `${state.readFound} of ${state.readTotal} shown`;
+    if (state.live && el) applyLive(state.live.revealFinding(f.id));      // only findings the walk reached
   }
 
   state.onRow = (els) => {
@@ -2148,7 +2310,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   };
   state.onFound = (ev, el) => { if (ev._f){ addFinding(ev._f, el); onFindingSignals(ev._f, el); } };
   // ---- analyst brief, signals and callouts ----
-  const SEV = {risk: {c: "#e5484d", l: "Risk"}, watch: {c: "#e8920c", l: "Watch"}, strength: {c: "#12a150", l: "Strength"}, info: {c: "#3e7bfa", l: "Note"}};
+  const SEV = {flag: {c: "#e5484d", l: "Flag"}, watch: {c: "#e8920c", l: "Watch"}, observation: {c: "#3e7bfa", l: "Observation"}};
   const briefEl = document.getElementById("read-brief");
   const sigListEl = document.getElementById("read-signals");
   function drawBrief(br, live){
@@ -2171,8 +2333,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   }
   function drawSigSum(d){
     const el = document.getElementById("read-sigsum"); if (!el) return;
-    el.innerHTML = ["risk", "watch", "strength"].filter(k => d[k]).map(k => `<span class="sev s-${k}">${d[k]} ${SEV[k].l.toLowerCase()}</span>`).join("") +
-      (d.signals ? `<small>${d.signals} signals computed from the statements; each appears where the spider finds its figure.</small>` : "");
+    el.innerHTML = ["flag", "watch", "observation"].filter(k => d[k]).map(k => `<span class="sev s-${k}">${d[k]} ${SEV[k].l.toLowerCase()}${d[k] > 1 && k === "observation" ? "s" : ""}</span>`).join("") +
+      (d.signals ? `<small>${d.signals} screens and observations computed from the statements; each appears where the spider finds its figure. Flag and Watch mean a value is beyond a stated screen, not a verdict.</small>` : "");
   }
   function addSignalCard(sg){
     if (!sigListEl || sigListEl.querySelector(`[data-sig="${CSS.escape(sg.id)}"]`)) return;
@@ -2181,7 +2343,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     li.className = "sg s-" + sg.severity; li.dataset.sig = sg.id; li.tabIndex = 0;
     li.innerHTML = `<span class="sev s-${sg.severity}">${SEV[sg.severity].l}</span><b>${esc(sg.headline)}</b><span class="sg-t">${esc(sg.text)}</span><small>BMG interpretation · ${esc(sg.rule)}</small>`;
     li.addEventListener("click", () => { const f = sg._f; if (f) scrollToFinding(f); });
-    const order = {risk: 0, watch: 1, strength: 2, info: 3};
+    const order = {flag: 0, watch: 1, observation: 2};
     const after = [...sigListEl.querySelectorAll("li")].find(x => order[x.className.split("s-")[1]] > order[sg.severity]);
     sigListEl.querySelector("ol").insertBefore(li, after || null);
     sigListEl.querySelector(".n").textContent = sigListEl.querySelectorAll("li").length;
@@ -2214,6 +2376,92 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     const life = 6500 / Math.max(0.5, state.speedMul || 1);
     setTimeout(() => { box.classList.add("out"); setTimeout(() => box.remove(), 450); }, REDUCED ? 9000 : life);
   }
+  // ---- live report panel: the BMG Capital report forming as evidence is read ----
+  const liveEl = document.getElementById("read-live");
+  function liveCellHTML(id, st){
+    const c = state.live.plan.cells[id];
+    if (st.state === "withdrawn") return `<span class="lr-w" title="${esc(st.reason || "")}">withdrawn</span>`;
+    const badge = st.state === "corrected" ? `<em class="lr-b corr" title="${esc(st.reason || "")}">corrected</em>` :
+                  st.state === "stale" ? `<em class="lr-b stale" title="${esc(st.reason || "")}">input changed</em>` :
+                  st.state === "recomputed" ? `<em class="lr-b corr">recomputed</em>` : "";
+    const ip = c.input_pages || [];
+    const pg = c.page ? `p.${c.page}` : c.kind === "calculated" ? `calc${ip.length ? " · p." + ip.join(", ") : ""}` : "";
+    return `<button type="button" class="lr-v" data-page="${c.page || ip[0] || ""}" data-raw="${esc(c.raw || "")}" title="${esc(c.kind === "calculated" ? (c.formula || "") : c.excerpt)}">${esc(st.display == null ? c.display : st.display)}</button>`
+      + `<span class="lr-src">${pg}${st.via === "earlier" ? " · read before this excerpt" : st.via === "server" ? " · from the completed analysis" : ""}${c.status === "Needs review" ? " · needs review" : ""}</span>${badge}`;
+  }
+  function liveSkeleton(rep){
+    const L = rep.live;
+    state.live = null;
+    if (!liveEl) return;
+    if (!L || typeof LiveReportModel === "undefined"){ liveEl.innerHTML = `<p class="muted">The live report is not available for this result.</p>`; return; }
+    state.live = new LiveReportModel(L);
+    const co = rep.company || {};
+    liveEl.innerHTML = `<header class="lr-head"><div class="lr-brand">BMG Capital <span>report</span>${BMG_LINE}</div>
+        <div class="lr-co"><b>${esc(co.name || "")}</b> ${esc([co.ticker, co.form, co.period].filter(Boolean).join(" · "))}</div>
+        <div class="lr-basis" title="${esc(L.basis)}">Replay of completed analysis</div></header>
+      <div class="lr-prog" id="lr-prog" aria-live="polite"></div>
+      ${L.sections.map(s => `<section class="lr-sec" data-sec="${s.id}"><h4>${esc(s.title)}</h4><table class="lr-t"><thead><tr><th></th>${((s.rows[0] || {}).cells || []).map(c => `<th>${esc(L.cells[c].period || "")}</th>`).join("")}</tr></thead>
+        <tbody>${s.rows.map(r => `<tr><td>${esc(r.label)}</td>${r.cells.map(c => `<td class="lr-c" data-cell="${esc(c)}"><span class="ph" aria-label="not read yet">···</span></td>`).join("")}</tr>`).join("")}</tbody></table></section>`).join("")}
+      ${L.ratios.length ? `<section class="lr-sec"><h4>Calculated <small>shown once every input has been read</small></h4><table class="lr-t lr-r"><tbody>${L.ratios.map(r => `<tr><td>${esc(r.label)}<small>${esc(L.cells[r.id].formula || "")}</small></td><td class="lr-c" data-cell="${esc(r.id)}"><span class="ph">waiting for inputs</span></td></tr>`).join("")}</tbody></table></section>` : ""}
+      <section class="lr-sec lr-obs"><h4>Observations <small>shown when their evidence has been read</small></h4><ol id="lr-sigs"></ol><p class="ph" id="lr-sigs-ph">${L.signals.length ? `${L.signals.length} pending` : "None for this filing"}</p></section>
+      <footer class="lr-foot" id="lr-foot"></footer>`;
+    liveProgress();
+  }
+  function applyLive(changes){
+    if (!state.live || !changes || !changes.length || !liveEl) return;
+    for (const ch of changes){
+      if (ch.kind === "signal" && ch.op === "show"){
+        const sg = (state.live.plan.signals || []).find(x => x.id === ch.id);
+        const ol = document.getElementById("lr-sigs");
+        if (!sg || !ol || ol.querySelector(`[data-sig="${CSS.escape(sg.id)}"]`)) continue;
+        const li = document.createElement("li");
+        li.className = "lr-sig s-" + sg.severity + " flash"; li.dataset.sig = sg.id; li.tabIndex = 0;
+        li.innerHTML = `<span class="sev s-${sg.severity}">${SEV[sg.severity].l}</span><b>${esc(sg.headline)}</b>${ch.via && ch.via !== "walk" ? `<small>${ch.via === "earlier" ? "uses figures read before this excerpt" : "from the completed analysis"}</small>` : ""}`;
+        li.title = sg.text + " " + sg.rule;
+        li.addEventListener("click", () => { const f = (state.readRes.findings || []).find(x => x.id === sg.anchor); if (f) scrollToFinding(f); });
+        ol.appendChild(li);
+        const ph = document.getElementById("lr-sigs-ph");
+        if (ph){ const left = state.live.plan.signals.length - ol.children.length; ph.textContent = left > 0 ? `${left} pending` : ""; }
+        setTimeout(() => li.classList.remove("flash"), 1400);
+        continue;
+      }
+      const td = liveEl.querySelector(`[data-cell="${CSS.escape(ch.id)}"]`);
+      if (!td) continue;
+      td.innerHTML = liveCellHTML(ch.id, ch);
+      td.classList.toggle("is-w", ch.state === "withdrawn");
+      td.classList.add("flash"); setTimeout(() => td.classList.remove("flash"), 1400);
+    }
+    liveProgress();
+  }
+  function liveProgress(final){
+    if (!state.live) return;
+    const c = state.live.counts();
+    const el = document.getElementById("lr-prog");
+    if (el) el.textContent = final ? `Report assembled: ${c.shown} of ${c.cells} figures, ${c.signals} observations.`
+      : `${c.shown} of ${c.cells} report figures shown${c.earlier ? ` · ${c.earlier} source lines read before this excerpt` : ""}`;
+    const ft = document.getElementById("lr-foot");
+    if (ft && final) ft.innerHTML = `Source lines behind these figures: ${c.walk} revealed during the walk${c.earlier ? `, ${c.earlier} read before the replayed excerpt` : ""}${c.server ? `, ${c.server} filled in from the completed analysis` : ""}. <button type="button" class="lr-open">Open full report</button>`;
+    const b = ft && ft.querySelector(".lr-open"); if (b) b.onclick = () => openReport();
+  }
+  if (liveEl) liveEl.addEventListener("click", e => {
+    const b = e.target.closest(".lr-v"); if (!b) return;
+    const pg = +b.dataset.page; if (pg) jumpToSource(pg, b.dataset.raw);
+  });
+  // tabs: Report / Found
+  const tabs = [...document.querySelectorAll(".rs-tabs [role=tab]")];
+  function selectTab(id){
+    tabs.forEach(t => { const on = t.id === id; t.setAttribute("aria-selected", on); t.tabIndex = on ? 0 : -1; document.getElementById(t.getAttribute("aria-controls")).hidden = !on; });
+  }
+  tabs.forEach((t, i) => {
+    t.addEventListener("click", () => selectTab(t.id));
+    t.addEventListener("keydown", e => { if (e.key === "ArrowRight" || e.key === "ArrowLeft"){ const n = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length]; selectTab(n.id); n.focus(); } });
+  });
+  const sheetBtn = document.getElementById("rs-sheet");
+  if (sheetBtn) sheetBtn.addEventListener("click", () => {
+    const side = document.querySelector(".read-side"); const c = side.classList.toggle("collapsed");
+    sheetBtn.setAttribute("aria-expanded", String(!c)); sheetBtn.textContent = c ? "Show report" : "Hide";
+  });
+  if (/[?&]layout=record\b/.test(location.search)) document.body.classList.add("rec");
   function onFindingSignals(f, el){
     if (f.group === "Operating metrics") tickBrief("kpi:" + f.label, f.value);
     for (const id of f.signals || []){
@@ -2353,7 +2601,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     state.readRes = res;
     const rp = res.report;
     state.sigById = {}; (rp.signals || []).forEach(sg => { state.sigById[sg.id] = {...sg}; });
-    if (rp.brief){ drawBrief(rp.brief, true); drawSigSum({signals: (rp.signals || []).length, ...Object.fromEntries(["risk", "watch", "strength"].map(k => [k, (rp.signals || []).filter(x => x.severity === k).length]))}); }
+    if (rp.brief){ drawBrief(rp.brief, true); drawSigSum({signals: (rp.signals || []).length, ...Object.fromEntries(["flag", "watch", "observation"].map(k => [k, (rp.signals || []).filter(x => x.severity === k).length]))}); }
+    liveSkeleton(rp);
     state.readTotal = res.findings.length;
     state.panelIds = new Set();
     countEl.textContent = `0 of ${state.readTotal} shown`;
@@ -2367,6 +2616,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       document.getElementById("read-stage").hidden = false;
       docBody.innerHTML = `<p class="muted" style="padding:20px">The document itself is not kept, so it cannot be redrawn after a reload. The report and every citation are still available below. Choose the file again to watch it being read.</p>`;
       res.findings.forEach(x => { addFinding(x, null); onFindingSignals(x, null); });
+      if (state.live) applyLive(state.live.finish());
       return done(res);
     }
     state.docsLoaded["job-" + res.sha256] = {text: res.text};
@@ -2398,6 +2648,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   function done(res){
     ctlEl.hidden = true;
     if (jumpBtn) jumpBtn.hidden = true;
+    // what the walk did not reach comes from the completed analysis, and says so
+    if (state.live) applyLive(state.live.finish());
     // Whatever the walk did not reach is still listed, linked to its page.
     (state.pendingFindings || []).splice(0).forEach(p => {
       let el = null;
@@ -2410,6 +2662,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     Object.values(state.sigById || {}).forEach(sg => { if (!sg._shown){ sg._shown = true; addSignalCard(sg); } });
     if (res.report.brief) drawBrief(res.report.brief, false);
     setStatus(`ready · ${state.panelIds.size} findings`);
+    liveProgress(true);
     showFinish(res);
     resetRunBtn("Run again");
   }
@@ -2467,6 +2720,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
         if (s.state === "failed" || s.state === "cancelled") throw new Error(s.error || "The competitor filing could not be read.");
         st.textContent = `Reading ${s.title}: ${s.stage}...`;
         await new Promise(res => setTimeout(res, 700));
+        if (i === 399) throw new Error("The competitor filing is still being read after several minutes; try again shortly.");
       }
       state.compareJob = id;
       st.textContent = "Ready.";
@@ -2490,15 +2744,20 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       const mx = both ? Math.max(Math.abs(va), Math.abs(vb)) || 1 : 1;
       const bar = (v, side) => both ? `<span class="cbar${r.leader === side ? " lead" : ""}"><i style="width:${Math.max(3, Math.abs(v) / mx * 100).toFixed(0)}%"></i></span>` : "";
       const cell = (x, side) => `<td class="num${r.leader === side ? " lead" : ""}">${esc(x.display || "n/a")}${bar(x.value, side)}<small>${pg(x.sources)}</small></td>`;
-      rows += `<tr><td>${esc(r.name)}${r.better ? `<small>${r.better} is better</small>` : `<small>size or context, not ranked</small>`}${r.note ? `<small>${esc(r.note)}</small>` : ""}</td>${cell(r.a, "a")}${cell(r.b, "b")}<td class="who">${r.leader ? `<b>${esc(r.leader === "a" ? na : nb)}</b>` : ""}</td></tr>`;
+      const who = r.leader ? `<b>${esc(r.leader === "a" ? na : nb)}</b><small>${r.better} is better</small>`
+        : r.not_comparable_reason ? `<span class="nc">Not comparable</span><small>${esc(r.not_comparable_reason)}</small>`
+        : r.better ? `<small>difference not material</small>` : `<small>size or context, not ranked</small>`;
+      rows += `<tr><td>${esc(r.name)}${r.note ? `<small>${esc(r.note)}</small>` : ""}</td>${cell(r.a, "a")}${cell(r.b, "b")}<td class="who">${who}</td></tr>`;
     }
     return `<article class="rp-doc cmp">
       <header class="rp-head"><div class="rp-brand"><span>BMG Capital</span>${BMG_LINE}</div><div class="rp-kind">Company Comparison</div></header>
       <h1>${esc(c.a.name)} <span class="vs">vs</span> ${esc(c.b.name)}</h1>
       <p class="rp-meta">${esc(na)}: ${esc([c.a.form, c.a.period, c.a.profile].filter(Boolean).join(" · "))}<br>${esc(nb)}: ${esc([c.b.form, c.b.period, c.b.profile].filter(Boolean).join(" · "))}</p>
       ${c.caveats.map(x => `<p class="rp-cov">${esc(x)}</p>`).join("")}
-      <section class="cmp-sum"><div><h3>Where ${esc(na)} is ahead</h3><p>${esc(c.summary.a.join(", ") || "None of the compared measures")}</p></div><div><h3>Where ${esc(nb)} is ahead</h3><p>${esc(c.summary.b.join(", ") || "None of the compared measures")}</p></div></section>
-      <div class="rp-tw"><table class="rp-table cmp-t"><tr><th>Measure</th><th class="num">${esc(na)}</th><th class="num">${esc(nb)}</th><th>Ahead</th></tr>${rows}</table></div>
+      <h3>Comparability checks</h3>
+      <div class="rp-tw"><table class="rp-table"><tr><th>Check</th><th>Result</th><th>Detail</th></tr>${(c.checks || []).map(x => `<tr><td>${esc(x.check)}</td><td>${esc(x.result)}</td><td class="muted">${esc(x.detail)}</td></tr>`).join("")}</table></div>
+      <p class="rp-note">No overall winner is declared. A row names the more favourable value only when periods, scope and definitions line up; otherwise it says why the values are not comparable.</p>
+      <div class="rp-tw"><table class="rp-table cmp-t"><tr><th>Measure</th><th class="num">${esc(na)}</th><th class="num">${esc(nb)}</th><th>Comparability</th></tr>${rows}</table></div>
       <p class="rp-note">${esc(c.method)}</p>
       <footer class="rp-foot"><span>BMG Capital</span>${BMG_LINE}<span class="muted">Comparison · automatically generated, not reviewed by an analyst · not investment advice</span></footer></article>`;
   }
@@ -2580,6 +2839,16 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
         ${w.text ? `<blockquote>${esc(w.text.slice(0, 320))}${w.text.length > 320 ? "..." : ""}</blockquote>` : ""}${w.why_it_may_matter ? `<p class="rp-why"><span>BMG interpretation</span> ${esc(w.why_it_may_matter)}</p>` : ""}</li>`).join("");
     const checks = (rep.checks || []).map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.period)}</td><td>${c.passed ? '<span class="rp-st ok">Pass</span>' : '<span class="rp-st warn">Fail</span>'}</td><td class="muted">${esc(c.detail)}</td></tr>`).join("");
     const iss = issuesOf(rep);
+    const bz = rep.business || {}, p3 = (rep.performance3 || {}).rows || [], ec = rep.earnings_cash || {}, cap = rep.capital || {};
+    const sigById = id => id ? (rep.signals || []).find(x => x.id === id) : null;
+    const ecNI = ev(ec.net_income), ecCF = ev(ec.cfo);
+    const sr = rep.sources_reviewed || {}, spg = k => ((sr.statements || {})[k] || []).map(x => `p.${x}`).join(", ");
+    const srTxt = `<h2 id="rp-coverage">Sources and coverage</h2>
+      <p>Statements read: income statement ${spg("income") || "not found"}; balance sheet ${spg("balance") || "not found"}; cash flow statement ${spg("cashflow") || "not found"}; statement of equity ${spg("equity") || "not found"}.</p>
+      ${(sr.sections || []).length ? `<p class="rp-note">Sections located: ${esc(sr.sections.map(x => `Item ${x.item} ${x.title} (p.${x.page})`).join("; "))}.</p>` : ""}
+      ${(sr.read || []).length ? `<p class="rp-note">Read: ${esc(sr.read.join("; "))}.</p>` : ""}
+      ${(sr.not_read || []).length ? `<p class="rp-note">Not read or out of scope: ${esc(sr.not_read.join("; "))}.</p>` : ""}
+      ${(sr.failed || []).map(x => `<p class="rp-note"><b>Could not read:</b> ${esc(x)}</p>`).join("")}`;
     const body = `
       <header class="rp-head"><div class="rp-brand"><span>BMG Capital</span>${BMG_LINE}</div><div class="rp-kind">Company Report</div></header>
       <h1>${esc(co.name || "Company not identified")} <span class="rp-tk">${esc(co.ticker || co.ticker_hint || "")}</span></h1>
@@ -2587,30 +2856,50 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       <p class="rp-meta">Generated ${esc(new Date(rep.generated_at).toLocaleString())} from <b>${esc(rep.source.name)}</b> (${rep.source.pages} pages). ${esc(rep.review)}</p>
       <p class="rp-cov">Coverage: <b>${esc(rep.coverage.status)}</b> &middot; ${rep.coverage.facts_published} headline figures &middot; ${rep.coverage.checks_run} checks, ${rep.coverage.checks_failed} failed &middot; validation ${rep.validation.passed ? "passed" : "withdrew " + rep.validation.withdrawn.length + " item(s)"}</p>
       <section class="rp-tiles">${tile("revenue", "Revenue")}${tile("net_income", "Net income")}${tile("eps_diluted", "Diluted EPS")}${tile("fcf", "Free cash flow")}</section>
-      <h2 id="rp-overview">Executive overview</h2>
+      <h2 id="rp-overview">Business overview</h2>
       ${desc}
       ${sg.text ? `<p><b>Segments.</b> ${esc(sg.text)} ${srcOf(sg)}</p>` : ""}
-      <ol class="rp-take">${(ov.takeaways || []).map(t => `<li>${esc(t.text)} <span class="rp-basis">${esc(t.basis)}</span> ${srcOf(...t.refs.map(ev))}</li>`).join("") || `<li class="muted">No takeaways could be supported with cited figures.</li>`}</ol>
+      ${bz.revenue_mix ? `<p><b>Revenue mix.</b> ${esc(bz.revenue_mix.text)} ${srcOf(bz.revenue_mix)} <span class="rp-basis">${esc(bz.revenue_mix.basis || "")}</span></p>` : ""}
+      <p class="rp-note">Read as <b>${esc(bz.profile || op.profile || "")}</b>.${(bz.drivers || []).length ? ` Operating measures found: ${esc(bz.drivers.join("; "))}.` : ""}</p>
       ${ov.market_value_note ? `<p class="rp-note">${esc(ov.market_value_note.text)} ${srcOf(ev(ov.market_value_note.fact))}</p>` : ""}
-      ${(rep.signals || []).length || rep.brief ? `<h2 id="rp-analysis">What the numbers say</h2>
-      ${rep.brief ? `<p class="rp-note">Read as <b>${esc(rep.brief.profile)}</b>. ${esc(rep.brief.why)}</p>` : ""}
-      <ul class="rp-sigs">${[...(rep.signals || [])].sort((x, y) => ["risk", "watch", "strength", "info"].indexOf(x.severity) - ["risk", "watch", "strength", "info"].indexOf(y.severity)).map(sg =>
-        `<li class="s-${sg.severity}"><span class="sev s-${sg.severity}">${SEV[sg.severity].l}</span><b>${esc(sg.headline)}</b> ${srcOf(...(sg.inputs || []).map(ev)) || (sg.source && sg.source.pdf_page ? srcOf({source: sg.source}) : "")}<p>${esc(sg.text)}</p><small>BMG interpretation · ${esc(sg.rule)}</small></li>`).join("")}</ul>
-      ${rep.brief ? `<h3>What we looked for</h3><div class="rp-tw"><table class="rp-table"><tr><th>Measure</th><th>Why it matters</th><th>Result</th></tr>${rep.brief.items.map(it => `<tr${it.status === "found" ? "" : ' class="nf"'}><td>${it.industry ? "<b>" + esc(it.title) + "</b>" : esc(it.title)}</td><td class="muted">${esc(it.why)}</td><td>${esc(it.answer || it.note || NF)}</td></tr>`).join("")}</table></div>` : ""}` : ""}
-      <h2 id="rp-financials">Financial overview</h2>
-      ${ftable(rep.financials.performance)}
-      <h3>Calculated</h3>
+      <h2 id="rp-analysis">Executive findings</h2>
+      ${(rep.exec_findings || []).length ? `<ul class="rp-sigs">${rep.exec_findings.map(x => `<li class="s-${x.severity}"><span class="sev s-${x.severity}">${SEV[x.severity].l}</span><b>${esc(x.headline)}</b> ${srcOf(...(x.refs || []).map(ev)) || (x.source ? srcOf({source: x.source}) : "")}<p>${esc(x.text)}</p><small>Why it may matter (BMG interpretation): ${esc(x.why || "")}</small></li>`).join("")}</ul>
+      <p class="rp-note">Flag and Watch mean a value is beyond a stated screen for this kind of business (screens ${esc(rep.screens_version || "")}); Observation means no screen applies. None of these is a rating or a recommendation.</p>` : `<p class="muted">No findings could be supported by the extracted figures.</p>`}
+      <h2 id="rp-financials">Financial performance</h2>
+      ${p3.length ? `<div class="rp-tw"><table class="rp-table"><tr><th>Metric</th>${p3[0].ids.map(i => `<th class="num">${esc(per(ev(i)))}</th>`).join("")}<th class="num">Change (latest)</th><th>Source</th></tr>
+        ${p3.map(r => { const v = r.ids.map(ev); const a = v[0], b = v[1];
+          const ch = a && b && b.value != null && b.value !== 0 ? (b.value > 0 && a.value >= 0 ? `${((a.value / b.value - 1) * 100) >= 0 ? "+" : ""}${((a.value / b.value - 1) * 100).toFixed(1)}%` : "n.m. (negative base)") : "";
+          return `<tr><td>${esc(r.name)}</td>${p3[0].ids.map((_, k) => `<td class="num">${v[k] ? esc(v[k].display) : ""}</td>`).join("")}<td class="num">${esc(ch)}</td><td>${srcOf(a)}</td></tr>`; }).join("")}</table></div>
+        <p class="rp-note">Growth is shown only between periods of the same length; a zero or negative base shows n.m. ${esc(rep.performance3.note || "")}</p>` : ftable(rep.financials.performance)}
+      <h3>Margins and other calculations</h3>
       ${ftable(rep.financials.calculated)}
-      <p class="rp-note">${esc(rep.financials.period_note)}</p>
-      <h2 id="rp-operating">Business and operating metrics <span class="muted">${esc(op.profile)}</span></h2>
-      ${kp ? `<div class="rp-tw"><table class="rp-table"><tr><th>Metric</th><th class="num">Current</th><th class="num">Prior</th><th>Status</th><th>Source</th></tr>${kp}</table></div>` : `<p class="muted">No company-specific operating metrics were found.</p>`}
       ${bd}
-      <h2 id="rp-position">Financial position and cash flow</h2>
+      <p class="rp-note">${esc(rep.financials.period_note)}</p>
+      <h2 id="rp-earnings">Earnings and cash generation</h2>
+      ${ecNI && ecCF ? `<p>Net income of ${esc(ecNI.display)} (${esc(ecNI.name.toLowerCase())}) against operating cash flow of ${esc(ecCF.display)}, ${esc(ecCF.period.label)}. ${srcOf(ecNI, ecCF)}</p>
+        ${(ec.items || []).length ? `<div class="rp-tw"><table class="rp-table"><tr><th>Reconciling line (cash flow statement)</th><th class="num">Amount</th><th>Source</th></tr>${ec.items.map(ev).filter(Boolean).map(f => `<tr><td>${esc(f.name)}</td><td class="num">${esc(f.display)}</td><td>${srcOf(f)}</td></tr>`).join("")}</table></div><p class="rp-note">${esc(ec.note || "")}</p>` : ""}
+        ${sigById("cash_conversion") ? `<p class="rp-note">${esc(sigById("cash_conversion").text)} ${esc(sigById("cash_conversion").rule)}</p>` : ""}`
+        : `<p class="muted">Net income or operating cash flow was not found, so earnings and cash cannot be compared.</p>`}
+      <h2 id="rp-position">Financial position and capital allocation</h2>
       ${ftable(rep.position.rows)}
+      ${cap.debt_definition ? `<p class="rp-note">Total debt: ${esc(cap.debt_definition)}</p>` : ""}
+      ${(cap.capex_lines || []).length ? `<h3>Capital expenditure lines</h3><div class="rp-tw"><table class="rp-table"><tr><th>Line</th><th class="num">Amount</th><th>Source</th></tr>${cap.capex_lines.map(ev).filter(Boolean).map(f => `<tr><td>${esc(f.name)}</td><td class="num">${esc(f.display)}<small>${esc(per(f))}</small></td><td>${srcOf(f)}</td></tr>`).join("")}</table></div>` : ""}
+      ${[cap.fcf_signal, cap.payout_signal].map(sigById).filter(Boolean).map(x => `<p><b>${esc(x.headline)}.</b> ${esc(x.text)} ${srcOf(...(x.inputs || []).map(ev))}</p>`).join("")}
+      ${cap.maturities ? `<p><b>Scheduled debt maturities (principal).</b> ${esc(cap.maturities.text)} ${srcOf(cap.maturities)}</p>` : `<p class="muted">No debt maturity schedule was read from this filing.</p>`}
+      <h2 id="rp-operating">Business-specific operating metrics <span class="muted">${esc(op.profile)}</span></h2>
+      ${kp ? `<div class="rp-tw"><table class="rp-table"><tr><th>Metric</th><th class="num">Current</th><th class="num">Prior</th><th>Status</th><th>Source</th></tr>${kp}</table></div><p class="rp-note">Similarly named measures from different companies are defined by each company and are not directly comparable.</p>` : `<p class="muted">No company-specific operating metrics were found.</p>`}
       <h2 id="rp-risks">Risks and watch items</h2>
+      ${watch ? `<h3>Disclosed items</h3><p class="rp-note">From the notes, Item 3 and management's discussion.</p><ul class="rp-risks">${watch}</ul>` : ""}
+      <h3>Risk factors</h3><p class="rp-note">Possible events the company describes, not disclosed events.</p>
       ${risks ? `<ul class="rp-risks">${risks}</ul>` : `<p class="muted">${esc(rep.risks.note || "No risk factors were found.")}</p>`}
-      ${watch ? `<h3>Watch items</h3><ul class="rp-risks">${watch}</ul>` : ""}
       ${(rep.risks.followups || []).length ? `<h3>Follow up</h3><ul class="rp-follow">${rep.risks.followups.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+      ${(rep.questions || []).length ? `<h2 id="rp-questions">Questions for further research</h2><ul class="rp-follow">${rep.questions.map(q => `<li>${esc(q.q)} <span class="rp-basis">${esc(q.basis)}</span> ${srcOf(...(q.refs || []).map(ev))}</li>`).join("")}</ul><p class="rp-note">One filing cannot answer everything; these are where this report stops.</p>` : ""}
+      ${(rep.signals || []).length || rep.brief ? `<h2 id="rp-screens">All screens and observations</h2>
+      ${rep.brief ? `<p class="rp-note">Read as <b>${esc(rep.brief.profile)}</b>. ${esc(rep.brief.why)}</p>` : ""}
+      <ul class="rp-sigs">${[...(rep.signals || [])].sort((x, y) => ["flag", "watch", "observation"].indexOf(x.severity) - ["flag", "watch", "observation"].indexOf(y.severity)).map(sg =>
+        `<li class="s-${sg.severity}"><span class="sev s-${sg.severity}">${SEV[sg.severity].l}</span><b>${esc(sg.headline)}</b> ${srcOf(...(sg.inputs || []).map(ev)) || (sg.source && sg.source.pdf_page ? srcOf({source: sg.source}) : "")}<p>${esc(sg.text)}</p>${sg.definition ? `<small>${esc(sg.definition.formula || "")}${sg.definition.numerator ? " · Numerator: " + esc(sg.definition.numerator) : ""}${sg.definition.denominator ? " · Denominator: " + esc(sg.definition.denominator) : ""}</small>` : ""}<small>BMG interpretation · ${esc(sg.rule)}</small></li>`).join("")}</ul>
+      ${rep.brief ? `<h3>What we looked for</h3><div class="rp-tw"><table class="rp-table"><tr><th>Measure</th><th>Why it matters</th><th>Result</th></tr>${rep.brief.items.map(it => `<tr${it.status === "found" ? "" : ' class="nf"'}><td>${it.industry ? "<b>" + esc(it.title) + "</b>" : esc(it.title)}</td><td class="muted">${esc(it.why)}</td><td>${esc(it.answer || it.note || NF)}</td></tr>`).join("")}</table></div>` : ""}` : ""}
+      ${srTxt}
       <h2 id="rp-sources">Methodology, limitations and sources</h2>
       <ul class="rp-method">${rep.methodology.map(m => `<li>${esc(m)}</li>`).join("")}</ul>
       <h3>Checks</h3>
@@ -2719,6 +3008,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     stopWalk(); state.loadToken++; clearSpider(); docBody.innerHTML = ""; h1.textContent = "";
     listEl.innerHTML = ""; chipsEl.innerHTML = ""; scopeEl.innerHTML = ""; catFilter = ""; sumEl.hidden = true; sumEl.innerHTML = "";
     if (briefEl){ briefEl.hidden = true; briefEl.innerHTML = ""; }
+    if (liveEl){ liveEl.innerHTML = `<p class="muted lr-empty">The BMG Capital report builds here as the spider reaches each figure.</p>`; }
+    state.live = null;
     if (sigListEl){ sigListEl.hidden = true; sigListEl.querySelector("ol").innerHTML = ""; sigListEl.querySelector(".n").textContent = "0"; }
     doc.querySelectorAll(".sig-pop").forEach(x => x.remove()); state.pops = []; state.sigById = {};
     state.readFound = 0; state.panelIds = new Set(); state.pendingFindings = []; state.doneHook = null; state.walkSkipped = false;
@@ -2791,6 +3082,11 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       if (state.walkState && state.walkState.done && state.rows) return;
       if (!state.walkState || state.walkState.done || state.scrollPos == null){ setTimeout(go, 150); return; }
       // land with the first statement page just below the reading line, so every row is read in view
+      // facts before the landing page were read by the server, not shown in this walk
+      if (state.live){
+        const offs = Object.entries(state.live.plan.fact_pages || {}).filter(([f, p]) => p >= state.jumpPage).map(([f]) => state.live.plan.fact_offsets[f]).filter(x => x != null);
+        if (offs.length) applyLive(state.live.markEarlier(Math.min(...offs)));
+      }
       const y = pg.getBoundingClientRect().top + window.scrollY - innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5 + 40;
       if (y > state.scrollPos) state.scrollPos = y;
     };

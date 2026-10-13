@@ -50,10 +50,14 @@ def e(x) -> str:
     return escape(str(x if x is not None else ""))
 
 
+_KIND = {"pdf": True}
+
+
 def _src(f: dict) -> str:
     s = (f or {}).get("source") or {}
     if s.get("pdf_page"):
-        return f"PDF p. {s['pdf_page']}" + (f" (printed {s['printed_page']})" if s.get("printed_page") else "")
+        same = str(s.get("printed_page")) == str(s["pdf_page"])
+        return (f"PDF p. {s['pdf_page']}" if _KIND["pdf"] else f"p. {s['pdf_page']}") + (f" (printed {s['printed_page']})" if s.get("printed_page") and not same else "")
     if s.get("anchor"):
         return f"XBRL {s['anchor']}"
     return ""
@@ -132,8 +136,13 @@ def _table(rows, widths, numeric_cols=(), header=True, zebra=True):
     return t
 
 
+SEV_COL = {"flag": "#b42318", "watch": "#9a5b00", "observation": "#3b5bdb"}
+SEV_LAB = {"flag": "FLAG", "watch": "WATCH", "observation": "OBSERVATION"}
+
+
 def render(rep: dict) -> bytes:
     co, src, cov = rep["company"], rep["source"], rep["coverage"]
+    _KIND["pdf"] = src.get("kind") == "pdf"
     facts, calcs = rep["evidence"]["facts"], rep["evidence"]["calcs"]
     get = lambda i: (facts.get(i) or calcs.get(i)) if i else None
     name = co.get("name") or src["name"]
@@ -143,127 +152,178 @@ def render(rep: dict) -> bytes:
                             title=f"BMG Capital Company Report: {name}", author="BMG Capital", subject="Company Report")
     W = letter[0] - 1.5 * inch
     story = []
-    # ---------------- header
-    story.append(Table([[P('<font size="15"> </font>', "body"),
-                         P('<font color="#0f7d47" name="Helvetica-Bold" size="8">COMPANY REPORT</font>', "celln")]],
-                       colWidths=[W * 0.6, W * 0.4], style=TableStyle([("LINEBELOW", (0, 0), (-1, 0), 1.5, INK), ("BOTTOMPADDING", (0, 0), (-1, 0), 6), ("VALIGN", (0, 0), (-1, -1), "BOTTOM")])))
-    story.append(Spacer(1, 10))
-    story.append(P(e(name) + (f' <font color="#0f7d47" size="13" name="Helvetica-Bold">{e(tick)}</font>' if tick else ""), "h1"))
-    story.append(P(" &middot; ".join(e(x) for x in [co.get("form"), co.get("period"), co.get("exchange")] if x), "body"))
-    gen = datetime.fromisoformat(rep["generated_at"]).strftime("%B %d, %Y %H:%M UTC")
-    story.append(P(f"Source filing: <b>{e(src['name'])}</b> ({src['pages']} pages, sha256 {e(src['sha256'][:12])}). Generated {e(gen)}. "
-                   f"Coverage: <b>{e(cov['status'])}</b>. {e(rep['review'])}", "small"))
-    if co.get("amendment"):
-        story.append(P("<b>This is an amended filing (/A).</b> Figures reflect the amendment as filed.", "body"))
-    # headline tiles
-    def tile(mkey, label):
-        row = next((r for r in rep["financials"]["performance"] + rep["position"]["rows"] + rep["financials"]["calculated"] if r["metric"] == mkey), None)
-        f = get(row.get("current")) if row else None
-        val = f["display"] if f and f.get("display") else "n/a"
-        chg = (row or {}).get("change", {}).get("display", "")
-        per = (f or {}).get("period", {}).get("short") or (f or {}).get("period", {}).get("label", "") if f else "Not found"
-        return [P(f'<font size="7" color="#5f646b">{e(label.upper())}</font>', "cell"), P(f'<font name="Helvetica-Bold" size="14">{e(val)}</font>', "cell"),
-                P(f'<font size="7.5" color="{"#b42318" if chg.startswith("-") else "#0f7d47"}">{e(chg)}</font>', "cell"), P(f'<font size="6.8" color="#5f646b">{e(per)}</font>', "cell")]
-    tiles = [tile("revenue", "Revenue"), tile("net_income", "Net income"), tile("eps_diluted", "Diluted EPS"), tile("fcf", "Free cash flow")]
-    tt = Table([[Table([[x] for x in t], colWidths=[W / 4 - 10]) for t in tiles]], colWidths=[W / 4] * 4)
-    tt.setStyle(TableStyle([("BOX", (0, 0), (0, 0), 0.6, RULE), ("BOX", (1, 0), (1, 0), 0.6, RULE), ("BOX", (2, 0), (2, 0), 0.6, RULE), ("BOX", (3, 0), (3, 0), 0.6, RULE),
-                            ("VALIGN", (0, 0), (-1, -1), "TOP")]))
-    story += [Spacer(1, 8), tt]
+    used = set()
 
-    # ---------------- 1. executive overview
-    ov = rep["overview"]
-    story.append(P("Executive overview", "h2"))
-    d = ov["description"]
-    story.append(P(e(d["text"]) + (f' <font size="7" color="#5f646b">[{e(_src(d))}]</font>' if d.get("text") else "") if d.get("text") else f"<i>{e(d.get('reason'))}</i>"))
-    sg = ov["segments"]
-    if sg.get("text"):
-        story.append(P(f"<b>Segments.</b> {e(sg['text'])} " + f'<font size="7" color="#5f646b">[{e(_src(sg))}]</font>'))
-    if ov.get("market_value_note"):
-        story.append(P(e(ov["market_value_note"]["text"]) + f' <font size="7" color="#5f646b">[{e(_src(facts.get("market_value_nonaffiliates")))}]</font>', "small"))
-    story.append(P("Key takeaways", "h3"))
-    if ov["limited"]:
-        story.append(P("<i>The filing supported only a limited summary: few core figures could be matched to printed tables.</i>"))
     def pages_of(fid, depth=0):
         x = get(fid)
-        if not x or depth > 3:
+        if not x or depth > 4:
             return set()
+        used.add(fid)
         if _src(x):
             return {_src(x)}
         out = set()
         for i in x.get("inputs", []):
             out |= pages_of(i, depth + 1)
         return out
-    for t in ov["takeaways"]:
-        pages = sorted(set().union(*[pages_of(r) for r in t["refs"]]) if t["refs"] else set())
-        story.append(Paragraph(f"{e(t['text'])} <font size='7' color='#5f646b'>[{e(t['basis'])}{'; ' + e(', '.join(pages)) if pages else ''}]</font>", S["bullet"], bulletText="•"))
-    if not ov["takeaways"]:
-        story.append(P("<i>No takeaways could be supported by the extracted figures.</i>"))
 
-    # ---------------- analysis: what to look for, and what the numbers say
-    br, sigs = rep.get("brief"), rep.get("signals") or []
-    if br or sigs:
-        story.append(P("What the numbers say", "h2"))
-        if br:
-            story.append(P(f"<b>Read as:</b> {e(br['profile'])}. {e(br['why'])}", "small"))
-        if sigs:
-            col = {"risk": "#b42318", "watch": "#9a5b00", "strength": "#0f7d47", "info": "#3b5bdb"}
-            lab = {"risk": "RISK", "watch": "WATCH", "strength": "STRENGTH", "info": "NOTE"}
-            data = [[P("", "th"), P("Signal", "th"), P("Why it may matter (BMG interpretation)", "th"), P("Rule and source", "th")]]
-            order = {"risk": 0, "watch": 1, "strength": 2, "info": 3}
-            for sg in sorted(sigs, key=lambda x: order[x["severity"]]):
-                pages = sorted(set().union(*[pages_of(i) for i in sg.get("inputs", [])]) if sg.get("inputs") else ({_src(sg)} if _src(sg) else set()))
-                data.append([P(f'<font name="Helvetica-Bold" size="6.8" color="{col[sg["severity"]]}">{lab[sg["severity"]]}</font>', "cell"),
-                             P(f"<b>{e(sg['headline'])}</b>", "cell"), P(e(sg["text"]), "cell"),
-                             P(e(sg["rule"]) + (f"<br/>{e(', '.join(p for p in pages if p))}" if pages else ""), "cellm")])
-            story.append(_table(data, [W * 0.11, W * 0.23, W * 0.41, W * 0.25]))
-            story.append(P("Signals are rules of thumb applied to the reported figures to show where to look. They are not ratings and not investment advice.", "small"))
-        if br and br.get("items"):
-            story.append(P("What we looked for", "h3"))
-            data = [[P("Measure", "th"), P("Why it matters", "th"), P("Result", "th")]]
-            for it in br["items"]:
-                data.append([P(("<b>%s</b>" % e(it["title"])) if it.get("industry") else e(it["title"]), "cell"), P(e(it["why"]), "cellm"),
-                             P(e(it.get("answer")) if it.get("answer") else f"<i>{e(it.get('note') or 'Not found in the reviewed filing.')}</i>", "cell")])
-            story.append(_table(data, [W * 0.28, W * 0.40, W * 0.32]))
+    def cite(ids, extra=None):
+        pgs = sorted(set().union(*[pages_of(i) for i in ids]) if ids else set())
+        if extra and _src(extra):
+            pgs = sorted(set(pgs) | {_src(extra)})
+        return f' <font size="7" color="#5f646b">[{e("; ".join(pgs))}]</font>' if pgs else ""
 
-    # ---------------- 2. financial overview
-    def fin_rows(rows, show_formula=False):
-        data = [[P("Metric", "th"), P("Current", "thn"), P("Prior", "thn"), P("Change", "thn"), P("Period / status / source", "th")]]
-        for r in rows:
-            c, p = get(r.get("current")), get(r.get("prior"))
-            if not c:
-                data.append([P(e(r["name"]), "cell"), P("", "celln"), P("", "celln"), P("", "celln"), P(f"<i>{e(r.get('reason') or 'Not found in the reviewed filing.')}</i>", "cellm")])
-                continue
-            meta = f"{e(c['period']['label'])}<br/>{e(r['status'])}" + (f"; {e(_src(c))}" if _src(c) else "")
-            if show_formula or r.get("formula"):
-                meta += f"<br/>Formula: {e(r.get('formula') or c.get('formula', ''))}"
-            if r.get("note"):
-                meta += f"<br/>{e(r['note'])}"
-            if r["change"].get("reason"):
-                meta += f"<br/>{e(r['change']['reason'])}"
-            data.append([P(e(r["name"]), "cellb" if not r.get("formula") else "cell"), P(e(c.get("display")), "celln"),
-                         P(e((p or {}).get("display", "")), "celln"), P(e(r["change"].get("display", "")), "celln"), P(meta, "cellm")])
-        return _table(data, [W * 0.24, W * 0.13, W * 0.13, W * 0.11, W * 0.39])
-    story.append(P("Financial overview", "h2"))
-    story.append(P(e(rep["financials"]["period_note"]), "small"))
-    story.append(fin_rows(rep["financials"]["performance"]))
-    story.append(P("Calculated measures", "h3"))
-    story.append(fin_rows(rep["financials"]["calculated"], True))
+    # ---------------- header
+    story.append(Table([[P('<font size="15"> </font>', "body"), P('<font color="#0f7d47" name="Helvetica-Bold" size="8">COMPANY REPORT</font>', "celln")]],
+                       colWidths=[W * 0.6, W * 0.4], style=TableStyle([("LINEBELOW", (0, 0), (-1, 0), 1.5, INK), ("BOTTOMPADDING", (0, 0), (-1, 0), 6), ("VALIGN", (0, 0), (-1, -1), "BOTTOM")])))
+    story.append(Spacer(1, 10))
+    story.append(P(e(name) + (f' <font color="#0f7d47" size="13" name="Helvetica-Bold">{e(tick)}</font>' if tick else ""), "h1"))
+    story.append(P(" &middot; ".join(e(x) for x in [co.get("form"), co.get("period"), co.get("exchange")] if x), "body"))
+    gen = datetime.fromisoformat(rep["generated_at"]).strftime("%B %d, %Y %H:%M UTC")
+    story.append(P(f"Source filing: <b>{e(src['name'])}</b> ({src['pages']} pages, sha256 {e(src['sha256'][:12])}). Generated {e(gen)}. "
+                   f"Coverage: <b>{e(cov['status'])}</b>. Screens: {e(rep.get('screens_version') or 'n/a')}. {e(rep['review'])}", "small"))
+    if co.get("amendment"):
+        story.append(P("<b>This is an amended filing (/A).</b> Figures reflect the amendment as filed.", "body"))
 
-    # ---------------- 3. business and operating performance
-    op = rep["operating"]
-    story.append(P("Business and operating performance", "h2"))
-    for b in op["breakdowns"]:
+    def tile(mkey, label):
+        row = next((r for r in rep["financials"]["performance"] + rep["position"]["rows"] + rep["financials"]["calculated"] if r["metric"] == mkey), None)
+        f = get(row.get("current")) if row else None
+        val = f["display"] if f and f.get("display") else "n/a"
+        chg = (row or {}).get("change", {}).get("display", "")
+        per = ((f or {}).get("period", {}).get("short") or (f or {}).get("period", {}).get("label", "")) if f else "Not found"
+        return [P(f'<font size="7" color="#5f646b">{e(label.upper())}</font>', "cell"), P(f'<font name="Helvetica-Bold" size="14">{e(val)}</font>', "cell"),
+                P(f'<font size="7.5" color="#5f646b">{e(chg)}</font>', "cell"), P(f'<font size="6.8" color="#5f646b">{e(per)}</font>', "cell")]
+    tiles = [tile("revenue", "Revenue"), tile("net_income", "Net income"), tile("eps_diluted", "Diluted EPS"), tile("cfo", "Operating cash flow")]
+    tt = Table([[Table([[x] for x in t], colWidths=[W / 4 - 10]) for t in tiles]], colWidths=[W / 4] * 4)
+    tt.setStyle(TableStyle([("BOX", (i, 0), (i, 0), 0.6, RULE) for i in range(4)] + [("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story += [Spacer(1, 8), tt]
+
+    # ---------------- 1. business overview
+    bz = rep.get("business") or {}
+    story.append(P("Business overview", "h2"))
+    d = bz.get("description") or {}
+    story.append(P((e(d["text"]) + cite([], d)) if d.get("text") else f"<i>{e(d.get('reason'))}</i>"))
+    sg = bz.get("segments") or {}
+    if sg.get("text"):
+        story.append(P(f"<b>Segments.</b> {e(sg['text'])}" + cite([], sg)))
+    if bz.get("revenue_mix"):
+        story.append(P(f"<b>Revenue mix.</b> {e(bz['revenue_mix']['text'])}" + cite([], bz["revenue_mix"])))
+    story.append(P(f"Read as <b>{e(bz.get('profile'))}</b>." + (f" Operating measures found: {e('; '.join(bz['drivers']))}." if bz.get("drivers") else ""), "small"))
+    if rep["overview"].get("market_value_note"):
+        mv = rep["overview"]["market_value_note"]
+        story.append(P(e(mv["text"]) + cite([mv["fact"]]), "small"))
+
+    # ---------------- 2. executive findings
+    story.append(P("Executive findings", "h2"))
+    if rep.get("exec_findings"):
+        for x in rep["exec_findings"]:
+            story.append(KeepTogether([
+                P(f'<font name="Helvetica-Bold" size="7" color="{SEV_COL[x["severity"]]}">{SEV_LAB[x["severity"]]}</font>  <b>{e(x["headline"])}</b>' + cite(x["refs"], x if x.get("source") else None), "body"),
+                P(e(x["text"]), "cell"), P(f"<i>Why it may matter (BMG interpretation): {e(x['why'])}</i>", "cellm"), Spacer(1, 5)]))
+        story.append(P("Flag and Watch mean a value is beyond a stated screen for this kind of business; Observation means no screen applies. "
+                       "None of these is a rating or a recommendation.", "small"))
+    else:
+        story.append(P("<i>No findings could be supported by the extracted figures.</i>"))
+
+    # ---------------- 3. financial performance
+    story.append(P("Financial performance", "h2"))
+    p3 = (rep.get("performance3") or {}).get("rows") or []
+    if p3:
+        cols = [get(i)["period"]["short"] or get(i)["period"]["label"] for i in p3[0]["ids"]]
+        data = [[P("Metric", "th")] + [P(e(c), "thn") for c in cols] + [P("Change (latest)", "thn"), P("Source", "th")]]
+        for r in p3:
+            vals = [get(i) for i in r["ids"]]
+            ch = ""
+            if len(vals) > 1 and vals[1]["value"] not in (None, 0):
+                if vals[1]["value"] > 0 and vals[0]["value"] >= 0:
+                    ch = f"{(vals[0]['value'] / vals[1]['value'] - 1) * 100:+.1f}%"
+                else:
+                    ch = "n.m. (negative base)"
+            data.append([P(e(r["name"]), "cell")] + [P(e(v["display"]), "celln") for v in vals] + [P("", "celln")] * (len(cols) - len(vals)) +
+                        [P(e(ch), "celln"), P(e("; ".join(sorted(pages_of(r["ids"][0])))), "cellm")])
+        n = len(cols)
+        story.append(_table(data, [W * 0.3] + [W * (0.42 / n)] * n + [W * 0.12, W * 0.16]))
+        story.append(P("Growth is shown only between periods of the same length; a zero or negative base shows n.m. "
+                       + e((rep.get("performance3") or {}).get("note") or ""), "small"))
+    story.append(P("Margins and other calculations", "h3"))
+    data = [[P("Measure", "th"), P("Current", "thn"), P("Prior", "thn"), P("Change", "thn"), P("Formula and source", "th")]]
+    for r in rep["financials"]["calculated"]:
+        c, pr = get(r.get("current")), get(r.get("prior"))
+        if not c:
+            data.append([P(e(r["name"]), "cell"), P("", "celln"), P("", "celln"), P("", "celln"), P(f"<i>{e(r.get('reason') or 'Not available.')}</i>", "cellm")])
+            continue
+        data.append([P(e(r["name"]), "cell"), P(e(c["display"]), "celln"), P(e((pr or {}).get("display", "")), "celln"), P(e(r["change"].get("display", "")), "celln"),
+                     P(e(r["formula"]) + "; " + e("; ".join(sorted(pages_of(c["id"])))), "cellm")])
+    story.append(_table(data, [W * 0.26, W * 0.12, W * 0.12, W * 0.12, W * 0.38]))
+    for b in rep["operating"]["breakdowns"]:
         data = [[P(e(b["title"]), "th"), P("Value", "thn"), P("Share", "thn"), P("Prior", "thn"), P("Change", "thn"), P("Source", "th")]]
         for i in b["items"]:
             data.append([P(e(i["name"]), "cell"), P(e(i["display"]), "celln"), P(f"{i['share']:.0f}%", "celln"), P(e(i.get("prior_display", "")), "celln"),
                          P(f"{i['change_pct']:+.1f}%" if i.get("change_pct") is not None else "", "celln"), P(e(_src(i)), "cellm")])
         data.append([P("<b>Total</b>", "cell"), P(f"<b>{e(b['total_display'])}</b>", "celln"), P("", "cell"), P("", "cell"), P("", "cell"), P("", "cell")])
         story.append(KeepTogether([P(e(b["period"]), "small"), _table(data, [W * 0.32, W * 0.13, W * 0.09, W * 0.13, W * 0.1, W * 0.23]), P(e(b["check"]), "small")]))
-    story.append(P(f"Business metrics ({e(op['profile'])} profile)", "h3"))
-    data = [[P("Metric", "th"), P("Value", "thn"), P("Period / source / definition", "th")]]
+
+    # ---------------- 4. earnings and cash generation
+    ec = rep.get("earnings_cash") or {}
+    story.append(P("Earnings and cash generation", "h2"))
+    ni, cf = get(ec.get("net_income")), get(ec.get("cfo"))
+    if ni and cf:
+        story.append(P(f"Net income of {e(ni['display'])} ({e(ni['name'].lower())}) against operating cash flow of {e(cf['display'])}, {e(cf['period']['label'])}."
+                       + cite([ni["id"], cf["id"]])))
+        if ec.get("items"):
+            data = [[P("Reconciling line (cash flow statement)", "th"), P("Amount", "thn"), P("Source", "th")]]
+            for i in ec["items"]:
+                f = get(i)
+                if f:
+                    data.append([P(e(f["name"]), "cell"), P(e(f["display"]), "celln"), P(e("; ".join(sorted(pages_of(i)))), "cellm")])
+            story.append(_table(data, [W * 0.6, W * 0.15, W * 0.25]))
+            story.append(P(e(ec["note"]), "small"))
+        s = next((x for x in rep.get("signals") or [] if x["id"] == "cash_conversion"), None)
+        if s:
+            story.append(P(e(s["text"]) + " " + e(s["rule"]), "cellm"))
+    else:
+        story.append(P("<i>Net income or operating cash flow was not found, so earnings and cash cannot be compared.</i>"))
+
+    # ---------------- 5. position and capital allocation
+    cap = rep.get("capital") or {}
+    story.append(P("Financial position and capital allocation", "h2"))
+    def line(label, fid, note=""):
+        f = get(fid)
+        return [P(e(label), "cell"), P(e(f["display"]) if f else "", "celln"),
+                P((e(f["period"]["label"]) + "; " + e("; ".join(sorted(pages_of(fid)))) + (f"<br/>{e(note)}" if note else "")) if f else "<i>Not found in the reviewed filing.</i>", "cellm")]
+    data = [[P("Item", "th"), P("Value", "thn"), P("Period, source and definition", "th")],
+            line("Cash and cash equivalents", cap.get("cash")), line("Total debt", cap.get("debt"), cap.get("debt_definition") or ""),
+            line("Total assets", (next((r for r in rep["position"]["rows"] if r["metric"] == "total_assets"), {}) or {}).get("current")),
+            line("Operating cash flow", (next((r for r in rep["position"]["rows"] if r["metric"] == "cfo"), {}) or {}).get("current")),
+            line("Capital expenditures", cap.get("capex"))]
+    for i in cap.get("capex_lines") or []:
+        data.append(line("   of which: " + (get(i) or {}).get("name", ""), i))
+    data += [line("Dividends paid", cap.get("dividends")), line("Share repurchases", cap.get("buybacks"))]
+    story.append(_table(data, [W * 0.3, W * 0.15, W * 0.55]))
+    for sid in (cap.get("fcf_signal"), cap.get("payout_signal")):
+        s = next((x for x in rep.get("signals") or [] if x["id"] == sid), None)
+        if s:
+            story.append(P(f"<b>{e(s['headline'])}.</b> {e(s['text'])}" + cite(s["inputs"]), "cell"))
+    if cap.get("maturities"):
+        m = cap["maturities"]
+        story.append(P(f"<b>Scheduled debt maturities (principal).</b> {e(m['text'])}" + cite([], m), "cell"))
+    story.append(P("Equity and leverage", "h3"))
+    data = [[P("Item", "th"), P("Value", "thn"), P("Period and source", "th")]]
+    for r in rep["position"]["rows"]:
+        if r["metric"] in ("total_liabilities", "equity"):
+            data.append(line(r["name"], r.get("current"), (get(r.get("current")) or {}).get("definition", "")))
+    for m in ("equity_total", "equity_nci"):
+        f = next((x for x in facts.values() if x["metric"] == m and x["status"] != "Unavailable"), None)
+        if f:
+            data.append(line(f["name"], f["id"]))
+    story.append(_table(data, [W * 0.3, W * 0.15, W * 0.55]))
+
+    # ---------------- 6. business-specific metrics
+    op = rep["operating"]
+    story.append(P(f"Business-specific operating metrics ({e(op['profile'])})", "h2"))
+    data = [[P("Metric", "th"), P("Value", "thn"), P("Period, scope, source and definition", "th")]]
     for k in op["kpis"]:
         if k.get("display"):
-            meta = f"{e(k.get('period', ''))}; {e(_src(k))}"
+            meta = f"{e(k.get('period', ''))}" + (f"; scope: {e(k['scope'])}" if k.get("scope") else "") + f"; {e(_src(k))}"
             if k.get("definition"):
                 meta += f"<br/>Company definition: {e(k['definition']['text'][:240])}"
             data.append([P(e(k["name"]), "cell"), P(e(k["display"]), "celln"), P(meta, "cellm")])
@@ -271,48 +331,72 @@ def render(rep: dict) -> bytes:
             data.append([P(e(k["name"]), "cell"), P("", "celln"), P(f"<i>{e(k.get('reason', 'Not found in the reviewed filing.'))}</i>", "cellm")])
     if len(data) > 1:
         story.append(_table(data, [W * 0.32, W * 0.16, W * 0.52]))
+        story.append(P("Similarly named measures from different companies are defined by each company and are not directly comparable.", "small"))
     else:
         story.append(P("<i>No business-specific metrics were found in the reviewed filing.</i>"))
-    if op.get("not_applicable"):
-        story.append(P("Not applied to this business: " + e(", ".join(op["not_applicable"])) + ".", "small"))
 
-    # ---------------- 4. financial position and cash flow
-    story.append(P("Financial position and cash flow", "h2"))
-    story.append(fin_rows(rep["position"]["rows"]))
-
-    # ---------------- 5. risks
+    # ---------------- 7. risks and watch items
     rk = rep["risks"]
     story.append(P("Risks and watch items", "h2"))
-    story.append(P(e(rk["note"]), "small"))
-    for r in rk["items"]:
-        block = [P(f"<b>{e(r['category'])}</b> <font size='7' color='#5f646b'>({e(r['specificity'])}; {e(_src(r))})</font>", "body"),
-                 P(f"&ldquo;{e(r['title'])}&rdquo;", "cell")]
-        if r.get("magnitude"):
-            block.append(P(f"Disclosed figure: {e(r['magnitude'])}", "cellm"))
-        block.append(P(f"<i>Why it may matter (BMG interpretation): {e(r['why_it_may_matter'])}</i>", "cellm"))
-        block.append(Spacer(1, 4))
-        story.append(KeepTogether(block))
     if rk["watch"]:
-        story.append(P("Watch items from the notes and MD&amp;A", "h3"))
+        story.append(P("Disclosed items (from the notes, Item 3 and management's discussion)", "h3"))
         for w in rk["watch"]:
-            story.append(KeepTogether([P(f"<b>{e(w['title'])}</b> <font size='7' color='#5f646b'>({e(w['category'])}; {e(_src(w))})</font>", "body"),
+            story.append(KeepTogether([P(f"<b>{e(w['title'])}</b> <font size='7' color='#5f646b'>({e(w.get('basis', ''))}; {e(_src(w))})</font>", "body"),
                                        P(e(w["text"]), "cell"), P(f"<i>Why it may matter (BMG interpretation): {e(w['why_it_may_matter'])}</i>", "cellm"), Spacer(1, 4)]))
-    if rk["followups"]:
-        story.append(P("Follow-up questions", "h3"))
-        for f in rk["followups"]:
-            story.append(Paragraph(e(f), S["bullet"], bulletText="•"))
+    if rk["items"]:
+        story.append(P("Risk factors (possible events the company describes, not disclosed events)", "h3"))
+        story.append(P(e(rk["note"]), "small"))
+        for r in sorted(rk["items"], key=lambda r: r.get("specificity") != "Company-specific"):
+            block = [P(f"<b>{e(r['category'])}</b> <font size='7' color='#5f646b'>({e(r['specificity'])}; {e(_src(r))})</font>", "body"),
+                     P(f"&ldquo;{e(r['title'])}&rdquo;", "cell")]
+            if r.get("magnitude"):
+                block.append(P(f"Disclosed figure: {e(r['magnitude'])}", "cellm"))
+            block.append(Spacer(1, 4))
+            story.append(KeepTogether(block))
+    elif rk.get("note"):
+        story.append(P(e(rk["note"]), "small"))
 
-    # ---------------- 6. methodology, limitations, sources
+    # ---------------- 8. questions
+    if rep.get("questions"):
+        story.append(P("Questions for further research", "h2"))
+        for q in rep["questions"]:
+            story.append(Paragraph(f"{e(q['q'])} <font size='7' color='#5f646b'>({e(q['basis'])})</font>" + cite(q.get("refs") or []), S["bullet"], bulletText="•"))
+        story.append(P("One filing cannot answer everything; these are where this report stops.", "small"))
+
+    # ---------------- 9. signals table
+    sigs = rep.get("signals") or []
+    if sigs:
+        story.append(P("All screens and observations", "h2"))
+        data = [[P("", "th"), P("Measure", "th"), P("Definition", "th"), P("Screen and source", "th")]]
+        for s in sigs:
+            dfn = s.get("definition") or {}
+            data.append([P(f'<font name="Helvetica-Bold" size="6.5" color="{SEV_COL[s["severity"]]}">{SEV_LAB[s["severity"]]}</font>', "cell"),
+                         P(f"<b>{e(s['headline'])}</b>", "cell"),
+                         P(e(dfn.get("formula", "")) + (f"<br/>Numerator: {e(dfn.get('numerator'))}" if dfn.get("numerator") else "") +
+                           (f"<br/>Denominator: {e(dfn.get('denominator'))}" if dfn.get("denominator") else ""), "cellm"),
+                         P(e(s["rule"]) + cite(s.get("inputs") or [], s if s.get("source") else None), "cellm")])
+        story.append(_table(data, [W * 0.13, W * 0.25, W * 0.34, W * 0.28]))
+
+    # ---------------- 10. sources, coverage, method
     story.append(PageBreak())
-    story.append(P("Methodology, coverage and limitations", "h2"))
+    story.append(P("Sources and coverage", "h2"))
+    sr = rep.get("sources_reviewed") or {}
     stm = cov["statements_found"]
-    story.append(P(f"Statements found: income statement {'yes' if stm['income'] else 'no'}, balance sheet {'yes' if stm['balance'] else 'no'}, "
-                   f"cash flow statement {'yes' if stm['cashflow'] else 'no'}. Table rows parsed: {cov['tables_parsed']}. Core figures published: {cov['facts_published']}. "
-                   f"Arithmetic checks run: {cov['checks_run']} ({cov['checks_failed']} failed)."))
+    pg = lambda k: ", ".join(f"p.{x}" for x in (sr.get("statements") or {}).get(k, []))
+    story.append(P(f"Statements read: income statement {pg('income') or 'not found'}; balance sheet {pg('balance') or 'not found'}; "
+                   f"cash flow statement {pg('cashflow') or 'not found'}; statement of equity {pg('equity') or 'not found'}. "
+                   f"Table rows parsed: {cov['tables_parsed']}. Arithmetic checks: {cov['checks_run']} ({cov['checks_failed']} failed)."))
+    if sr.get("sections"):
+        story.append(P("Sections located: " + e("; ".join(f"Item {s['item']} {s['title']} (p.{s['page']})" for s in sr["sections"])) + ".", "small"))
+    story.append(P("Read: " + e("; ".join(sr.get("read", []))) + ".", "small"))
+    story.append(P("Not read or out of scope: " + e("; ".join(sr.get("not_read", []))) + ".", "small"))
+    for x in sr.get("failed", []):
+        story.append(Paragraph("<b>Could not read:</b> " + e(x), S["bullet"], bulletText="•"))
     for w in cov["warnings"]:
         story.append(Paragraph(e(w["message"]), S["bullet"], bulletText="•"))
     for i in cov["issues"]:
-        story.append(Paragraph("Needs review: " + e(i["message"]), S["bullet"], bulletText="•"))
+        if i["type"] != "unreadable_statement":
+            story.append(Paragraph("Unresolved: " + e(i["message"]), S["bullet"], bulletText="•"))
     story.append(P("Searched for: " + e("; ".join(cov["searched_for"])) + ". Not finding an item is not evidence that it does not exist.", "small"))
     for m in rep["methodology"]:
         story.append(Paragraph(e(m), S["bullet"], bulletText="•"))
@@ -322,29 +406,18 @@ def render(rep: dict) -> bytes:
         for c in rep["checks"]:
             data.append([P(e(c["name"]), "cell"), P(e(c["period"]), "cellm"), P("Passed" if c["passed"] else "<font color='#b42318'>Failed</font>", "cell"), P(e(c["detail"]), "cellm")])
         story.append(_table(data, [W * 0.38, W * 0.27, W * 0.1, W * 0.25]))
-    used = set()
-    def use(fid, depth=0):
-        x = get(fid)
-        if not x or fid in used or depth > 4:
-            return
-        used.add(fid)
-        for i in x.get("inputs", []):
-            use(i, depth + 1)
-    for sec in (rep["financials"]["performance"], rep["financials"]["calculated"], rep["position"]["rows"]):
-        for row in sec:
-            use(row.get("current")); use(row.get("prior"))
-    for t in ov["takeaways"]:
-        for r_ in t["refs"]:
-            use(r_)
-    if facts.get("market_value_nonaffiliates"):
-        used.add("market_value_nonaffiliates")
-    story.append(P("Evidence for every published figure", "h3"))
-    data = [[P("Figure", "th"), P("Value", "thn"), P("Status", "th"), P("Location and excerpt", "th")]]
+
+    # ---------------- appendix: evidence for every figure used above
+    for row in rep["financials"]["performance"] + rep["financials"]["calculated"] + rep["position"]["rows"]:
+        pages_of(row.get("current")); pages_of(row.get("prior"))
+    story.append(P("Evidence appendix", "h2"))
+    data = [[P("Figure", "th"), P("Value", "thn"), P("Status", "th"), P("Location, scope and excerpt", "th")]]
     for f in facts.values():
         if f["status"] == "Unavailable" or f["id"] not in used:
             continue
         s = f["source"]
-        loc = f"{e(_src(f))}; {e(s.get('table_title') or s.get('section') or '')}; row \"{e(s.get('row_label', ''))}\", column {e(s.get('column', ''))}"
+        loc = (f"{e(_src(f))}; {e(s.get('table_title') or s.get('section') or '')}; row \"{e(s.get('row_label', ''))}\", column {e(s.get('column', ''))}; "
+               f"scope {e(f.get('scope', ''))}")
         data.append([P(f"{e(f['name'])}<br/><font size='6.8' color='#5f646b'>{e(f['period']['label'])}</font>", "cell"), P(e(f["display"]), "celln"),
                      P(e(f["status"]), "cellm"), P(f"{loc}<br/>&ldquo;{e((s.get('excerpt') or '')[:200])}&rdquo;", "cellm")])
     for c in calcs.values():
@@ -375,10 +448,12 @@ def render_compare(cmp: dict) -> bytes:
              P("Automatically generated by the BMG Capital reader from the two cited filings. Not reviewed by an analyst. Not investment advice.", "small")]
     for c in cmp["caveats"]:
         story.append(P(f"<b>Note.</b> {e(c)}", "body"))
-    story.append(P("Where each company is ahead", "h2"))
-    story.append(_table([[P(f"<b>{e(na)}</b>", "cell"), P(f"<b>{e(nb)}</b>", "cell")],
-                         [P(e(", ".join(cmp["summary"]["a"]) or "None of the compared measures"), "cell"), P(e(", ".join(cmp["summary"]["b"]) or "None of the compared measures"), "cell")]],
-                        [W / 2, W / 2]))
+    story.append(P("Comparability checks", "h2"))
+    story.append(_table([[P("Check", "th"), P("Result", "th"), P("Detail", "th")]] +
+                        [[P(e(c["check"]), "cell"), P(e(c["result"]), "cell"), P(e(c["detail"]), "cellm")] for c in cmp.get("checks") or []],
+                        [W * 0.22, W * 0.22, W * 0.56]))
+    story.append(P("No overall winner is declared. A row names the company with the more favourable value only when the periods, scope and "
+                   "definitions line up; otherwise it says why the values are not comparable.", "small"))
     group = None
     data = []
     for r in cmp["rows"]:
@@ -387,12 +462,13 @@ def render_compare(cmp: dict) -> bytes:
                 story.append(_table(data, [W * 0.34, W * 0.16, W * 0.16, W * 0.34], numeric_cols=(1, 2)))
             group = r["group"]
             story.append(P(e(group), "h3"))
-            data = [[P("Measure", "th"), P(e(na), "thn"), P(e(nb), "thn"), P("Ahead / sources", "th")]]
+            data = [[P("Measure", "th"), P(e(na), "thn"), P(e(nb), "thn"), P("Comparability and sources", "th")]]
         lead = {"a": na, "b": nb}.get(r["leader"], "")
         bold = lambda side: "<b>%s</b>" if r["leader"] == side else "%s"
         pg = lambda s: ", ".join(f"p.{x['pdf_page']}" for x in s if x.get("pdf_page"))
-        meta = (f"<b>{e(lead)}</b> ({'higher' if r['better'] == 'higher' else 'lower'} is better)<br/>" if lead else
-                ("" if r["better"] else "Size or context, not ranked<br/>")) + f"{e(na)} {e(pg(r['a']['sources']))}; {e(nb)} {e(pg(r['b']['sources']))}"
+        meta = (f"More favourable: <b>{e(lead)}</b> ({'higher' if r['better'] == 'higher' else 'lower'} is better)<br/>" if lead else
+                f"<i>Not comparable: {e(r['not_comparable_reason'])}</i><br/>" if r.get("not_comparable_reason") else
+                ("Difference not material<br/>" if r["better"] else "Size or context, not ranked<br/>")) + f"{e(na)} {e(pg(r['a']['sources']))}; {e(nb)} {e(pg(r['b']['sources']))}"
         if r.get("note"):
             meta += f"<br/>{e(r['note'])}"
         data.append([P(e(r["name"]), "cell"), P(bold("a") % e(r["a"]["display"] or "n/a"), "celln"), P(bold("b") % e(r["b"]["display"] or "n/a"), "celln"), P(meta, "cellm")])

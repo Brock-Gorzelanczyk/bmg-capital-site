@@ -124,7 +124,7 @@ def risk_factors(doc) -> tuple[list[dict], str]:
             "title": p, "group": group, "category": cat, "summary": detail,
             "magnitude": re.sub(r"\s+", " ", mag.group(0)).strip()[:300] if mag else None,
             "specificity": "Company-specific" if _SPECIFIC.search(p + " " + detail) else "Broadly worded",
-            "why_it_may_matter": WHY.get(cat, WHY["Other"]), "kind": "reported",
+            "why_it_may_matter": WHY.get(cat, WHY["Other"]), "kind": "reported", "basis": "Risk factor (a possible event, not a disclosed one)",
             "source": {**doc.location(off), "excerpt": p[:300], "offset": off},
         })
     order = list(range(len(found)))          # filing order: filers tend to put the most important first
@@ -173,24 +173,58 @@ def watch_items(doc, rows: list) -> tuple[list[dict], list[str]]:
                       "source": {"pdf_page": mats[0]["pdf_page"], "printed_page": mats[0]["printed_page"], "section": mats[0]["section"],
                                  "table_title": mats[0]["table_title"], "excerpt": mats[0]["line"], "offset": mats[0]["offset"]}})
     else:
+        # a schedule printed sideways: years as column headings, one row per
+        # instrument and a "Total ..." row that gives each year's principal
+        horiz = None
+        for m in re.finditer(r"(?m)^((?:20\d\d\s+){3,}20\d\d)\s+Thereafter(\s+Total)?\s*$", body):
+            ctx = body[max(0, m.start() - 500):m.start()].lower()
+            if not re.search(r"principal|debt|borrowings|maturit", ctx) or re.search(r"affiliat|joint venture|unconsolidated|lease (liabilities|payments)", ctx[-300:]):
+                continue
+            years = re.findall(r"20\d\d", m.group(1)) + ["Thereafter"]
+            for ln in body[m.end():m.end() + 6000].split("\n")[:80]:
+                if re.match(r"(?i)total\b", ln):
+                    nums = re.findall(r"\(?[\d,]+(?:\.\d+)?\)?", ln.split("  ", 1)[-1])
+                    if len(nums) >= len(years):
+                        horiz = (m, years, nums[:len(years)], ln, body.find(ln, m.end()))
+                        break
+            if horiz:
+                break
+        if horiz:
+            from .tables import _caption
+            from .facts import SCALE, fmt_value
+            m, years, nums, ln, off = horiz
+            mult = SCALE.get(_caption(body, off)["scale"], 1.0)
+            sched_vals = [(y, float(v.strip('()').replace(',', '')) * mult) for y, v in zip(years, nums)]
+            lines = [f"{y}: {fmt_value(v, 'USD')}" for y, v in sched_vals]
+            items.append({"category": "Liquidity and refinancing", "title": "Scheduled debt maturities", "text": "; ".join(lines) + ".", "schedule": sched_vals,
+                          "why_it_may_matter": "Large near-term maturities must be repaid or refinanced.", "kind": "reported",
+                          "source": {**doc.location(off), "excerpt": re.sub(r"\s+", " ", ln)[:300], "offset": off}})
         # a schedule printed as one run of year / amount pairs, below a debt
         # caption: "2026 $ 653.3  2027 854.5 ... Thereafter 5,605.2"
         sched = None
         for m in re.finditer(r"\b(20\d\d)\s+\$?\s?([\d,]+(?:\.\d+)?)(?:\s+(20\d\d)\s+\$?\s?[\d,]+(?:\.\d+)?){3,}(?:\s+Thereafter\s+\$?\s?[\d,]+(?:\.\d+)?)?", body):
             ctx = body[max(0, m.start() - 1500):m.start()].lower()
-            if re.search(r"debt|borrowings|notes due|term loans", ctx[-700:]) and not re.search(r"lease (liabilities|payments)|operating leases", ctx[-400:]) \
-                    and not re.search(r"affiliat|joint venture|unconsolidated|equity method|investee", ctx[-300:]):      # another entity's debt
+            # the schedule's own caption ("... debt are as follows:") decides; a wider window only when there is none
+            cap_lines = [ln for ln in ctx[-500:].split("\n") if ln.strip().endswith(":") and len(ln) > 30]
+            if cap_lines:
+                about = cap_lines[-1]
+                ok = re.search(r"debt|borrowings|notes|term loans|principal", about) and not re.search(r"lease|affiliat|joint venture|unconsolidated|equity method|investee", about)
+            else:
+                ok = re.search(r"debt|borrowings|notes due|term loans", ctx[-700:]) and not re.search(r"lease (liabilities|payments)|operating leases", ctx[-400:]) \
+                    and not re.search(r"affiliat|joint venture|unconsolidated|equity method|investee", ctx[-300:])      # another entity's debt
+            if ok:
                 sched = m
                 break
-        hit = None if sched else first("matur", r"matur\w+[^.]{0,200}\$\s?[\d.,]+\s?(?:billion|million)")
-        if sched:
+        hit = None if (sched or horiz) else first("matur", r"matur\w+[^.]{0,200}\$\s?[\d.,]+\s?(?:billion|million)")
+        if sched and not horiz:
             from .tables import _caption
             from .facts import SCALE, fmt_value
             cap = _caption(body, sched.start())
             mult = SCALE.get(cap["scale"], 1.0)
             pairs = re.findall(r"(20\d\d|Thereafter)\s+\$?\s?([\d,]+(?:\.\d+)?)", sched.group(0))
-            lines = [f"{y}: {fmt_value(float(v.replace(',', '')) * mult, 'USD')}" for y, v in pairs[:7]]
-            items.append({"category": "Liquidity and refinancing", "title": "Scheduled debt maturities", "text": "; ".join(lines) + ".",
+            sched_vals = [(y, float(v.replace(',', '')) * mult) for y, v in pairs[:7]]
+            lines = [f"{y}: {fmt_value(v, 'USD')}" for y, v in sched_vals]
+            items.append({"category": "Liquidity and refinancing", "title": "Scheduled debt maturities", "text": "; ".join(lines) + ".", "schedule": sched_vals,
                           "why_it_may_matter": "Large near-term maturities must be repaid or refinanced.", "kind": "reported",
                           "source": {**doc.location(sched.start()), "excerpt": re.sub(r"\s+", " ", sched.group(0))[:300], "offset": sched.start()}})
         if hit:
@@ -206,11 +240,21 @@ def watch_items(doc, rows: list) -> tuple[list[dict], list[str]]:
         if first_sent and len(" ".join(first_sent)) > 40 and not re.match(r"(none|not applicable)", first_sent[0], re.I):
             items.append({"category": "Regulation and litigation", "title": "Legal proceedings", "text": " ".join(first_sent)[:420],
                           "why_it_may_matter": WHY["Regulation and litigation"], "kind": "reported", "source": {**doc.location(st), "excerpt": " ".join(first_sent)[:300], "offset": st}})
-    for key, title in (("going concern", "Going concern language"), ("material weakness", "Material weakness language")):
-        searched.append(f"\"{key}\"")
-        hit = first(key, re.escape(key))
-        if hit and not re.search(r"\bno\b|\bnot\b", hit[1].lower()):
+    # only an actual disclosure counts: audit-standard wording such as "the risk
+    # that a material weakness exists" or "no substantial doubt" does not
+    for key, title, pat in (
+            ("going concern", "Going concern doubt disclosed",
+             r"(?<!no )substantial doubt (?:about|regarding|as to) (?:the company's|our|its)[^.]{0,40}ability to continue as a going concern"),
+            ("material weakness", "Material weakness disclosed",
+             r"(?:identified|disclosed|have|has) (?:a |certain )?material weakness(?:es)?(?! exists)|material weakness(?:es)? (?:was|were|has been|have been) identified|"
+             r"internal control over financial reporting (?:was|is) not effective|did not maintain effective internal control")):
+        searched.append(f"\"{key}\" disclosures")
+        hit = first(key, pat)
+        if hit and not re.search(r"risk that a material weakness|no material weakness|not identified any material weakness|no substantial doubt", hit[1], re.I):
             items.append({"category": "Accounting estimates and contingencies", "title": title, "text": hit[1][:360],
                           "why_it_may_matter": "Auditor or management concerns about controls or continuity need direct review.", "kind": "reported",
-                          "source": {**doc.location(hit[0]), "excerpt": hit[1][:360], "offset": hit[0]}})
+                          "basis": "Disclosed condition", "source": {**doc.location(hit[0]), "excerpt": hit[1][:360], "offset": hit[0]}})
+    for it in items:
+        it.setdefault("basis", "Disclosed schedule" if it["title"] == "Scheduled debt maturities" else
+                      "Cross-reference to a note" if re.search(r"(described|discussed|see) (in )?(\"?note|part ii)", it.get("text", ""), re.I) else "Disclosed in the filing")
     return items, searched

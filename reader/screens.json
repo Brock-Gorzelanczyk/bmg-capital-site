@@ -1,0 +1,38 @@
+{
+  "version": "screens-2026-10-13.2",
+  "note": "Screening thresholds for a first read of a filing. A value beyond a screen is a prompt to look closer, not a conclusion about the company. Edit values here; the version string is printed on every report that uses them.",
+  "profiles": {
+    "default": {
+      "equity_multiplier": {"watch": 3.0, "flag": 5.0},
+      "debt_to_equity": {"watch": 1.5, "flag": 3.0},
+      "debt_to_assets": {"watch": 0.40, "flag": 0.60},
+      "interest_coverage": {"watch": 4.0, "flag": 2.0},
+      "payout_vs_fcf": {"watch": 1.0},
+      "maturity_concentration": {"watch": 0.25},
+      "gains_share": {"observe": 0.10}
+    },
+    "Railcar leasing": {
+      "equity_multiplier": {"watch": 5.0, "flag": 8.0},
+      "debt_to_equity": {"watch": 3.5, "flag": 5.5},
+      "debt_to_assets": {"watch": 0.65, "flag": 0.80},
+      "interest_coverage": {"watch": 2.5, "flag": 1.5},
+      "payout_vs_fcf": {"watch": null},
+      "maturity_concentration": {"watch": 0.25},
+      "gains_share": {"observe": 0.10}
+    },
+    "Banking": {
+      "equity_multiplier": null,
+      "debt_to_equity": null,
+      "debt_to_assets": null,
+      "interest_coverage": null,
+      "payout_vs_fcf": null,
+      "maturity_concentration": null,
+      "gains_share": null
+    }
+  },
+  "sources": {
+    "default": "General screening levels for nonfinancial companies; set by BMG Capital for first-pass review, not from a published standard.",
+    "Railcar leasing": "Lessors finance long-lived, contracted railcars mostly with debt, so leverage screens sit higher; payouts above free cash flow are not screened because fleet growth capex makes free cash flow negative by design.",
+    "Banking": "Leverage and coverage ratios built for nonfinancial companies do not apply to banks; none are screened."
+  }
+}

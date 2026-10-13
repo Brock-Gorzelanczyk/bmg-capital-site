@@ -188,6 +188,52 @@ def _sections(body: str, doc: "Document") -> list[Section]:
     return sorted(out.values(), key=lambda s: s.offset)
 
 
+# A table line whose text layer is out of step: the values of one row followed
+# by the label of the next ("163,756  141,048  131,376 Gross margin").
+_SHIFTED = re.compile(r"^\$?\s?\(?[\d,]{3,}(?:\.\d+)?\s?\)?(?:[\s\xa0]+\$?\s?\(?[\d,.]+\s?\)?){1,5}[\s\xa0]+[A-Z][A-Za-z]")
+
+
+def _rows_by_position(page) -> str:
+    """Re-read one PDF page from word positions: words on the same baseline
+    form a line, and a wide horizontal gap becomes a column break."""
+    words = page.extract_words(use_text_flow=False, keep_blank_chars=False, x_tolerance=1.5, y_tolerance=2.5)
+    lines: list[list[dict]] = []
+    for w in sorted(words, key=lambda w: (round(w["top"]), w["x0"])):
+        if lines and abs(lines[-1][0]["top"] - w["top"]) <= 2.5:
+            lines[-1].append(w)
+        else:
+            lines.append([w])
+    out = []
+    for ln in lines:
+        ln.sort(key=lambda w: w["x0"])
+        txt = ln[0]["text"]
+        for a, b in zip(ln, ln[1:]):
+            txt += ("  " if b["x0"] - a["x1"] > 6 else " ") + b["text"]
+        out.append(txt)
+    return "\n".join(out)
+
+
+def _repair_shifted_rows(data: bytes, pages: list[dict]) -> list[dict]:
+    """Some PDFs (Apple's 2018 10-K, for one) store each table row's numbers
+    and the next row's label as one text run, so every statement line comes
+    out shifted. Those pages, and only those, are re-read by position."""
+    bad = [i for i, p in enumerate(pages) if sum(1 for ln in (p.get("text") or "").split("\n") if _SHIFTED.match(ln.strip())) >= 4]
+    if not bad:
+        return pages
+    try:
+        import io
+        import pdfplumber
+        with pdfplumber.open(io.BytesIO(data)) as pdf:
+            for i in bad:
+                if i < len(pdf.pages):
+                    txt = _rows_by_position(pdf.pages[i])
+                    if len(txt) > 0.5 * len(pages[i].get("text") or ""):
+                        pages[i] = dict(pages[i], text=txt, repaired="rows_by_position")
+    except Exception:
+        pass                           # keep the text layer as extracted
+    return pages
+
+
 def _pages_from(data: bytes, kind: str) -> list[dict]:
     import fact_checker as fc
     if kind == "html":
@@ -199,7 +245,10 @@ def _pages_from(data: bytes, kind: str) -> list[dict]:
         except Exception:
             pass                       # fall back to the generic extractor
     try:
-        return fc.extract(data, kind)
+        pages = fc.extract(data, kind)
+        if kind == "pdf":
+            pages = _repair_shifted_rows(data, pages)
+        return pages
     except Exception as e:
         raise ReadError(400, f"Could not extract text from this {kind.upper()} file ({e.__class__.__name__}). "
                              "If it is a scanned document, it needs OCR, which this reader does not have.")

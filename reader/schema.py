@@ -45,8 +45,21 @@ def validate(rep: dict) -> dict:
         if e:
             errors += e
             bad.add(fid)
+    # withdraw calculations whose inputs are missing or withdrawn, repeating
+    # until nothing changes (a calculation can rest on another calculation)
+    changed = True
+    while changed:
+        changed = False
+        for cid, c in calcs.items():
+            if cid in bad or c.get("status") != "Calculation checked":
+                continue
+            ins = c.get("inputs", [])
+            if any(i in bad for i in ins):
+                errors.append(f"{cid}: depends on a withdrawn item")
+                bad.add(cid)
+                changed = True
     for cid, c in calcs.items():
-        if c.get("status") == "Calculation checked":
+        if c.get("status") == "Calculation checked" and cid not in bad:
             missing = [i for i in c.get("inputs", []) if i not in facts and i not in calcs]
             if missing:
                 errors.append(f"{cid}: inputs not found {missing}")
@@ -58,6 +71,14 @@ def validate(rep: dict) -> dict:
             if v is None or (isinstance(v, float) and (math.isnan(v) or math.isinf(v))):
                 errors.append(f"{cid}: no value")
                 bad.add(cid)
+    changed = True                       # again, for items withdrawn just above
+    while changed:
+        changed = False
+        for cid, c in calcs.items():
+            if cid not in bad and any(i in bad for i in c.get("inputs", [])):
+                errors.append(f"{cid}: depends on a withdrawn item")
+                bad.add(cid)
+                changed = True
     # withdraw what failed
     for fid in bad:
         x = facts.get(fid) or calcs.get(fid)
@@ -97,7 +118,7 @@ def validate(rep: dict) -> dict:
     for sg in rep.get("signals") or []:
         ok = all((i in facts or i in calcs) and i not in bad and (facts.get(i) or calcs.get(i) or {}).get("status") != "Unavailable"
                  for i in sg.get("inputs", []))
-        ok = ok and sg.get("severity") in ("risk", "watch", "strength", "info") and (sg.get("inputs") or (sg.get("source") or {}).get("excerpt"))
+        ok = ok and sg.get("severity") in ("flag", "watch", "observation") and (sg.get("inputs") or (sg.get("source") or {}).get("excerpt"))
         if ok:
             keep_s.append(sg)
         else:

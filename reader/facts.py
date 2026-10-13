@@ -40,6 +40,10 @@ METRICS = [
     ("gains_on_dispositions", "Gains on asset dispositions", "income", "flow",
      [r"^(net gain on asset dispositions|total gains on dispositions of property and other divestitures|net gain on disposition of equipment|"
       r"gains? on (dispositions|sales) of (property|equipment|assets)|net gains? on (sale|disposition)s? of (assets|equipment|railcars))$"], "USD"),
+    ("net_income_consolidated", "Net income (consolidated, including noncontrolling interests)", "income", "flow",
+     [r"^(net income|net earnings|net income loss|net loss|net earnings loss)$"], "USD"),
+    ("nci_income", "Net income attributable to noncontrolling interests", "income", "flow",
+     [r"^(less )?net (income|earnings)( loss)? attributable to non ?controlling interests?$"], "USD"),
     ("eps_basic", "Basic EPS", "income", "flow",
      [r"^basic (earnings|net income) per (common )?share$", r"^basic$", r"^basic (net income|net earnings|earnings) attributable to [a-z0-9 .,&]+$"], "USD/share"),
     ("eps_diluted", "Diluted EPS", "income", "flow",
@@ -108,18 +112,27 @@ def _period(col: dict, statement_kind: str) -> dict:
     return {"type": t or "unknown", "end": col.get("end"), "year": col.get("year"), "label": text, "short": short}
 
 
+_PART = ("affiliate", "segment", "subsidiary", "supplemental")
+
+
 def _scoped(r: dict) -> bool:
-    """A table captioned with a segment, region or affiliate name
-    ("RAIL NORTH AMERICA Segment Summary", "Condensed balance sheets of the
-    RRPF affiliates") reports part of the company, not the whole."""
-    cap = re.sub(r"notes? to (the )?(condensed )?consolidated financial statements", "", f"{r.get('block') or ''} {r.get('table_title') or ''}".lower())
-    if re.search(r"consolidated|total company|results of operations|selected financial|financial overview", cap):
-        return False
-    return bool(re.search(r"segment|affiliate|subsidiar|joint venture|international|north america|europe|division|group summary|portfolio|trifleet|engine", cap))
+    """The table reports part of the group or another entity (a segment, an
+    equity-method affiliate, a subsidiary, a supplemental schedule), as read
+    from its introducing sentence, note title and caption (tables.scope_of)."""
+    return r.get("scope") in _PART
+
+
+def _scope_label(r: dict) -> str:
+    sc = r.get("scope")
+    if sc in _PART:
+        what = (r.get("block") or r.get("table_title") or "").strip()
+        return f"{sc.capitalize()}" + (f": {what}" if what else "")
+    return "Consolidated" if r.get("statement", "other") != "other" else "As labeled in the source table"
 
 
 def _core(r: dict) -> bool:
-    return bool(re.match(r"(condensed )?consolidated", (r.get("table_title") or "").lower()))
+    """A row of one of the company's own primary statements."""
+    return r.get("statement", "other") != "other" and not _scoped(r)
 
 
 def _pkey(p: dict) -> tuple:
@@ -155,11 +168,14 @@ class FactBook:
         return {
             "id": fid, "metric": mkey, "name": METRIC_NAMES.get(mkey, mkey), "kind": "reported",
             "value": v, "display": fmt_value(v, unit), "unit": unit, "currency": "USD" if unit.startswith("USD") else None,
-            "scale": r["scale"] or "units", "period": per, "scope": "Consolidated" if r["statement"] != "other" else "As labeled in the source table",
+            "scale": r["scale"] or "units", "period": {**per, **({"basis": "as restated or recast in this filing"} if r.get("restated") else {})},
+            "scope": _scope_label(r),
             "source": {
                 "doc_sha256": self.doc.sha256, "pdf_page": r["pdf_page"], "printed_page": r["printed_page"], "section": r["section"],
                 "statement": r["statement"], "table_title": r["table_title"], "row_label": r["full_label"], "column": r["cols"][i]["label"],
                 "header": r["header_text"], "caption": r["caption"], "excerpt": r["line"], "raw": r["raw"][i], "offset": r["offset"],
+                "table_id": r.get("table_id"), "row_index": r.get("row_index"), "col_index": i, "table_scope": r.get("scope"),
+                "intro": r.get("intro") or "",
             },
             "method": "Financial statement table row" if r["statement"] != "other" else "Table row outside the primary statements",
             "status": "Source matched", "reasons": [f"Value {r['raw'][i]} appears in the cited row on {self._pg(r['pdf_page'])}."],
@@ -200,6 +216,8 @@ class FactBook:
                 self.facts[f["id"]] = f
                 periods.append(f["id"])
             self.primary_periods[mkey] = periods
+        self._equity_structure()
+        self._net_income_scope()
         self._debt()
         self._derive_liabilities()
         self._capex_components()
@@ -359,6 +377,80 @@ class FactBook:
             ids.append(cid)
         self.primary_periods["total_debt"] = ids
 
+    def _net_income_scope(self):
+        """State which net income each figure is. 'net_income' is the parent's
+        share when the statement prints it, else the consolidated total."""
+        ids = self.primary_periods.get("net_income", [])
+        cons = set(self.primary_periods.get("net_income_consolidated", []))
+        for fid in ids:
+            f = self.facts.get(fid)
+            if not f:
+                continue
+            if fid in cons or not re.search(r"attributable", f["source"].get("row_label", ""), re.I):
+                f["name"] = "Net income"
+                f["definition"] = "Net income as printed; no separate line for the parent's share was matched, so this may include noncontrolling interests."
+            else:
+                f["name"] = "Net income attributable to the company"
+                f["definition"] = f"\"{f['source']['row_label']}\": the parent's share, excluding noncontrolling interests."
+
+    def _equity_structure(self):
+        """Parent equity and total equity, read from the balance sheet's own
+        layout: the equity total printed above the noncontrolling interest row
+        is the parent's, the total below it includes noncontrolling interests.
+        Without a noncontrolling interest row both are the same line."""
+        bal = [r for r in self.rows if r["statement"] == "balance" and _core(r) and r["unit"] == "USD"]
+        nci = next((r for r in bal if re.match(r"^(total )?non ?controlling interests?$", r["key"])), None)
+        eq_ids = self.primary_periods.get("equity", [])
+        if not nci:
+            self.primary_periods["equity_parent"] = list(eq_ids)
+            self.primary_periods["equity_total"] = list(eq_ids)
+            for fid in eq_ids:
+                if fid in self.facts:
+                    self.facts[fid]["definition"] = "Total equity as printed; the balance sheet shows no noncontrolling interest line."
+            return
+        same_t = [r for r in bal if r.get("table_id") == nci.get("table_id")]
+        tl = [r["row_index"] for r in same_t if re.match(r"^total liabilities$", r["key"]) and r["row_index"] < nci["row_index"]]
+        floor = tl[-1] if tl else -1          # the equity section starts below total liabilities
+        before = [r for r in same_t if floor < r["row_index"] < nci["row_index"] and r["key"].startswith("total")
+                  and (re.search(r"equity", r["key"]) or r.get("unlabeled_total")) and not re.search(r"liabilit|debt|recourse", r["key"])]
+        after = [r for r in same_t if r["row_index"] > nci["row_index"] and r["key"].startswith("total") and re.search(r"equity", r["key"])
+                 and not re.search(r"liabilit", r["key"])]
+        parent_row = before[-1] if before else None
+        total_row = after[0] if after else None
+
+        def facts_from(row, mkey, name, definition):
+            ids = []
+            for i in range(len(row["values"])):
+                f = self._fact_from(mkey, row, i, "instant")
+                f["name"], f["definition"] = name, definition
+                self._corroborate(f, ["^" + re.escape(row["key"]) + "$"], "USD", row)
+                self.facts[f["id"]] = f
+                ids.append(f["id"])
+            return ids
+        tot_ids = facts_from(total_row, "equity_total", "Total equity (including noncontrolling interests)",
+                             f"\"{total_row['full_label']}\", printed below the noncontrolling interest line.") if total_row else []
+        nci_ids = facts_from(nci, "equity_nci", "Noncontrolling interests (equity)", f"\"{nci['full_label']}\" on the balance sheet.")
+        if parent_row:
+            par_ids = facts_from(parent_row, "equity_parent", "Equity attributable to the company",
+                                 f"\"{parent_row['full_label']}\", the equity total printed above the noncontrolling interest line.")
+        else:
+            par_ids = []
+            for t_id, n_id in zip(tot_ids, nci_ids):
+                t, n = self.facts[t_id], self.facts[n_id]
+                v = t["value"] - n["value"]
+                cid = f"equity_parent:{_pkey(t['period'])[0]}:{_pkey(t['period'])[1]}"
+                self.calcs[cid] = {"id": cid, "metric": "equity_parent", "name": "Equity attributable to the company", "kind": "calculated", "value": v,
+                                   "display": fmt_value(v, "USD"), "unit": "USD", "period": t["period"], "formula": "Total equity - Noncontrolling interests",
+                                   "inputs": [t_id, n_id], "status": "Calculation checked",
+                                   "definition": "The parent's equity total is not printed with its own label; derived as total equity minus noncontrolling interests.", "reasons": []}
+                par_ids.append(cid)
+        self.primary_periods["equity_parent"] = par_ids
+        self.primary_periods["equity_total"] = tot_ids or list(eq_ids)
+        self.primary_periods["equity_nci"] = nci_ids
+        # 'equity' (shareholders' equity in the report) is the parent's share
+        if par_ids:
+            self.primary_periods["equity"] = par_ids
+
     def _derive_liabilities(self):
         """Total liabilities when the balance sheet prints no such line:
         total liabilities and equity minus total equity, as a calculation."""
@@ -378,12 +470,24 @@ class FactBook:
             if not eq or _pkey(eq["period"]) != _pkey(le["period"]):
                 continue
             v = le["value"] - eq["value"]
+            inputs, formula = [le_id, eq["id"]], f"Total liabilities and equity - {eq['name']}"
+            note = "Anything presented between liabilities and equity (for example redeemable noncontrolling interest) is included."
+            mez = next((r for r in self.rows if r["statement"] == "balance" and _core(r) and r["unit"] == "USD" and i < len(r["values"])
+                        and re.search(r"redeemable|temporary equity|mezzanine", r["key"]) and not r["key"].startswith("total liabilities")), None)
+            if mez:
+                mf = self._fact_from("mezzanine", mez, i, "instant")
+                if _pkey(mf["period"]) == _pkey(le["period"]):
+                    mf["name"] = mez["full_label"]
+                    self.facts[mf["id"]] = mf
+                    v -= mf["value"]
+                    inputs.append(mf["id"])
+                    formula += f" - {mez['full_label']}"
+                    note = f"\"{mez['full_label']}\", presented between liabilities and equity, is excluded from both."
             cid = f"total_liabilities:{_pkey(le['period'])[0]}:{_pkey(le['period'])[1]}"
             self.calcs[cid] = {"id": cid, "metric": "total_liabilities", "name": "Total liabilities", "kind": "calculated", "value": v,
                                "display": fmt_value(v, "USD"), "unit": "USD", "period": le["period"],
-                               "formula": f"Total liabilities and equity - {eq['name']}", "inputs": [le_id, eq["id"]], "status": "Calculation checked",
-                               "definition": "The balance sheet prints no total liabilities line; derived as total liabilities and equity minus total equity. "
-                                             "Anything presented between liabilities and equity (for example redeemable noncontrolling interest) is included.",
+                               "formula": formula, "inputs": inputs, "status": "Calculation checked",
+                               "definition": "The balance sheet prints no total liabilities line; derived as total liabilities and equity minus total equity. " + note,
                                "reasons": []}
             ids.append(cid)
         if ids:

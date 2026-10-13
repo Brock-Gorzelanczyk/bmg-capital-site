@@ -33,6 +33,57 @@ STATEMENTS = [
 ]
 
 
+_SCOPE_RX = [
+    ("affiliate", r"\baffiliat|joint venture|equity[- ]method|investee|unconsolidated"),
+    ("segment", r"\bsegments?\b|reportable|business group|division"),
+    ("subsidiary", r"\bsubsidiar(y|ies)\b(?! and)|guarantor|parent company only|issuer"),
+    ("supplemental", r"pro forma|supplemental|selected quarterly|quarterly financial data|unaudited quarterly|non-gaap|reconciliation of"),
+]
+
+
+def _total_heading(groups: list, heading: str, toks: list) -> str:
+    """Name an unlabeled total by the sections it actually sums. A total
+    printed under a sub-heading can cover rows above that sub-heading too
+    (Debt: Recourse; Non-recourse: two lines; then one unlabeled total of all
+    three). Checked by arithmetic on every column; the nearest heading is
+    kept when no run of sections adds up."""
+    vals = [parse_number(t) for t in toks]
+    if not groups or any(v is None for v in vals):
+        return heading
+    dec = max((len(t.split(".")[1]) if "." in t else 0) for t in toks)
+    step = 10 ** -dec
+    acc, nrows = [0.0] * len(vals), 0
+    for g in range(len(groups) - 1, -1, -1):
+        for row in groups[g][1]:
+            if len(row) != len(vals):
+                return heading
+            acc = [a + x for a, x in zip(acc, row)]
+            nrows += 1
+        tol = step * (nrows + 1) * 0.5 + 1e-9
+        if all(abs(a - v) <= tol for a, v in zip(acc, vals)):
+            return groups[g][0] or heading
+    return heading
+
+
+def scope_of(intro: str, title: str, block: str) -> str:
+    """Whose figures a table holds, from the sentence that introduces it,
+    its note title and its caption, in that order of weight. Running headers
+    such as "Notes to consolidated financial statements" carry no scope."""
+    clean = lambda x: re.sub(r"notes? to (the )?(condensed )?consolidated financial statements( \(continued\))?|and subsidiaries", "", (x or "").lower())
+    for text in (clean(intro), clean(title), clean(block)):
+        if not text.strip():
+            continue
+        for name, rx in _SCOPE_RX:
+            if re.search(rx, text):
+                # "the Company and its consolidated subsidiaries" is the whole group
+                if name == "subsidiary" and re.search(r"consolidated subsidiaries|company and (its )?subsidiaries", text):
+                    continue
+                return name
+        if re.search(r"\bconsolidated\b|\bthe company\b|\bour\b", text):
+            return "consolidated"
+    return "unknown"
+
+
 def statement_of(title: str) -> str:
     for name, rx in STATEMENTS:
         if rx.search(title or ""):
@@ -88,7 +139,9 @@ def header_periods(line: str, context: str) -> Optional[dict]:
     if len([w for w in words if w.lower() not in allowed]) > 4:
         return None
     low = line.lower()
-    change_cols = "change" in low
+    # change columns ("$ Change", "Increase (Decrease)", "% Change") follow the period columns
+    m_ch = re.search(r"change|increase|decrease|variance", low)
+    change_cols = bool(m_ch) and m_ch.start() > max(m.end() for m in _YEAR.finditer(line))
     dates = list(_DATE.finditer(line))
     if len(dates) >= 2:
         # Period kinds in order, from this line or else the header line(s)
@@ -105,6 +158,13 @@ def header_periods(line: str, context: str) -> Optional[dict]:
         cols = [{"label": f"{d.group(1)[:3]} {d.group(2)}, {d.group(3)}", "end": _iso(d.group(1), d.group(2), d.group(3)),
                  "year": d.group(3), "type": k} for d, k in zip(dates, ks)]
         return {"cols": cols, "change_cols": change_cols, "text": line[:200]}
+    # "September 29,  September 30," above "2018  2017": one month and day per year column, in order
+    last = (context.strip().split("\n") or [""])[-1]
+    mds = re.findall(r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?", last)
+    if len(mds) == len(years) and len(set(mds)) > 1 and len(set(_kinds(context[-300:]))) <= 1:
+        kk = (_kinds(context[-300:]) or ["FY" if "year" in (low + context.lower()) else ""])[0]
+        return {"cols": [{"label": f"{mo[:3]} {int(d)}, {y}", "end": _iso(mo, d, y), "year": y, "type": kk} for (mo, d), y in zip(mds, years)],
+                "change_cols": change_cols, "text": (last[-120:] + " | " + line)[:220]}
     phrases = [((_KIND.get((m.group(1) or "").lower(), "FY") if m.group(1) else "FY"), (m.group(2) or m.group(4) or "").replace(".", ""))
                for m in _PHRASE.finditer(context + " " + line)]
     if phrases and len(years) % len(phrases) == 0:
@@ -150,8 +210,6 @@ def _cells(parts: list, change_cols: bool) -> list:
     for j, t in enumerate(parts):
         if t in ("$", "%"):
             continue
-        if change_cols and (t.endswith("%") or (j + 1 < len(parts) and parts[j + 1] == "%")):
-            continue
         toks.append(t)
     return toks
 
@@ -185,6 +243,10 @@ def parse(doc) -> list[dict]:
     title = ""
     prev: list[str] = []
     block = ""
+    intro = ""
+    restated = False
+    table_id, row_index = 0, 0
+    groups = []      # [heading, [values of each row]] for the open sections of this table, in order
     pos = 0
     for line in body.split("\n"):
         start = pos
@@ -198,11 +260,21 @@ def parse(doc) -> list[dict]:
             title = s                                   # a note heading: tables below belong to the note
         elif re.match(r"^See accompanying notes", s, re.I):
             title = ""
-        elif len(s) <= 110 and not s.endswith(".") and not re.search(r"\d{3}", s) and statement_of(s) != "other":
+        elif (len(s) <= 110 and not s.endswith((".", ":")) and not re.search(r"\d{3}", s) and statement_of(s) != "other"
+              and re.match(r"^(?:[A-Z0-9][A-Z0-9 .,&'\u2019-]{2,70}\s+)?(?:condensed\s+)?(?:consolidated\s+)?(?:statements?|balance)\b", s, re.I)):
+            # a statement title opens its line (after an all-caps company name at most); a sentence
+            # that mentions "the statements of income:" introduces a note table instead
             title = re.sub(r"^.*?((?:Condensed\s+)?(?:Consolidated\s+)?(?:Statements?|Balance Sheets?)\b)", r"\1", s, flags=re.I)
         h = header_periods(s, ctx) if len(s) < 260 else None
         if h:
             hdr, hdr_age, heading = h, 0, ""
+            table_id += 1
+            row_index = 0
+            groups = []
+            # the sentence that introduces the table ("The following table shows
+            # condensed income statements of the RRPF affiliates ... :")
+            intro = next((x for x in reversed(prev[-6:-1]) if x.endswith(":") and len(x) > 30), "")
+            restated = bool(re.search(r"as (adjusted|recast|revised|restated)|\brestated\b|\brecast\b", (ctx + " " + s).lower()))
             # the table's own caption: a short heading-like line just above
             # ("Rail North America Fleet Data"), which says whose figures these are
             block = next((x for x in reversed(prev[-7:-1]) if 3 <= len(x) <= 70 and not re.search(r"\d", x) and x[:1].isupper()
@@ -223,9 +295,11 @@ def parse(doc) -> list[dict]:
             k -= 1
         label = " ".join(parts[:k]).strip(" :")
         toks = _cells(parts[k:], hdr["change_cols"])
-        if len(toks) == n + 1 and re.fullmatch(r"\((?:\d|[a-z])\)", toks[0]) and label:
+        if (len(toks) == n + 1 or (len(toks) > n + 1 and re.search(r"[.,%]", toks[1]))) and re.fullmatch(r"\((?:\d|[a-z])\)", toks[0]) and label:
             toks = toks[1:]                 # a footnote marker after the label: "Utilization rate (1) 99.0%"
             label += f" {parts[k]}"
+        if hdr["change_cols"] and len(toks) > n:
+            toks = toks[:n]                      # the period columns come first; the rest are changes
         unlabeled = False
         close_after, next_heading = False, None
         if k == 0 or not re.match(r"[A-Za-z(]", label or "x"):
@@ -233,8 +307,10 @@ def parse(doc) -> list[dict]:
             while j < len(parts) and _CELL.fullmatch(parts[j]):
                 j += 1
             lead = _cells(parts[:j], hdr["change_cols"])
+            if hdr["change_cols"] and len(lead) > n:
+                lead = lead[:n]
             if len(lead) == n and heading:
-                label, toks, unlabeled = "Total " + heading, lead, True
+                label, toks, unlabeled = "Total " + _total_heading(groups, heading, lead), lead, True
                 rest = " ".join(parts[j:]).strip(" :")
                 close_after = True               # a total ends its section
                 if rest and re.match(r"[A-Za-z]", rest):
@@ -274,8 +350,17 @@ def parse(doc) -> list[dict]:
             "heading": heading, "values": vals, "raw": toks, "cols": cols, "header_text": hdr["text"],
             "unit": unit, "scale": scale, "caption": cap["text"], "table_title": title,
             "statement": statement, "unlabeled_total": unlabeled, "footnote": footnote, "block": block,
+            "intro": intro[:240], "scope": scope_of(intro, title, block), "restated": restated,
+            "table_id": table_id, "row_index": row_index,
             "offset": start, "line": s[:240], **loc,
         })
+        row_index += 1
+        if unlabeled or label.lower().startswith("total "):
+            groups = []                      # a total closes the sections it sums
+        elif groups and groups[-1][0] == heading:
+            groups[-1][1].append(vals)
+        else:
+            groups.append([heading, [vals]])
         if close_after or label.lower().startswith("total "):
             heading = next_heading or ""
     return rows

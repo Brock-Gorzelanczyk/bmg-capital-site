@@ -11,7 +11,7 @@ import re
 from datetime import datetime, timezone
 from typing import Optional
 
-from . import document, facts as F, profiles, risks, tables
+from . import document, facts as F, profiles, risks, signals, tables
 from .facts import fmt_value
 
 SCHEMA = "bmg.company_report/1"
@@ -53,7 +53,7 @@ def _description(doc, form: Optional[str] = None) -> dict:
         return {"text": None, "reason": "Item 1 (Business) was not located in the extracted text."}
     seg = re.sub(r"\s+", " ", doc.body[sec.offset:sec.offset + 5000])
     seg = re.sub(r"^(?:PART\s+[IV]+\s+)?Item 1\.?\s+Business\s*", "", seg)
-    sents = [re.sub(r"^(Company Background|Business Overview|Overview|General|Background|Our Company|Company Overview)\s+", "", x.strip())
+    sents = [re.sub(r"(?i)^(Company Background|Business Overview|Overview|General|Background|Our Company|Company Overview)\s+(?=[A-Z])", "", x.strip())
              for x in re.split(r"(?<=[.])\s+(?=[A-Z])", seg)]
     good = [x for x in sents if 40 <= len(x) <= 400 and re.match(r"(The Company|We |Our |[A-Z][\w.&,' ]+ (Inc|Corp|Corporation|Company|Ltd)\b)", x)
             and not re.search(r"forward-looking|fiscal year is|refer to|herein", x, re.I)]
@@ -219,13 +219,31 @@ def build(doc, rows: list, fb: "F.FactBook", claims: Optional[list] = None, anal
     stm = {k: any(r["statement"] == k for r in rows) for k in ("income", "balance", "cashflow")}
     published = [r for r in perf + pos if r.get("current")]
     issues = list(fb.issues)
+    # a statement whose title is in the filing but whose table could not be
+    # read is a limitation, not an absence
+    titles = {"income": r"statements? of (operations|income|earnings)", "balance": r"balance sheets?|statements? of financial (position|condition)",
+              "cashflow": r"statements? of cash flows?"}
+    for k, rx in titles.items():
+        if stm[k]:
+            continue
+        m = None
+        for mm in re.finditer(rf"(?im)^[ \t]*(?:[A-Z][A-Z .,&'\u2019-]{{2,60}}\s+)?(?:condensed\s+)?consolidated\s+(?:{rx})\b[^\n]{{0,60}}$", doc.body):
+            if not re.search(r"\d{2,3}\s*$", mm.group(0)):         # not a contents-page line
+                m = mm
+                break
+        if m:
+            pg = doc.page_at(m.start())
+            issues.append({"type": "unreadable_statement", "statement": k,
+                           "message": f"The {'income statement' if k == 'income' else 'balance sheet' if k == 'balance' else 'cash flow statement'} "
+                                      f"was located on {'PDF ' if doc.kind == 'pdf' else ''}page {pg} but its table could not be read; "
+                                      "its figures are missing from this report rather than estimated."})
     limited = len(published) < 4
-    status = "Partial" if (not all(stm.values()) or limited or doc.warnings and any(w["code"] in ("truncated", "incomplete") or (w["code"] == "empty_pages" and len(w.get("pages", [])) > max(3, len(doc.pages) * 0.05))
+    status = "Partial" if (not all(stm.values()) or limited or any(i["type"] == "unreadable_statement" for i in issues) or doc.warnings and any(w["code"] in ("truncated", "incomplete") or (w["code"] == "empty_pages" and len(w.get("pages", [])) > max(3, len(doc.pages) * 0.05))
                                     for w in doc.warnings)) else "Complete for the items listed"
     if limited:
         status = "Limited"
     followups = []
-    if not stm["cashflow"]:
+    if not stm["cashflow"] and not any(i.get("statement") == "cashflow" for i in issues):
         followups.append("The cash flow statement was not found; cash generation and capital expenditures could not be reported.")
     if not any(w["category"] == "Liquidity and refinancing" for w in watch):
         followups.append("No debt maturity schedule was located in the extracted text; check the debt footnote for repayment timing.")
@@ -272,10 +290,13 @@ def build(doc, rows: list, fb: "F.FactBook", claims: Optional[list] = None, anal
     rep["findings"] = findings(rep, fb, claims or [])
     if analysis:
         rep["brief"] = analysis.get("brief")
+        from . import signals as _sg
+        rep["screens_version"] = _sg.screens()["version"]
         rep["signals"] = analysis.get("signals", [])
         _anchor_signals(rep)
     else:
         rep["brief"], rep["signals"] = None, []
+    research_sections(doc, rows, fb, rep)
     return rep
 
 
@@ -323,8 +344,8 @@ def findings(rep: dict, fb, claims: list) -> list[dict]:
                     "text": text, "excerpt": (src.get("excerpt") or "")[:220], "offset": src.get("offset", -1), "ref": ref})
 
     for f in fb.facts.values():
-        if f["metric"] == "debt_line":
-            continue
+        # component lines (debt, capex) are printed rows too: the spider reaches
+        # them, and the totals built from them are revealed only after they are
         add("Financials", f["name"], f["display"], f["period"]["label"], f["source"], f["id"], status=f["status"])
     for k in rep["operating"]["kpis"]:
         if k.get("display"):
@@ -370,7 +391,8 @@ def markdown(rep: dict, source_name: str, read_at: str) -> str:
     def loc(x):
         s = x.get("source") or {}
         if s.get("pdf_page"):
-            return f"PDF p.{s['pdf_page']}" + (f" (printed {s['printed_page']})" if s.get("printed_page") else "")
+            same = str(s.get("printed_page")) == str(s["pdf_page"])
+            return (f"PDF p.{s['pdf_page']}" if rep["source"].get("kind") == "pdf" else f"p.{s['pdf_page']}") + (f" (printed {s['printed_page']})" if s.get("printed_page") and not same else "")
         if s.get("anchor"):
             return f"XBRL {s['anchor']}"
         if x.get("inputs"):
@@ -393,6 +415,26 @@ def markdown(rep: dict, source_name: str, read_at: str) -> str:
         out.append(f"- {t['text']} [{t['basis']}; " + "; ".join(dict.fromkeys(loc(ev(r)) for r in t["refs"])) + "]")
     if rep["overview"].get("market_value_note"):
         out += ["", rep["overview"]["market_value_note"]["text"]]
+    bz = rep.get("business") or {}
+    if bz.get("revenue_mix"):
+        out += ["", f"Revenue mix: {bz['revenue_mix']['text']} ({loc(bz['revenue_mix'])})"]
+    if rep.get("exec_findings"):
+        out += ["", "## Executive findings", ""]
+        for x in rep["exec_findings"]:
+            out.append(f"- **{x['severity'].upper()}** {x['headline']}. {x['text']} Why it may matter (BMG interpretation): {x['why']} ("
+                       + "; ".join(dict.fromkeys(loc(ev(i)) for i in x["refs"])) + ")")
+    p3 = (rep.get("performance3") or {}).get("rows") or []
+    if p3:
+        cols = [ev(i)["period"].get("short") for i in p3[0]["ids"]]
+        out += ["", "## Financial performance", "", "| Metric | " + " | ".join(cols) + " | Source |", "|---|" + "---|" * len(cols) + "---|"]
+        for r in p3:
+            out.append(f"| {cell(r['name'])} | " + " | ".join(ev(i)["display"] for i in r["ids"]) + " |" * (len(cols) - len(r["ids"])) + f" | {cell(loc(ev(r['ids'][0])))} |")
+    ec = rep.get("earnings_cash") or {}
+    if ec.get("items"):
+        out += ["", "## Earnings and cash generation", "", ec["note"], ""]
+        out += [f"- {ev(i)['name']}: {ev(i)['display']} ({loc(ev(i))})" for i in ec["items"] if ev(i)]
+    if rep.get("questions"):
+        out += ["", "## Questions for further research", ""] + [f"- {q['q']} ({q['basis']})" for q in rep["questions"]]
     if rep.get("brief") or rep.get("signals"):
         out += ["", "## What the numbers say", ""]
         if rep.get("brief"):
@@ -432,3 +474,176 @@ def markdown(rep: dict, source_name: str, read_at: str) -> str:
     if rep["coverage"]["issues"]:
         out += ["", "Unresolved issues:", ""] + [f"- {i['message']}" for i in rep["coverage"]["issues"]]
     return "\n".join(out) + "\n"
+
+
+# ---------------------------------------------------------------------------
+# Research brief sections (all built from facts, calculations and signals
+# already in the report; every item carries the ids it rests on).
+
+WHY_SIG = {
+    "equity_multiplier": "Higher leverage magnifies the effect of any change in asset values or earnings on equity holders.",
+    "debt_to_equity": "Lenders' claims rank ahead of shareholders; the more debt per dollar of equity, the less room for a bad year.",
+    "debt_to_assets": "Shows how much of the asset base is financed by borrowing rather than owners and other liabilities.",
+    "interest_coverage": "Thin coverage leaves less room for lower earnings or higher interest rates before interest strains cash flow.",
+    "gains_share": "Earnings that depend on asset sales move with sale timing and resale prices.",
+    "cash_conversion": "Shows how much of reported profit arrived as operating cash in the year.",
+    "roe": "Profit relative to the owners' capital; leverage raises it as well as operating performance.",
+    "fcf": "What is left for debt reduction, dividends or buybacks after capital spending.",
+    "payout_vs_fcf": "Payouts above free cash flow are funded from the balance sheet.",
+    "revenue_growth": "The direction and size of the top line set the base for everything else.",
+    "margin_trend": "Margin changes show whether growth or decline reached profit.",
+    "inventory_build": "Inventory built ahead of demand can lead to discounting or production cuts.",
+    "maturity_wall": "Debt concentrated in one year has to be refinanced at that year's rates.",
+    "utilization": "For a lessor, idle equipment earns nothing; utilization is the first read on demand.",
+    "net_cash": "Net debt is the part of borrowing not covered by cash on hand.",
+}
+
+
+def _cf_items(fb, ni) -> list:
+    """Reconciling lines between net income and operating cash flow, as
+    printed in the operating section of the cash flow statement."""
+    from .facts import _core
+    cf = [r for r in fb.rows if r["statement"] == "cashflow" and _core(r) and r["unit"] == "USD"]
+    if not cf:
+        return []
+    tid = cf[0].get("table_id")
+    sect = []
+    for r in cf:
+        if r.get("table_id") != tid:
+            continue
+        if re.search(r"net cash (provided|used|generated|from)|cash generated by operating", r["key"]):
+            break
+        if re.match(r"^(net income|net earnings|net income loss)$", r["key"]) or not r["values"]:
+            continue
+        sect.append(r)
+    base = abs(ni["value"]) if ni else max((abs(r["values"][0]) for r in sect), default=1) or 1
+    out = []
+    for r in sorted(sect, key=lambda r: -abs(r["values"][0])):
+        f = fb._fact_from("cf_item", r, 0, "flow")
+        if abs(f["value"]) < 0.04 * base or len(out) >= 6:
+            continue
+        f["id"] = f"cf_item:{r['offset']}:0"
+        f["name"] = r["full_label"]
+        fb.facts[f["id"]] = f
+        out.append(f["id"])
+    return out
+
+
+def research_sections(doc, rows, fb, rep: dict) -> None:
+    facts, calcs = rep["evidence"]["facts"], rep["evidence"]["calcs"]
+    sigs = {s["id"]: s for s in rep.get("signals") or []}
+    ev = lambda i: facts.get(i) or calcs.get(i)
+
+    # business overview
+    d = rep["overview"]["description"]
+    mix = None
+    for b in rep["operating"]["breakdowns"]:
+        if b["kind"] != "region":
+            top = sorted(b["items"], key=lambda i: -(i.get("value") or 0))[:3]
+            mix = {"text": "Largest revenue lines: " + ", ".join(f"{i['name']} {i['display']} ({i['share']:.0f}%)" for i in top) + f" of {b['total_display']} ({b['period']}).",
+                   "source": b["source"], "basis": "Calculated shares of reported revenue lines"}
+            break
+    kp = [k["name"] + (f" {k['display']}" if k.get("display") else "") for k in rep["operating"]["kpis"] if k.get("display")]
+    rep["business"] = {"description": d, "segments": rep["overview"]["segments"], "revenue_mix": mix,
+                       "profile": (rep.get("brief") or {}).get("profile") or rep["operating"]["profile"],
+                       "drivers": kp[:6]}
+
+    # executive findings: screened items first, then the most informative observations
+    pri = ["maturity_wall", "interest_coverage", "debt_to_assets", "equity_multiplier", "debt_to_equity", "payout_vs_fcf", "gains_share",
+           "margin_trend", "fcf", "cash_conversion", "inventory_build", "revenue_growth", "utilization", "roe"]
+    lev = {"equity_multiplier", "debt_to_equity", "debt_to_assets"}
+    chosen = []
+    for s in [x for x in rep.get("signals") or [] if x["severity"] in ("flag", "watch")] + [sigs[i] for i in pri if i in sigs]:
+        if len(chosen) >= 5:
+            break
+        if s in chosen or (s["id"] in lev and sum(1 for c in chosen if c["id"] in lev) >= 2):
+            continue                      # at most two of the overlapping leverage measures
+        sid = s["id"]
+        if sid == "revenue_growth" and abs(s["value"]) < 5:
+            continue
+        if sid == "cash_conversion" and 0.8 <= s["value"] <= 1.5:
+            continue
+        chosen.append(s)
+    rep["exec_findings"] = [{"id": s["id"], "severity": s["severity"], "headline": s["headline"], "text": s["text"],
+                             "why": WHY_SIG.get(s["id"], ""), "refs": s.get("inputs") or [], "source": s.get("source")} for s in chosen[:5]]
+
+    # three-year performance, same period type only
+    perf3 = []
+    for m in ("revenue", "operating_income", "pretax_income", "net_income", "eps_diluted"):
+        ids = [i for i in fb.primary_periods.get(m, []) if ev(i)]
+        if not ids:
+            continue
+        t0 = ev(ids[0])["period"]["type"]
+        ids = [i for i in ids if ev(i)["period"]["type"] == t0][:3]
+        perf3.append({"metric": m, "name": ev(ids[0])["name"], "ids": ids})
+    restated = any((facts.get(i) or {}).get("period", {}).get("basis") for r in perf3 for i in r["ids"])
+    rep["performance3"] = {"rows": perf3, "note": ("Some columns are presented as restated or recast in this filing." if restated else "")}
+
+    # earnings and cash generation
+    nic = fb.get("net_income_consolidated") or fb.get("net_income")
+    cfo = fb.get("cfo")
+    items = _cf_items(fb, nic)
+    rep["evidence"]["facts"] = fb.facts            # the new reconciling-line facts
+    facts = rep["evidence"]["facts"]
+    rep["earnings_cash"] = {"net_income": nic["id"] if nic else None, "cfo": cfo["id"] if cfo else None, "items": items,
+                            "signal": "cash_conversion" if "cash_conversion" in sigs else None,
+                            "note": "Largest lines reconciling net income to operating cash flow, as printed in the cash flow statement. Positive lines added cash; negative lines used it."}
+
+    # financial position and capital allocation
+    cap_lines = [i for i in (fb.get("capex") or {}).get("inputs", []) if i in facts]
+    mat = next((w for w in rep["risks"]["watch"] if w["title"] == "Scheduled debt maturities"), None)
+    rep["capital"] = {"cash": (fb.get("cash") or {}).get("id"), "debt": (fb.get("total_debt") or {}).get("id"),
+                      "debt_definition": (fb.get("total_debt") or {}).get("definition"),
+                      "maturities": mat, "capex": (fb.get("capex") or {}).get("id"), "capex_lines": cap_lines,
+                      "dividends": (fb.get("dividends") or {}).get("id"), "buybacks": (fb.get("buybacks") or {}).get("id"),
+                      "fcf_signal": "fcf" if "fcf" in sigs else None, "payout_signal": "payout_vs_fcf" if "payout_vs_fcf" in sigs else None}
+
+    # questions for further research, each tied to what is missing or unresolved
+    qs = []
+    for it in (rep.get("brief") or {}).get("items", []):
+        if it.get("status") != "found" and it.get("industry"):
+            if it["key"].startswith("kpi:"):
+                qs.append({"q": f"{it['title']}: not found in this filing. Does the company report it elsewhere, for example in earnings materials?",
+                           "basis": "Missing evidence", "refs": []})
+            elif not (it["key"] == "coverage" and fb.get("interest_expense")):     # a combined interest line gets its own question
+                qs.append({"q": f"{it['title']}: could not be computed from the figures read in this filing. Which inputs are missing, and are they in the notes?",
+                           "basis": "Missing evidence", "refs": []})
+    for s in rep.get("signals") or []:
+        if s.get("followup"):
+            qs.append({"q": s["followup"], "basis": f"Observation: {s['headline']}", "refs": s.get("inputs") or []})
+    for i in rep["coverage"]["issues"]:
+        if i["type"] == "conflict":
+            qs.append({"q": f"Which figure is right for {i['metric']} ({i['period']})? The filing prints two different values.", "basis": "Unresolved conflict", "refs": []})
+        if i["type"] == "unreadable_statement":
+            qs.append({"q": f"What does the {i['statement']} statement show? It could not be read from this file.", "basis": "Unreadable source", "refs": []})
+    ie = fb.get("interest_expense")
+    if ie and re.search(signals.COMBINED_INTEREST, ie["source"].get("row_label", ""), re.I):
+        qs.append({"q": f"How much of \"{ie['source']['row_label']}\" ({ie['display']}) is interest? The income statement prints interest together "
+                        "with other items, so interest coverage was not computed.", "basis": "Coverage limit", "refs": [ie["id"]]})
+    if not mat and fb.get("total_debt"):
+        qs.append({"q": "When does the debt mature? No maturity schedule was read from this file.", "basis": "Missing evidence", "refs": [fb.get("total_debt")["id"]]})
+    if "gains_share" in sigs:
+        s = sigs["gains_share"]
+        qs.append({"q": "What volume and pricing of asset sales does management expect, and how have resale prices moved?", "basis": f"Observation: {s['headline']}", "refs": s["inputs"]})
+    if sigs.get("interest_coverage", {}).get("severity") in ("flag", "watch") or sigs.get("debt_to_assets", {}).get("severity") in ("flag", "watch"):
+        qs.append({"q": "Which financial covenants apply to the debt, and how much headroom remains?", "basis": "Screened leverage or coverage",
+                   "refs": (sigs.get("interest_coverage") or sigs.get("debt_to_assets"))["inputs"]})
+    if rep["operating"]["breakdowns"]:
+        qs.append({"q": "How profitable is each segment? This report reads revenue by segment but not segment profit.", "basis": "Coverage limit", "refs": []})
+    rep["questions"] = qs[:7]
+
+    # sources and coverage
+    stm_pages = {}
+    for r in rows:
+        if r["statement"] in ("income", "balance", "cashflow", "equity") and r.get("scope") not in ("affiliate", "segment", "subsidiary", "supplemental"):
+            stm_pages.setdefault(r["statement"], set()).add(r["pdf_page"])
+    rep["sources_reviewed"] = {
+        "sections": [{"item": s.item, "title": s.title, "page": s.page} for s in doc.sections],
+        "statements": {k: sorted(p for p in v if p) for k, v in stm_pages.items()},
+        "read": ["Financial statement tables (income statement, balance sheet, cash flow statement, statement of equity where present)",
+                 "Notes tables for debt maturities and segment revenue", "Item 1A risk factor headings", "Item 3 legal proceedings",
+                 "Item 7 management's discussion for narrative figures"],
+        "not_read": ["Images and charts (no OCR)", "Exhibits and incorporated documents", "Narrative figures outside management's discussion",
+                     "Segment profit, which is not extracted", "Market data, valuation and forecasts (out of scope)"],
+        "failed": [i["message"] for i in rep["coverage"]["issues"] if i["type"] == "unreadable_statement"],
+    }
