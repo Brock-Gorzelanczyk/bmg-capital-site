@@ -22,14 +22,14 @@ _DATE = re.compile(r"\b(January|February|March|April|May|June|July|August|Septem
 _CELL = re.compile(r"\(?-?\$?\d[\d,]*(?:\.\d+)?\)?%?|\$|%|\u2014|\u2013|-")
 _PHRASE = re.compile(r"\b(three|six|nine|twelve|3|6|9|12)[ -]months? ended\s+([A-Z][a-z]+\.? \d{1,2})|\b(years?|fiscal years?) ended\s+([A-Z][a-z]+\.? \d{1,2})", re.I)
 _KIND = {"three": "Q", "3": "Q", "six": "6M", "6": "6M", "nine": "9M", "9": "9M", "twelve": "FY", "12": "FY"}
-_CAPTION = re.compile(r"\(\s*(?:dollars |amounts |\$ )?in (millions|billions|thousands)([^)]{0,200})\)", re.I)
+_CAPTION = re.compile(r"\(\s*(?:dollars |amounts |\$ )?(?:in )?(millions|billions|thousands)\b([^)]{0,200})\)", re.I)   # "in" optional: NEE prints "(millions, except ...)"
 _MONTHS = {m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
 
 STATEMENTS = [
-    ("comprehensive", re.compile(r"statements? of comprehensive (income|loss)", re.I)),
+    ("comprehensive", re.compile(r"statements? of comprehensive (income|loss)|comprehensive (income|loss) statements?", re.I)),
     ("income", re.compile(r"statements? of (operations|income|earnings)|income statements?", re.I)),
     ("balance", re.compile(r"balance sheets\b|consolidated balance sheet|statements? of financial (position|condition)", re.I)),
-    ("cashflow", re.compile(r"statements? of cash flows?", re.I)),
+    ("cashflow", re.compile(r"statements? of cash flows?|cash flows? statements?", re.I)),     # Microsoft: "CASH FLOWS STATEMENTS"
     ("equity", re.compile(r"statements? of (changes in )?(shareholders|stockholders)['’]? equity|statements? of changes in equity", re.I)),
 ]
 
@@ -90,11 +90,21 @@ def scope_of(intro: str, title: str, block: str) -> str:
     return "unknown"
 
 
-def statement_of(title: str) -> str:
+def _statement_named(title: str) -> str:
     for name, rx in STATEMENTS:
         if rx.search(title or ""):
             return name
     return "other"
+
+
+# a summary of a statement in the MD&A ("Selected income statement data", "Consolidated
+# balance sheets analysis" in JPMorgan's 10-K) names the statement but is not it
+_SUMMARY = re.compile(r"\b(selected|data|analysis|highlights|summary|discussion)\b", re.I)
+
+
+def statement_of(title: str) -> str:
+    name = _statement_named(title)
+    return "other" if name != "other" and _SUMMARY.search(title or "") else name
 
 
 def parse_number(tok: str) -> Optional[float]:
@@ -242,6 +252,11 @@ def _unit(label: str, heading: str, raw0: str) -> str:
     return "USD"
 
 
+_ENTITY = re.compile(r"(?:\b(?:Inc|Corp|Corporation|Company|Co|LLC|Ltd|plc|N\.A)\.?|\bL\.?\s?P\.?)$", re.I)
+_PERIOD_LINE = re.compile(r"^(?:for the )?(?:(?:fiscal )?years?|three months|six months|nine months|twelve months|quarters?) ended\b[^\d]*(?:\d{1,2},?\s*)?(?:(?:19|20)\d\d)?$"
+                          r"|^(?:as of |at )?(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+(?:19|20)\d\d$", re.I)
+
+
 def parse(doc) -> list[dict]:
     """All table rows in the document, in order."""
     body = doc.body
@@ -257,6 +272,7 @@ def parse(doc) -> list[dict]:
     table_id, row_index = 0, 0
     groups = []      # [heading, [values of each row]] for the open sections of this table, in order
     label_head, prev_heading = None, ""
+    entity = ""
     pos = 0
     for line in body.split("\n"):
         start = pos
@@ -268,13 +284,21 @@ def parse(doc) -> list[dict]:
         prev.append(s)
         if re.match(r"^(?:Note|NOTE)\s+\d{1,2}\b", s) and len(s) <= 120:
             title = s                                   # a note heading: tables below belong to the note
+            entity = ""
         elif re.match(r"^See accompanying notes", s, re.I):
             title = ""
-        elif (len(s) <= 110 and not s.endswith((".", ":")) and not re.search(r"\d{3}", s) and statement_of(s) != "other"
-              and re.match(r"^(?:[A-Z0-9][A-Z0-9 .,&'\u2019-]{2,70}\s+)?(?:condensed\s+)?(?:consolidated\s+)?(?:statements?|balance)\b", s, re.I)):
-            # a statement title opens its line (after an all-caps company name at most); a sentence
+        elif (len(s) <= 110 and not s.endswith((".", ":")) and not re.search(r"\d{3}", s) and _statement_named(s) != "other"
+              and re.match(r"^(?:(?:(?-i:[A-Z0-9][A-Z0-9 .,&'\u2019-]{2,70})|[A-Z][A-Za-z0-9 .,&'\u2019-]{1,60}?\b(?:Inc|Corp|Corporation|Company|Co|LLC|Ltd|plc)\.?)\s+)?(?:condensed\s+)?(?:consolidated\s+)?(?:statements?|balance)\b", s, re.I)):
+            # a statement title opens its line (after an all-caps company name at most, so an MD&A heading
+            # "Other Items Impacting FPL's Consolidated Statements of Income" is not one); a sentence
             # that mentions "the statements of income:" introduces a note table instead
-            title = re.sub(r"^.*?((?:Condensed\s+)?(?:Consolidated\s+)?(?:Statements?|Balance Sheets?)\b)", r"\1", s, flags=re.I)
+            t2 = re.sub(r"^.*?((?:Condensed\s+)?(?:Consolidated\s+)?(?:Statements?|Balance Sheets?)\b)", r"\1", s, flags=re.I)
+            title = t2 if _statement_named(t2) != "other" else s     # "INCOME STATEMENTS": the words before are the title
+            # the registrant named just above ("FLORIDA POWER & LIGHT COMPANY"): a combined 10-K prints a
+            # full set of statements for each registrant
+            pre = s[:len(s) - len(t2)].strip()                # "Apple Inc.  CONSOLIDATED BALANCE SHEETS"
+            entity = (pre if pre and _ENTITY.search(pre) else
+                      prev[-2] if len(prev) > 1 and len(prev[-2]) <= 70 and _ENTITY.search(prev[-2]) else "")
         h = header_periods(s, ctx) if len(s) < 260 else None
         if h:
             hdr, hdr_age, heading = h, 0, ""
@@ -293,6 +317,9 @@ def parse(doc) -> list[dict]:
             if tail and re.match(r"[A-Za-z]", tail):
                 heading = tail
             continue
+        if hdr is not None and len(s) <= 60 and _PERIOD_LINE.match(s):
+            hdr = None              # a new period line this reader cannot use as a header (NEE's issuer/guarantor
+            continue                # table has entity columns): the rows below are not the previous table's
         hdr_age += 1
         if hdr is None or hdr_age > 90 or len(s) > 320:
             if hdr_age > 90:
@@ -372,6 +399,8 @@ def parse(doc) -> list[dict]:
         cap = _caption(body, start)
         unit = _unit(label, heading, toks[0])
         scale = cap["scale"] if unit == "USD" else cap["shares_scale"] if unit == "shares" else ""
+        if unit == "shares" and re.search(r"\(000['\u2019]?s\)|\(in thousands\)", heading + " " + label, re.I):
+            scale = "K"                  # Costco: "Shares used in calculation (000's)" under a millions caption
         full = (f"{heading}: {label}" if heading and label and len(label.split()) <= 3 and _GENERIC.match(label.split()[0])
                 and not label.lower().startswith(heading.lower()) else label)
         loc = doc.location(start)
@@ -380,11 +409,11 @@ def parse(doc) -> list[dict]:
         if statement == "balance":
             cols = [dict(c, type="instant") for c in cols]
         rows.append({
-            "label": label, "full_label": full, "key": re.sub(r"[^a-z0-9]+", " ", label.lower()).strip(),
+            "label": label, "full_label": full, "key": re.sub(r"[^a-z0-9]+", " ", re.sub(r"\([^()]*\d[^()]*\)", " ", label.lower())).strip(),   # "(included $ 134,559 ... at fair value)" is a note, not the label
             "heading": heading, "values": vals, "raw": toks, "cols": cols, "header_text": hdr["text"],
             "unit": unit, "scale": scale, "caption": cap["text"], "table_title": title,
             "statement": statement, "unlabeled_total": unlabeled, "footnote": footnote, "block": block,
-            "intro": intro[:240], "scope": scope_of(intro, title, block), "restated": restated,
+            "intro": intro[:240], "scope": scope_of(intro, title, block), "restated": restated, "entity": entity,
             "table_id": table_id, "row_index": row_index,
             "offset": start, "line": s[:240], **loc,
         })
@@ -412,4 +441,11 @@ def parse(doc) -> list[dict]:
     for r in rows:
         if r["table_id"] in combined:
             r["statement"] = "income"
+    # the first registrant whose statements are printed is the filer; another registrant's
+    # statements (NEE's FPL, Prologis Inc.'s operating partnership L.P.) are a subsidiary's
+    key = lambda e: re.sub(r"[^a-z0-9]", "", e.lower())
+    first = next((key(r["entity"]) for r in rows if r["statement"] != "other" and r["entity"]), "")
+    for r in rows:
+        if first and r["statement"] != "other" and r["entity"] and key(r["entity"]) != first and r["scope"] not in ("affiliate", "segment", "supplemental"):
+            r["scope"], r["block"], r["other_registrant"] = "subsidiary", r["entity"], True
     return rows
