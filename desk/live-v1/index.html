@@ -863,7 +863,7 @@ url:    ${ev.url}
     } catch (e) { document.getElementById("live-status").textContent = "SSE unavailable"; }
     // POST live run
     try {
-      const r = await fetch("/desk/_run/live", {method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ticker, mode})});
+      const r = await fetch("/desk/_run/live", {method: "POST", headers: {"Content-Type":"application/json", "X-Desk-Key": (function(){try{let k=localStorage.getItem("bmg-read-save-key")||"";if(!k){k=(prompt("Owner key for desk runs:")||"").trim();if(k)localStorage.setItem("bmg-read-save-key",k);}return k;}catch(e){return "";}})()}, body: JSON.stringify({ticker, mode})});
       if (r.status === 409) {
         const j = await r.json();
         document.getElementById("live-status").textContent = `409: ${j.detail || "another live run is in progress"}`;

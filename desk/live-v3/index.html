@@ -379,6 +379,11 @@ svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,
         has_text: !["SERIES","NEWS","4"].includes(ev.doc_type), meta:{}, dim:!!ev.skipped_dup};
       state.docsSeen[ev.doc_id] = docEv;
       if (docEv.dim){setStatus(`<b>${host}</b> ${ev.doc_type}: already stored`); return;}
+      const _prio = new Set(["10-Q","10-K","8-K","EX-99"]);
+      if (state.coldStartDocId && state.currentDocId === state.coldStartDocId && !_prio.has(ev.doc_type)){
+        setStatus(`fetched <b>${host}</b> ${ev.doc_type}: ${(ev.title||"").slice(0,60)}`);
+        return;
+      }
       processEvent(docEv);
       return;
     }
@@ -394,6 +399,12 @@ svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,
       if (!bestId) return;
       const cached = state.docsSeen[bestId];
       if (!cached) return;
+      // If the cold-start 10-Q is showing and bestId is not a priority filing,
+      // do not navigate away from the 10-Q (DESK-5.4).
+      const _prio2 = new Set(["10-Q","10-K","8-K","EX-99"]);
+      if (state.coldStartDocId && state.currentDocId === state.coldStartDocId && cached && !_prio2.has(cached.doc_type)){
+        return;
+      }
       if (state.currentDocId === bestId && state.lastRenderedCount === state.factBuffer[bestId].length - 1){
         processEvent({type:"fact", doc_id: bestId, label: fact.label, value: fact.value, unit: fact.unit, char_offset: fact.char_offset});
         state.lastRenderedCount = state.factBuffer[bestId].length;
@@ -440,15 +451,15 @@ svg.overlay circle.node{fill:var(--vio);opacity:.85;transition:opacity .6s ease,
     const mode = document.getElementById("live-mode").value;
     try{
       state.es = new EventSource("/desk/events");
-      ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done"].forEach(t => {
+      ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done","edgar_done"].forEach(t => {
         state.es.addEventListener(t, (e) => {try{const d = JSON.parse(e.data); d.type = t; liveHandle(d);}catch(err){}});
       });
       state.es.onerror = () => setStatus("SSE connection lost");
     }catch(e){setStatus("SSE unavailable");}
     try{
-      const r = await fetch("/desk/_run/live", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ticker, mode})});
+      const r = await fetch("/desk/_run/live", {method:"POST", headers:{"Content-Type":"application/json", "X-Desk-Key": (function(){try{let k=localStorage.getItem("bmg-read-save-key")||"";if(!k){k=(prompt("Owner key for desk runs:")||"").trim();if(k)localStorage.setItem("bmg-read-save-key",k);}return k;}catch(e){return "";}})()}, body: JSON.stringify({ticker, mode})});
       if (r.status === 409){const j = await r.json(); setStatus(`409: ${j.detail||"another live run active"}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
-      else if (!r.ok){setStatus(`error ${r.status}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
+      else if (!r.ok){if (r.status === 403){try{localStorage.removeItem("bmg-read-save-key");}catch(e){}} setStatus(r.status === 403 ? "owner key required to start a desk run" : r.status === 503 ? "manual desk runs are disabled on this server" : `error ${r.status}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
     }catch(e){setStatus(`POST failed: ${e}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
   });
 

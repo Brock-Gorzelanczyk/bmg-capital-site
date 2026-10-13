@@ -1132,9 +1132,23 @@ def _detect_kind(filename: str, content_type: str) -> Optional[str]:
         return "pptx"
     if f.endswith(".html") or f.endswith(".htm") or "html" in c:
         return "html"
-    if f.endswith(".txt") or "plain" in c:
+    if f.endswith(".txt") or f.endswith(".md") or "plain" in c or "markdown" in c:
         return "text"
     return None
+
+
+def _sniff_ok(kind: str, data: bytes) -> bool:
+    """The bytes look like the declared type (a renamed file is refused)."""
+    head = data[:2048].lstrip()
+    if kind == "pdf":
+        return data[:1024].find(b"%PDF-") >= 0
+    if kind in ("docx", "pptx"):
+        return data[:2] == b"PK"
+    if kind == "html":
+        return b"<" in head
+    if kind == "text":
+        return b"\x00" not in data[:4096]
+    return False
 
 
 async def _filing_text(acc: str, cik_padded: str, primary: str,
@@ -2200,6 +2214,221 @@ async def read_save(request: Request,
                                  "url": f"https://github.com/{VAULT_REPO}/tree/{VAULT_BRANCH}/{folder}",
                                  "figures": len(res["findings"])})
 
+
+
+# ----------------------------------------------------------------------
+# Reader jobs (reader/): upload -> parse -> extract -> validate -> report.
+# The browser holds an owner token (random, kept in localStorage) and sends
+# it as the X-Reader-Owner header (never in the URL, so it stays out of
+# access logs). Job ids are random;
+# a job is only visible to its owner.
+# ----------------------------------------------------------------------
+from fastapi.responses import StreamingResponse as _StreamingResponse
+from reader import jobs as _reader_jobs
+from reader.document import ReadError as _ReaderError
+
+
+def _owner(request: Request, owner: Optional[str]) -> Optional[str]:
+    tok = request.headers.get("x-reader-owner") or owner or ""
+    return tok if 16 <= len(tok) <= 200 else None
+
+
+@app.post("/api/read/jobs")
+async def reader_job_create(request: Request,
+                            file: Optional[UploadFile] = File(None),
+                            text: Optional[str] = Form(None),
+                            ticker: Optional[str] = Form(None),
+                            owner: Optional[str] = Form(None)) -> JSONResponse:
+    tok = _owner(request, owner)
+    if not tok:
+        return JSONResponse(status_code=400, content={"error": "missing reader owner token"})
+    xff = request.headers.get("x-forwarded-for", "")
+    ip = (xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown"))
+    rl_err = _rate_limit_check(ip)
+    if rl_err:
+        return JSONResponse(status_code=429, content={"error": rl_err})
+    if file is not None:
+        data = await file.read()
+        kind = _detect_kind(file.filename or "", file.content_type or "")
+        title = (file.filename or "upload")[:160]
+        if kind is None:
+            return JSONResponse(status_code=400, content={"error": "Unsupported file type. Use PDF, DOCX, PPTX, HTML or plain text."})
+        if not _sniff_ok(kind, data):
+            return JSONResponse(status_code=400, content={"error": f"The file does not look like a valid {kind.upper()} file."})
+    elif text and text.strip():
+        data, kind, title = text.encode("utf-8", errors="replace"), "text", "pasted text"
+    else:
+        return JSONResponse(status_code=400, content={"error": "Choose a file or paste text first."})
+    if len(data) > CHECK_MAX_BYTES:
+        return JSONResponse(status_code=413, content={"error": f"The file is {len(data) / 1e6:.1f} MB; the limit is {CHECK_MAX_BYTES // (1024 * 1024)} MB."})
+    try:
+        job, reused = _reader_jobs.MANAGER.submit(tok, data, kind, title, _validate_ticker(ticker) if ticker else None)
+    except _ReaderError as e:
+        return JSONResponse(status_code=e.status, content={"error": e.msg})
+    return JSONResponse(status_code=200 if reused else 202, content={**job.public(), "reused": reused})
+
+
+def _job_or_404(request: Request, job_id: str, owner: Optional[str]):
+    tok = _owner(request, owner)
+    j = _reader_jobs.MANAGER.get(tok or "", job_id) if tok else None
+    if not j:
+        raise HTTPException(status_code=404, detail="Job not found. It may have expired (results are kept for one hour) or the server restarted.")
+    return j
+
+
+@app.get("/api/read/jobs/{job_id}")
+async def reader_job_status(request: Request, job_id: str) -> JSONResponse:
+    return JSONResponse(content=_job_or_404(request, job_id, None).public())
+
+
+@app.get("/api/read/jobs/{job_id}/result")
+async def reader_job_result(request: Request, job_id: str) -> JSONResponse:
+    j = _job_or_404(request, job_id, None)
+    if j.state != "done":
+        return JSONResponse(status_code=409, content={"error": f"The job is {j.state}.", **j.public()})
+    r = j.result
+    return JSONResponse(content={"job": j.public(), "report": r["report"], "findings": r["report"]["findings"],
+                                 "text": r["text"], "title": r["title"], "kind": r["kind"], "sha256": r["sha256"], "pages": r["pages"]})
+
+
+@app.get("/api/read/jobs/{job_id}/report.pdf")
+async def reader_job_pdf(request: Request, job_id: str):
+    j = _job_or_404(request, job_id, None)
+    if j.state != "done":
+        return JSONResponse(status_code=409, content={"error": f"The job is {j.state}; no report yet."})
+    try:
+        data = await asyncio.to_thread(_reader_jobs.MANAGER.pdf, j)
+    except Exception as e:
+        log.exception("report pdf failed")
+        return JSONResponse(status_code=500, content={"error": f"The PDF could not be generated ({e.__class__.__name__}). The on-screen report is still available."})
+    co = j.result["report"]["company"]
+    base = re.sub(r"[^A-Za-z0-9]+", "-", f"BMG-Capital-{co.get('ticker') or co.get('name') or 'company'}-report").strip("-")
+    return Response(content=data, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{base}.pdf"', "Cache-Control": "private, no-store"})
+
+
+@app.post("/api/read/jobs/{job_id}/cancel")
+async def reader_job_cancel(request: Request, job_id: str) -> JSONResponse:
+    tok = _owner(request, None)
+    j = _reader_jobs.MANAGER.cancel(tok or "", job_id) if tok else None
+    if not j:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return JSONResponse(content=j.public())
+
+
+@app.post("/api/read/jobs/{job_id}/save")
+async def reader_job_save(request: Request, job_id: str,
+                          file: Optional[UploadFile] = File(None),
+                          text: Optional[str] = Form(None),
+                          key: Optional[str] = Form(None),
+                          owner: Optional[str] = Form(None)) -> JSONResponse:
+    """Owner-only: commit the finished report to the vault on GitHub.
+    The server does not keep the uploaded bytes, so the browser sends the
+    same file again; it must match the job's sha256. Saved: report.json,
+    report.md, findings.json and the source document."""
+    if not READ_SAVE_KEY or not VAULT_TOKEN:
+        return JSONResponse(status_code=503, content={"error": "Saving is not set up on the server (READ_SAVE_KEY and VAULT_GITHUB_TOKEN)."})
+    if not key or not _hmac.compare_digest(key.encode(), READ_SAVE_KEY.encode()):
+        return JSONResponse(status_code=403, content={"error": "Wrong save key."})
+    j = _job_or_404(request, job_id, None)
+    if j.state != "done":
+        return JSONResponse(status_code=409, content={"error": f"The job is {j.state}; nothing to save."})
+    if file is not None:
+        data, name = await file.read(), (file.filename or "upload")
+    elif text:
+        data, name = text.encode("utf-8", errors="replace"), "pasted.txt"
+    else:
+        return JSONResponse(status_code=400, content={"error": "Send the same file again to save it with the report."})
+    if hashlib.sha256(data).hexdigest() != j.sha256:
+        return JSONResponse(status_code=400, content={"error": "This file is not the one the report was built from."})
+    rep = j.result["report"]
+    co = rep["company"]
+    t = _validate_ticker(co.get("ticker") or co.get("ticker_hint") or "") or "UNKNOWN"
+    prior = await _vault_prior_runs(t)
+    if any(r.get("source_sha256") == j.sha256 for r in prior):
+        return JSONResponse(content={"saved": False, "already_saved": True, "ticker": t})
+    from reader import report as _rreport
+    now = _dt.now(_tz.utc)
+    read_at = now.strftime("%Y-%m-%d %H:%M UTC")
+    slug = re.sub(r"[^a-z0-9]+", "-", Path(name).stem.lower()).strip("-")[:48] or "document"
+    folder = f"{READ_RUNS_DIR}/{t}/{now.strftime('%Y-%m-%d')}-{slug}-{j.sha256[:8]}"
+    ext = (Path(name).suffix.lower() or ".txt")[:6]
+    record = {"title": j.title, "ticker": t, "kind": j.kind, "read_at": now.isoformat(timespec="seconds"),
+              "source_file": f"source{ext}", "source_name": name, "source_sha256": j.sha256,
+              "source_label": "PRIMARY (document as uploaded)", "schema": rep.get("schema"),
+              "findings": rep["findings"]}
+    files = {f"{folder}/findings.json": json.dumps(record, indent=1, ensure_ascii=False, default=str).encode(),
+             f"{folder}/report.json": json.dumps(rep, indent=1, ensure_ascii=False, default=str).encode(),
+             f"{folder}/report.md": _rreport.markdown(rep, name, read_at).encode()}
+    if len(data) <= READ_SAVE_SOURCE_MAX:
+        files[f"{folder}/source{ext}"] = data
+    try:
+        commit = await _vault_commit(files, f"reader run: {t} {name} ({len(rep['findings'])} findings)")
+    except _ReadError as e:
+        return JSONResponse(status_code=e.status, content={"error": e.msg})
+    _PRIOR_CACHE.pop(t, None)
+    log.info("reader job %s saved to vault %s", job_id[:8], folder)
+    return JSONResponse(content={"saved": True, "ticker": t, "path": folder, "commit": commit,
+                                 "url": f"https://github.com/{VAULT_REPO}/tree/{VAULT_BRANCH}/{folder}",
+                                 "figures": len(rep["findings"])})
+
+
+def _compare_jobs(request: Request, a: str, b: str):
+    ja, jb = _job_or_404(request, a, None), _job_or_404(request, b, None)
+    if ja.state != "done" or jb.state != "done":
+        raise HTTPException(status_code=409, detail="Both reports must be finished before they can be compared.")
+    from reader import compare as _rcompare
+    return _rcompare.build(ja.result["report"], jb.result["report"])
+
+
+@app.get("/api/read/compare")
+async def reader_compare(request: Request, a: str, b: str) -> JSONResponse:
+    """Two of the caller's finished reports side by side (owner-scoped)."""
+    return JSONResponse(content=_compare_jobs(request, a, b))
+
+
+@app.get("/api/read/compare.pdf")
+async def reader_compare_pdf(request: Request, a: str, b: str):
+    cmp = _compare_jobs(request, a, b)
+    from reader import pdf as _rpdf
+    try:
+        data = await asyncio.to_thread(_rpdf.render_compare, cmp)
+    except Exception as e:
+        log.exception("compare pdf failed")
+        return JSONResponse(status_code=500, content={"error": f"The comparison PDF could not be generated ({e.__class__.__name__})."})
+    name = re.sub(r"[^A-Za-z0-9]+", "-", f"BMG-Capital-{cmp['a'].get('ticker') or 'A'}-vs-{cmp['b'].get('ticker') or 'B'}").strip("-")
+    return Response(content=data, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{name}.pdf"', "Cache-Control": "private, no-store"})
+
+
+@app.get("/api/read/jobs/{job_id}/events")
+async def reader_job_events(request: Request, job_id: str, after: int = 0):
+    """Server-Sent Events. Resumes after Last-Event-ID (or ?after=)."""
+    j = _job_or_404(request, job_id, None)
+    try:
+        start = int(request.headers.get("last-event-id") or after or 0)
+    except ValueError:
+        start = 0
+
+    async def gen():
+        sent = start
+        idle = 0.0
+        yield "retry: 2000\n\n"
+        while True:
+            evs = j.events[sent:]
+            for ev in evs:
+                sent = ev["id"]
+                yield f"id: {ev['id']}\nevent: {ev['type']}\ndata: {json.dumps({**ev['data'], 't': ev['t']})}\n\n"
+            if j.state in ("done", "failed", "cancelled") and sent >= len(j.events):
+                yield f"event: end\ndata: {json.dumps({'state': j.state})}\n\n"
+                return
+            if await request.is_disconnected():
+                return
+            await asyncio.sleep(0.25)
+            idle += 0.25
+            if idle >= 15:
+                idle = 0
+                yield ": keep-alive\n\n"
+
+    return _StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
 
 # StaticFiles mount — serves every current static URL at /
 #

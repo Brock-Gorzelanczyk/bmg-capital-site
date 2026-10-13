@@ -1265,6 +1265,7 @@ svg.spider .knee{fill:#ff3d9a}
   }
 
   function startWalk(doc_id, duration_s){
+    if (state.walkSkipped){ state.walkState = {done:true, docId:doc_id, lineIdx:0}; return; }
     state.walkState = {done:false, docId:doc_id, lineIdx:0};
     // no mouse hit-testing over tens of thousands of word spans while the
     // page scrolls itself (restored when the walk ends)
@@ -1571,9 +1572,9 @@ svg.spider .knee{fill:#ff3d9a}
       state.es.onerror = () => setStatus("SSE connection lost");
     }catch(e){setStatus("SSE unavailable");}
     try{
-      const r = await fetch("/desk/_run/live", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ticker, mode})});
+      const r = await fetch("/desk/_run/live", {method:"POST", headers:{"Content-Type":"application/json", "X-Desk-Key": (function(){try{let k=localStorage.getItem("bmg-read-save-key")||"";if(!k){k=(prompt("Owner key for desk runs:")||"").trim();if(k)localStorage.setItem("bmg-read-save-key",k);}return k;}catch(e){return "";}})()}, body: JSON.stringify({ticker, mode})});
       if (r.status === 409){const j = await r.json(); setStatus(`409: ${j.detail||"another live run active"}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
-      else if (!r.ok){setStatus(`error ${r.status}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
+      else if (!r.ok){if (r.status === 403){try{localStorage.removeItem("bmg-read-save-key");}catch(e){}} setStatus(r.status === 403 ? "owner key required to start a desk run" : r.status === 503 ? "manual desk runs are disabled on this server" : `error ${r.status}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
     }catch(e){setStatus(`POST failed: ${e}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
   });
 
