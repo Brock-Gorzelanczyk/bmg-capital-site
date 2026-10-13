@@ -1021,7 +1021,8 @@ async def _on_startup() -> None:
     HTTP_CLIENT = httpx.AsyncClient(timeout=20.0, follow_redirects=True)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     log.info("startup: cache dir %s", CACHE_DIR)
-    if _INTAKE_AVAILABLE:
+    # BMG_LOCAL=1 (start-reader.command on the owner's Mac): no background intake jobs
+    if _INTAKE_AVAILABLE and os.environ.get("BMG_LOCAL") != "1":
         try:
             _start_scheduler()
         except Exception as e:
@@ -1033,7 +1034,7 @@ async def _on_shutdown() -> None:
     global HTTP_CLIENT
     if HTTP_CLIENT:
         await HTTP_CLIENT.aclose()
-    if _INTAKE_AVAILABLE:
+    if _INTAKE_AVAILABLE and os.environ.get("BMG_LOCAL") != "1":
         try:
             _stop_scheduler()
         except Exception:

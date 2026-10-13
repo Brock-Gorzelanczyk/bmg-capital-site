@@ -17,3 +17,6 @@ CLAUDE.md
 
 # Intake package config (allowed exception to *.yaml for runtime config).
 !intake/tickers.yaml
+
+# start-reader.command (local run on the owner Mac)
+.local-data/
