@@ -155,7 +155,10 @@ def _strip_boilerplate(pages_raw: list[list[str]]) -> tuple[list[list[str]], lis
             s = l.strip()
             if at_edge and _norm(l) in running:
                 m = re.search(r"(\d{1,3})\s*$", s)
-                if m and printed[i] is None:
+                # a running "Item 8" or "Part II" header names a section, not a page; a bare
+                # number on the last line is the page (Microsoft prints both)
+                bare = lines and re.fullmatch(r"\d{1,3}", lines[-1].strip())
+                if m and printed[i] is None and not re.match(r"(?i)^(part\s+[ivx]+\s+)?item\s+\d", s) and not (bare and j < len(lines) - 1):
                     printed[i] = m.group(1)
                 removed += 1
                 continue
@@ -288,7 +291,7 @@ def _pages_from(data: bytes, kind: str) -> list[dict]:
                              "If it is a scanned document, it needs OCR, which this reader does not have.")
 
 
-def load(data: bytes, kind: str, title: str, max_chars: int = 600_000) -> Document:
+def load(data: bytes, kind: str, title: str, max_chars: int = 1_500_000) -> Document:   # a large bank 10-K is ~1.2M characters (JPMorgan FY2025)
     sha = hashlib.sha256(data).hexdigest()
     raw = _pages_from(data, kind)
     pages_raw = [[l for l in (p.get("text") or "").split("\n")] for p in raw]
