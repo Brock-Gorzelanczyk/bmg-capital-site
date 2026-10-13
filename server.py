@@ -1599,7 +1599,8 @@ async def _cache_control(request: Request, call_next):
 # the ticker (the same store vault_sync copies into the vault).
 # Uploads are read into memory and NEVER written to disk.
 # ----------------------------------------------------------------------
-READ_MAX_FINDINGS = 80
+READ_MAX_FINDINGS = 400
+READ_MAX_CHARS = 400000
 
 
 def _norm_num(v: str) -> str:
@@ -1812,55 +1813,48 @@ def _stored_facts_for_ticker(ticker: str) -> list[dict]:
         return []
 
 
-@app.post("/api/read")
-async def read_document(request: Request,
-                        file: Optional[UploadFile] = File(None),
-                        text: Optional[str] = Form(None),
-                        ticker: Optional[str] = Form(None)) -> JSONResponse:
-    xff = request.headers.get("x-forwarded-for", "")
-    ip = (xff.split(",")[0].strip() if xff
-          else (request.client.host if request.client else "unknown"))
-    rl_err = _rate_limit_check(ip)
-    if rl_err:
-        return JSONResponse(status_code=429, content={"error": rl_err})
-    if file is not None:
-        data = await file.read()
-        if len(data) > CHECK_MAX_BYTES:
-            return JSONResponse(status_code=413, content={
-                "error": f"file too large: {len(data)} bytes (cap {CHECK_MAX_BYTES})"})
-        kind = _detect_kind(file.filename or "", file.content_type or "")
-        if kind is None:
-            return JSONResponse(status_code=400, content={
-                "error": "unsupported file type; use PDF, DOCX, PPTX, HTML or text"})
-        title = file.filename or "upload"
-    elif text:
-        data = text.encode("utf-8", errors="replace")
-        kind, title = "text", "pasted text"
-    else:
-        return JSONResponse(status_code=400, content={"error": "upload a file or paste text"})
+class _ReadError(Exception):
+    def __init__(self, status: int, msg: str):
+        super().__init__(msg)
+        self.status, self.msg = status, msg
+
+
+def _read_key(s: Optional[str]) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+
+
+async def _read_core(data: bytes, kind: str, title: str, ticker: Optional[str]) -> dict:
     try:
         pages = fc.extract(data, kind)
     except Exception as e:
-        return JSONResponse(status_code=400, content={
-            "error": f"could not extract text: {e.__class__.__name__}: {e}"})
-    body = "\n\n".join((p.get("text") or "").strip() for p in pages if (p.get("text") or "").strip())
+        raise _ReadError(400, f"could not extract text: {e.__class__.__name__}: {e}")
     # Tables extract one cell per line; fold runs of short fragments back
     # into one row so the reader shows "Revenue $ 576.5 $ 842.7" on a line.
-    folded, row = [], []
-    for ln in body.split("\n"):
-        t = ln.strip()
-        if t and len(t) < 28:
-            row.append(t)
-            continue
+    # Folded page by page so every figure keeps its page number.
+    def _fold(txt: str) -> str:
+        folded, row = [], []
+        for ln in txt.split("\n"):
+            t = ln.strip()
+            if t and len(t) < 28:
+                row.append(t)
+                continue
+            if row:
+                folded.append("  ".join(row)); row = []
+            folded.append(t)
         if row:
-            folded.append("  ".join(row)); row = []
-        folded.append(t)
-    if row:
-        folded.append("  ".join(row))
-    body = re.sub(r"\n{3,}", "\n\n", "\n".join(folded))[:200000]
+            folded.append("  ".join(row))
+        return re.sub(r"\n{3,}", "\n\n", "\n".join(folded)).strip()
+    parts, page_starts, pos = [], [], 0
+    for i, p in enumerate(pages):
+        t = _fold((p.get("text") or "").strip())
+        if not t:
+            continue
+        page_starts.append((pos, i + 1))
+        parts.append(t)
+        pos += len(t) + 2
+    body = "\n\n".join(parts)[:READ_MAX_CHARS]
     if len(re.sub(r"\s+", "", body)) < 40:
-        return JSONResponse(status_code=422, content={
-            "error": "no readable text in that file (scanned PDF or image only?)"})
+        raise _ReadError(422, "no readable text in that file (scanned PDF or image only?)")
 
     # Labeled findings: the desk's own fact patterns (same labels the live
     # page uses), then every other money/percent claim the fact-checker sees.
@@ -1913,9 +1907,17 @@ async def read_document(request: Request,
     findings = (labeled + bare)[:READ_MAX_FINDINGS]
     findings.sort(key=lambda f: (f["char_offset"] if f["char_offset"] is not None and f["char_offset"] >= 0 else 10**9))
 
-    # Compare with the stored facts for the ticker.
+    # Page number and classification for every figure.
     for f in findings:
         _read_classify(body, f)
+        st = f.get("char_offset")
+        f["page"] = None
+        if st is not None and st >= 0:
+            for ps, pn in page_starts:
+                if ps <= st:
+                    f["page"] = pn
+                else:
+                    break
     # No ticker picked: read it off the cover page and compare if the vault
     # covers it; otherwise every figure is simply new to the vault.
     t = _validate_ticker(ticker) if ticker else None
@@ -1924,8 +1926,15 @@ async def read_document(request: Request,
         detected = _read_detect_ticker(body)
         if detected and detected in _read_covered_tickers():
             t = detected
-    covered = bool(t)
     stored = _stored_facts_for_ticker(t) if t else []
+    # Earlier reads saved to the vault (research/reader-runs/<ticker>/):
+    # a figure with the same line item and value is already known.
+    run_ticker = t or detected
+    prior = await _vault_prior_runs(run_ticker) if run_ticker else []
+    prior_pairs = {(_read_key(f.get("item") or f.get("label")), _norm_num(f.get("value"))) for r in prior for f in r.get("findings", [])}
+    if prior and not t:
+        t = run_ticker
+    covered = bool(t)
     known_vals: dict[str, set] = {}
     latest: dict[str, dict] = {}
     for r in stored:
@@ -1936,7 +1945,9 @@ async def read_document(request: Request,
             f["status"] = "NOT_COVERED"
             continue
         lab = f["label"]
-        if _norm_num(f["value"]) in known_vals.get(lab, set()):
+        if (_read_key(f.get("item") or lab), _norm_num(f["value"])) in prior_pairs:
+            f["status"] = "KNOWN"
+        elif _norm_num(f["value"]) in known_vals.get(lab, set()):
             f["status"] = "KNOWN"
         elif lab in latest and f.get("src") == "desk":
             # Only the desk's own labeled facts are compared value-to-value;
@@ -1950,12 +1961,233 @@ async def read_document(request: Request,
     counts: dict[str, int] = {}
     for f in findings:
         counts[f["status"]] = counts.get(f["status"], 0) + 1
-    doc_id = "upload-" + hashlib.sha256(data).hexdigest()[:16]
-    return JSONResponse(content={
-        "doc_id": doc_id, "title": title, "kind": kind, "ticker": t,
+    sha = hashlib.sha256(data).hexdigest()
+    return {
+        "doc_id": "upload-" + sha[:16], "sha256": sha, "title": title, "kind": kind, "ticker": t,
         "detected_ticker": detected, "covered": covered,
         "chars": len(body), "text": body, "findings": findings, "counts": counts,
-        "stored_facts": len(stored)})
+        "stored_facts": len(stored), "prior_runs": len(prior),
+        "last_run": (prior[0].get("read_at") or "")[:10] if prior else None,
+        "already_saved": any(r.get("source_sha256") == sha for r in prior)}
+
+
+@app.post("/api/read")
+async def read_document(request: Request,
+                        file: Optional[UploadFile] = File(None),
+                        text: Optional[str] = Form(None),
+                        ticker: Optional[str] = Form(None)) -> JSONResponse:
+    xff = request.headers.get("x-forwarded-for", "")
+    ip = (xff.split(",")[0].strip() if xff
+          else (request.client.host if request.client else "unknown"))
+    rl_err = _rate_limit_check(ip)
+    if rl_err:
+        return JSONResponse(status_code=429, content={"error": rl_err})
+    if file is not None:
+        data = await file.read()
+        if len(data) > CHECK_MAX_BYTES:
+            return JSONResponse(status_code=413, content={
+                "error": f"file too large: {len(data)} bytes (cap {CHECK_MAX_BYTES})"})
+        kind = _detect_kind(file.filename or "", file.content_type or "")
+        if kind is None:
+            return JSONResponse(status_code=400, content={
+                "error": "unsupported file type; use PDF, DOCX, PPTX, HTML or text"})
+        title = file.filename or "upload"
+    elif text:
+        data = text.encode("utf-8", errors="replace")
+        kind, title = "text", "pasted text"
+    else:
+        return JSONResponse(status_code=400, content={"error": "upload a file or paste text"})
+    try:
+        res = await _read_core(data, kind, title, ticker)
+    except _ReadError as e:
+        return JSONResponse(status_code=e.status, content={"error": e.msg})
+    return JSONResponse(content=res)
+
+
+# ----------------------------------------------------------------------
+# Reader runs saved to the vault on GitHub (free storage, no database).
+#
+# POST /api/read/save re-reads the uploaded file and commits one folder to
+# the vault repo:  research/reader-runs/<TICKER>/<date>-<name>-<sha8>/
+#   findings.json  every figure (page, line item, category, value, status)
+#   summary.md     readable summary
+#   source.<ext>   the document as uploaded (primary source)
+# Only the owner can save: the request must carry READ_SAVE_KEY. The
+# commit uses VAULT_GITHUB_TOKEN (a fine-grained token limited to the vault
+# repo, Contents read/write). Earlier saved runs are read back by
+# _vault_prior_runs() so the next read of the same company marks figures
+# already in the vault as KNOWN.
+# ----------------------------------------------------------------------
+import base64 as _b64
+import hmac as _hmac
+from datetime import datetime as _dt, timezone as _tz
+
+VAULT_REPO = os.environ.get("VAULT_REPO", "brock-gorzelanczyk/BMG-Capital-Vault")
+VAULT_BRANCH = os.environ.get("VAULT_BRANCH", "main")
+VAULT_TOKEN = os.environ.get("VAULT_GITHUB_TOKEN", "")
+READ_SAVE_KEY = os.environ.get("READ_SAVE_KEY", "")
+READ_RUNS_DIR = "research/reader-runs"
+GITHUB_API = os.environ.get("VAULT_GITHUB_API", "https://api.github.com")
+READ_SAVE_SOURCE_MAX = 25 * 1024 * 1024
+_PRIOR_CACHE: dict[str, tuple[float, list]] = {}
+
+
+async def _gh(client: "httpx.AsyncClient", method: str, path: str, **kw):
+    r = await client.request(method, GITHUB_API + path, **kw)
+    if r.status_code >= 400:
+        raise _ReadError(502, f"GitHub {method} {path.split('?')[0]} failed: {r.status_code} {r.text[:200]}")
+    return r
+
+
+def _gh_headers(raw: bool = False) -> dict:
+    return {"Authorization": f"Bearer {VAULT_TOKEN}", "X-GitHub-Api-Version": "2022-11-28",
+            "Accept": "application/vnd.github.raw" if raw else "application/vnd.github+json",
+            "User-Agent": "bmg-desk-reader"}
+
+
+async def _vault_prior_runs(ticker: Optional[str]) -> list[dict]:
+    """Saved reader runs for a ticker, newest first (findings.json of up to 6)."""
+    t = _validate_ticker(ticker or "")
+    if not t or not VAULT_TOKEN:
+        return []
+    hit = _PRIOR_CACHE.get(t)
+    if hit and time.time() - hit[0] < 300:
+        return hit[1]
+    runs: list[dict] = []
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=_gh_headers()) as c:
+            r = await c.get(f"{GITHUB_API}/repos/{VAULT_REPO}/contents/{READ_RUNS_DIR}/{t}", params={"ref": VAULT_BRANCH})
+            if r.status_code == 200:
+                dirs = sorted((x["name"] for x in r.json() if x.get("type") == "dir"), reverse=True)[:6]
+                for d in dirs:
+                    fr = await c.get(f"{GITHUB_API}/repos/{VAULT_REPO}/contents/{READ_RUNS_DIR}/{t}/{d}/findings.json",
+                                     params={"ref": VAULT_BRANCH}, headers=_gh_headers(raw=True))
+                    if fr.status_code == 200:
+                        try:
+                            runs.append(fr.json())
+                        except ValueError:
+                            pass
+    except httpx.HTTPError as e:
+        log.warning(f"vault prior runs lookup failed: {e}")
+        return []
+    _PRIOR_CACHE[t] = (time.time(), runs)
+    return runs
+
+
+async def _vault_commit(files: dict[str, bytes], message: str) -> str:
+    """One commit with all files on VAULT_BRANCH (Git Data API). Returns the commit sha."""
+    repo = f"/repos/{VAULT_REPO}/git"
+    async with httpx.AsyncClient(timeout=60, headers=_gh_headers()) as c:
+        for attempt in range(3):
+            ref = (await _gh(c, "GET", f"{repo}/ref/heads/{VAULT_BRANCH}")).json()["object"]["sha"]
+            base_tree = (await _gh(c, "GET", f"{repo}/commits/{ref}")).json()["tree"]["sha"]
+            tree = []
+            for path, content in files.items():
+                blob = (await _gh(c, "POST", f"{repo}/blobs", json={"content": _b64.b64encode(content).decode(), "encoding": "base64"})).json()["sha"]
+                tree.append({"path": path, "mode": "100644", "type": "blob", "sha": blob})
+            new_tree = (await _gh(c, "POST", f"{repo}/trees", json={"base_tree": base_tree, "tree": tree})).json()["sha"]
+            commit = (await _gh(c, "POST", f"{repo}/commits", json={"message": message, "tree": new_tree, "parents": [ref]})).json()["sha"]
+            r = await c.patch(f"{GITHUB_API}{repo}/refs/heads/{VAULT_BRANCH}", json={"sha": commit, "force": False})
+            if r.status_code < 400:
+                return commit
+            if r.status_code != 422:      # 422: the branch moved meanwhile; rebuild on the new tip
+                raise _ReadError(502, f"GitHub ref update failed: {r.status_code} {r.text[:200]}")
+        raise _ReadError(502, "GitHub ref update kept conflicting; try again")
+
+
+def _read_summary_md(res: dict, source_name: str, read_at: str) -> str:
+    fs = res["findings"]
+    cats: dict[str, list] = {}
+    for f in fs:
+        cats.setdefault(f.get("category") or "Other", []).append(f)
+    status_counts = ", ".join(f"{k} {v}" for k, v in sorted(res["counts"].items()))
+    lines = [
+        f"# Reader run: {res['title']}",
+        "",
+        f"- Ticker: {res.get('ticker') or res.get('detected_ticker') or 'not identified'}",
+        f"- Source: `{source_name}` (PRIMARY: the document as uploaded), sha256 `{res['sha256']}`",
+        f"- Read: {read_at} by the BMG desk reader (/desk/read)",
+        f"- Text read: {res['chars']:,} characters; figures found: {len(fs)} ({status_counts})",
+        f"- Compared with: {res.get('stored_facts', 0)} stored desk facts and {res.get('prior_runs', 0)} earlier saved runs",
+        "",
+        "Figures are copied as printed; the line item and category are the reader's automatic labels and should be checked against the page before use in a model or note.",
+        "",
+    ]
+    for cat in sorted(cats, key=lambda c: (-len(cats[c]), c)):
+        lines += [f"## {cat} ({len(cats[cat])})", "", "| Page | Line item | Value | Scale | Status |", "|---|---|---|---|---|"]
+        for f in cats[cat]:
+            item = (f.get("item") or (f.get("label") if f.get("label") != "Figure" else "") or f.get("section") or "").replace("|", "/")
+            val = (f.get("display") or f.get("value") or "").replace("|", "/")
+            lines.append(f"| {f.get('page') or ''} | {item} | {val} | {f.get('scale') or ''} | {f.get('status')} |")
+        lines.append("")
+    return "\n".join(lines)
+
+
+@app.post("/api/read/save")
+async def read_save(request: Request,
+                    file: Optional[UploadFile] = File(None),
+                    text: Optional[str] = Form(None),
+                    ticker: Optional[str] = Form(None),
+                    key: Optional[str] = Form(None)) -> JSONResponse:
+    if not READ_SAVE_KEY or not VAULT_TOKEN:
+        return JSONResponse(status_code=503, content={"error": "saving is not set up on the server (READ_SAVE_KEY and VAULT_GITHUB_TOKEN)"})
+    if not key or not _hmac.compare_digest(key.encode(), READ_SAVE_KEY.encode()):
+        return JSONResponse(status_code=403, content={"error": "wrong save key"})
+    xff = request.headers.get("x-forwarded-for", "")
+    ip = (xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown"))
+    rl_err = _rate_limit_check(ip)
+    if rl_err:
+        return JSONResponse(status_code=429, content={"error": rl_err})
+    if file is not None:
+        data = await file.read()
+        if len(data) > max(CHECK_MAX_BYTES, READ_SAVE_SOURCE_MAX):
+            return JSONResponse(status_code=413, content={"error": "file too large"})
+        kind = _detect_kind(file.filename or "", file.content_type or "")
+        if kind is None:
+            return JSONResponse(status_code=400, content={"error": "unsupported file type"})
+        title = name = file.filename or "upload"
+    elif text:
+        data = text.encode("utf-8", errors="replace")
+        kind, title, name = "text", "pasted text", "pasted.txt"
+    else:
+        return JSONResponse(status_code=400, content={"error": "upload a file or paste text"})
+    try:
+        res = await _read_core(data, kind, title, ticker)
+        t = res.get("ticker") or res.get("detected_ticker") or "UNKNOWN"
+        if res.get("already_saved"):
+            return JSONResponse(content={"saved": False, "already_saved": True, "ticker": t})
+        # first time in the vault: everything not already known is new
+        for f in res["findings"]:
+            if f.get("status") == "NOT_COVERED":
+                f["status"] = "NEW"
+        res["counts"] = {}
+        for f in res["findings"]:
+            res["counts"][f["status"]] = res["counts"].get(f["status"], 0) + 1
+        now = _dt.now(_tz.utc)
+        read_at = now.strftime("%Y-%m-%d %H:%M UTC")
+        slug = re.sub(r"[^a-z0-9]+", "-", Path(name).stem.lower()).strip("-")[:48] or "document"
+        folder = f"{READ_RUNS_DIR}/{t}/{now.strftime('%Y-%m-%d')}-{slug}-{res['sha256'][:8]}"
+        ext = (Path(name).suffix.lower() or ".txt")[:6]
+        keep = ("label", "item", "section", "category", "kind", "value", "display", "scale", "col", "ncols", "page", "status", "prior", "snippet")
+        record = {
+            "title": res["title"], "ticker": t, "kind": kind, "read_at": now.isoformat(timespec="seconds"),
+            "source_file": f"source{ext}", "source_name": name, "source_sha256": res["sha256"],
+            "source_label": "PRIMARY (document as uploaded)", "chars": res["chars"], "counts": res["counts"],
+            "findings": [{k: f.get(k) for k in keep if f.get(k) not in (None, "")} for f in res["findings"]],
+        }
+        files = {
+            f"{folder}/findings.json": json.dumps(record, indent=1, ensure_ascii=False).encode(),
+            f"{folder}/summary.md": _read_summary_md(res, name, read_at).encode(),
+        }
+        if len(data) <= READ_SAVE_SOURCE_MAX:
+            files[f"{folder}/source{ext}"] = data
+        commit = await _vault_commit(files, f"reader run: {t} {name} ({len(res['findings'])} figures)")
+    except _ReadError as e:
+        return JSONResponse(status_code=e.status, content={"error": e.msg})
+    _PRIOR_CACHE.pop(t, None)
+    return JSONResponse(content={"saved": True, "ticker": t, "path": folder, "commit": commit,
+                                 "url": f"https://github.com/{VAULT_REPO}/tree/{VAULT_BRANCH}/{folder}",
+                                 "figures": len(res["findings"])})
 
 
 # StaticFiles mount — serves every current static URL at /

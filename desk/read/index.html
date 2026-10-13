@@ -186,6 +186,9 @@ details.paste textarea{width:100%;min-height:110px;margin-top:8px;font:13px 'IBM
 .rf-val{display:block;font:600 16px 'IBM Plex Mono',monospace;color:#141414;margin-top:1px}
 .rf-prior{display:block;color:#b86e00;font-size:12px}
 .rf-snip{display:block;color:#6b6f76;font-size:12px;margin-top:2px}
+.rs-save{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 14px;margin:0 0 14px;border:1px solid #e3e3dc;border-radius:10px;background:#fafaf7;font-size:13px}
+.rs-save button{height:34px;padding:0 16px;background:#0f7d47;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer}
+.rs-save .ok{color:#0f7d47;font-weight:600}.rs-save .err{color:#b42318}.rs-save a{color:#0f5fc7;word-break:break-all}
 #read-summary{margin-top:28px}
 #read-summary h2{font-family:'Source Serif 4',Georgia,serif;font-size:28px;margin:0 0 6px}
 #read-summary h3{font:600 16px 'IBM Plex Sans',sans-serif;margin:22px 0 6px}
@@ -1897,7 +1900,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     const compared = !!res.covered;
     sumEl.innerHTML =
       `<h2>Summary</h2><p class="lede">${esc(res.title)}: ${res.chars.toLocaleString()} characters read, ${fs.length} figures found` +
-      (compared ? `, compared with ${res.stored_facts} stored ${esc(res.ticker)} facts.` : `. Pick a ticker to compare with the vault.`) + `</p>` +
+      (compared ? `, compared with the vault for ${esc(res.ticker)} (${res.stored_facts} stored facts, ${res.prior_runs || 0} saved reads).` : `. Nothing on ${esc(res.detected_ticker || "this company")} in the vault yet.`) + `</p>` +
       `<div class="rs-cards">` +
       (compared ? `<div class="rs-card new"><b>${by("NEW").length}</b>new to the vault</div><div class="rs-card changed"><b>${by("CHANGED").length}</b>changed vs vault</div><div class="rs-card known"><b>${by("KNOWN").length}</b>already in vault</div>` : `<div class="rs-card"><b>${fs.length}</b>figures</div>`) +
       `</div>` +
@@ -1908,6 +1911,45 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     sumEl.hidden = false;
   }
 
+  // Save the finished read to the vault on GitHub (free storage). Only the
+  // owner can: the server asks for a save key, which this browser remembers
+  // after the first successful save, so later reads save themselves.
+  const SAVE_KEY_LS = "bmg-read-save-key";
+  let lastRun = null;
+  function getSaveKey(){ try{ return localStorage.getItem(SAVE_KEY_LS) || ""; }catch(e){ return ""; } }
+  function setSaveKey(k){ try{ if (k) localStorage.setItem(SAVE_KEY_LS, k); else localStorage.removeItem(SAVE_KEY_LS); }catch(e){} }
+  function saveBar(){
+    let bar = document.getElementById("read-save");
+    if (!bar){ bar = document.createElement("div"); bar.id = "read-save"; bar.className = "rs-save"; sumEl.prepend(bar); }
+    return bar;
+  }
+  function showSave(html){ saveBar().innerHTML = html; const b = document.getElementById("read-save-btn"); if (b) b.onclick = () => saveRun(true); }
+  async function saveRun(ask){
+    if (!lastRun) return;
+    let key = getSaveKey();
+    if (!key){
+      if (!ask){ showSave(`<button id="read-save-btn" type="button">Save to vault</button><span class="muted">Stores the figures, a summary and the file in your vault on GitHub.</span>`); return; }
+      key = (prompt("Vault save key (only you have this; this browser will remember it):") || "").trim();
+      if (!key) return;
+    }
+    showSave(`<span class="muted">Saving to the vault...</span>`);
+    const fd = new FormData();
+    if (lastRun.file) fd.append("file", lastRun.file); else fd.append("text", lastRun.text || "");
+    if (lastRun.ticker) fd.append("ticker", lastRun.ticker);
+    fd.append("key", key);
+    try{
+      const r = await fetch("/api/read/save", {method: "POST", body: fd});
+      const j = await r.json();
+      if (r.status === 403){ setSaveKey(""); showSave(`<button id="read-save-btn" type="button">Save to vault</button><span class="err">Wrong save key.</span>`); return; }
+      if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+      setSaveKey(key);
+      if (j.already_saved) showSave(`<span class="ok">Already in the vault</span><span class="muted">This exact file was saved for ${esc(j.ticker)} before.</span>`);
+      else showSave(`<span class="ok">Saved to the vault</span><a href="${esc(j.url)}" target="_blank" rel="noopener">${esc(j.path)}</a><span class="muted">${j.figures} figures</span>`);
+    }catch(e){
+      showSave(`<button id="read-save-btn" type="button">Try again</button><span class="err">${esc(String(e.message || e))}</span>`);
+    }
+  }
+
   runRead.addEventListener("click", async () => {
     showErr("");
     const fd = new FormData();
@@ -1915,6 +1957,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     else if (pasteIn.value.trim()) fd.append("text", pasteIn.value);
     else { showErr("Choose a file or paste text first."); return; }
     if (tickerIn.value) fd.append("ticker", tickerIn.value);
+    lastRun = {file: chosen, text: chosen ? "" : pasteIn.value, ticker: tickerIn.value};
     state.mode = "read";
     stopLive(); clearTimeout(state.tickTimer);
     document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.remove("on"));
@@ -1936,8 +1979,9 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     else state.renderDoc = null;
     state.pendingFindings = res.findings.slice();
     state.readTotal = res.findings.length;
+    const priorTxt = res.prior_runs ? `${res.prior_runs} saved read${res.prior_runs > 1 ? "s" : ""}, last ${esc(res.last_run || "")}` : "";
     scopeEl.innerHTML = res.covered
-      ? `Compared with <b>${esc(res.ticker)}</b> in the vault (${res.stored_facts} stored facts)` + (res.detected_ticker && !tickerIn.value ? " \u00b7 ticker read from the cover page" : "")
+      ? `Compared with <b>${esc(res.ticker)}</b> in the vault (${[res.stored_facts ? res.stored_facts + " stored facts" : "", priorTxt].filter(Boolean).join(", ") || "no stored facts yet"})` + (res.detected_ticker && !tickerIn.value ? " \u00b7 ticker read from the cover page" : "")
       : res.detected_ticker
         ? `<b>${esc(res.detected_ticker)}</b> is not covered in the vault, so every figure here is new to the desk`
         : `No ticker found on the cover page; pick one above to compare with the vault`;
@@ -1954,6 +1998,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       (state.pendingFindings || []).splice(0).forEach(f => markFactInDoc({doc_id: state.currentDocId, label: f.label, value: f.value, _f: f}));
       setStatus(`done &nbsp;&middot;&nbsp; ${state.readFound} figures found`);
       renderSummary(res);
+      saveRun(false);
       runRead.disabled = false; runRead.textContent = "Run again";
     };
   });
