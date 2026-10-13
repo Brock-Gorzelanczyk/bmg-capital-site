@@ -529,14 +529,24 @@ def _cf_items(fb, ni) -> list:
             break
         if re.match(r"^(net income|net earnings|net income loss)$", r["key"]) or not r["values"]:
             continue
+        if re.search(r"beginning of (the )?(period|year)$", r["key"]):
+            continue            # Amazon opens its cash flow statement with the beginning cash balance
         sect.append(r)
-    base = abs(ni["value"]) if ni else max((abs(r["values"][0]) for r in sect), default=1) or 1
+    # the column of the net income period (Amazon prints 2023 | 2024 | 2025, latest last)
+    def col(r):
+        if ni:
+            for i, c in enumerate(r["cols"]):
+                if c.get("end") == ni["period"].get("end") and (c.get("type") or "") == (ni["period"].get("type") or ""):
+                    return i
+        return 0
+    sect = [r for r in sect if col(r) < len(r["values"]) and r["values"][col(r)] is not None]
+    base = abs(ni["value"]) if ni else max((abs(r["values"][col(r)]) for r in sect), default=1) or 1
     out = []
-    for r in sorted(sect, key=lambda r: -abs(r["values"][0])):
-        f = fb._fact_from("cf_item", r, 0, "flow")
+    for r in sorted(sect, key=lambda r: -abs(r["values"][col(r)])):
+        f = fb._fact_from("cf_item", r, col(r), "flow")
         if abs(f["value"]) < 0.04 * base or len(out) >= 6:
             continue
-        f["id"] = f"cf_item:{r['offset']}:0"
+        f["id"] = f"cf_item:{r['offset']}:{col(r)}"
         f["name"] = r["full_label"]
         fb.facts[f["id"]] = f
         out.append(f["id"])

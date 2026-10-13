@@ -232,8 +232,21 @@ class FactBook:
         if getattr(self.doc, "xbrl", None):
             self._xbrl()
             self._derive_liabilities()       # the totals may only have come from tags
+        self._order_periods()
         self._checks()
         return self
+
+    def _order_periods(self):
+        """Latest period first, whatever the column order: Amazon prints 2023 | 2024 | 2025.
+        Periods of each length stay together, in the order their length first appears,
+        so a 10-Q keeps its quarters ahead of its year-to-date columns."""
+        def per(fid):
+            x = self.facts.get(fid) or self.calcs.get(fid)
+            return (x or {}).get("period") or {}
+        for m, ids in self.primary_periods.items():
+            kinds = list(dict.fromkeys(per(i).get("type") for i in ids))
+            by_end = sorted(ids, key=lambda i: str(per(i).get("end") or per(i).get("year") or ""), reverse=True)
+            self.primary_periods[m] = sorted(by_end, key=lambda i: kinds.index(per(i).get("type")))
 
     def _xbrl(self):
         """Reconcile table facts with inline XBRL tags; fill gaps from tags."""

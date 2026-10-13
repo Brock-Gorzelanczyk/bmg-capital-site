@@ -63,6 +63,19 @@ def _category(text: str) -> str:
     return "Other"
 
 
+_SMALL = {"a", "an", "and", "as", "at", "by", "for", "from", "in", "into", "of", "on", "or", "our", "the", "to", "with", "us", "we"}
+
+
+def _title_heading(l: str) -> bool:
+    """A risk heading set in Title Case with no closing period."""
+    if not (15 <= len(l) <= 220) or l.endswith((".", ":", ",", ";")) or not l[:1].isupper() or re.search(r"\d{3}", l):
+        return False
+    if re.match(r"(item\s+1a|risk factors|summary|part\s+i\b)", l, re.I) or re.search(r"\bsummary$|\brisk factors$", l, re.I) or (re.search(r"\brisks?$", l, re.I) and (len(l.split()) <= 6 or l.isupper())):
+        return False                        # the section title or a group title, not a risk
+    words = [w for w in re.findall(r"[A-Za-z][A-Za-z'\u2019-]*", l) if w.lower() not in _SMALL]
+    return len(words) >= 3 and sum(w[0].isupper() for w in words) >= 0.8 * len(words)
+
+
 def _paragraphs(text: str, base: int) -> list[tuple[int, str, bool]]:
     """Rebuild paragraphs from wrapped lines: a paragraph ends at a line that
     ends a sentence and is shorter than a full line. Returns (offset, text,
@@ -77,12 +90,22 @@ def _paragraphs(text: str, base: int) -> list[tuple[int, str, bool]]:
     for off, l in lines:
         if not l:
             continue
-        sub = len(l) < 90 and not l.endswith((".", ":", ",", ";")) and l[:1].isupper() and re.search(r"\brisks?$", l, re.I)
+        sub = len(l) < 90 and not l.endswith((".", ":", ",", ";")) and l[:1].isupper() and (
+            (re.search(r"\brisks?$", l, re.I) and (len(l.split()) <= 6 or l.isupper()))   # "Business and Industry Risks"
+            or re.match(r"risks? (related|relating|associated|specific) (to|with)\b", l, re.I))
         if sub:
             if cur:
                 out.append((cur_off, " ".join(cur), False))
                 cur = []
             out.append((off, l, True))
+            continue
+        if (not cur or cur[-1].endswith((".", ":", ";"))) and _title_heading(l):
+            # "We Face Intense Competition" (Amazon): a heading on its own line after a finished
+            # sentence, not a wrapped line in the middle of one
+            if cur:
+                out.append((cur_off, " ".join(cur), False))
+                cur = []
+            out.append((off, l, False))
             continue
         if not cur:
             cur_off = off
@@ -110,9 +133,10 @@ def risk_factors(doc) -> tuple[list[dict], str]:
             continue
         one_sentence = len(re.findall(r"[.!?](?:\s+[A-Z]|$)", p)) == 1
         nxt = paras[k + 1][1] if k + 1 < len(paras) and not paras[k + 1][2] else ""
-        if not (one_sentence and 50 <= len(p) <= 420 and p.endswith(".") and p[0].isupper() and len(nxt) > len(p)):
+        titled = _title_heading(p) and len(nxt) > len(p)
+        if not titled and not (one_sentence and 50 <= len(p) <= 420 and p.endswith(".") and p[0].isupper() and len(nxt) > len(p)):
             continue
-        if re.match(r"(the following|this section|see |as a result|references|in addition|additionally|such |these |this |while |although |for example|accordingly|however|further|moreover|also|it |there )", p, re.I) or not _RISKY.search(p):
+        if re.match(r"(the following|this section|see |as a result|references|in addition|additionally|such |these |this |while |although |for example|accordingly|however|further|moreover|also|it |there )", p, re.I) or not (_RISKY.search(p) or titled):
             continue
         sents = re.split(r"(?<=[.])\s+(?=[A-Z])", nxt)
         detail = " ".join(sents[:2])[:420]
@@ -184,7 +208,8 @@ def watch_items(doc, rows: list) -> tuple[list[dict], list[str]]:
             cells = lambda ln: [("0" if t == "\u2014" else t) for t in re.findall(r"\(?[\d,]+(?:\.\d+)?\)?|\u2014", ln.split("  ", 1)[-1])]
             lines = body[m.end():m.end() + 6000].split("\n")[:80]
             for ln in lines:
-                if re.match(r"(?i)total\b", ln):
+                # a total of all commitments (Amazon: debt with interest, leases, purchase obligations) is not debt
+                if re.match(r"(?i)total\b", ln) and not re.search(r"(?i)commitments|obligations|contractual", ln.split("  ", 1)[0]):
                     nums = cells(ln)
                     if len(nums) >= len(years):
                         horiz = (m, years, nums[:len(years)], ln, body.find(ln, m.end()))

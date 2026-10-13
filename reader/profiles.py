@@ -58,11 +58,20 @@ _OPERATING = re.compile(r"\b(units|customers|subscribers|stores|employees|backlo
                         r"vehicles|aircraft|rigs|barrels|production|occupancy|same store)\b", re.I)
 
 
+ANCHORS = {"Railcar leasing": r"railcar|rail car|tank car", "Railcar manufacturing": r"railcar|rail car|tank car",
+           "Banking": r"net interest income|bank holding company|tier 1"}
+
+
 def profile_for(doc) -> tuple[str, dict]:
     """The industry profile; two joined by " + " when the business clearly
     does both (a railcar builder that also leases, for example)."""
     low = doc.body.lower()
     scores = {name: len(re.findall(vocab, low)) for name, (vocab, _) in PROFILES.items()}
+    # shared words ("operating lease", "utilization", "deliveries") score any company; a profile
+    # with an anchor needs it (Amazon FY2025 scored 31 for railcar leasing on lease wording alone)
+    for name, anchor in ANCHORS.items():
+        if len(re.findall(anchor, low)) < 10:
+            scores[name] = 0
     ranked = sorted(scores, key=scores.get, reverse=True)
     best = ranked[0]
     if scores[best] < 3:
