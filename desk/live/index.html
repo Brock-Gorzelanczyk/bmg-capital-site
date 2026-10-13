@@ -58,8 +58,8 @@ svg.spider .knee{fill:#ff3d9a}
 .w.hl-out{background:transparent!important;color:inherit!important}
 .w.hl-ping{background:rgba(255,45,143,.32);box-shadow:0 0 0 1px #ff2d8f;border-radius:2px}
 .w.hl-bping{background:rgba(39,200,255,.32);box-shadow:0 0 0 1px #27c8ff;border-radius:2px}
-.fxlayer{position:absolute;inset:0;pointer-events:none;z-index:2}
-.fx{position:absolute;white-space:nowrap;box-sizing:border-box;transform-origin:0 50%;will-change:transform,opacity;border-radius:0}
+.fxlayer{position:absolute;inset:0;pointer-events:none;z-index:2;will-change:transform}
+.fx{position:absolute;white-space:nowrap;box-sizing:border-box;transform-origin:0 50%;border-radius:0}
 .fx-outline{border:1.5px solid}
 .fx-ink{background:var(--page,#fff);padding:0 2px;font-weight:600}
 .fx-fill,.fx-strip{padding:0 3px;font-weight:600}
@@ -97,7 +97,7 @@ svg.spider .knee{fill:#ff3d9a}
 #docbody.orig{font:initial;line-height:normal}
 .pdfpage{position:relative;margin:0 auto 18px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .pdfpage canvas{position:absolute;inset:0;width:100%;height:100%}
-.pdftext{position:absolute;inset:0;overflow:hidden;line-height:1}
+.pdftext{position:absolute;inset:0;overflow:hidden;line-height:1;will-change:transform}
 .pdftext .tl{position:absolute;white-space:pre;color:transparent;transform-origin:0 0;font-family:sans-serif}
 .pdftext .w{color:transparent}
 .pdftext .w.hl-ping{background:rgba(255,45,143,.3);color:transparent}
@@ -466,15 +466,19 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     state.camT = now;
     if (state.userScrolledAt && now - state.userScrolledAt < 2500){ state.scrollPos = null; return; }
     if (!walking() || state.paused || !state.rows) { state.scrollPos = null; return; }
-    if (state.scrollPos == null) state.scrollPos = window.scrollY;
-    const before = window.scrollY;
+    if (state.scrollPos == null) state.scrollPos = state.sy;
+    const before = state.sy;
     // Ease the boost in and out (~0.4 s) so speed changes are smooth.
     state.boost = (state.boost || 1) + ((state.boostTarget || 1) - (state.boost || 1)) * Math.min(1, dt * 1.6);
     state.scrollPos += SCROLL_SPEED * U * (state.speedMul || 1) * state.boost * dt;
+    let maxS = Math.max(0, docGeo().sh - innerHeight);
+    if (state.scrollPos > maxS){ geo = null; maxS = Math.max(0, docGeo().sh - innerHeight); }   // page grew since it was measured
+    state.scrollPos = Math.min(state.scrollPos, maxS);
     window.scrollTo(0, state.scrollPos);
+    state.sy = Math.round(state.scrollPos * devicePixelRatio) / devicePixelRatio;
     // The spider rides the scroll: it moves with the page view, so its own
     // crawl only moves it around inside the frame (reference clip).
-    const ride = window.scrollY - before;
+    const ride = state.sy - before;
     state.body.y += ride;
     state.rideSince = (state.rideSince || 0) + ride;
     // The feet ride too: the legs hold their pose while the page scrolls
@@ -532,7 +536,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     }
     const h = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
     const tx = state.body.x - Math.cos(h) * 9 * U, ty = state.body.y - Math.sin(h) * 9 * U;
-    const dr = doc.getBoundingClientRect();
+    const dr = {top: docTop(), width: docGeo().width};
     const a = state.silkAnchor;
     if (!a || Math.hypot(a.x - tx, a.y - ty) > 420 || dr.top + a.y < -40){
       // new anchor behind and above, a little to one side
@@ -542,7 +546,9 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     state.silkEl.setAttribute("x1", clampN(tx)); state.silkEl.setAttribute("y1", clampN(ty));
     state.silkEl.setAttribute("x2", clampN(state.silkAnchor.x)); state.silkEl.setAttribute("y2", clampN(state.silkAnchor.y));
   }
-  function drawSpider(){ state.drawnAt = performance.now(); drawSilk(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawBody(); camera(); }
+  // camera first: scrolling while the layout is still clean avoids a forced
+  // re-layout of the whole document every frame
+  function drawSpider(){ state.drawnAt = performance.now(); camera(); drawSilk(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawBody(); }
   // Keep the legs flexing and the eye scanning between steps too.
   // ---- crawl: body creeps continuously; legs step one or two at a time
   const CRAWL_BASE = 68;   // px/s per unit at 1x (~2 lines/s) across the screen; riding the scroll does the rest
@@ -659,7 +665,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       bv.y += (k * (t.y - state.body.y) - c * bv.y) * dt;
       const vm = Math.hypot(bv.x, bv.y);
       if (vm > vmax){ bv.x *= vmax / vm; bv.y *= vmax / vm; }
-      const dr = doc.getBoundingClientRect();
+      const dr = {top: docTop(), width: docGeo().width};
       const edge = 125 * U;   // keep the legs on the page too
       state.body.x = Math.min(dr.width - edge, Math.max(edge, state.body.x + bv.x * dt));
       state.body.y = Math.max(10, state.body.y + bv.y * dt);
@@ -697,13 +703,36 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   const centerCache = new WeakMap();
   state.layoutEpoch = 0;
   function bumpLayout(){ state.layoutEpoch++; }
-  function docSpaceCenter(el){
-    const c = centerCache.get(el);
-    if (c && c.ep === state.layoutEpoch) return {x: c.x, y: c.y};
+  // Layout reads are what made long filings lag: every getBoundingClientRect
+  // or scrollY after a DOM change forces the browser to lay out all the
+  // words again (42,000 spans in a 10-K). The document's own box, every
+  // word's box and the scroll position are therefore cached and only
+  // re-measured when the layout really changes (load, resize).
+  let geo = null;
+  const rectCache = new WeakMap();
+  state.sy = window.scrollY;
+  addEventListener("scroll", () => { state.sy = window.scrollY; }, {passive: true});
+  addEventListener("resize", () => { bumpLayout(); });
+  function docGeo(){
+    if (geo && geo.ep === state.layoutEpoch) return geo;
+    const r = doc.getBoundingClientRect();
+    state.sy = window.scrollY;
+    geo = {ep: state.layoutEpoch, absTop: r.top + state.sy, left: r.left, width: r.width, height: r.height, cw: doc.clientWidth, sh: document.documentElement.scrollHeight};
+    return geo;
+  }
+  function docTop(){ return docGeo().absTop - state.sy; }
+  function wordRect(el){
+    // the word's box in document space (doc's top-left = 0,0)
+    const c = rectCache.get(el);
+    if (c && c.ep === state.layoutEpoch) return c;
     const r = el.getBoundingClientRect(), dr = doc.getBoundingClientRect();
-    const v = {x: r.left - dr.left + r.width/2, y: r.top - dr.top + r.height/2, ep: state.layoutEpoch};
-    centerCache.set(el, v);
-    return {x: v.x, y: v.y};
+    const v = {x: r.left - dr.left, y: r.top - dr.top, w: r.width, h: r.height, ep: state.layoutEpoch};
+    rectCache.set(el, v);
+    return v;
+  }
+  function docSpaceCenter(el){
+    const r = wordRect(el);
+    return {x: r.x + r.w / 2, y: r.y + r.h / 2};
   }
 
   function addThread(targetEl, tier){
@@ -843,7 +872,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   function rowCands(row){
     // Phrases worth marking on one rendered line, scored by meaning.
     if (row._cands) return row._cands;
-    const els = row.els.slice().sort((p, q) => p.getBoundingClientRect().left - q.getBoundingClientRect().left);
+    const els = row.els.slice().sort((p, q) => wordRect(p).x - wordRect(q).x);
     const tx = els.map(w => w.textContent.trim());
     const isNum = t => /^[($-]*\$?[\d][\d,]*(\.\d+)?\)?%?$/.test(t) && t.replace(/\D/g, "").length >= 2;
     const isCap = t => /^[A-Z“"(]/.test(t);
@@ -878,11 +907,10 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     return out;
   }
   function fxRect(els){
-    const dr = doc.getBoundingClientRect();
     let x1 = 1e9, y1 = 1e9, x2 = -1e9, y2 = -1e9;
-    for (const w of els){ const r = w.getBoundingClientRect(); if (!r.width) continue; x1 = Math.min(x1, r.left); y1 = Math.min(y1, r.top); x2 = Math.max(x2, r.right); y2 = Math.max(y2, r.bottom); }
+    for (const w of els){ const r = wordRect(w); if (!r.w) continue; x1 = Math.min(x1, r.x); y1 = Math.min(y1, r.y); x2 = Math.max(x2, r.x + r.w); y2 = Math.max(y2, r.y + r.h); }
     if (!(x2 > x1)) return null;
-    return {x: x1 - dr.left, y: y1 - dr.top, w: x2 - x1, h: y2 - y1};
+    return {x: x1, y: y1, w: x2 - x1, h: y2 - y1};
   }
   function fxPlace(o){
     const r = fxRect(o.els); if (!r) return;
@@ -903,7 +931,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (FX_CAP[kind] && fxCount(kind) >= FX_CAP[kind]) kind = kind === "strip" ? "accent" : "fill";
     if (kind === "accent" && fxCount("accent") >= FX_CAP.accent) kind = "fill";
     if (kind === "fill" && fxCount("fill") >= FX_CAP.fill) kind = "outline";
-    const key = cand.text + "|" + Math.round(cand.els[0].getBoundingClientRect().top + scrollY);
+    const key = cand.text + "|" + Math.round(wordRect(cand.els[0]).y);
     const ci = fxHash(key) % FX_PAL.length;            // stable colour for this span
     const pal = FX_PAL[ci], ink = FX_INKC[ci];
     const d = document.createElement("div");
@@ -935,7 +963,11 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (o.target){
       // keep the enlarged accent on the page: cap the scale by the room
       // to the right of the words; too little room means a solid fill
-      const room = (doc.clientWidth - 10 - o.r.x) / Math.max(1, d.offsetWidth);
+      // width from text metrics, not from the page (no layout read)
+      const mc = fxOn._mc || (fxOn._mc = document.createElement("canvas").getContext("2d"));
+      mc.font = `700 ${o.r.h * 0.82}px ${d.style.fontFamily}`;
+      const wpx = mc.measureText(cand.text).width + 8;
+      const room = (docGeo().cw - 10 - o.r.x) / Math.max(1, wpx);
       o.target = Math.min(o.target, room);
       if (o.target < 1.4){ o.kind = "fill"; d.className = "fx fx-fill"; d.style.background = pal.bg; d.style.color = pal.fg; o.ttl = 4200 + Math.random() * 2200; }
     }
@@ -970,10 +1002,12 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     }
     const left = o.ttl - o.age;
     if (left < 600) op = Math.max(0, left / 600);
-    o.d.style.transform = `rotate(${rot.toFixed(2)}deg) scale(${sc.toFixed(3)})`;
-    o.d.style.opacity = op.toFixed(2);
-    if (o.veil) o.veil.style.opacity = op.toFixed(2);
-    o.d.style.zIndex = o.kind === "accent" && !o.settled ? 5 : o.kind === "strip" ? 4 : o.kind === "fill" ? 2 : 1;
+    // only touch the style when it changes (settled marks cost nothing)
+    const tf = `rotate(${rot.toFixed(1)}deg) scale(${sc.toFixed(3)})`, os = op.toFixed(2);
+    const z = o.kind === "accent" && !o.settled ? 5 : o.kind === "strip" ? 4 : o.kind === "fill" ? 2 : 1;
+    if (tf !== o._tf){ o.d.style.transform = tf; o._tf = tf; }
+    if (os !== o._op){ o.d.style.opacity = os; if (o.veil) o.veil.style.opacity = os; o._op = os; }
+    if (z !== o._z){ o.d.style.zIndex = z; o._z = z; }
   }
   function fxOff(o){
     o.d.remove(); if (o.veil) o.veil.remove();
@@ -1356,7 +1390,9 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (state.docQueue.length > 6) state.docQueue.shift();
   }
   function walkFinished(){
+    doc.style.pointerEvents = "";
     if (state.mode === "read"){ if (state.doneHook){ const h = state.doneHook; state.doneHook = null; h(); } return; }
+    doc.style.pointerEvents = "";
     const next = (state.docQueue || []).shift();
     if (next){ setTimeout(() => loadDocAndWalk(next), 600); return; }
     // Nothing queued: the spider stops. It never crawls on its own.
@@ -1380,6 +1416,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     for (const w of docBody.querySelectorAll(".w")){
       const r = w.getBoundingClientRect();
       if (!r.width) continue;
+      rectCache.set(w, {x: r.left - d.left, y: r.top - d.top, w: r.width, h: r.height, ep: state.layoutEpoch});
       const y = r.top - d.top + r.height/2;
       if (!cur || Math.abs(y - cur.y) > 6){ cur = {y, els: [], x0: r.left - d.left, x1: r.right - d.left}; rows.push(cur); }
       cur.els.push(w); cur.x1 = Math.max(cur.x1, r.right - d.left);
@@ -1392,6 +1429,10 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
 
   function startWalk(doc_id, duration_s){
     state.walkState = {done:false, docId:doc_id, lineIdx:0};
+    // no mouse hit-testing over tens of thousands of word spans while the
+    // page scrolls itself (restored when the walk ends)
+    doc.style.pointerEvents = "none";
+    bumpLayout(); geo = null;      // the document is fully laid out now: measure it afresh
     clearTimeout(state.walkTimer);
     const rows = visualRows();
     state.rows = rows;
@@ -1412,7 +1453,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       sc += Math.min(3, t.replace(/[^A-Za-z]/g, "").length / 4);
       return sc;
     }
-    const readLineY = () => innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5 - doc.getBoundingClientRect().top;
+    const readLineY = () => innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5 - docTop();
     const rowY = (r) => docSpaceCenter(rows[r].els[0]).y;
     function pickFocusNear(exclude){
       const ry = readLineY();
@@ -1437,7 +1478,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       if (state.walkState.docId !== doc_id || state.walkState.done) return;
       if (state.paused){ state.walkTimer = setTimeout(step, 150); return; }
       const ry = readLineY();
-      const atBottom = window.scrollY + innerHeight >= document.documentElement.scrollHeight - 2;
+      let atBottom = state.sy + innerHeight >= docGeo().sh - 2;
+      if (atBottom){ geo = null; atBottom = state.sy + innerHeight >= docGeo().sh - 2; }
       while (readIdx < rows.length && (rowY(readIdx) <= ry + 20 || atBottom)){
         if (state.onRow) state.onRow(rows[readIdx].els);
         readIdx++;
@@ -1454,7 +1496,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
         const nf = state.nextFocus;
         const f = (nf && nf.w.isConnected && rowY(nf.r) >= ry - 30) ? nf : pickFocusNear(ct && ct.el);
         if (f){
-          const c = docSpaceCenter(f.w), d = doc.getBoundingClientRect();
+          const c = docSpaceCenter(f.w), d = {width: docGeo().width};
           state.crawlTarget = {x: Math.min(d.width - HI_REACH, Math.max(HI_REACH, c.x)), y: c.y + 14, el: f.w};
           state.beatN = (state.beatN || 0) + 1;
           if (state.beatN % 3 === 1) fireBeam(c.x, c.y, c.x, c.y, "", f.w);
@@ -1972,17 +2014,28 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     // text (char offset / length) must match the word's place down the
     // rendered document, or a "67" on the cover would claim a figure from
     // page 60 of a long filing.
+    // PDFs: by page number (the server gives every figure its page; a
+    // word's page is the .pdfpage it sits in), one page either side.
+    // Other documents: by the fraction of the way through the text.
     const total = (state.readRes && state.readRes.chars) || 0;
-    const H = doc.scrollHeight || 1;
+    const H = docGeo().height || 1;
+    const pageOf = (w) => {
+      if (w._pg !== undefined) return w._pg;
+      const pg = w.closest(".pdfpage");
+      if (pg && pg._idx === undefined) docBody.querySelectorAll(".pdfpage").forEach((x, i) => { x._idx = i + 1; });
+      return (w._pg = pg ? pg._idx : 0);
+    };
     for (const w of els){
       if (w.classList.contains("found")) continue;
+      const wp = pageOf(w);
       const wy = docSpaceCenter(w).y / H;
       let k = -1, best = 1e9;
       pend.forEach((f, j) => {
         if (!holds(w, f.value)) return;
-        const fy = total && f.char_offset >= 0 ? f.char_offset / total : wy;
-        const d = Math.abs(fy - wy);
-        if (d < 0.06 && d < best){ best = d; k = j; }
+        let d;
+        if (wp && f.page) d = Math.abs(f.page - wp) <= 1 ? Math.abs(f.page - wp) : 1e9;
+        else { const fy = total && f.char_offset >= 0 ? f.char_offset / total : wy; d = Math.abs(fy - wy) < 0.15 ? Math.abs(fy - wy) : 1e9; }
+        if (d < best){ best = d; k = j; }
       });
       if (k >= 0){ const f = pend.splice(k, 1)[0]; markFactInDoc({doc_id: state.currentDocId, label: f.label, value: f.value, _el: w, _f: f}); }
     }
