@@ -41,6 +41,21 @@ def _check_rate(request: Request) -> None:
 _FEED_CACHE: dict[str, tuple[float, dict]] = {}
 
 
+def _require_owner(request: Request) -> None:
+    """Desk runs fetch, re-extract and (rewalk) rewrite stored rows, so only
+    the owner may start them: the request must carry X-Desk-Key equal to
+    DESK_RUN_KEY (or READ_SAVE_KEY when DESK_RUN_KEY is not set). With
+    neither set, manual runs are disabled; the scheduler still runs."""
+    import hmac
+    import os
+    want = os.environ.get("DESK_RUN_KEY") or os.environ.get("READ_SAVE_KEY") or ""
+    if not want:
+        raise HTTPException(status_code=503, detail="manual desk runs are disabled (set DESK_RUN_KEY on the server)")
+    got = request.headers.get("x-desk-key") or ""
+    if not got or not hmac.compare_digest(got.encode(), want.encode()):
+        raise HTTPException(status_code=403, detail="owner key required")
+
+
 @router.get("/feed")
 async def feed(
     request: Request,
@@ -95,6 +110,7 @@ async def run_job(job: str, request: Request) -> dict:
     route-registration order would otherwise shadow the /_run/live specific
     route with this /_run/{job} parameterised one.
     """
+    _require_owner(request)
     if job == "live":
         try:
             body = await request.json()
@@ -208,6 +224,7 @@ async def run_live(request: Request, body: dict) -> dict:
     from .sources import edgar as edgar_src, ir_feeds
     from . import extract as extract_mod
 
+    _require_owner(request)
     _check_rate(request)
     ticker = (body or {}).get("ticker")
     mode = (body or {}).get("mode", "new")

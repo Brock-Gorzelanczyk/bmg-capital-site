@@ -1,0 +1,334 @@
+"""BMG Capital Company Report as a PDF, rendered from the report dict.
+
+The on-screen report and this PDF read the same validated data, so they
+show the same figures, statuses and sources.
+"""
+from __future__ import annotations
+
+import io
+from datetime import datetime
+from xml.sax.saxutils import escape
+
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_RIGHT
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.pdfgen import canvas as rl_canvas
+from reportlab.platypus import (KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle)
+
+GREEN = colors.HexColor("#0f7d47")
+LIME = colors.HexColor("#2fdc74")
+INK = colors.HexColor("#141414")
+MUTED = colors.HexColor("#5f646b")
+RULE = colors.HexColor("#d9d9d2")
+SOFT = colors.HexColor("#f4f6f4")
+AMBER = colors.HexColor("#9a5b00")
+RED = colors.HexColor("#b42318")
+
+S = {
+    "h1": ParagraphStyle("h1", fontName="Times-Bold", fontSize=24, leading=28, textColor=INK, spaceAfter=2),
+    "h2": ParagraphStyle("h2", fontName="Times-Bold", fontSize=15, leading=19, textColor=INK, spaceBefore=12, spaceAfter=5, keepWithNext=1),
+    "h3": ParagraphStyle("h3", fontName="Helvetica-Bold", fontSize=10, leading=13, textColor=INK, spaceBefore=6, spaceAfter=3, keepWithNext=1),
+    "body": ParagraphStyle("body", fontName="Helvetica", fontSize=9.5, leading=13.5, textColor=INK, spaceAfter=4),
+    "small": ParagraphStyle("small", fontName="Helvetica", fontSize=8, leading=10.5, textColor=MUTED, spaceAfter=3),
+    "cell": ParagraphStyle("cell", fontName="Helvetica", fontSize=8.3, leading=10.5, textColor=INK),
+    "cellb": ParagraphStyle("cellb", fontName="Helvetica-Bold", fontSize=8.3, leading=10.5, textColor=INK),
+    "celln": ParagraphStyle("celln", fontName="Helvetica", fontSize=8.3, leading=10.5, textColor=INK, alignment=TA_RIGHT),
+    "cellm": ParagraphStyle("cellm", fontName="Helvetica", fontSize=7.4, leading=9.4, textColor=MUTED),
+    "th": ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=7.6, leading=9.5, textColor=INK),
+    "thn": ParagraphStyle("thn", fontName="Helvetica-Bold", fontSize=7.6, leading=9.5, textColor=INK, alignment=TA_RIGHT),
+    "bullet": ParagraphStyle("bullet", fontName="Helvetica", fontSize=9.5, leading=13.5, textColor=INK, leftIndent=12, bulletIndent=0, spaceAfter=4),
+}
+
+
+def P(text, style="body"):
+    return Paragraph(text, S[style])
+
+
+def e(x) -> str:
+    return escape(str(x if x is not None else ""))
+
+
+def _src(f: dict) -> str:
+    s = (f or {}).get("source") or {}
+    if s.get("pdf_page"):
+        return f"PDF p. {s['pdf_page']}" + (f" (printed {s['printed_page']})" if s.get("printed_page") else "")
+    if s.get("anchor"):
+        return f"XBRL {s['anchor']}"
+    return ""
+
+
+class _Numbered(rl_canvas.Canvas):
+    """Header, footer and 'Page N of M' on every page."""
+
+    def __init__(self, *a, meta=None, **k):
+        super().__init__(*a, **k)
+        self._saved = []
+        self._meta = meta or {}
+
+    def showPage(self):
+        self._saved.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        n = len(self._saved)
+        for st in self._saved:
+            self.__dict__.update(st)
+            self._decorate(n)
+            super().showPage()
+        super().save()
+
+    def _logo(self, x, y, size=11):
+        self.setFont("Helvetica-Bold", size)
+        self.setFillColor(INK)
+        self.drawString(x, y, "BMG Capital")
+        w = self.stringWidth("BMG Capital", "Helvetica-Bold", size)
+        self.setStrokeColor(LIME)
+        self.setLineWidth(size * 0.16)
+        self.setLineCap(1)
+        self.setLineJoin(1)
+        sx, sy, k = x + w + 3, y - 1, size / 11.0
+        p = self.beginPath()
+        p.moveTo(sx, sy)
+        p.lineTo(sx + 4 * k, sy + 4 * k)
+        p.lineTo(sx + 6.5 * k, sy + 2 * k)
+        p.lineTo(sx + 10 * k, sy + 7 * k)
+        self.drawPath(p, stroke=1, fill=0)
+        self.setFillColor(LIME)
+        self.circle(sx + 10.4 * k, sy + 7.6 * k, 1.5 * k, stroke=0, fill=1)
+
+    def _decorate(self, total):
+        w, h = letter
+        pn = self._pageNumber
+        self.saveState()
+        if pn == 1:
+            self._logo(0.75 * inch + 4, h - 0.8 * inch - 17, 15)
+        if pn > 1:
+            self._logo(0.75 * inch, h - 0.5 * inch, 9)
+            self.setFont("Helvetica", 7.5)
+            self.setFillColor(MUTED)
+            self.drawRightString(w - 0.75 * inch, h - 0.5 * inch, self._meta.get("running", ""))
+            self.setStrokeColor(RULE)
+            self.setLineWidth(0.5)
+            self.line(0.75 * inch, h - 0.58 * inch, w - 0.75 * inch, h - 0.58 * inch)
+        self.setStrokeColor(RULE)
+        self.setLineWidth(0.5)
+        self.line(0.75 * inch, 0.62 * inch, w - 0.75 * inch, 0.62 * inch)
+        self.setFont("Helvetica", 7)
+        self.setFillColor(MUTED)
+        self.drawString(0.75 * inch, 0.45 * inch, "Automatically generated by the BMG Capital reader from the cited filing. Not reviewed by an analyst. Not investment advice.")
+        self.drawRightString(w - 0.75 * inch, 0.45 * inch, f"Page {pn} of {total}")
+        self.restoreState()
+
+
+def _table(rows, widths, numeric_cols=(), header=True, zebra=True):
+    t = Table(rows, colWidths=widths, repeatRows=1 if header else 0)
+    st = [("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+          ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+          ("LINEBELOW", (0, 0), (-1, 0), 1, INK) if header else ("LINEBELOW", (0, 0), (0, 0), 0, colors.white),
+          ("LINEBELOW", (0, 1), (-1, -1), 0.4, RULE)]
+    t.setStyle(TableStyle(st))
+    return t
+
+
+def render(rep: dict) -> bytes:
+    co, src, cov = rep["company"], rep["source"], rep["coverage"]
+    facts, calcs = rep["evidence"]["facts"], rep["evidence"]["calcs"]
+    get = lambda i: (facts.get(i) or calcs.get(i)) if i else None
+    name = co.get("name") or src["name"]
+    tick = co.get("ticker") or co.get("ticker_hint") or ""
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=letter, leftMargin=0.75 * inch, rightMargin=0.75 * inch, topMargin=0.8 * inch, bottomMargin=0.85 * inch,
+                            title=f"BMG Capital Company Report: {name}", author="BMG Capital", subject="Company Report")
+    W = letter[0] - 1.5 * inch
+    story = []
+    # ---------------- header
+    story.append(Table([[P('<font size="15"> </font>', "body"),
+                         P('<font color="#0f7d47" name="Helvetica-Bold" size="8">COMPANY REPORT</font>', "celln")]],
+                       colWidths=[W * 0.6, W * 0.4], style=TableStyle([("LINEBELOW", (0, 0), (-1, 0), 1.5, INK), ("BOTTOMPADDING", (0, 0), (-1, 0), 6), ("VALIGN", (0, 0), (-1, -1), "BOTTOM")])))
+    story.append(Spacer(1, 10))
+    story.append(P(e(name) + (f' <font color="#0f7d47" size="13" name="Helvetica-Bold">{e(tick)}</font>' if tick else ""), "h1"))
+    story.append(P(" &middot; ".join(e(x) for x in [co.get("form"), co.get("period"), co.get("exchange")] if x), "body"))
+    gen = datetime.fromisoformat(rep["generated_at"]).strftime("%B %d, %Y %H:%M UTC")
+    story.append(P(f"Source filing: <b>{e(src['name'])}</b> ({src['pages']} pages, sha256 {e(src['sha256'][:12])}). Generated {e(gen)}. "
+                   f"Coverage: <b>{e(cov['status'])}</b>. {e(rep['review'])}", "small"))
+    if co.get("amendment"):
+        story.append(P("<b>This is an amended filing (/A).</b> Figures reflect the amendment as filed.", "body"))
+    # headline tiles
+    def tile(mkey, label):
+        row = next((r for r in rep["financials"]["performance"] + rep["position"]["rows"] + rep["financials"]["calculated"] if r["metric"] == mkey), None)
+        f = get(row.get("current")) if row else None
+        val = f["display"] if f and f.get("display") else "n/a"
+        chg = (row or {}).get("change", {}).get("display", "")
+        per = (f or {}).get("period", {}).get("short") or (f or {}).get("period", {}).get("label", "") if f else "Not found"
+        return [P(f'<font size="7" color="#5f646b">{e(label.upper())}</font>', "cell"), P(f'<font name="Helvetica-Bold" size="14">{e(val)}</font>', "cell"),
+                P(f'<font size="7.5" color="{"#b42318" if chg.startswith("-") else "#0f7d47"}">{e(chg)}</font>', "cell"), P(f'<font size="6.8" color="#5f646b">{e(per)}</font>', "cell")]
+    tiles = [tile("revenue", "Revenue"), tile("net_income", "Net income"), tile("eps_diluted", "Diluted EPS"), tile("fcf", "Free cash flow")]
+    tt = Table([[Table([[x] for x in t], colWidths=[W / 4 - 10]) for t in tiles]], colWidths=[W / 4] * 4)
+    tt.setStyle(TableStyle([("BOX", (0, 0), (0, 0), 0.6, RULE), ("BOX", (1, 0), (1, 0), 0.6, RULE), ("BOX", (2, 0), (2, 0), 0.6, RULE), ("BOX", (3, 0), (3, 0), 0.6, RULE),
+                            ("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story += [Spacer(1, 8), tt]
+
+    # ---------------- 1. executive overview
+    ov = rep["overview"]
+    story.append(P("Executive overview", "h2"))
+    d = ov["description"]
+    story.append(P(e(d["text"]) + (f' <font size="7" color="#5f646b">[{e(_src(d))}]</font>' if d.get("text") else "") if d.get("text") else f"<i>{e(d.get('reason'))}</i>"))
+    sg = ov["segments"]
+    if sg.get("text"):
+        story.append(P(f"<b>Segments.</b> {e(sg['text'])} " + f'<font size="7" color="#5f646b">[{e(_src(sg))}]</font>'))
+    if ov.get("market_value_note"):
+        story.append(P(e(ov["market_value_note"]["text"]) + f' <font size="7" color="#5f646b">[{e(_src(facts.get("market_value_nonaffiliates")))}]</font>', "small"))
+    story.append(P("Key takeaways", "h3"))
+    if ov["limited"]:
+        story.append(P("<i>The filing supported only a limited summary: few core figures could be matched to printed tables.</i>"))
+    def pages_of(fid, depth=0):
+        x = get(fid)
+        if not x or depth > 3:
+            return set()
+        if _src(x):
+            return {_src(x)}
+        out = set()
+        for i in x.get("inputs", []):
+            out |= pages_of(i, depth + 1)
+        return out
+    for t in ov["takeaways"]:
+        pages = sorted(set().union(*[pages_of(r) for r in t["refs"]]) if t["refs"] else set())
+        story.append(Paragraph(f"{e(t['text'])} <font size='7' color='#5f646b'>[{e(t['basis'])}{'; ' + e(', '.join(pages)) if pages else ''}]</font>", S["bullet"], bulletText="•"))
+    if not ov["takeaways"]:
+        story.append(P("<i>No takeaways could be supported by the extracted figures.</i>"))
+
+    # ---------------- 2. financial overview
+    def fin_rows(rows, show_formula=False):
+        data = [[P("Metric", "th"), P("Current", "thn"), P("Prior", "thn"), P("Change", "thn"), P("Period / status / source", "th")]]
+        for r in rows:
+            c, p = get(r.get("current")), get(r.get("prior"))
+            if not c:
+                data.append([P(e(r["name"]), "cell"), P("", "celln"), P("", "celln"), P("", "celln"), P(f"<i>{e(r.get('reason') or 'Not found in the reviewed filing.')}</i>", "cellm")])
+                continue
+            meta = f"{e(c['period']['label'])}<br/>{e(r['status'])}" + (f"; {e(_src(c))}" if _src(c) else "")
+            if show_formula or r.get("formula"):
+                meta += f"<br/>Formula: {e(r.get('formula') or c.get('formula', ''))}"
+            if r.get("note"):
+                meta += f"<br/>{e(r['note'])}"
+            if r["change"].get("reason"):
+                meta += f"<br/>{e(r['change']['reason'])}"
+            data.append([P(e(r["name"]), "cellb" if not r.get("formula") else "cell"), P(e(c.get("display")), "celln"),
+                         P(e((p or {}).get("display", "")), "celln"), P(e(r["change"].get("display", "")), "celln"), P(meta, "cellm")])
+        return _table(data, [W * 0.24, W * 0.13, W * 0.13, W * 0.11, W * 0.39])
+    story.append(P("Financial overview", "h2"))
+    story.append(P(e(rep["financials"]["period_note"]), "small"))
+    story.append(fin_rows(rep["financials"]["performance"]))
+    story.append(P("Calculated measures", "h3"))
+    story.append(fin_rows(rep["financials"]["calculated"], True))
+
+    # ---------------- 3. business and operating performance
+    op = rep["operating"]
+    story.append(P("Business and operating performance", "h2"))
+    for b in op["breakdowns"]:
+        data = [[P(e(b["title"]), "th"), P("Value", "thn"), P("Share", "thn"), P("Prior", "thn"), P("Change", "thn"), P("Source", "th")]]
+        for i in b["items"]:
+            data.append([P(e(i["name"]), "cell"), P(e(i["display"]), "celln"), P(f"{i['share']:.0f}%", "celln"), P(e(i.get("prior_display", "")), "celln"),
+                         P(f"{i['change_pct']:+.1f}%" if i.get("change_pct") is not None else "", "celln"), P(e(_src(i)), "cellm")])
+        data.append([P("<b>Total</b>", "cell"), P(f"<b>{e(b['total_display'])}</b>", "celln"), P("", "cell"), P("", "cell"), P("", "cell"), P("", "cell")])
+        story.append(KeepTogether([P(e(b["period"]), "small"), _table(data, [W * 0.32, W * 0.13, W * 0.09, W * 0.13, W * 0.1, W * 0.23]), P(e(b["check"]), "small")]))
+    story.append(P(f"Business metrics ({e(op['profile'])} profile)", "h3"))
+    data = [[P("Metric", "th"), P("Value", "thn"), P("Period / source / definition", "th")]]
+    for k in op["kpis"]:
+        if k.get("display"):
+            meta = f"{e(k.get('period', ''))}; {e(_src(k))}"
+            if k.get("definition"):
+                meta += f"<br/>Company definition: {e(k['definition']['text'][:240])}"
+            data.append([P(e(k["name"]), "cell"), P(e(k["display"]), "celln"), P(meta, "cellm")])
+        else:
+            data.append([P(e(k["name"]), "cell"), P("", "celln"), P(f"<i>{e(k.get('reason', 'Not found in the reviewed filing.'))}</i>", "cellm")])
+    if len(data) > 1:
+        story.append(_table(data, [W * 0.32, W * 0.16, W * 0.52]))
+    else:
+        story.append(P("<i>No business-specific metrics were found in the reviewed filing.</i>"))
+    if op.get("not_applicable"):
+        story.append(P("Not applied to this business: " + e(", ".join(op["not_applicable"])) + ".", "small"))
+
+    # ---------------- 4. financial position and cash flow
+    story.append(P("Financial position and cash flow", "h2"))
+    story.append(fin_rows(rep["position"]["rows"]))
+
+    # ---------------- 5. risks
+    rk = rep["risks"]
+    story.append(P("Risks and watch items", "h2"))
+    story.append(P(e(rk["note"]), "small"))
+    for r in rk["items"]:
+        block = [P(f"<b>{e(r['category'])}</b> <font size='7' color='#5f646b'>({e(r['specificity'])}; {e(_src(r))})</font>", "body"),
+                 P(f"&ldquo;{e(r['title'])}&rdquo;", "cell")]
+        if r.get("magnitude"):
+            block.append(P(f"Disclosed figure: {e(r['magnitude'])}", "cellm"))
+        block.append(P(f"<i>Why it may matter (BMG interpretation): {e(r['why_it_may_matter'])}</i>", "cellm"))
+        block.append(Spacer(1, 4))
+        story.append(KeepTogether(block))
+    if rk["watch"]:
+        story.append(P("Watch items from the notes and MD&amp;A", "h3"))
+        for w in rk["watch"]:
+            story.append(KeepTogether([P(f"<b>{e(w['title'])}</b> <font size='7' color='#5f646b'>({e(w['category'])}; {e(_src(w))})</font>", "body"),
+                                       P(e(w["text"]), "cell"), P(f"<i>Why it may matter (BMG interpretation): {e(w['why_it_may_matter'])}</i>", "cellm"), Spacer(1, 4)]))
+    if rk["followups"]:
+        story.append(P("Follow-up questions", "h3"))
+        for f in rk["followups"]:
+            story.append(Paragraph(e(f), S["bullet"], bulletText="•"))
+
+    # ---------------- 6. methodology, limitations, sources
+    story.append(PageBreak())
+    story.append(P("Methodology, coverage and limitations", "h2"))
+    stm = cov["statements_found"]
+    story.append(P(f"Statements found: income statement {'yes' if stm['income'] else 'no'}, balance sheet {'yes' if stm['balance'] else 'no'}, "
+                   f"cash flow statement {'yes' if stm['cashflow'] else 'no'}. Table rows parsed: {cov['tables_parsed']}. Core figures published: {cov['facts_published']}. "
+                   f"Arithmetic checks run: {cov['checks_run']} ({cov['checks_failed']} failed)."))
+    for w in cov["warnings"]:
+        story.append(Paragraph(e(w["message"]), S["bullet"], bulletText="•"))
+    for i in cov["issues"]:
+        story.append(Paragraph("Needs review: " + e(i["message"]), S["bullet"], bulletText="•"))
+    story.append(P("Searched for: " + e("; ".join(cov["searched_for"])) + ". Not finding an item is not evidence that it does not exist.", "small"))
+    for m in rep["methodology"]:
+        story.append(Paragraph(e(m), S["bullet"], bulletText="•"))
+    if rep["checks"]:
+        story.append(P("Arithmetic checks", "h3"))
+        data = [[P("Check", "th"), P("Period", "th"), P("Result", "th"), P("Detail", "th")]]
+        for c in rep["checks"]:
+            data.append([P(e(c["name"]), "cell"), P(e(c["period"]), "cellm"), P("Passed" if c["passed"] else "<font color='#b42318'>Failed</font>", "cell"), P(e(c["detail"]), "cellm")])
+        story.append(_table(data, [W * 0.38, W * 0.27, W * 0.1, W * 0.25]))
+    used = set()
+    def use(fid, depth=0):
+        x = get(fid)
+        if not x or fid in used or depth > 4:
+            return
+        used.add(fid)
+        for i in x.get("inputs", []):
+            use(i, depth + 1)
+    for sec in (rep["financials"]["performance"], rep["financials"]["calculated"], rep["position"]["rows"]):
+        for row in sec:
+            use(row.get("current")); use(row.get("prior"))
+    for t in ov["takeaways"]:
+        for r_ in t["refs"]:
+            use(r_)
+    if facts.get("market_value_nonaffiliates"):
+        used.add("market_value_nonaffiliates")
+    story.append(P("Evidence for every published figure", "h3"))
+    data = [[P("Figure", "th"), P("Value", "thn"), P("Status", "th"), P("Location and excerpt", "th")]]
+    for f in facts.values():
+        if f["status"] == "Unavailable" or f["id"] not in used:
+            continue
+        s = f["source"]
+        loc = f"{e(_src(f))}; {e(s.get('table_title') or s.get('section') or '')}; row \"{e(s.get('row_label', ''))}\", column {e(s.get('column', ''))}"
+        data.append([P(f"{e(f['name'])}<br/><font size='6.8' color='#5f646b'>{e(f['period']['label'])}</font>", "cell"), P(e(f["display"]), "celln"),
+                     P(e(f["status"]), "cellm"), P(f"{loc}<br/>&ldquo;{e((s.get('excerpt') or '')[:200])}&rdquo;", "cellm")])
+    for c in calcs.values():
+        if c.get("status") != "Calculation checked" or c["id"] not in used:
+            continue
+        data.append([P(f"{e(c['name'])}<br/><font size='6.8' color='#5f646b'>{e(c.get('period', {}).get('label', ''))}</font>", "cell"), P(e(c["display"]), "celln"),
+                     P("Calculation checked", "cellm"), P("Formula: " + e(c["formula"]) + "<br/>Inputs: " + e(", ".join(
+                         f"{(facts.get(i) or calcs.get(i) or {}).get('name', i)} {(facts.get(i) or calcs.get(i) or {}).get('display', '')}" for i in c["inputs"])), "cellm")])
+    story.append(_table(data, [W * 0.22, W * 0.12, W * 0.13, W * 0.53]))
+
+    running = f"{name}{' (' + tick + ')' if tick else ''} | {co.get('form') or ''} {co.get('period') or ''}"
+    doc.build(story, canvasmaker=lambda *a, **k: _Numbered(*a, meta={"running": running}, **k))
+    return buf.getvalue()

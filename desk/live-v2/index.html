@@ -310,6 +310,11 @@ svg.thread line{stroke-width:1.2;opacity:.85;stroke-dasharray:1000;stroke-dashof
       state.docsSeen = state.docsSeen || {};
       state.docsSeen[ev.doc_id] = docEv;
       if (docEv.dim){setStatus(`<b>${host}</b> ${ev.doc_type}: already stored`); return;}
+      const _prio = new Set(["10-Q","10-K","8-K","EX-99"]);
+      if (state.coldStartDocId && state.currentDocId === state.coldStartDocId && !_prio.has(ev.doc_type)){
+        setStatus(`fetched <b>${host}</b> ${ev.doc_type}: ${(ev.title||"").slice(0,60)}`);
+        return;
+      }
       processEvent(docEv);
       return;
     }
@@ -375,15 +380,15 @@ svg.thread line{stroke-width:1.2;opacity:.85;stroke-dasharray:1000;stroke-dashof
     const mode = document.getElementById("live-mode").value;
     try{
       state.es = new EventSource("/desk/events");
-      ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done"].forEach(t => {
+      ["hello","heartbeat","job_start","fetch_start","fetch_done","fetch_done_insert","extract_fact","job_log","job_error","job_done","edgar_done"].forEach(t => {
         state.es.addEventListener(t, (e) => {try{const d = JSON.parse(e.data); d.type = t; liveHandle(d);}catch(err){}});
       });
       state.es.onerror = () => setStatus("SSE connection lost");
     }catch(e){setStatus("SSE unavailable");}
     try{
-      const r = await fetch("/desk/_run/live", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ticker, mode})});
+      const r = await fetch("/desk/_run/live", {method:"POST", headers:{"Content-Type":"application/json", "X-Desk-Key": (function(){try{let k=localStorage.getItem("bmg-read-save-key")||"";if(!k){k=(prompt("Owner key for desk runs:")||"").trim();if(k)localStorage.setItem("bmg-read-save-key",k);}return k;}catch(e){return "";}})()}, body: JSON.stringify({ticker, mode})});
       if (r.status === 409){const j = await r.json(); setStatus(`409: ${j.detail||"another live run active"}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
-      else if (!r.ok){setStatus(`error ${r.status}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
+      else if (!r.ok){if (r.status === 403){try{localStorage.removeItem("bmg-read-save-key");}catch(e){}} setStatus(r.status === 403 ? "owner key required to start a desk run" : r.status === 503 ? "manual desk runs are disabled on this server" : `error ${r.status}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
     }catch(e){setStatus(`POST failed: ${e}`); runBtn.classList.remove("on"); runBtn.textContent = "Run"; stopLive();}
   });
 
