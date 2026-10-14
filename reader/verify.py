@@ -51,6 +51,11 @@ For each claim, answer with one status:
   if the page has no number for that line and period.
 - "not_found": the page does not show this line item for this period.
 
+row_label is the parser's own name for the row. When the filing prints a total line with no label (a bare row of
+numbers under a heading such as "Debt:"), row_label is built from nearby headings and can name the wrong one. In that
+case find the row whose numbers match row_numbers (this period's number first, then other periods) and judge whether
+that row is the total of the line item in <name> for that period; if it is, the claim is verified.
+
 Judge only from the page text. Do not calculate, convert or guess. Page text comes from a PDF text layer, so columns
 may be separated by runs of spaces; read the column order from the header lines. Give a note of one short sentence
 for every claim, saying where you looked."""
@@ -115,13 +120,13 @@ def _claims(report: dict) -> list[dict]:
         out.append({"id": fid, "name": f.get("name") or f.get("metric"), "period": (f.get("period") or {}).get("label"),
                     "row_label": s.get("row_label") or "", "column": s.get("column") or "", "printed": s.get("raw"),
                     "caption": s.get("caption") or "", "scope": f.get("scope") or "Consolidated",
-                    "table": s.get("table_title") or "", "offset": s["offset"],
+                    "table": s.get("table_title") or "", "row_numbers": s.get("excerpt") or "", "offset": s["offset"],
                     "page": s.get("pdf_page") or s.get("printed_page")})
     return out
 
 
 def _ask(client, page_text: str, claims: list[dict]) -> tuple[dict, dict]:
-    listing = [{k: c[k] for k in ("id", "name", "period", "row_label", "column", "printed", "caption", "scope", "table")}
+    listing = [{k: c[k] for k in ("id", "name", "period", "row_label", "row_numbers", "column", "printed", "caption", "scope", "table")}
                for c in claims]
     msg = client.messages.create(
         model=MODEL,
