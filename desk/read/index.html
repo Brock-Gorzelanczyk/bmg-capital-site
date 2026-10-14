@@ -2019,10 +2019,14 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     }
     const draw = async (pg) => {
       if (pg.drawn) return; pg.drawn = true;
+      // draw at the screen's pixel density (CSS keeps the box size), so text stays sharp
+      // on retina screens and in 1.5x recordings instead of being upscaled from 1x
+      const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
       const c = document.createElement("canvas");
-      c.width = Math.floor(pg.vp.width); c.height = Math.floor(pg.vp.height);
+      c.width = Math.floor(pg.vp.width * dpr); c.height = Math.floor(pg.vp.height * dpr);
       pg.box.insertBefore(c, pg.box.firstChild);
-      await pg.page.render({canvasContext: c.getContext("2d"), viewport: pg.vp}).promise;
+      await pg.page.render({canvasContext: c.getContext("2d"), viewport: pg.vp,
+        transform: dpr === 1 ? null : [dpr, 0, 0, dpr, 0, 0]}).promise;
     };
     const io = new IntersectionObserver(es => es.forEach(e => {
       if (e.isIntersecting){ const pg = pages.find(p => p.box === e.target); if (pg) draw(pg); }
