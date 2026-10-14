@@ -403,6 +403,10 @@ def parse(doc) -> list[dict]:
             scale = "K"                  # Costco: "Shares used in calculation (000's)" under a millions caption
         full = (f"{heading}: {label}" if heading and label and len(label.split()) <= 3 and _GENERIC.match(label.split()[0])
                 and not label.lower().startswith(heading.lower()) else label)
+        if unlabeled:
+            # The arithmetic-resolved section can precede the nearest subheading.
+            # Keep the extraction label/key intact; name the displayed total by it.
+            full = f"{label[len('Total '):]}: Total"
         loc = doc.location(start)
         statement = statement_of(title)
         cols = hdr["cols"]
@@ -426,7 +430,7 @@ def parse(doc) -> list[dict]:
             groups.append([heading, [vals]])
         if fused:
             tl = "Total " + (_total_heading(groups, heading, fused) or heading)
-            rows.append(dict(rows[-1], label=tl, full_label=tl, key=re.sub(r"[^a-z0-9]+", " ", tl.lower()).strip(),
+            rows.append(dict(rows[-1], label=tl, full_label=f"{tl[len('Total '):]}: Total", key=re.sub(r"[^a-z0-9]+", " ", tl.lower()).strip(),
                              values=[parse_number(t) for t in fused], raw=fused, unlabeled_total=True, row_index=row_index))
             row_index += 1
             groups = []
