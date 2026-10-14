@@ -182,7 +182,7 @@ body.rec .rs-tabs{display:none}body.rec #pane-found{display:none!important}body.
 body.recmode .site-header,body.recmode .read-page>h1,body.recmode .read-page>.lede,body.recmode .read-form,body.recmode details.paste,body.recmode .read-privacy,body.recmode .desk-row,body.recmode #read-error,body.recmode #read-summary,body.recmode #read-stages,body.recmode #read-ctl,body.recmode .back{display:none!important}
 body.recmode main.read-page{max-width:none!important;padding:0 6px!important;margin:0!important}
 body.recmode .read-grid{display:block!important}body.recmode .stage{border:none!important}body.recmode .stage .strip{display:none!important}
-body.recmode .doc{margin-bottom:48vh!important;width:calc(100vw * 1.12)!important;max-width:none!important;margin-left:calc(-50vw * .12)!important}
+body.recmode .doc{margin-bottom:48vh!important;max-width:none!important}   /* full page width: zooming in clipped wide statement columns */
 body.recmode{--rec-h:40vh;overflow-x:hidden!important}html:has(body.recmode){overflow-x:hidden}
 body.recmode .read-side{padding:10px 16px 0!important;box-shadow:0 -8px 24px rgba(0,0,0,.18)!important;border-radius:16px 16px 0 0!important}
 body.recmode.rec-dark,body.recmode.rec-dark main.read-page,body.recmode.rec-dark .read-grid,body.recmode.rec-dark .stage,body.recmode.rec-dark .doc,body.recmode.rec-dark #doc,body.recmode.rec-dark #docbody{background:#000!important}
@@ -212,6 +212,38 @@ body.recmode #bmg-report .rp-bar{display:none!important}
 #rec-setup input[type=number]{width:70px;padding:5px;background:#111821;color:#fff;border:1px solid #3a4656;border-radius:6px}
 #rec-start{height:46px;border:0;border-radius:10px;background:#2fdc74;color:#04130a;font-weight:700;font-size:17px;cursor:pointer}
 #rec-start:disabled{opacity:.5;cursor:default}
+.rec-back{align-self:flex-start;background:none;border:1px solid #3a4656;color:#9aa4b1;border-radius:8px;padding:6px 12px;cursor:pointer;font:13px 'IBM Plex Sans',sans-serif}
+body.recmode .sig-pop{background:rgba(8,12,20,.95);color:#f2f6fa;border:1.5px solid var(--c);border-left-width:5px;box-shadow:0 0 26px color-mix(in srgb,var(--c) 55%,transparent),0 10px 30px rgba(0,0,0,.5);font-size:14.5px;animation:recpop .55s cubic-bezier(.2,1.5,.4,1) both}
+body.recmode .sig-pop b{font-size:17px;color:#fff}body.recmode .sig-pop small{color:#8fa0b3}body.recmode .sig-pop::after{background:rgba(8,12,20,.95)}
+body.recmode .sig-pop.s-observation{--c:#6ff4ff}body.recmode .sig-pop.s-watch{--c:#ffb020}body.recmode .sig-pop.s-flag{--c:#ff4d6d}
+@keyframes recpop{0%{opacity:0;transform:scale(.55) translateY(10px)}100%{opacity:1;transform:none}}
+#rec-beam{position:fixed;left:0;right:0;height:2px;z-index:24;pointer-events:none;background:linear-gradient(90deg,transparent,#6ff4ff 18%,#6ff4ff 82%,transparent);box-shadow:0 0 14px 2px rgba(111,244,255,.65);opacity:.75;animation:recbeam 1.6s ease-in-out infinite}
+#rec-beam::before{content:'';position:absolute;left:0;right:0;bottom:2px;height:46px;background:linear-gradient(to top,rgba(111,244,255,.13),transparent)}
+@keyframes recbeam{0%,100%{opacity:.55}50%{opacity:.95}}
+#rec-hud{position:fixed;top:calc(60vh - 40px);left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;white-space:nowrap;font:600 12px 'IBM Plex Mono',monospace;color:#6ff4ff;background:rgba(0,0,0,.72);border:1px solid rgba(111,244,255,.45);border-radius:20px;padding:5px 12px;box-shadow:0 0 14px rgba(111,244,255,.25)}
+#rec-hud b{color:#fff;margin-right:4px}#rec-hud span{margin-left:8px}
+.rec-fly{position:fixed;z-index:45;pointer-events:none;font:700 15px 'IBM Plex Mono',monospace;color:#00202a;background:#6ff4ff;border-radius:5px;padding:1px 7px;box-shadow:0 0 16px rgba(111,244,255,.9);transition:transform .85s cubic-bezier(.55,0,.2,1),opacity .85s ease-in}
+.rec-fly.go{opacity:.15}.rec-fly.ghost{background:#ff3da6;color:#fff;box-shadow:0 0 16px rgba(255,61,166,.9)}
+body.recmode .lr-c.flash{animation:reccell 1.3s ease}@keyframes reccell{0%{background:rgba(111,244,255,.55)}100%{background:transparent}}
+#rec-end{position:fixed;inset:0;z-index:3100;background:#05070c;color:#eef3f8;display:flex;flex-direction:column;justify-content:center;padding:26px 22px;font:15px/1.4 'IBM Plex Sans',sans-serif}
+#rec-end .rk-brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;margin-bottom:14px}#rec-end .rk-brand svg{width:34px}#rec-end .rk-brand em{font-style:normal;font-weight:400;color:#8fa0b3;font-size:13px;margin-left:auto}
+#rec-end h3{margin:0 0 14px;font:600 13px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#6ff4ff}
+#rec-end ol,#rec-end ul{list-style:none;margin:0;padding:0}
+.rk-keys li{border-left:4px solid var(--c,#6ff4ff);background:rgba(255,255,255,.05);border-radius:0 10px 10px 0;padding:10px 12px;margin:0 0 10px;opacity:0;transform:translateX(-30px);transition:opacity .45s,transform .55s cubic-bezier(.2,1.4,.4,1)}
+.rk-keys li.in{opacity:1;transform:none}.rk-keys li b{display:block;font-size:18px;margin-top:3px}.rk-keys li small{color:#8fa0b3;font-family:'IBM Plex Mono',monospace}
+#rec-end .s-watch{--c:#ffb020}#rec-end .s-flag{--c:#ff4d6d}#rec-end .s-observation{--c:#6ff4ff}
+#rec-end .sev{font:700 10px 'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--c)}
+.rk-one{opacity:0;transform:scale(.96);transition:opacity .5s,transform .6s}.rk-one.in{opacity:1;transform:none}
+.rk-one h2{margin:0;font-size:28px}.rk-one h2 span{color:#6ff4ff;font-size:18px}.rk-sub{margin:2px 0 14px;color:#8fa0b3;font-size:13px}
+.rk-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.rk-tile{background:rgba(255,255,255,.06);border:1px solid rgba(111,244,255,.25);border-radius:12px;padding:10px 12px}
+.rk-tile span{display:block;font-size:12px;color:#8fa0b3}.rk-tile b{display:block;font-size:24px}.rk-tile em{font-style:normal;font-weight:700}.rk-tile em.up{color:#2fdc74}.rk-tile em.down{color:#ff4d6d}
+.rk-tile small{display:block;color:#6b7a8c;font:11px 'IBM Plex Mono',monospace;margin-top:2px}
+.rk-mini li{border-left:3px solid var(--c);padding:4px 10px;margin:0 0 6px;font-size:14px}.rk-mini small{color:#8fa0b3;font-family:'IBM Plex Mono',monospace}
+.rk-foot{margin:12px 0 0;color:#6b7a8c;font-size:12px}
+#rec-final{position:absolute;left:16px;right:16px;bottom:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+#rec-final a,#rec-final button{font:600 14px 'IBM Plex Sans',sans-serif;border-radius:9px;padding:10px 14px;cursor:pointer;text-decoration:none;border:1px solid #3a4656;background:#0c121a;color:#e8edf2}
+#rec-final .rf-dl{background:#2fdc74;color:#04130a;border:0}#rec-final span{color:#8fa0b3;font-size:13px;width:100%;text-align:center}
 #rec-curtain{position:fixed;inset:0;z-index:2900;background:#000;display:flex;align-items:center;justify-content:center;transition:opacity .35s ease}
 #rec-curtain.out{opacity:0;pointer-events:none}
 .read-side h2{font:600 15px 'IBM Plex Sans',sans-serif;margin:0 0 2px}
@@ -2200,6 +2232,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     state.readFound = state.panelIds.size;
     countEl.textContent = `${state.readFound} of ${state.readTotal} shown`;
     if (state.live && el) applyLive(state.live.revealFinding(f.id));      // only findings the walk reached
+    if (state.recFly && el) state.recFly(f, el);                           // record mode: the number flies into the report
   }
 
   state.onRow = (els) => {
@@ -2409,8 +2442,9 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   });
   if (/[?&]layout=record\b/.test(location.search)) document.body.classList.add("rec");
   // ---- Record mode: the TikTok format inside the page, for screen recording ----
-  // The spider, the analysis and every figure are exactly what the reader produces; this only
-  // sets the look, jumps to the statements, then opens and scrolls the finished report.
+  // The spider, the analysis and every figure are exactly what the reader produces. Record mode
+  // only sets the look, adds effects around real events (a number found, a card, a counter of real
+  // counts), jumps to the statements, then closes on key findings and a one-page summary.
   (function recordMode(){
     const btn = document.getElementById("read-recmode");
     if (btn) btn.addEventListener("click", () => {
@@ -2421,17 +2455,23 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     const B = document.body;
     B.classList.add("rec", "recmode", "rec-dark");
     window.READER_VIEW_FRAC = 0.6;                    // the bottom 40% is the live report panel
+    const leave = () => { if (window.opener && !window.opener.closed){ window.close(); } location.href = "/desk/read/"; };
+    const canRecord = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.MediaRecorder);
     const setup = document.createElement("div");
     setup.id = "rec-setup";
-    setup.innerHTML = `<h2>Record mode</h2>
-      <p>1. Choose a 10-K or 10-Q PDF. 2. Start your screen recording of this window (on a Mac: Shift-Command-5, Record Selected Portion). 3. Press Start.</p>
+    setup.innerHTML = `<button type="button" class="rec-back" id="rec-back">&larr; Back to reader</button>
+      <h2>Record mode</h2>
+      <p>Choose a 10-K or 10-Q PDF and press Start. ${canRecord ? "With “Record this window” on, Chrome asks you to share this tab, and the finished clip downloads at the end." : "Use your Mac's screen recorder (Shift-Command-5, Record Selected Portion) on this window."}</p>
       <div id="rec-file-slot"></div>
-      <label class="opt">Jump to the finished report after <span><input type="number" id="rec-finish" min="0" max="600" value="27"> s</span></label>
-      <label class="opt">Report scroll speed <span><input type="number" id="rec-scroll" min="0" max="400" value="70"> px/s</span></label>
+      <label class="opt">Jump to the ending after <span><input type="number" id="rec-finish" min="5" max="600" value="115"> s</span></label>
+      <label class="opt">Key findings held on screen <span><input type="number" id="rec-keys" min="0" max="30" value="4"> s</span></label>
+      <label class="opt">One-page summary on screen <span><input type="number" id="rec-one" min="0" max="30" value="5"> s</span></label>
       <label class="opt">Dark page <input type="checkbox" id="rec-dark" checked></label>
+      ${canRecord ? `<label class="opt">Record this window (downloads a video) <input type="checkbox" id="rec-capture" checked></label>` : ""}
       <button id="rec-start" type="button" disabled>Start</button>
       <p>Space pauses. Esc leaves record mode. The clip starts when the black screen lifts on the first financial statement.</p>`;
     B.appendChild(setup);
+    setup.querySelector("#rec-back").addEventListener("click", leave);
     const drop = document.getElementById("read-drop");
     setup.querySelector("#rec-file-slot").appendChild(drop);            // the reader's own file picker
     const fileIn = document.getElementById("read-file"), startBtn = setup.querySelector("#rec-start");
@@ -2439,51 +2479,175 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     drop.addEventListener("drop", () => setTimeout(() => { startBtn.disabled = !(fileIn.files[0] || drop.classList.contains("has")); }, 0));
     setup.querySelector("#rec-dark").addEventListener("change", e => B.classList.toggle("rec-dark", e.target.checked));
     addEventListener("keydown", e => {
-      if (e.key === "Escape") location.href = "/desk/read/";
+      if (e.key === "Escape") leave();
       if (e.key === " " && !setup.isConnected){ e.preventDefault(); const p = document.getElementById("ctl-pause"); if (p) p.click(); }
     });
     const vis = id => { const el = document.getElementById(id); return el && !el.hidden ? el : null; };
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
     const wait = (ok, ms = 150, limit = 600000) => new Promise((res, rej) => {
       const t0 = Date.now(); const tick = () => { const v = ok(); if (v) return res(v); if (Date.now() - t0 > limit) return rej(new Error("timeout")); setTimeout(tick, ms); }; tick();
     });
+
+    // -- cards one at a time: a burst (five product lines on one table) pops in sequence, not at once
+    const popNow = popSignal;
+    const popQ = []; let popBusy = false;
+    const pump = () => {
+      if (popBusy || !popQ.length) return;
+      popBusy = true;
+      const [sg, el] = popQ.shift();
+      popNow(sg, el);
+      setTimeout(() => { popBusy = false; pump(); }, 1150);
+    };
+    popSignal = (sg, el) => { popQ.push([sg, el]); pump(); };
+
+    // -- a found number flies from the page into its cell in the report panel
+    let flying = 0;
+    state.recFly = (f, el) => {
+      if (!f || !f.value || f.group !== "Financials" || flying > 4 || !el || !el.isConnected) return;
+      const td = liveEl && f.ref ? liveEl.querySelector(`[data-cell="${CSS.escape(f.ref)}"]`) : null;
+      const a = el.getBoundingClientRect();
+      if (a.bottom < 0 || a.top > innerHeight) return;
+      const chip = document.createElement("div");
+      chip.className = "rec-fly" + (td ? "" : " ghost");
+      chip.textContent = f.value;
+      chip.style.left = a.left + "px"; chip.style.top = (a.top - 2) + "px";
+      B.appendChild(chip); flying++;
+      const b = td ? td.getBoundingClientRect() : {left: a.left, top: a.top - 60, width: 0};
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        chip.style.transform = `translate(${(b.left + (b.width || 0) / 2) - (a.left + chip.offsetWidth / 2)}px, ${b.top - a.top}px) scale(${td ? .85 : 1.15})`;
+        chip.classList.add("go");
+      }));
+      setTimeout(() => { chip.remove(); flying--; }, 1000);
+    };
+
+    // -- counter of real counts, and the scan beam on the spider's reading line
+    let hud = null, beam = null, hudTimer = 0;
+    function startOverlays(){
+      beam = document.createElement("div"); beam.id = "rec-beam";
+      beam.style.top = Math.round(innerHeight * 0.6 * 0.5) + "px";
+      hud = document.createElement("div"); hud.id = "rec-hud";
+      B.append(beam, hud);
+      const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
+      const tag = [co.ticker || co.ticker_hint, co.form].filter(Boolean).join(" ");
+      hudTimer = setInterval(() => {
+        const figs = liveEl ? liveEl.querySelectorAll(".lr-c .lr-v").length : 0;
+        const obs = document.querySelectorAll("#lr-sigs li").length;
+        const pages = [...document.querySelectorAll(".pdfpage")];
+        const mid = innerHeight * 0.3;
+        const i = pages.findIndex(x => { const r = x.getBoundingClientRect(); return r.top <= mid && r.bottom >= mid; });
+        hud.innerHTML = `<b>${esc(tag || "BMG READER")}</b> <span>${figs} figure${figs === 1 ? "" : "s"}</span> <span>${obs} observation${obs === 1 ? "" : "s"}</span>${i >= 0 ? ` <span>p.${i + 1}</span>` : ""}`;
+      }, 200);
+    }
+
+    // -- recording this tab (optional)
+    let rec = null, chunks = [], recType = "", stream = null;
+    async function askCapture(){
+      try {
+        stream = await navigator.mediaDevices.getDisplayMedia({video: {frameRate: 30}, audio: false, preferCurrentTab: true, selfBrowserSurface: "include"});
+      } catch (e) { stream = null; return false; }
+      recType = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
+      rec = new MediaRecorder(stream, recType ? {mimeType: recType, videoBitsPerSecond: 12e6} : {videoBitsPerSecond: 12e6});
+      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      return true;
+    }
+    function stopCapture(){
+      return new Promise(res => {
+        if (!rec || rec.state === "inactive"){ res(null); return; }
+        rec.onstop = () => { stream.getTracks().forEach(t => t.stop()); res(new Blob(chunks, {type: recType || "video/webm"})); };
+        rec.stop();
+      });
+    }
+
+    // -- the ending: key findings, then a one-page summary, all from the finished report
+    const pageOf = ids => { const F = (state.readRes.report.evidence || {}).facts || {}, C = (state.readRes.report.evidence || {}).calcs || {};
+      const pg = new Set(); const walk = (i, d = 0) => { if (d > 4) return; const f = F[i]; if (f){ const p = (f.source || {}).pdf_page; if (p) pg.add(p); return; } ((C[i] || {}).inputs || []).forEach(j => walk(j, d + 1)); };
+      (ids || []).forEach(i => walk(i)); return [...pg].sort((a, b) => a - b).slice(0, 2).map(p => "p." + p).join(" "); };
+    function ending(keySecs, oneSecs){
+      const rep = state.readRes.report, co = rep.company || {};
+      const F = rep.evidence.facts, C = rep.evidence.calcs, ev = id => F[id] || C[id];
+      const tile = (k, label) => {
+        const row = (rep.financials.performance || []).find(r => r.metric === k) || (rep.financials.calculated || []).find(r => r.metric === k) || {};
+        const x = ev(row.current), ch = row.change || {};
+        if (!x) return "";
+        const up = ch.pct != null ? ch.pct >= 0 : ch.pp != null ? ch.pp >= 0 : null;
+        return `<div class="rk-tile"><span>${esc(label)}</span><b>${esc(x.display)}</b><em class="${up == null ? "" : up ? "up" : "down"}">${esc(ch.display || "")}</em><small>${esc(x.period.short || x.period.label)} &middot; p.${esc(String((x.source || {}).pdf_page || ((x.inputs || []).map(i => (F[i] && F[i].source || {}).pdf_page).filter(Boolean)[0]) || ""))}</small></div>`;
+      };
+      const kf = (rep.exec_findings || []).slice(0, 4);
+      const end = document.createElement("div"); end.id = "rec-end";
+      end.innerHTML = `<div class="rk-phase rk-keys"><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span></div>
+          <h3>Key findings &middot; ${esc(co.name || "")}</h3>
+          <ol>${kf.map(x => `<li class="s-${x.severity}"><span class="sev s-${x.severity}">${SEV[x.severity].l}</span><b>${esc(x.headline)}</b><small>${esc(pageOf(x.refs))}</small></li>`).join("")}</ol></div>
+        <div class="rk-phase rk-one" hidden><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span><em>Company report</em></div>
+          <h2>${esc(co.name || "")} <span>${esc(co.ticker || co.ticker_hint || "")}</span></h2>
+          <p class="rk-sub">${esc([co.form, co.period].filter(Boolean).join(" · "))}</p>
+          <div class="rk-tiles">${tile("revenue", "Revenue")}${tile("net_income", "Net income")}${tile("eps_diluted", "Diluted EPS")}${tile("fcf", "Free cash flow")}</div>
+          <ul class="rk-mini">${kf.slice(0, 3).map(x => `<li class="s-${x.severity}"><b>${esc(x.headline)}</b> <small>${esc(pageOf(x.refs))}</small></li>`).join("")}</ul>
+          <p class="rk-foot">${rep.coverage ? esc(rep.coverage.facts_published + " headline figures · " + rep.coverage.checks_run + " checks") + " &middot; " : ""}every figure cites its page in the filing</p></div>`;
+      B.appendChild(end);
+      return (async () => {
+        const items = [...end.querySelectorAll(".rk-keys li")];
+        for (const li of items){ await sleep(550); li.classList.add("in"); }
+        await sleep(keySecs * 1000);                                   // hold once every finding is on screen
+        end.querySelector(".rk-keys").hidden = true;
+        const one = end.querySelector(".rk-one"); one.hidden = false;
+        requestAnimationFrame(() => one.classList.add("in"));
+        await sleep(oneSecs * 1000);
+        return end;
+      })();
+    }
+    function finalControls(end, blob){
+      const bar = document.createElement("div"); bar.id = "rec-final";
+      const ext = blob && /mp4/.test(blob.type) ? "mp4" : "webm";
+      const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+      bar.innerHTML = `${blob ? `<a class="rf-dl" download="BMG-${esc((co.ticker || "reader").replace(/[^A-Za-z0-9]/g, ""))}-${stamp}.${ext}" href="${URL.createObjectURL(blob)}">Download recording (${ext.toUpperCase()}, ${(blob.size / 1e6).toFixed(1)} MB)</a>` : `<span>Not recorded in the browser (screen sharing was off or declined).</span>`}
+        <button type="button" id="rf-again">Record again</button><button type="button" id="rf-back">&larr; Back to reader</button>`;
+      end.appendChild(bar);
+      bar.querySelector("#rf-again").onclick = () => location.reload();
+      bar.querySelector("#rf-back").onclick = leave;
+    }
+
     startBtn.addEventListener("click", async () => {
-      const finishAt = Math.max(0, +setup.querySelector("#rec-finish").value || 0);
-      const scrollPx = Math.max(0, +setup.querySelector("#rec-scroll").value || 0);
+      const finishAt = Math.max(5, +setup.querySelector("#rec-finish").value || 115);
+      const keySecs = Math.max(0, +setup.querySelector("#rec-keys").value || 0);
+      const oneSecs = Math.max(0, +setup.querySelector("#rec-one").value || 0);
+      const capture = setup.querySelector("#rec-capture");
+      if (capture && capture.checked) await askCapture();          // asked first, while the click still counts as a user gesture
       setup.remove();
       const curtain = document.createElement("div");
       curtain.id = "rec-curtain";
-      curtain.innerHTML = typeof BMG_LINE === "string" ? `<div style="width:84px;opacity:.9">${BMG_LINE}</div>` : "";
+      curtain.innerHTML = `<div style="width:84px;opacity:.9">${BMG_LINE}</div>`;
       B.appendChild(curtain);
       document.getElementById("read-run").click();
       try {
-        // reading has started once Skip appears; jump to the statements when the filing has them
         await wait(() => vis("read-skip"));
-        await new Promise(r => setTimeout(r, 400));
+        await sleep(400);
         const jb = vis("read-jump");
         if (jb){
           // lift the curtain only once the view has actually moved to the statements, then settled
           const y0 = scrollY; jb.click();
           await wait(() => scrollY - y0 > innerHeight * 0.5, 100, 15000).catch(() => {});
           let last = scrollY; await wait(() => { const st = Math.abs(scrollY - last) < 40; last = scrollY; return st; }, 250, 5000).catch(() => {});
-          await new Promise(r => setTimeout(r, 300));
+          await sleep(300);
         }
+        if (rec) rec.start(500);                                   // the clip starts here, on the statements
+        startOverlays();
         curtain.classList.add("out"); setTimeout(() => curtain.remove(), 400);
-        if (!finishAt) return;
         // count only time that is not paused
         let left = finishAt * 1000, last = Date.now();
         await wait(() => { const now = Date.now(); const paused = (document.getElementById("ctl-pause") || {}).textContent === "Resume";
                             if (!paused) left -= now - last; last = now; return left <= 0; }, 100);
         const sk = vis("read-skip"); if (sk) sk.click();
-        const view = await wait(() => document.querySelector(".rp-view"), 150, 120000);
-        view.click();
-        const sc = await wait(() => document.querySelector("#bmg-report .rp-scroll"), 100, 20000);
-        if (!scrollPx) return;
-        await new Promise(r => setTimeout(r, 1500));
-        let pos = sc.scrollTop, prev = performance.now();
-        const step = now => { pos += scrollPx * (now - prev) / 1000; prev = now; sc.scrollTop = pos;
-                              if (pos < sc.scrollHeight - sc.clientHeight) requestAnimationFrame(step); };
-        requestAnimationFrame(step);
-      } catch (e) { curtain.remove(); }
+        clearInterval(hudTimer);
+        await wait(() => state.readRes && state.readRes.report, 100, 30000);
+        const end = await ending(keySecs, oneSecs);
+        const blob = await stopCapture();
+        finalControls(end, blob);
+      } catch (e) {
+        curtain.remove();
+        const blob = await stopCapture();
+        if (blob){ const end = document.createElement("div"); end.id = "rec-end"; B.appendChild(end); finalControls(end, blob); }
+      }
     });
   })();
   function onFindingSignals(f, el){
