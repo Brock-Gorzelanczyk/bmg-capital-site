@@ -439,6 +439,8 @@ def analyze(fb, profile: str, kpis: list, watch: Optional[list] = None) -> list[
                                 definition={"numerator": "As defined in the filing", "denominator": "", "period": k.get("period") or "", "scope": k.get("scope") or "As stated",
                                             "formula": "Company-defined", "missing": "", "applicability": "Lessors."}),
                         "inputs": [], "kpi": k["name"], "source": k.get("source")})
+    from . import notes
+    out.extend(notes.observations(fb, _sig))
     out.sort(key=lambda s: SEVERITIES.index(s["severity"]))
     return out
 
