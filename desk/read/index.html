@@ -299,7 +299,7 @@ html,body{overflow-x:clip}
 .rp-issues{flex-basis:100%;font-size:13px;border-top:1px solid #d9eee1;padding-top:10px}.rp-issues ul{margin:4px 0 0;padding-left:18px}.rp-issues.ok{color:#0f7d47}
 .rp-cov{font-size:13px;margin:0 0 16px;padding:8px 12px;background:#f6f8f7;border-radius:8px}
 .rp-st{display:inline-block;font:600 10px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.04em;padding:1px 6px;border-radius:10px;border:1px solid #d8d8d2;white-space:nowrap}.rp-st.ok{color:#0f7d47;border-color:#b7dfc8}.rp-st.warn{color:#b86e00;border-color:#f0d2a6}.rp-st.dim{color:#8a9099}
-.rp-table td small{display:block;font-size:10.5px;color:#8a9099;font-family:'IBM Plex Sans',sans-serif}.rp-tw{overflow-x:auto}.rp-basis{font:600 10px 'IBM Plex Mono',monospace;color:#6b6f76;text-transform:uppercase}
+.rp-table td small{display:block;font-size:10.5px;color:#8a9099;font-family:'IBM Plex Sans',sans-serif}.rp-tw{overflow-x:auto}.rp-check{border-left:3px solid #2fdc74;background:#f6fbf7;padding:6px 12px;margin:8px 0 14px;font-size:13px}.rp-check p{margin:4px 0}.rp-basis{font:600 10px 'IBM Plex Mono',monospace;color:#6b6f76;text-transform:uppercase}
 .cmp-t .who small{display:block;color:#6b6f76;font-size:11px}.cmp-t .nc{font:600 10px 'IBM Plex Mono',monospace;text-transform:uppercase;color:#a35d00}
 .rp-risks{list-style:none;padding:0}.rp-risks li{margin:0 0 14px}.rp-risks blockquote{margin:4px 0;padding:2px 10px;border-left:3px solid #e3e3dc;color:#3a3a3a;font-size:13px}.rp-why{margin:2px 0 0;font-size:13px}.rp-why span{font:600 10px 'IBM Plex Mono',monospace;color:#7a3cff;text-transform:uppercase;margin-right:4px}
 .rp-method,.rp-follow{font-size:13px;padding-left:18px}.rp-ev q{font-size:11.5px}.rp-src.rp-nodoc{opacity:.6;cursor:help}
@@ -2715,6 +2715,16 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       else if (s.anchor){ const k = "x" + s.anchor; if (!acc.has(k)) acc.set(k, `<span class="rp-src" title="${esc(s.excerpt || "")}">XBRL ${esc(s.anchor)}</span>`); }
       return acc;
     };
+    // optional second check (reader/verify.py): Claude re-read each statement figure on its page. Shown only when it ran.
+    const secondCheck = sc => {
+      if (!sc || sc.status !== "done") return "";
+      const c = sc.counts || {}, fl = (sc.flagged || []).filter(x => x.status !== "error");
+      const err = (sc.flagged || []).find(x => x.status === "error");
+      const word = {mismatch: "Page shows a different number", not_found: "Not found on the page", unclear: "Could not confirm"};
+      if (c.error === sc.checked) return `<div class="rp-check"><p><b>Second check</b> could not run (${esc((err && err.note) || "unknown error")}). Figures are unchecked; the report is otherwise complete.</p></div>`;
+      return `<div class="rp-check"><p><b>Second check.</b> ${c.verified || 0} of ${sc.checked} statement figures confirmed on their cited page by ${esc(sc.model)}${fl.length ? `; <b>${fl.length} to review</b>` : ""}${c.error ? `; ${c.error} not checked (${esc(err.note)})` : ""}. The reader's numbers are unchanged; this is a review aid.</p>
+        ${fl.length ? `<div class="rp-tw"><table class="rp-table"><tr><th>Figure</th><th class="num">Reader</th><th class="num">Page shows</th><th>Result</th><th>Page</th></tr>${fl.map(x => `<tr><td>${esc(x.name)}<small>${esc(x.period || "")}</small></td><td class="num">${esc(x.printed)}</td><td class="num">${esc(x.page_value || "")}</td><td>${esc(word[x.status] || x.status)}<small>${esc(x.note || "")}</small></td><td>p.${esc(String(x.page || ""))}</td></tr>`).join("")}</table></div>` : ""}</div>`;
+    };
     const srcOf = (...xs) => { const acc = new Map(); xs.forEach(x => chips(x, acc)); return [...acc.values()].join(" "); };
     const per = x => x ? (x.period.short || x.period.label) : "";
     const stat = s => `<span class="rp-st ${STATUS_CLS[s] || ""}">${esc(s)}</span>`;
@@ -2765,6 +2775,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       <p class="rp-sub">${[co.form, co.period, co.exchange].filter(Boolean).map(esc).join(" &middot; ")}${co.amendment ? " &middot; Amendment" : ""}</p>
       <p class="rp-meta">Generated ${esc(new Date(rep.generated_at).toLocaleString())} from <b>${esc(rep.source.name)}</b> (${rep.source.pages} pages). ${esc(rep.review)}</p>
       <p class="rp-cov">Coverage: <b>${esc(rep.coverage.status)}</b> &middot; ${rep.coverage.facts_published} headline figures &middot; ${rep.coverage.checks_run} checks, ${rep.coverage.checks_failed} failed &middot; validation ${rep.validation.passed ? "passed" : "withdrew " + rep.validation.withdrawn.length + " item(s)"}</p>
+      ${secondCheck(rep.second_check)}
       <section class="rp-tiles">${tile("revenue", "Revenue")}${tile("net_income", "Net income")}${tile("eps_diluted", "Diluted EPS")}${tile("fcf", "Free cash flow")}</section>
       <h2 id="rp-overview">Business overview</h2>
       ${desc}

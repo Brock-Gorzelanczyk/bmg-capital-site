@@ -58,6 +58,16 @@ fi
 mkdir -p .local-data/cache
 export BMG_LOCAL=1 INTAKE_DATA_DIR="$PWD/.local-data" BMG_CACHE_DIR="$PWD/.local-data/cache"
 
+# Optional second check: Claude re-reads each statement figure on its page (a few cents per filing at most).
+# Put your Anthropic API key, alone on one line, in ~/.bmg-anthropic-key (outside this folder, so it is never
+# committed). No file, no check: the reader works exactly as before. Flagged figures are logged to
+# .local-data/verify-log.jsonl.
+if [ -z "$ANTHROPIC_API_KEY" ] && [ -f "$HOME/.bmg-anthropic-key" ]; then
+  ANTHROPIC_API_KEY="$(tr -d '[:space:]' < "$HOME/.bmg-anthropic-key")"
+  export ANTHROPIC_API_KEY
+fi
+if [ -n "$ANTHROPIC_API_KEY" ]; then echo "Second check: on (Claude re-reads each statement figure)."; else echo "Second check: off (no ~/.bmg-anthropic-key)."; fi
+
 # Open the browser once the server answers.
 (
   for _ in $(seq 1 60); do

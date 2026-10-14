@@ -18,3 +18,5 @@ APScheduler>=3.11,<4.0
 PyYAML>=6.0,<7.0
 # Company report PDF (reader/pdf.py); pure Python, free
 reportlab>=4.2,<5.0
+# Optional second check (reader/verify.py); used only when ANTHROPIC_API_KEY is set
+anthropic>=1.14,<2.0

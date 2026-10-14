@@ -110,10 +110,15 @@ def run(data: bytes, kind: str, title: str, ticker: Optional[str] = None,
     if ticker and not rep["company"].get("ticker"):
         rep["company"]["ticker_hint"] = ticker
     rep = schema.validate(rep)
+    # optional second check (Claude re-reads each statement figure on its page); off without ANTHROPIC_API_KEY
+    from . import verify as _verify
+    rep["second_check"] = _verify.run(rep, doc.body, doc.page_starts)
     from . import live as _live
     rep["live"] = _live.plan(rep)            # built after validation: nothing withdrawn can appear
     rep["timings"] = timings
-    done("Build report", t, findings=len(rep["findings"]), validation_passed=rep["validation"]["passed"])
+    sc = rep["second_check"]
+    done("Build report", t, findings=len(rep["findings"]), validation_passed=rep["validation"]["passed"],
+         second_check=sc["status"], **({"checked": sc["checked"], **sc["counts"]} if sc["status"] == "done" else {}))
 
     return {"report": rep, "text": doc.body, "page_starts": doc.page_starts, "sha256": doc.sha256,
             "title": title, "kind": kind, "pages": len(doc.pages)}
