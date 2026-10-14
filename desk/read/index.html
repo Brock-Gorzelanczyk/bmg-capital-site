@@ -149,6 +149,7 @@ svg.spider .knee{fill:#ff3d9a}
 #read-ticker{height:44px;padding:0 12px;border:1px solid #c9c9c4;border-radius:8px;font:500 15px 'IBM Plex Mono',monospace;align-self:center}
 #read-run{height:44px;padding:0 26px;background:#0f7d47;color:#fff;border:none;border-radius:8px;font-weight:600;font-size:16px;cursor:pointer;align-self:center}
 #read-run:disabled{opacity:.6;cursor:default}
+#read-recmode{height:44px;padding:0 18px;background:#05070c;color:#6ff4ff;border:1.5px solid #6ff4ff;border-radius:8px;font-weight:600;font-size:15px;cursor:pointer;align-self:center}
 details.paste{margin:0 0 16px;color:#4a4a4a}
 details.paste textarea{width:100%;min-height:110px;margin-top:8px;font:13px 'IBM Plex Mono',monospace;border:1px solid #c9c9c4;border-radius:8px;padding:10px;box-sizing:border-box}
 #read-error{padding:12px 14px;border-radius:8px;background:#fef2f1;color:#b42318;border:1px solid #f4c7c3;margin:8px 0}
@@ -177,6 +178,42 @@ details.paste textarea{width:100%;min-height:110px;margin-top:8px;font:13px 'IBM
 @media (max-width:900px){.read-side{position:fixed!important;left:0;right:0;bottom:0;top:auto;max-height:46vh!important;border-radius:12px 12px 0 0;z-index:40;box-shadow:0 -6px 20px rgba(0,0,0,.12)}.rs-sheet{display:inline-block}.read-side.collapsed{max-height:44px!important;overflow:hidden}.read-grid{padding-bottom:48vh}}
 body.rec .read-side{position:fixed!important;left:0;right:0;bottom:0;top:auto;height:var(--rec-h,40vh);max-height:none!important;border-radius:0;border:0;border-top:1px solid #e3e3dc;overflow:hidden;z-index:40}
 body.rec .rs-tabs{display:none}body.rec #pane-found{display:none!important}body.rec #read-live{display:block!important;height:100%;overflow:hidden}body.rec .lr{font-size:15px}body.rec .lr-top{position:sticky;top:0;z-index:3;background:#fff;padding-bottom:4px;border-bottom:1px solid #eceee9}body.rec .lr-top::after{content:;position:absolute;left:0;right:0;bottom:-26px;height:26px;background:linear-gradient(#fff,rgba(255,255,255,0));pointer-events:none}body.rec .lr-t td{padding:4px 6px}
+/* Record mode (?layout=record&mode=rec): the TikTok look built into the page, for screen recording */
+body.recmode .site-header,body.recmode .read-page>h1,body.recmode .read-page>.lede,body.recmode .read-form,body.recmode details.paste,body.recmode .read-privacy,body.recmode .desk-row,body.recmode #read-error,body.recmode #read-summary,body.recmode #read-stages,body.recmode #read-ctl,body.recmode .back{display:none!important}
+body.recmode main.read-page{max-width:none!important;padding:0 6px!important;margin:0!important}
+body.recmode .read-grid{display:block!important}body.recmode .stage{border:none!important}body.recmode .stage .strip{display:none!important}
+body.recmode .doc{margin-bottom:48vh!important;width:calc(100vw * 1.12)!important;max-width:none!important;margin-left:calc(-50vw * .12)!important}
+body.recmode{--rec-h:40vh;overflow-x:hidden!important}html:has(body.recmode){overflow-x:hidden}
+body.recmode .read-side{padding:10px 16px 0!important;box-shadow:0 -8px 24px rgba(0,0,0,.18)!important;border-radius:16px 16px 0 0!important}
+body.recmode.rec-dark,body.recmode.rec-dark main.read-page,body.recmode.rec-dark .read-grid,body.recmode.rec-dark .stage,body.recmode.rec-dark .doc,body.recmode.rec-dark #doc,body.recmode.rec-dark #docbody{background:#000!important}
+body.recmode.rec-dark .pdfpage{background:#000!important;box-shadow:none!important}
+body.recmode.rec-dark .pdfpage canvas{filter:invert(1) hue-rotate(180deg) contrast(1.1)}
+body.recmode.rec-dark svg.spider .leg{stroke:#6ff4ff!important;stroke-width:2.6!important}
+body.recmode.rec-dark svg.spider .foot,body.recmode.rec-dark svg.spider .knee{fill:#ff3da6!important}
+body.recmode.rec-dark svg.spider .body{stroke:#6ff4ff!important}body.recmode.rec-dark svg.spider .mesh{stroke:#9fb4ff!important}
+body.recmode.rec-dark .beam{background:rgba(39,200,255,.28)!important;color:transparent!important;box-shadow:none!important}
+body.recmode.rec-dark .pdftext .w.salmon,body.recmode.rec-dark .pdftext .w.found.org{background:rgba(39,200,255,.38)!important}
+body.recmode.rec-dark .stage,body.recmode.rec-dark .doc,body.recmode.rec-dark #doc{--page:#000}
+body.recmode.rec-dark .stage .liftlbl{background:rgba(0,0,0,.88)!important}
+body.recmode.rec-dark .stage .liftlbl.f1,body.recmode.rec-dark .stage .liftlbl.f2{color:#6ff4ff!important}body.recmode.rec-dark .stage .liftlbl.f3{color:#ff5cc0!important}
+body.recmode.rec-dark .fx-fill,body.recmode.rec-dark .fx-strip{background:rgba(39,200,255,.88)!important;color:#00202a!important;box-shadow:none!important}
+body.recmode.rec-dark .fx-fill:nth-child(2n),body.recmode.rec-dark .fx-strip:nth-child(2n){background:rgba(255,61,166,.88)!important;color:#fff!important}
+body.recmode.rec-dark .fx-ink,body.recmode.rec-dark .fx-accent{color:#6ff4ff!important;box-shadow:none!important}
+body.recmode.rec-dark .fx-ink:nth-child(2n),body.recmode.rec-dark .fx-accent:nth-child(2n){color:#ff5cc0!important}
+body.recmode.rec-dark .fx-outline{border-color:#6ff4ff!important}body.recmode.rec-dark .fx-outline:nth-child(2n){border-color:#ff5cc0!important}
+body.recmode #doc-h1{display:none!important}
+body.recmode #bmg-report .rp-bar{display:none!important}
+#rec-setup #read-drop{background:#0c121a!important;color:#e8edf2!important}#rec-setup #read-drop span{color:#9aa4b1!important}#rec-setup #read-drop b{color:#e8edf2!important}
+#rec-setup{position:fixed;inset:0;z-index:3000;background:#05070c;color:#e8edf2;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:24px;font:15px/1.4 'IBM Plex Sans',sans-serif}
+#rec-setup h2{margin:0;font-size:22px}#rec-setup p{margin:0;color:#9aa4b1;font-size:13px}
+#rec-setup #read-drop{display:flex;flex-direction:column;gap:4px;border:1.5px dashed #3a4656;border-radius:10px;padding:14px;cursor:pointer;color:#e8edf2}
+#rec-setup #read-drop.has{border-color:#2fdc74}
+#rec-setup label.opt{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px}
+#rec-setup input[type=number]{width:70px;padding:5px;background:#111821;color:#fff;border:1px solid #3a4656;border-radius:6px}
+#rec-start{height:46px;border:0;border-radius:10px;background:#2fdc74;color:#04130a;font-weight:700;font-size:17px;cursor:pointer}
+#rec-start:disabled{opacity:.5;cursor:default}
+#rec-curtain{position:fixed;inset:0;z-index:2900;background:#000;display:flex;align-items:center;justify-content:center;transition:opacity .35s ease}
+#rec-curtain.out{opacity:0;pointer-events:none}
 .read-side h2{font:600 15px 'IBM Plex Sans',sans-serif;margin:0 0 2px}
 #read-count{font:12px 'IBM Plex Mono',monospace;color:#6b6f76}
 #read-findings{list-style:none;margin:10px 0 0;padding:0}
@@ -349,6 +386,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   <label id="read-drop"><input type="file" id="read-file" hidden accept=".pdf,.docx,.pptx,.htm,.html,.txt,.md"><b>Drop a file here or click to choose</b><span id="read-drop-name">PDF, DOCX, PPTX, HTML or text, up to 10 MB.</span></label>
   <input id="read-ticker" type="text" maxlength="6" autocomplete="off" spellcheck="false" placeholder="Ticker (optional)" aria-label="Ticker (optional)">
   <button id="read-run" type="button">Run</button>
+  <button id="read-recmode" type="button" title="Open the reader in a phone-shaped window formatted for screen recording">Record mode</button>
 </div>
 <p class="read-privacy">Your file is not saved. While it uploads, a large file may be buffered in a temporary file that is deleted when the upload request ends; the server then reads it in memory. The finished report is kept in memory for up to one hour so you can reopen it or download the PDF, then discarded; a server restart clears it sooner. Nothing is saved to the vault unless the owner presses Save with the owner key.</p>
 <details class="paste"><summary>Or paste text</summary><textarea id="read-paste" placeholder="Paste text to read"></textarea></details>
@@ -2370,6 +2408,84 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     sheetBtn.setAttribute("aria-expanded", String(!c)); sheetBtn.textContent = c ? "Show report" : "Hide";
   });
   if (/[?&]layout=record\b/.test(location.search)) document.body.classList.add("rec");
+  // ---- Record mode: the TikTok format inside the page, for screen recording ----
+  // The spider, the analysis and every figure are exactly what the reader produces; this only
+  // sets the look, jumps to the statements, then opens and scrolls the finished report.
+  (function recordMode(){
+    const btn = document.getElementById("read-recmode");
+    if (btn) btn.addEventListener("click", () => {
+      const h = Math.min(960, (screen.availHeight || 900) - 60), w = Math.round(h * 9 / 16);
+      window.open("/desk/read/?layout=record&mode=rec", "bmg-record", `popup=yes,width=${w},height=${h}`);
+    });
+    if (!/[?&]mode=rec\b/.test(location.search)) return;
+    const B = document.body;
+    B.classList.add("rec", "recmode", "rec-dark");
+    window.READER_VIEW_FRAC = 0.6;                    // the bottom 40% is the live report panel
+    const setup = document.createElement("div");
+    setup.id = "rec-setup";
+    setup.innerHTML = `<h2>Record mode</h2>
+      <p>1. Choose a 10-K or 10-Q PDF. 2. Start your screen recording of this window (on a Mac: Shift-Command-5, Record Selected Portion). 3. Press Start.</p>
+      <div id="rec-file-slot"></div>
+      <label class="opt">Jump to the finished report after <span><input type="number" id="rec-finish" min="0" max="600" value="27"> s</span></label>
+      <label class="opt">Report scroll speed <span><input type="number" id="rec-scroll" min="0" max="400" value="70"> px/s</span></label>
+      <label class="opt">Dark page <input type="checkbox" id="rec-dark" checked></label>
+      <button id="rec-start" type="button" disabled>Start</button>
+      <p>Space pauses. Esc leaves record mode. The clip starts when the black screen lifts on the first financial statement.</p>`;
+    B.appendChild(setup);
+    const drop = document.getElementById("read-drop");
+    setup.querySelector("#rec-file-slot").appendChild(drop);            // the reader's own file picker
+    const fileIn = document.getElementById("read-file"), startBtn = setup.querySelector("#rec-start");
+    fileIn.addEventListener("change", () => { startBtn.disabled = !fileIn.files[0]; });
+    drop.addEventListener("drop", () => setTimeout(() => { startBtn.disabled = !(fileIn.files[0] || drop.classList.contains("has")); }, 0));
+    setup.querySelector("#rec-dark").addEventListener("change", e => B.classList.toggle("rec-dark", e.target.checked));
+    addEventListener("keydown", e => {
+      if (e.key === "Escape") location.href = "/desk/read/";
+      if (e.key === " " && !setup.isConnected){ e.preventDefault(); const p = document.getElementById("ctl-pause"); if (p) p.click(); }
+    });
+    const vis = id => { const el = document.getElementById(id); return el && !el.hidden ? el : null; };
+    const wait = (ok, ms = 150, limit = 600000) => new Promise((res, rej) => {
+      const t0 = Date.now(); const tick = () => { const v = ok(); if (v) return res(v); if (Date.now() - t0 > limit) return rej(new Error("timeout")); setTimeout(tick, ms); }; tick();
+    });
+    startBtn.addEventListener("click", async () => {
+      const finishAt = Math.max(0, +setup.querySelector("#rec-finish").value || 0);
+      const scrollPx = Math.max(0, +setup.querySelector("#rec-scroll").value || 0);
+      setup.remove();
+      const curtain = document.createElement("div");
+      curtain.id = "rec-curtain";
+      curtain.innerHTML = typeof BMG_LINE === "string" ? `<div style="width:84px;opacity:.9">${BMG_LINE}</div>` : "";
+      B.appendChild(curtain);
+      document.getElementById("read-run").click();
+      try {
+        // reading has started once Skip appears; jump to the statements when the filing has them
+        await wait(() => vis("read-skip"));
+        await new Promise(r => setTimeout(r, 400));
+        const jb = vis("read-jump");
+        if (jb){
+          // lift the curtain only once the view has actually moved to the statements, then settled
+          const y0 = scrollY; jb.click();
+          await wait(() => scrollY - y0 > innerHeight * 0.5, 100, 15000).catch(() => {});
+          let last = scrollY; await wait(() => { const st = Math.abs(scrollY - last) < 40; last = scrollY; return st; }, 250, 5000).catch(() => {});
+          await new Promise(r => setTimeout(r, 300));
+        }
+        curtain.classList.add("out"); setTimeout(() => curtain.remove(), 400);
+        if (!finishAt) return;
+        // count only time that is not paused
+        let left = finishAt * 1000, last = Date.now();
+        await wait(() => { const now = Date.now(); const paused = (document.getElementById("ctl-pause") || {}).textContent === "Resume";
+                            if (!paused) left -= now - last; last = now; return left <= 0; }, 100);
+        const sk = vis("read-skip"); if (sk) sk.click();
+        const view = await wait(() => document.querySelector(".rp-view"), 150, 120000);
+        view.click();
+        const sc = await wait(() => document.querySelector("#bmg-report .rp-scroll"), 100, 20000);
+        if (!scrollPx) return;
+        await new Promise(r => setTimeout(r, 1500));
+        let pos = sc.scrollTop, prev = performance.now();
+        const step = now => { pos += scrollPx * (now - prev) / 1000; prev = now; sc.scrollTop = pos;
+                              if (pos < sc.scrollHeight - sc.clientHeight) requestAnimationFrame(step); };
+        requestAnimationFrame(step);
+      } catch (e) { curtain.remove(); }
+    });
+  })();
   function onFindingSignals(f, el){
     if (f.group === "Operating metrics") tickBrief("kpi:" + f.label, f.value);
     for (const id of f.signals || []){
