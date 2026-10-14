@@ -228,6 +228,7 @@ class FactBook:
         self._debt()
         self._derive_liabilities()
         self._capex_components()
+        self._disposition_components()
         self._narrative()
         if getattr(self.doc, "xbrl", None):
             self._xbrl()
@@ -534,38 +535,61 @@ class FactBook:
         if ids:
             self.primary_periods["total_liabilities"] = ids
 
-    def _capex_components(self):
-        """Capital expenditures printed as several lines (e.g. "Capital
-        expenditures - lease fleet" and "- operating and administrative")
-        with no total: their sum, as a calculation listing the lines."""
-        if self.primary_periods.get("capex"):
+    def _sum_statement_components(self, metric, name, comp):
+        """Sum cited rows of one primary table, never across registrants or periods."""
+        if not comp:
             return
-        comp = [r for r in self.rows if r["statement"] == "cashflow" and r["unit"] == "USD" and not r.get("other_registrant")
-                and re.match(r"^capital expenditures [a-z]", r["key"]) and not re.search(r"accrued|payable|non ?cash", r["key"])]
-        if len(comp) < 2:
-            return
-        comp = [r for r in comp if r["cols"] == comp[0]["cols"] and abs(r["offset"] - comp[0]["offset"]) < 3000]
-        if len(comp) < 2:
-            return
+        first = comp[0]
+        comp = [r for r in comp if r["table_id"] == first["table_id"]
+                and r["cols"] == first["cols"] and r["scale"] == first["scale"]]
         ids = []
-        for i in range(len(comp[0]["values"])):
+        for i in range(len(first["values"])):
             inputs = []
             for r in comp:
-                f = self._fact_from("capex_line", r, i, "flow")
-                f["id"] = f"capex_line:{r['offset']}:{i}"
+                f = self._fact_from(metric + "_line", r, i, "flow")
+                f["id"] = f"{metric}_line:{r['offset']}:{i}"
                 f["name"] = r["label"]
                 self.facts[f["id"]] = f
                 inputs.append(f["id"])
             per = self.facts[inputs[0]]["period"]
             total = sum(self.facts[x]["value"] for x in inputs)
-            cid = f"capex:{_pkey(per)[0]}:{_pkey(per)[1]}"
+            cid = f"{metric}:{_pkey(per)[0]}:{_pkey(per)[1]}"
             names = [self.facts[x]["name"] for x in inputs]
-            self.calcs[cid] = {"id": cid, "metric": "capex", "name": "Capital expenditures", "kind": "calculated", "value": total,
+            self.calcs[cid] = {"id": cid, "metric": metric, "name": name, "kind": "calculated", "value": total,
                                "display": fmt_value(total, "USD"), "unit": "USD", "period": per, "formula": " + ".join(names),
                                "inputs": inputs, "status": "Calculation checked",
-                               "definition": "Sum of the capital expenditure lines printed in the cash flow statement: " + ", ".join(names) + ".", "reasons": []}
+                               "definition": "Sum of the component lines printed in the primary statement: " + ", ".join(names) + ".", "reasons": []}
             ids.append(cid)
-        self.primary_periods["capex"] = ids
+        self.primary_periods[metric] = ids
+
+    def _capex_components(self):
+        """Capex split by business, including nuclear fuel capital purchases.
+        Power investment outflows qualify only alongside explicit capex rows;
+        securities purchases, sale proceeds and noncash additions do not."""
+        if self.primary_periods.get("capex"):
+            return
+        rows = [r for r in self.rows if r["statement"] == "cashflow" and r["unit"] == "USD"
+                and _core(r) and not r.get("other_registrant")]
+        explicit = [r for r in rows if re.match(r"^(?:other )?capital expenditures [a-z]|^other capital expenditures$", r["key"])
+                    and not re.search(r"accrued|payable|non ?cash", r["key"])]
+        if not explicit:
+            return
+        table = explicit[0]["table_id"]
+        comp = [r for r in rows if r["table_id"] == table and
+                (r in explicit or re.match(r"^(?:nuclear fuel purchases|(?:independent )?power and other investments(?: of [a-z0-9 ]+)?|purchases of nuclear fuel)$", r["key"]))]
+        if len(comp) >= 2:
+            self._sum_statement_components("capex", "Capital expenditures", comp)
+
+    def _disposition_components(self):
+        """Separate property disposition gain lines, with no reported total.
+        Exclude debt extinguishment, currency and securities trading gains."""
+        if self.primary_periods.get("gains_on_dispositions"):
+            return
+        comp = [r for r in self.rows if r["statement"] == "income" and r["unit"] == "USD"
+                and _core(r) and not r.get("other_registrant")
+                and re.match(r"^(?:net )?gains?(?: losses)? on (?:other )?(?:dispositions?|sales?|contributions?) of "
+                             r"(?:development properties(?: and land)?|investments in real estate|real estate|properties|property|land|assets|equipment)(?: net)?$", r["key"])]
+        self._sum_statement_components("gains_on_dispositions", "Gains on asset dispositions", comp)
 
     def _narrative(self):
         """Cover-page facts that live in sentences, not tables."""

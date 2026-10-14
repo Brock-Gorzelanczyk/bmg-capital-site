@@ -162,6 +162,13 @@ def analyze(fb, profile: str, kpis: list, watch: Optional[list] = None) -> list[
     screens.json; where no screen applies the signal is an observation."""
     from .facts import SCALE
     g = lambda m, w=0: fb.get(m, w)
+    def source_table(x):
+        if not x:
+            return None
+        rows = [x] if x.get("source") else [fb.facts[i] for i in x.get("inputs", []) if i in fb.facts]
+        ids = {(r.get("source") or {}).get("table_id") for r in rows}
+        return next(iter(ids)) if len(ids) == 1 and None not in ids else None
+
     same = lambda *xs: all(xs) and len({(x["period"]["type"], x["period"]["end"] or x["period"]["year"]) for x in xs}) == 1
     scr_all, prof_key = _screen_for(profile)
     version = screens()["version"]
@@ -255,7 +262,9 @@ def analyze(fb, profile: str, kpis: list, watch: Optional[list] = None) -> list[
                      f"The share is similar in every {unit} shown, so disposals appear to be a regular part of how the company earns, "
                      "though the amounts depend on the timing and pricing of sales." if steady else
                      f"The share varies across the {unit}s shown, so earnings depend partly on when sales happen."))
-            itemized = _rows_like(fb, "income", r"divestiture|sale of (business|subsidiary|interest)", gn0["source"].get("table_id"))
+            gain_table = source_table(gn0)
+            gain_label = gn0.get("formula") or (gn0.get("source") or {}).get("row_label", "")
+            itemized = _rows_like(fb, "income", r"divestiture|sale of (business|subsidiary|interest)", gain_table) if gain_table is not None else []
             if itemized and itemized[0]["values"][0]:
                 rr = itemized[0]
                 v = rr["values"][0] * SCALE.get(rr["scale"], 1.0)
@@ -263,7 +272,7 @@ def analyze(fb, profile: str, kpis: list, watch: Optional[list] = None) -> list[
             out.append(_sig("gains_share", "Asset-sale gains in pretax income", sh, _pct(sh), "observation", f"Asset-sale gains {_pct(sh)} of pretax income", text,
                             "Observation, not screened: whether such gains recur depends on the business model, shown here across the years the filing presents.",
                             ins, "gains_share", unit="percent",
-                            definition={"numerator": f"|\"{gn0['source'].get('row_label', '')}\"|", "denominator": f"\"{pt0['source'].get('row_label', '')}\"",
+                            definition={"numerator": f"|\"{gain_label}\"|", "denominator": f"\"{pt0['source'].get('row_label', '')}\"",
                                         "period": ", ".join(y for y, *_ in years), "scope": "Consolidated", "formula": "Gains on dispositions / income before income taxes",
                                         "missing": "Years without both lines are left out.", "applicability": "Most relevant where asset sales are part of the business (lessors)."}))
 
@@ -372,7 +381,7 @@ def analyze(fb, profile: str, kpis: list, watch: Optional[list] = None) -> list[
             text = f"Operating margin moved from {om1['display']} to {om0['display']}."
             ins = [om0, om1]
             g0, g1, r0, r1 = g("gains_on_dispositions", 0), g("gains_on_dispositions", 1), g("revenue", 0), g("revenue", 1)
-            if g0 and g1 and r0 and r1 and r0["value"] and r1["value"] and same(g0, r0) and same(g1, r1) and g0["source"].get("table_id") == fb.get("operating_income")["source"].get("table_id"):
+            if g0 and g1 and r0 and r1 and r0["value"] and r1["value"] and same(g0, r0) and same(g1, r1) and source_table(g0) is not None and source_table(g0) == source_table(fb.get("operating_income")):
                 d_ex = d - (abs(g0["value"]) / r0["value"] - abs(g1["value"]) / r1["value"]) * 100
                 text += (f" Operating income includes gains on dispositions ({g0['display']} vs {g1['display']}); excluding them the margin moved about {d_ex:+.1f} points.")
                 ins += [g0, g1]
