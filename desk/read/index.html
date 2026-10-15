@@ -228,6 +228,19 @@ body.recmode[data-rec-palette] svg.spider .head{fill:var(--crawler-main)!importa
 body.recmode[data-rec-palette] svg.spider .foot,body.recmode[data-rec-palette] svg.spider .knee{fill:var(--crawler-accent)!important}
 body.recmode[data-rec-palette] svg.spider .link-thread{stroke:var(--crawler-accent)!important}
 body.recmode[data-rec-palette] svg.spider .silk,body.recmode[data-rec-palette] svg.spider .mesh,body.recmode[data-rec-palette] svg.spider .thread{stroke:var(--crawler-trail)!important}
+/* Keep the reader's text effects in the selected crawler palette. */
+body.recmode[data-rec-palette] .w:is(.hl-cyan,.hl-bping,.cyanfill,.salmon,.found.org,.found.blue):not(.hl-out){background:color-mix(in srgb,var(--crawler-main) 38%,transparent)!important;box-shadow:0 0 0 1px var(--crawler-main)!important}
+body.recmode[data-rec-palette] .w:is(.hl-pink,.hl-ping,.fillbox,.found.pink):not(.hl-out){background:color-mix(in srgb,var(--crawler-accent) 38%,transparent)!important;box-shadow:0 0 0 1px var(--crawler-accent)!important}
+body.recmode[data-rec-palette] .w.hl-blue:not(.hl-out){background:color-mix(in srgb,var(--crawler-trail) 22%,transparent)!important;box-shadow:0 0 0 1px var(--crawler-trail)!important}
+body.recmode[data-rec-palette] .beam{background:color-mix(in srgb,var(--crawler-main) 28%,transparent)!important;box-shadow:none!important}
+body.recmode[data-rec-palette] :is(.fx-fill,.fx-strip){background:var(--crawler-main)!important;color:#05070c!important;box-shadow:none!important}
+body.recmode[data-rec-palette] :is(.fx-fill,.fx-strip):nth-child(2n){background:var(--crawler-accent)!important;color:#05070c!important}
+body.recmode[data-rec-palette] :is(.fx-ink,.fx-accent,.liftlbl,.w.lift){color:var(--crawler-main)!important}
+body.recmode[data-rec-palette] :is(.fx-ink,.fx-accent):nth-child(2n),body.recmode[data-rec-palette] :is(.liftlbl,.w.lift).f3{color:var(--crawler-accent)!important}
+body.recmode[data-rec-palette] .fx-outline{border-color:var(--crawler-main)!important}
+body.recmode[data-rec-palette] .fx-outline:nth-child(2n){border-color:var(--crawler-accent)!important}
+body.recmode[data-rec-palette] .w.sig-observation{--c:var(--crawler-main)}
+body.recmode[data-rec-palette] .rec-fly{background:var(--crawler-main);color:#05070c;box-shadow:0 0 16px var(--crawler-main)}
 #rec-palette{max-width:220px;padding:7px;border:1px solid #cad2d8;border-radius:6px;background:#fff;color:#111;font:inherit}
 .rec-palette-preview{display:flex;align-items:center;gap:8px;margin:8px 0 16px;font-size:12px;color:#9aa6b1}
 .rec-palette-preview i{display:inline-block;width:16px;height:16px;border-radius:50%;background:var(--swatch);box-shadow:0 0 9px var(--swatch)}
