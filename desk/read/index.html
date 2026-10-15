@@ -1698,7 +1698,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       for (let k = 1; k < rs.length; k++){ const g = rs[k].y - rs[k - 1].y; if (g > 6 && g < 60) gaps.push(g); }
       gaps.sort((a, b) => a - b);
       const lh = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 14;
-      U = Math.max(0.8, Math.min(2.2, lh / 14));
+      U = 0.9 * Math.max(0.8, Math.min(2.2, lh / 14));
     }
     plantInitialFeet();
     window.scrollTo({top: Math.max(0, dRect.top + window.scrollY - 60), behavior: "smooth"});
