@@ -247,7 +247,7 @@ body.recmode[data-rec-palette] .sig-pop.s-observation,body.recmode[data-rec-pale
 body.recmode[data-rec-palette] .sig-pop .sev.s-observation{background:var(--crawler-main);color:#05070c}
 body.recmode[data-rec-palette] #rec-hud{color:var(--crawler-main);border-color:color-mix(in srgb,var(--crawler-main) 45%,transparent);box-shadow:0 0 14px color-mix(in srgb,var(--crawler-main) 25%,transparent)}
 body.recmode[data-rec-palette] #rec-end h3,body.recmode[data-rec-palette] .rk-one h2 span{color:var(--crawler-main)}
-#rec-palette,#rec-quality{max-width:220px;padding:7px;border:1px solid #cad2d8;border-radius:6px;background:#fff;color:#111;font:inherit}
+#rec-palette,#rec-quality,#rec-format{max-width:220px;padding:7px;border:1px solid #cad2d8;border-radius:6px;background:#fff;color:#111;font:inherit}
 .rec-palette-preview{display:flex;align-items:center;gap:8px;margin:8px 0 16px;font-size:12px;color:#9aa6b1}
 .rec-palette-preview i{display:inline-block;width:16px;height:16px;border-radius:50%;background:var(--swatch);box-shadow:0 0 9px var(--swatch)}
 #rec-eye{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:25}
@@ -486,6 +486,9 @@ body:is(.readerfx,.recmode) .lr-sig.flash{animation:report-row-in .42s cubic-bez
 body.recmode .bmg-line polyline{stroke:var(--crawler-main,#6ff4ff)}
 body.recmode .bmg-line circle{fill:var(--crawler-main,#6ff4ff)}
 body.recmode #rec-end .rk-brand>span{color:#fff}
+@keyframes highlight-ending-in{from{opacity:0}to{opacity:1}}
+.rec-highlight-ending{animation:highlight-ending-in .4s ease-out}
+@media(prefers-reduced-motion:reduce){.rec-highlight-ending{animation:none}}
 </style>
 <!-- bmg-theme --><link rel="stylesheet" href="/assets/theme.css"><script>try{if(localStorage.getItem("bmg-theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script><script src="/assets/theme.js" defer></script>
 </head>
@@ -894,7 +897,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const before = state.sy;
     // Ease the boost in and out (~0.4 s) so speed changes are smooth.
     state.boost = (state.boost || 1) + ((state.boostTarget || 1) - (state.boost || 1)) * Math.min(1, dt * 1.6);
-    state.scrollPos += SCROLL_SPEED * U * (state.speedMul || 1) * state.boost * dt;
+    if (state.recordCamera) state.scrollPos = state.recordCamera(dt);
+    else state.scrollPos += SCROLL_SPEED * U * (state.speedMul || 1) * state.boost * dt;
     let maxS = Math.max(0, docGeo().sh - innerHeight);
     if (state.scrollPos > maxS){ geo = null; maxS = Math.max(0, docGeo().sh - innerHeight); }   // page grew since it was measured
     state.scrollPos = Math.min(state.scrollPos, maxS);
@@ -2581,6 +2585,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       <h2>Record mode</h2>
       <p>Choose a 10-K or 10-Q PDF and press Start. ${canRecord ? "With “Record this window” on, Chrome asks you to share this tab, and the finished clip downloads at the end." : "Use your Mac's screen recorder (Shift-Command-5, Record Selected Portion) on this window."}</p>
       <div id="rec-file-slot"></div>
+      <label class="opt">Clip format <select id="rec-format"><option value="highlights" selected>40-second continuous highlights</option><option value="custom">Custom length</option></select></label>
+      <p>Highlights: 2-second opening, 33 seconds through statement findings, 5-second ending. Continuous scrolling, with more time around real figures.</p>
       <label class="opt">Jump to the ending after <span><input type="number" id="rec-finish" min="5" max="600" value="115"> s</span></label>
       <label class="opt">Key findings held on screen <span><input type="number" id="rec-keys" min="0" max="30" value="4"> s</span></label>
       <label class="opt">One-page summary on screen <span><input type="number" id="rec-one" min="0" max="30" value="5"> s</span></label>
@@ -2590,7 +2596,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       ${canRecord ? `<label class="opt">Video quality <select id="rec-quality"><option value="high" selected>High Quality · 1080 × 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label><p>High Quality requests portrait Full HD at 24 Mbps. Chrome may supply a lower resolution or frame rate. Actual capture details appear with the download.</p>` : ""}
       ${canRecord ? `<label class="opt">Record this window (downloads a video) <input type="checkbox" id="rec-capture" checked></label>` : ""}
       <button id="rec-start" type="button" disabled>Start</button>
-      <p>Space pauses. Esc leaves record mode. The clip starts when the black screen lifts on the first financial statement.</p>`;
+      <p>Space pauses. Esc leaves record mode. Highlight clips include a two-second logo opening. Custom clips start when the black screen lifts on the first financial statement.</p>`;
     const fileIn = document.getElementById("read-file"), startBtn = setup.querySelector("#rec-start");
     if (isRecord){
       B.appendChild(setup);
@@ -2606,6 +2612,18 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       setup.replaceChildren(colors, preview, dark);
       setup.id = "reader-appearance";
       document.querySelector(".read-form").after(setup);
+    }
+    if (isRecord){
+      const format = setup.querySelector("#rec-format");
+      const syncFormat = () => {
+        const highlights = format.value === "highlights";
+        for (const [id, value] of [["rec-finish",33],["rec-keys",3],["rec-one",2]]){
+          const input = setup.querySelector("#" + id);
+          input.disabled = highlights;
+          input.value = highlights ? value : {"rec-finish":115,"rec-keys":4,"rec-one":5}[id];
+        }
+      };
+      format.addEventListener("change", syncFormat); syncFormat();
     }
     const palettePicker = setup.querySelector("#rec-palette");
     const applyPalette = () => {
@@ -2774,7 +2792,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const pageOf = ids => { const F = (state.readRes.report.evidence || {}).facts || {}, C = (state.readRes.report.evidence || {}).calcs || {};
       const pg = new Set(); const walk = (i, d = 0) => { if (d > 4) return; const f = F[i]; if (f){ const p = (f.source || {}).pdf_page; if (p) pg.add(p); return; } ((C[i] || {}).inputs || []).forEach(j => walk(j, d + 1)); };
       (ids || []).forEach(i => walk(i)); return [...pg].sort((a, b) => a - b).slice(0, 2).map(p => "p." + p).join(" "); };
-    function ending(keySecs, oneSecs){
+    async function ending(keySecs, oneSecs, highlights = false){
       const rep = state.readRes.report, co = rep.company || {};
       const F = rep.evidence.facts, C = rep.evidence.calcs, ev = id => F[id] || C[id];
       const tile = (k, label) => {
@@ -2786,6 +2804,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       };
       const kf = (rep.exec_findings || []).slice(0, 4);
       const end = document.createElement("div"); end.id = "rec-end";
+      if (highlights) end.classList.add("rec-highlight-ending");
       end.innerHTML = `<div class="rk-phase rk-keys"><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span></div>
           <h3>Key findings &middot; ${esc(co.name || "")}</h3>
           <ol>${kf.map(x => `<li class="s-${x.severity}"><span class="sev s-${x.severity}">${SEV[x.severity].l}</span><b>${esc(x.headline)}</b><small>${esc(pageOf(x.refs))}</small></li>`).join("")}</ol></div>
@@ -2798,8 +2817,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       B.appendChild(end);
       return (async () => {
         const items = [...end.querySelectorAll(".rk-keys li")];
-        for (const li of items){ await sleep(550); li.classList.add("in"); }
-        await sleep(keySecs * 1000);                                   // hold once every finding is on screen
+        for (const li of items){ await sleep(highlights ? 150 : 550); li.classList.add("in"); }
+        await sleep(highlights ? Math.max(0, 3000 - items.length * 150) : keySecs * 1000);                                   // hold once every finding is on screen
         end.querySelector(".rk-keys").hidden = true;
         const one = end.querySelector(".rk-one"); one.hidden = false;
         requestAnimationFrame(() => one.classList.add("in"));
@@ -2875,7 +2894,47 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       return;
     }
 
+    function highlightTimeline(start, end, targets, duration){
+      if (!(end > start) || !targets.length) return null;
+      const points = [{y:start,t:0}], step = 16;
+      const cost = y => .25 + targets.reduce((peak, at) => Math.max(peak, 1.75 * Math.exp(-(((y-at)/90)**2))), 0);
+      let total = 0, previous = start;
+      for (let y = Math.min(end,start+step); ; y = Math.min(end,y+step)){
+        total += (y-previous) * (cost(previous)+cost(y)) / 2;
+        points.push({y,t:total}); previous=y; if (y === end) break;
+      }
+      for (const point of points) point.t = point.t / total * duration;
+      let elapsed = 0, index = 1;
+      return dt => {
+        elapsed = Math.min(duration, elapsed + dt);
+        // Ease into and out of the uninterrupted shot.
+        const k = elapsed / duration, time = (k*k*(3-2*k)) * duration;
+        while (index < points.length-1 && points[index].t < time) index++;
+        const a=points[index-1], b=points[index], mix=(time-a.t)/(b.t-a.t || 1);
+        return a.y + (b.y-a.y)*Math.max(0,Math.min(1,mix));
+      };
+    }
+    function startHighlights(){
+      const pages = [...docBody.querySelectorAll(".pdfpage")], first = state.jumpPage;
+      if (!first || !pages.length) return;
+      const findings = (state.readRes?.findings || []).filter(f => f.group === "Financials" && f.pdf_page >= first && f.pdf_page <= first + 5);
+      const line = innerHeight * (window.READER_VIEW_FRAC || 1) * .5;
+      const targets = [];
+      for (const finding of findings){
+        const page = pages[finding.pdf_page-1];
+        if (!page) continue;
+        const word = [...page.querySelectorAll(".w")].find(w => holds(w,tokenOf(finding)));
+        if (word) targets.push(word.getBoundingClientRect().top + scrollY - line);
+      }
+      const start = state.scrollPos ?? scrollY;
+      const ahead = [...new Set(targets.map(y=>Math.round(y/24)*24))].filter(y=>y>=start).sort((a,b)=>a-b);
+      if (!ahead.length) return;
+      const end = Math.min(Math.max(0,document.documentElement.scrollHeight-innerHeight),ahead[ahead.length-1]+100);
+      state.recordCamera = highlightTimeline(start,end,ahead,33);
+      state.highlightPlan = {start,end,targets:ahead.length,duration:33};
+    }
     startBtn.addEventListener("click", async () => {
+      const highlights = setup.querySelector("#rec-format").value === "highlights";
       const finishAt = Math.max(5, +setup.querySelector("#rec-finish").value || 115);
       const keySecs = Math.max(0, +setup.querySelector("#rec-keys").value || 0);
       const oneSecs = Math.max(0, +setup.querySelector("#rec-one").value || 0);
@@ -2902,19 +2961,22 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
           await settleSpiderPose();
         }
         if (rec) rec.start(500);                                   // the clip starts here, on the statements
+        if (highlights){ await sleep(2000); startHighlights(); }
         startOverlays();
         curtain.classList.add("out"); setTimeout(() => curtain.remove(), 400);
         // count only time that is not paused
         let left = finishAt * 1000, last = Date.now();
         await wait(() => { const now = Date.now(); const paused = (document.getElementById("ctl-pause") || {}).textContent === "Resume";
                             if (!paused) left -= now - last; last = now; return left <= 0; }, 100);
+        state.recordCamera = null;
         const sk = vis("read-skip"); if (sk) sk.click();
         clearInterval(hudTimer);
         await wait(() => state.readRes && state.readRes.report, 100, 30000);
-        const end = await ending(keySecs, oneSecs);
+        const end = await ending(keySecs, oneSecs, highlights);
         const blob = await stopCapture();
         finalControls(end, blob);
       } catch (e) {
+        state.recordCamera = null;
         curtain.remove();
         const blob = await stopCapture();
         if (blob){ const end = document.createElement("div"); end.id = "rec-end"; B.appendChild(end); finalControls(end, blob); }
