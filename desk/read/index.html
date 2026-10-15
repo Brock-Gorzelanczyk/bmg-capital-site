@@ -2455,6 +2455,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (!L || typeof LiveReportModel === "undefined"){ liveEl.innerHTML = `<p class="muted">The live report is not available for this result.</p>`; return; }
     state.live = new LiveReportModel(L);
     const co = rep.company || {};
+    followAnim++; reportReviewIndex = 0; reportNextReview = performance.now() + 1600;
     liveEl.innerHTML = `<div class="lr-top"><header class="lr-head"><div class="lr-brand">BMG Capital <span>report</span>${BMG_LINE}</div>
         <div class="lr-co" title="${esc([co.period, L.basis].filter(Boolean).join(" · "))}"><b>${esc(co.name || "")}</b> ${esc([co.ticker, co.form].filter(Boolean).join(" · "))}</div></header>
       <div class="lr-prog" id="lr-prog" aria-live="polite"></div></div>
@@ -2499,12 +2500,13 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     liveProgress();
   }
   // Follow fresh evidence inside the report only; leave the document camera alone.
-  let followAnim = 0, followHoldUntil = 0;
+  let followAnim = 0, followHoldUntil = 0, reportLastFinding = 0, reportNextReview = 0, reportReviewIndex = 0;
   const reportSide = document.querySelector(".read-side");
   if (reportSide) for (const event of ["wheel", "touchstart", "keydown"]){
     reportSide.addEventListener(event, () => { followHoldUntil = performance.now() + 5000; followAnim++; }, {passive:true});
   }
-  function liveFollow(el){
+  function liveFollow(el, reviewing = false){
+    if (!reviewing){ reportLastFinding = performance.now(); reportNextReview = reportLastFinding + 1600; }
     if (!liveEl || performance.now() < followHoldUntil || liveEl.hidden) return;
     const scroller = document.body.classList.contains("rec") ? liveEl : reportSide;
     if (!scroller || !scroller.clientHeight || scroller.scrollHeight <= scroller.clientHeight) return;
@@ -2515,7 +2517,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const to = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, from + (r.top + r.height / 2 - center)));
     if (Math.abs(to - from) < 3) return;
     if (REDUCED){ scroller.scrollTop = to; return; }
-    const id = ++followAnim, t0 = performance.now(), dur = 550;
+    const id = ++followAnim, t0 = performance.now(), dur = reviewing ? 1000 : 420;
     const step = now => {
       if (id !== followAnim || !el.isConnected) return;
       const k = Math.min(1, (now - t0) / dur), e = 1 - (1 - k) ** 3;
@@ -2524,6 +2526,18 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     };
     requestAnimationFrame(step);
   }
+  // During quiet source stretches, review only figures already revealed in the report.
+  setInterval(() => {
+    const now = performance.now();
+    if (REDUCED || !walking() || state.paused || !liveEl || liveEl.hidden ||
+        document.getElementById("rec-end") || now < followHoldUntil || now < reportNextReview) return;
+    const items = [...liveEl.querySelectorAll("tr")].filter(row => row.querySelector(".lr-v"));
+    items.push(...liveEl.querySelectorAll(".lr-sig"));
+    if (items.length < 2) return;
+    const next = items[reportReviewIndex++ % items.length];
+    reportNextReview = now + 1800;
+    liveFollow(next, true);
+  }, 200);
   function liveProgress(final){
     if (!state.live) return;
     const c = state.live.counts();
