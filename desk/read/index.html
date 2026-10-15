@@ -1090,9 +1090,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (t && walking()){
       // Body: damped spring toward the goal with a capped speed, so it
       // follows with a slight lag and the legs catch up (Astra brief).
-      const mul = state.recordTravelTempo || state.speedMul || 1;
+      const gapTempo = Math.sqrt(state.boost || 1);
+      const mul = (state.recordTravelTempo || state.speedMul || 1) * gapTempo;
       const bv = state.bodyVel || (state.bodyVel = {x: 0, y: 0});
-      const tempo = state.recordBodyTempo || 1;
+      const tempo = (state.recordBodyTempo || 1) * gapTempo;
       // Scale spring response as well as its cap, preserving the same damping shape.
       const k = 7 * tempo * tempo, c = 4.6 * tempo, vmax = (CRAWL_BASE * U) * mul;
       bv.x += (k * (t.x - state.body.x) - c * bv.x) * dt;
@@ -2942,10 +2943,17 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       return;
     }
 
-    function highlightTimeline(start, end, targets, duration){
+    function highlightTimeline(start, end, targets, duration, textRows = []){
       if (!(end > start) || !targets.length) return null;
       const points = [{y:start,t:0}], step = 16;
-      const cost = y => .45 + targets.reduce((peak, at) => Math.max(peak, .55 * Math.exp(-(((y-at)/90)**2))), 0);
+      // Spend less of the fixed clip in empty page gaps; blend at the edges.
+      const cost = y => {
+        let lo=0, hi=textRows.length;
+        while(lo<hi){ const m=(lo+hi)>>1; if(textRows[m]<y) lo=m+1; else hi=m; }
+        const distance = Math.min(lo<textRows.length ? Math.abs(textRows[lo]-y) : Infinity, lo ? Math.abs(textRows[lo-1]-y) : Infinity);
+        const density = textRows.length ? Math.exp(-Math.pow(distance/85,2)) : 1;
+        return .12 + .33*density + targets.reduce((peak, at) => Math.max(peak, .55 * Math.exp(-(((y-at)/90)**2))), 0);
+      };
       let total = 0, previous = start;
       for (let y = Math.min(end,start+step); ; y = Math.min(end,y+step)){
         total += (y-previous) * (cost(previous)+cost(y)) / 2;
@@ -2996,7 +3004,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         }
       }
       const routeTargets = [...new Set(ahead)].sort((a,b)=>a-b);
-      state.recordCamera = highlightTimeline(start,end,routeTargets,33);
+      const rowOffset = docTop() + (state.sy || 0) - line;
+      const textRows = (state.rows || []).map(row => row.y + rowOffset).sort((a,b)=>a-b);
+      state.recordCamera = highlightTimeline(start,end,routeTargets,33,textRows);
       state.highlightPlan = {start,end,targets:routeTargets.length,duration:33,pace};
     }
     startBtn.addEventListener("click", async () => {
