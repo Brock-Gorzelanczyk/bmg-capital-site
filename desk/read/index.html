@@ -2521,7 +2521,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       setTimeout(() => { chip.remove(); flying--; }, 1000);
     };
 
-    // -- eye scanner: a narrow cyan cone from the spider's eyes onto the line it reads.
+    // -- eye scanner: a narrow cone sweeps smoothly in front of the eyes.
     // Drawn over the spider every frame from where its eyes are; the spider itself is untouched.
     let eyeRaf = 0;
     function startEyeScanner(){
@@ -2534,19 +2534,31 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       B.appendChild(svg);
       const g = svg.querySelector("#rec-eye-g"), cone = svg.querySelector(".cone"), glow = svg.querySelector(".glow"), edge = svg.querySelector(".edge");
       const lens = svg.querySelector(".lens"), core = svg.querySelector(".core");
-      const W = 110;                                                  // half-width where the cone lands
-      const frame = () => {
+      const W = 110, reach = 200, sweep = Math.PI / 10;
+      const started = performance.now();
+      let heading = null, previous = null;
+      const frame = (now = performance.now()) => {
         eyeRaf = requestAnimationFrame(frame);
         const eyes = [...document.querySelectorAll("#spider .eye, #spider .head")].map(e => e.getBoundingClientRect()).filter(r => r.width > 0);
-        if (!eyes.length || document.getElementById("rec-end")){ svg.style.display = "none"; return; }
+        if (!eyes.length || document.getElementById("rec-end")){ svg.style.display = "none"; previous = null; return; }
         svg.style.display = "";
         const ex = eyes.reduce((t, r) => t + r.left + r.width / 2, 0) / eyes.length;
         const ey = eyes.reduce((t, r) => t + r.top + r.height / 2, 0) / eyes.length;
-        let ty = innerHeight * 0.3;                                   // the reading line
-        if (Math.abs(ty - ey) < 40) ty = ey + 120;                    // eyes on the line: project just below them
-        g.setAttribute("x1", ex); g.setAttribute("y1", ey); g.setAttribute("x2", ex); g.setAttribute("y2", ty);
-        cone.setAttribute("points", `${ex - 3},${ey} ${ex + 3},${ey} ${ex + W},${ty} ${ex - W},${ty}`);
-        for (const l of [glow, edge]){ l.setAttribute("x1", ex - W); l.setAttribute("y1", ty); l.setAttribute("x2", ex + W); l.setAttribute("y2", ty); }
+        // Follow the existing head direction without changing the spider's motion.
+        // Shortest-angle easing avoids a snap when headings wrap between -PI and PI.
+        const want = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
+        const dt = previous == null ? 0 : Math.min(.05, Math.max(0, (now - previous) / 1000));
+        previous = now;
+        if (heading == null) heading = want;
+        const turn = Math.atan2(Math.sin(want - heading), Math.cos(want - heading));
+        heading += turn * (1 - Math.exp(-dt / .22));
+        // A sine sweep slows to zero at each end before reversing direction.
+        const angle = heading + sweep * Math.sin((now - started) * Math.PI * 2 / 4000);
+        const dx = Math.cos(angle), dy = Math.sin(angle), nx = -dy, ny = dx;
+        const tx = ex + dx * reach, ty = ey + dy * reach;
+        g.setAttribute("x1", ex); g.setAttribute("y1", ey); g.setAttribute("x2", tx); g.setAttribute("y2", ty);
+        cone.setAttribute("points", `${ex - nx * 3},${ey - ny * 3} ${ex + nx * 3},${ey + ny * 3} ${tx + nx * W},${ty + ny * W} ${tx - nx * W},${ty - ny * W}`);
+        for (const l of [glow, edge]){ l.setAttribute("x1", tx - nx * W); l.setAttribute("y1", ty - ny * W); l.setAttribute("x2", tx + nx * W); l.setAttribute("y2", ty + ny * W); }
         for (const c of [lens, core]){ c.setAttribute("cx", ex); c.setAttribute("cy", ey); }
       };
       frame();
