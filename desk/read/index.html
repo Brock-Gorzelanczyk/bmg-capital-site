@@ -2253,10 +2253,23 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     return pdfjsP;
   }
 
+  let pdfOpen = null;   // the filing on screen: released when the next one opens
+  function closePdf(){
+    if (!pdfOpen) return;
+    const o = pdfOpen; pdfOpen = null;
+    o.io.disconnect();
+    removeEventListener("scroll", o.onScroll, true);
+    o.pages.forEach(pg => { if (pg.canvas){ pg.canvas.width = pg.canvas.height = 0; pg.canvas = null; } });
+    o.pdf.destroy();
+  }
+
   async function renderPdf(file, into){
     // Each page: a canvas drawn as the spider nears it, plus an invisible
-    // word layer positioned exactly over the printed text.
+    // word layer positioned exactly over the printed text. A page's canvas
+    // is freed once it is far off screen and redrawn if it comes back, so a
+    // long filing holds a handful of page images, not all of them.
     const pdfjs = await loadPdfjs();
+    closePdf();
     const data = new Uint8Array(await file.arrayBuffer());
     const pdf = await pdfjs.getDocument({data, isEvalSupported: false}).promise;
     const width = Math.max(320, into.clientWidth || doc.clientWidth - 56);
@@ -2289,7 +2302,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       // printed width so the word boxes sit on the real glyphs.
       const ws = spans.map(([sp]) => sp.getBoundingClientRect().width);
       spans.forEach(([sp, target], k) => { if (ws[k] > 0 && target > 0) sp.style.transform = `scaleX(${target / ws[k]})`; });
-      pages.push({page, vp, box, drawn: false});
+      pages.push({page, vp, box, drawn: false, canvas: null, task: null});
     }
     if (pdf.numPages > maxPages){
       const more = document.createElement("p"); more.className = "muted";
@@ -2304,13 +2317,38 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const c = document.createElement("canvas");
       c.width = Math.floor(pg.vp.width * dpr); c.height = Math.floor(pg.vp.height * dpr);
       pg.box.insertBefore(c, pg.box.firstChild);
-      await pg.page.render({canvasContext: c.getContext("2d"), viewport: pg.vp,
-        transform: dpr === 1 ? null : [dpr, 0, 0, dpr, 0, 0]}).promise;
+      pg.canvas = c;
+      pg.task = pg.page.render({canvasContext: c.getContext("2d"), viewport: pg.vp,
+        transform: dpr === 1 ? null : [dpr, 0, 0, dpr, 0, 0]});
+      try { await pg.task.promise; } catch (e) { /* cancelled: the page scrolled away first */ }
+      pg.task = null;
     };
+    const drop = (pg) => {
+      if (!pg.drawn) return;
+      if (pg.task){ pg.task.cancel(); pg.task = null; }
+      if (pg.canvas){ pg.canvas.width = pg.canvas.height = 0; pg.canvas.remove(); pg.canvas = null; }
+      pg.page.cleanup();
+      pg.drawn = false;
+    };
+    // free pages more than 4000px off screen (a wider band than drawing uses, so a page near
+    // the edge is not drawn and dropped over and over); checked on every scroll and every draw
+    let sweepQueued = false;
+    const sweep = () => {
+      sweepQueued = false;
+      for (const pg of pages){
+        if (!pg.drawn) continue;
+        const r = pg.box.getBoundingClientRect();
+        if (r.bottom < -4000 || r.top > innerHeight + 4000) drop(pg);
+      }
+    };
+    const onScroll = () => { if (!sweepQueued){ sweepQueued = true; requestAnimationFrame(sweep); } };
+    addEventListener("scroll", onScroll, true);
+    const byBox = new Map(pages.map(pg => [pg.box, pg]));
     const io = new IntersectionObserver(es => es.forEach(e => {
-      if (e.isIntersecting){ const pg = pages.find(p => p.box === e.target); if (pg) draw(pg); }
+      if (e.isIntersecting){ const pg = byBox.get(e.target); if (pg){ draw(pg); onScroll(); } }
     }), {rootMargin: "1200px 0px"});
     pages.forEach(pg => io.observe(pg.box));
+    pdfOpen = {pdf, pages, io, onScroll};
     if (pages[0]) await draw(pages[0]);
   }
 
