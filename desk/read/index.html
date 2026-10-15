@@ -214,8 +214,8 @@ body.recmode #bmg-report .rp-bar{display:none!important}
 #rec-start{height:46px;border:0;border-radius:10px;background:#2fdc74;color:#04130a;font-weight:700;font-size:17px;cursor:pointer}
 #rec-start:disabled{opacity:.5;cursor:default}
 .rec-back{align-self:flex-start;background:none;border:1px solid #3a4656;color:#9aa4b1;border-radius:8px;padding:6px 12px;cursor:pointer;font:13px 'IBM Plex Sans',sans-serif}
-body.recmode .sig-pop{background:rgba(8,12,20,.95);color:#f2f6fa;border:1.5px solid var(--c);border-left-width:5px;box-shadow:0 0 26px color-mix(in srgb,var(--c) 55%,transparent),0 10px 30px rgba(0,0,0,.5);box-sizing:border-box;padding:6px 9px;line-height:1.25;font-size:12px;animation:recpop .55s cubic-bezier(.2,1.5,.4,1) both}
-body.recmode .sig-pop b{font-size:14px;color:#fff}body.recmode .sig-pop small{color:#8fa0b3}body.recmode .sig-pop::after{background:rgba(8,12,20,.95)}
+body.recmode .sig-pop{background:rgba(8,12,20,.95);color:#f2f6fa;border:1.5px solid var(--c);border-left-width:5px;box-shadow:0 0 26px color-mix(in srgb,var(--c) 55%,transparent),0 10px 30px rgba(0,0,0,.5);box-sizing:border-box;padding:3px 5px;line-height:1.2;font-size:10px;animation:recpop .55s cubic-bezier(.2,1.5,.4,1) both}
+body.recmode .sig-pop b{font-size:12px;color:#fff}body.recmode .sig-pop small{color:#8fa0b3;font-size:8px}body.recmode .sig-pop .sev{font-size:7px;padding:2px 4px}body.recmode .sig-pop::after{background:rgba(8,12,20,.95)}
 body.recmode .sig-pop.s-observation{--c:#6ff4ff}body.recmode .sig-pop.s-watch{--c:#ffb020}body.recmode .sig-pop.s-flag{--c:#ff4d6d}
 @keyframes recpop{0%{opacity:0;transform:scale(.55) translateY(10px)}100%{opacity:1;transform:none}}
 #rec-beam{position:fixed;left:0;right:0;height:2px;z-index:24;pointer-events:none;background:linear-gradient(90deg,transparent,#6ff4ff 18%,#6ff4ff 82%,transparent);box-shadow:0 0 14px 2px rgba(111,244,255,.65);opacity:.75;animation:recbeam 1.6s ease-in-out infinite}
@@ -2316,7 +2316,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (vr.bottom < 40 || vr.top > innerHeight - 20) return;     // passed during a jump: listed, not popped
     // the callout sits beside the figure, in document space, so it scrolls with the page
     // Above the figure, over lines already read, with a pointer down to it.
-    const c = docSpaceCenter(el), W = doc.clientWidth || 800, w = Math.min(document.body.classList.contains("recmode") ? 230 : 310, W - 24);
+    const c = docSpaceCenter(el), W = doc.clientWidth || 800, w = Math.min(document.body.classList.contains("recmode") ? 115 : 310, W - 24);
     const left = Math.max(8, Math.min(W - w - 8, c.x - w * 0.62));
     const box = document.createElement("div");
     box.className = "sig-pop s-" + sg.severity;
