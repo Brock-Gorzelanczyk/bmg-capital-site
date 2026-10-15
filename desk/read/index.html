@@ -1088,7 +1088,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       // follows with a slight lag and the legs catch up (Astra brief).
       const mul = state.speedMul || 1;
       const bv = state.bodyVel || (state.bodyVel = {x: 0, y: 0});
-      const k = 7, c = 4.6, vmax = (CRAWL_BASE * U) * mul;
+      const tempo = state.recordBodyTempo || 1;
+      // Scale spring response as well as its cap, preserving the same damping shape.
+      const k = 7 * tempo * tempo, c = 4.6 * tempo, vmax = (CRAWL_BASE * U) * mul;
       bv.x += (k * (t.x - state.body.x) - c * bv.x) * dt;
       bv.y += (k * (t.y - state.body.y) - c * bv.y) * dt;
       const vm = Math.hypot(bv.x, bv.y);
@@ -2970,6 +2972,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const highlights = setup.querySelector("#rec-format").value === "highlights";
       const pace = +setup.querySelector("#rec-pace").value || 1.6;
       const previousTempo = state.speedMul || 1;
+      const previousBodyTempo = state.recordBodyTempo || 1;
       const finishAt = Math.max(5, +setup.querySelector("#rec-finish").value || 115);
       const keySecs = Math.max(0, +setup.querySelector("#rec-keys").value || 0);
       const oneSecs = Math.max(0, +setup.querySelector("#rec-one").value || 0);
@@ -2995,7 +2998,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         if (state.feet && state.feet.length){
           await settleSpiderPose();
         }
-        if (highlights && pace > 1) state.speedMul = Math.max(2, previousTempo);
+        if (highlights && pace > 1){
+          state.speedMul = Math.max(2, previousTempo);
+          state.recordBodyTempo = 2;
+        }
         if (rec) rec.start(500);                                   // the clip starts here, on the statements
         if (highlights){ await sleep(2000); startHighlights(pace); }
         startOverlays();
@@ -3018,6 +3024,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         if (blob){ const end = document.createElement("div"); end.id = "rec-end"; B.appendChild(end); finalControls(end, blob); }
       } finally {
         state.speedMul = previousTempo;
+        state.recordBodyTempo = previousBodyTempo;
       }
     });
   })();
