@@ -2556,10 +2556,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     let hud = null, beam = null, hudTimer = 0;
     function startOverlays(){
       startEyeScanner();
-      beam = document.createElement("div"); beam.id = "rec-beam";
-      beam.style.top = Math.round(innerHeight * 0.6 * 0.5) + "px";
-      hud = document.createElement("div"); hud.id = "rec-hud";
-      B.append(beam, hud);
+      hud = document.createElement("div"); hud.id = "rec-hud";     // (the full-width scan line was removed at the owner's request)
+      B.append(hud);
       const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
       const tag = [co.ticker || co.ticker_hint, co.form].filter(Boolean).join(" ");
       hudTimer = setInterval(() => {
