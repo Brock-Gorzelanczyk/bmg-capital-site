@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Reader | BMG Capital</title>
+<title>Crawler | BMG Capital</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&amp;display=swap" rel="stylesheet">
@@ -174,6 +174,7 @@ details.paste textarea{width:100%;min-height:110px;margin-top:8px;font:13px 'IBM
 .lr-t{width:100%;border-collapse:collapse;table-layout:fixed}.lr-t th{font:500 10px 'IBM Plex Mono',monospace;color:#8a9099;text-align:right;padding:2px 4px}.lr-t td{padding:3px 4px;border-top:1px solid #f0f0ec;vertical-align:top}
 .lr-t td:first-child{width:44%;color:#2a2a2a}.lr-t td small{display:block;color:#9aa0a8;font-size:10px}.lr-t.lr-r td:first-child{width:62%}
 .lr-c{text-align:right;height:30px}.lr-c .ph{font:400 11px 'IBM Plex Mono',monospace}.lr-v{font:600 12.5px 'IBM Plex Mono',monospace;background:none;border:0;padding:0;color:#141414;cursor:pointer;text-decoration:underline dotted #b5b5ae;text-underline-offset:3px}
+tr.lr-found-row.pending{visibility:hidden}body.rec #read-live .lr-obs{padding-bottom:140px}.rec-fly.obs{max-width:210px;white-space:normal;font:700 11px/1.25 'IBM Plex Sans',sans-serif;padding:5px 8px;text-align:left}
 .lr-v:hover,.lr-v:focus-visible{color:#1f5fd6}.lr-src{display:block;font:400 9.5px 'IBM Plex Mono',monospace;color:#9aa0a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lr-b{display:inline-block;font:600 9px 'IBM Plex Mono',monospace;font-style:normal;text-transform:uppercase;border-radius:3px;padding:0 4px}.lr-b.corr{background:#e7efff;color:#1f5fd6}.lr-b.stale{background:#fff1e0;color:#a35d00}.lr-w{color:#c0262c;text-decoration:line-through;font:500 11px 'IBM Plex Mono',monospace}
 .lr-c.flash,.lr-sig.flash{animation:lrflash 1.4s ease}@keyframes lrflash{0%{background:#fff3b8}100%{background:transparent}}
@@ -510,7 +511,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     <nav aria-label="Main" class="site-nav">
   <a href="/#reports">Reports</a>
   <a href="/tool/">Research tool</a>
-  <a href="/desk/read/" aria-current="page">Reader</a>
+  <a href="/desk/read/" aria-current="page">Crawler</a>
   <a href="/desk/">Desk</a>
   <a href="/desk/live/">Live</a>
   <a href="/#about">About</a>
@@ -520,7 +521,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
 </header>
 <main class="container read-page">
 <a class="back" href="/">&larr; Back to BMG Capital</a>
-<h1 class="rp">Reader</h1>
+<h1 class="rp">Crawler</h1>
 <p class="lede">Drop in a 10-K or 10-Q and click Run. The server reads the filing, extracts the statements, checks the arithmetic and builds a BMG Capital company report in which every figure cites its page. The spider then shows each finding where it sits in the document.</p>
 <div class="read-form">
   <label id="read-drop"><input type="file" id="read-file" hidden accept=".pdf,.docx,.pptx,.htm,.html,.txt,.md"><b>Drop a file here or click to choose</b><span id="read-drop-name">PDF, DOCX, PPTX, HTML or text, up to 10 MB.</span></label>
@@ -2514,13 +2515,14 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (!L || typeof LiveReportModel === "undefined"){ liveEl.innerHTML = `<p class="muted">The live report is not available for this result.</p>`; return; }
     state.live = new LiveReportModel(L);
     const co = rep.company || {};
-    followAnim++; reportReviewIndex = 0; reportNextReview = performance.now() + 1600;
+    followAnim++; reportReviewIndex = 0; reportNextReview = performance.now() + 1600; state.foundKeys = new Set();
     liveEl.innerHTML = `<div class="lr-top"><header class="lr-head"><div class="lr-brand">BMG Capital <span>report</span>${BMG_LINE}</div>
         <div class="lr-co" title="${esc([co.period, L.basis].filter(Boolean).join(" · "))}"><b>${esc(co.name || "")}</b> ${esc([co.ticker, co.form].filter(Boolean).join(" · "))}</div></header>
       <div class="lr-prog" id="lr-prog" aria-live="polite"></div></div>
       ${L.sections.map(s => `<section class="lr-sec" data-sec="${s.id}"><h4>${esc(s.title)}</h4><table class="lr-t"><thead><tr><th></th>${((s.rows[0] || {}).cells || []).map(c => `<th>${esc(L.cells[c].period || "")}</th>`).join("")}</tr></thead>
         <tbody>${s.rows.map(r => `<tr><td>${esc(r.label)}</td>${r.cells.map(c => `<td class="lr-c" data-cell="${esc(c)}"><span class="ph" aria-label="not read yet">···</span></td>`).join("")}</tr>`).join("")}</tbody></table></section>`).join("")}
       ${L.ratios.length ? `<section class="lr-sec"><h4>Calculated <small>shown once every input has been read</small></h4><table class="lr-t lr-r"><tbody>${L.ratios.map(r => `<tr><td>${esc(r.label)}<small>${esc(L.cells[r.id].formula || "")}</small></td><td class="lr-c" data-cell="${esc(r.id)}"><span class="ph">waiting for inputs</span></td></tr>`).join("")}</tbody></table></section>` : ""}
+      <section class="lr-sec lr-found" hidden><h4>More from the filing <small>other figures the spider read, with their page</small></h4><table class="lr-t"><tbody id="lr-found"></tbody></table></section>
       <section class="lr-sec lr-obs"><h4>Observations <small>shown when their evidence has been read</small></h4><ol id="lr-sigs"></ol><p class="ph" id="lr-sigs-ph">${L.signals.length ? `${L.signals.length} pending` : "None for this filing"}</p></section>
       <footer class="lr-foot" id="lr-foot"></footer>`;
     liveProgress();
@@ -2558,8 +2560,41 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     }
     liveProgress();
   }
+  // A figure the spider read that is not a report cell (segment, share and other
+  // note tables) gets a row in "More from the filing", so everything it zaps lands in
+  // the report. One row per value and page; nothing is derived or estimated.
+  function foundSlot(f){
+    const tb = document.getElementById("lr-found");
+    if (!tb || !f || !f.value || !state.live) return null;
+    const plan = state.live.plan;
+    if (!plan._cellFindings){                 // findings that fill a report cell already have a place
+      plan._cellFindings = new Set();
+      for (const c of Object.values(plan.cells || {})) for (const id of c.requires || []) if (plan.fact_to_finding[id]) plan._cellFindings.add(plan.fact_to_finding[id]);
+      const byId = new Map((state.readRes.findings || []).map(x => [x.id, x]));
+      plan._cellPages = new Set([...plan._cellFindings].map(id => (byId.get(id) || {}).pdf_page).filter(Boolean));
+    }
+    if (plan._cellFindings.has(f.id)) return null;
+    // statement pages feed the statement tables above; this list is for the pages after them
+    if (plan._cellPages.has(f.pdf_page)) return null;
+    const keys = state.foundKeys || (state.foundKeys = new Set());
+    const key = (String(f.value) + "|" + (f.pdf_page || "")).toLowerCase();
+    if (keys.has(key)) return null;           // same figure under a second label (product line vs segment)
+    keys.add(key);
+    const tr = document.createElement("tr"); tr.className = "lr-found-row pending";
+    tr.innerHTML = `<td>${esc(f.label)}<small>${esc(f.period || "")}</small></td><td class="lr-c"><button type="button" class="lr-v" data-page="${f.pdf_page || ""}" data-raw="${esc(f.raw || "")}">${esc(f.value)}<span class="lr-src">${f.pdf_page ? "p." + f.pdf_page : ""}</span></button></td>`;
+    tb.appendChild(tr);
+    tb.closest("section").hidden = false;
+    return tr;
+  }
+  function revealFound(tr){
+    if (!tr || !tr.isConnected) return;
+    tr.classList.remove("pending"); tr.classList.add("lr-row-enter");
+    const v = tr.querySelector(".lr-c"); if (v){ v.classList.add("flash"); setTimeout(() => v.classList.remove("flash"), 1400); }
+    setTimeout(() => tr.classList.remove("lr-row-enter"), 450);
+    liveFollow(tr);
+  }
   // Follow fresh evidence inside the report only; leave the document camera alone.
-  let followAnim = 0, followHoldUntil = 0, reportLastFinding = 0, reportNextReview = 0, reportReviewIndex = 0;
+  let followAnim = 0, followBusyUntil = 0, followHoldUntil = 0, reportLastFinding = 0, reportNextReview = 0, reportReviewIndex = 0;
   const reportSide = document.querySelector(".read-side");
   if (reportSide) for (const event of ["wheel", "touchstart", "keydown"]){
     reportSide.addEventListener(event, () => { followHoldUntil = performance.now() + 5000; followAnim++; }, {passive:true});
@@ -2570,6 +2605,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // While a zapped number is in flight the panel stays on its destination row.
     const lock = state.flightLock;
     if (lock && performance.now() < lock.until && lock.el !== el) return;
+    if ((state.chipsInFlight || 0) > 0 && !(lock && lock.el === el)) return;   // never slide the panel under a chip in the air
     const scroller = document.body.classList.contains("rec") ? liveEl : reportSide;
     if (!scroller || !scroller.clientHeight || scroller.scrollHeight <= scroller.clientHeight) return;
     const box = scroller.getBoundingClientRect(), r = el.getBoundingClientRect();
@@ -2580,6 +2616,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (Math.abs(to - from) < 3) return;
     if (REDUCED){ scroller.scrollTop = to; return; }
     const id = ++followAnim, t0 = performance.now(), dur = reviewing ? 1000 : 420;
+    followBusyUntil = t0 + dur;
     const step = now => {
       if (id !== followAnim || !el.isConnected) return;
       const k = Math.min(1, (now - t0) / dur), e = 1 - (1 - k) ** 3;
@@ -2745,13 +2782,14 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // never fly: only what the spider actually zapped goes to the report.
     const zapQ = []; let zapBusy = false;
     const FLY_MS = 650, ZAP_LAND = 130;
-    function flyFrom(el, td, text){
+    function flyFrom(el, td, text, obs){
       const s0 = el.getBoundingClientRect();
-      const chip = document.createElement("div"); chip.className = "rec-fly";
+      const chip = document.createElement("div"); chip.className = "rec-fly" + (obs ? " obs" : "");
       chip.textContent = text;
       chip.style.left = s0.left + "px"; chip.style.top = s0.top + "px";
       chip.style.transition = "none";
       B.appendChild(chip);
+      state.chipsInFlight = (state.chipsInFlight || 0) + 1;
       const w0 = chip.offsetWidth, t0 = performance.now();
       const step = (now) => {
         const k = Math.min(1, (now - t0) / FLY_MS), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
@@ -2760,7 +2798,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         const arc = Math.sin(k * Math.PI) * -40;
         chip.style.transform = `translate(${(x1 - x0) * e + (x0 - s0.left)}px, ${(y1 - y0) * e + (y0 - s0.top) + arc}px) scale(${1 + .25 * Math.sin(k * Math.PI)})`;
         chip.style.opacity = k > .85 ? (1 - (k - .85) / .15).toFixed(2) : "1";
-        if (k < 1) requestAnimationFrame(step); else chip.remove();
+        if (k < 1) requestAnimationFrame(step); else { chip.remove(); state.chipsInFlight = Math.max(0, state.chipsInFlight - 1); }
       };
       requestAnimationFrame(step);
     }
@@ -2774,23 +2812,69 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const r = el.isConnected ? el.getBoundingClientRect() : null;
       const bottom = innerHeight * (window.READER_VIEW_FRAC || 1);
       if (!r || r.bottom < 0 || r.top > bottom || performance.now() - at > 1500 || !zapTo(el, false, true)){
-        applyLive(changes); zapBusy = false; pumpZaps(); return;
+        applyLive(changes); const tr = foundSlot(f); if (tr) tr.classList.remove("pending");
+        zapBusy = false; pumpZaps(); return;
       }
       setTimeout(() => { zapBusy = false; pumpZaps(); }, zapQ.length > 4 ? 90 : 180);
       el.classList.add("hl-zap"); setTimeout(() => el.classList.remove("hl-zap"), 1100);
       setTimeout(() => {
         const plan = state.live && state.live.plan;
-        const direct = changes.filter(ch => ch.kind !== "signal" && ch.op === "show" && ch.state !== "withdrawn" && plan && plan.cells[ch.id] &&
-          (plan.cells[ch.id].requires || []).some(id => plan.fact_to_finding[id] === f.id));
-        const tds = direct.map(ch => liveEl && liveEl.querySelector(`[data-cell="${CSS.escape(ch.id)}"]`)).filter(Boolean);
-        if (!tds.length){ applyLive(changes); return; }
-        state.flightLock = {el: tds[0], until: performance.now() + FLY_MS + 600};
-        liveFollow(tds[0]);                                         // bring the destination row into view while it flies
+        const isCell = ch => ch.kind !== "signal" && ch.op === "show" && ch.state !== "withdrawn" && plan && plan.cells[ch.id] &&
+          (plan.cells[ch.id].requires || []).some(id => plan.fact_to_finding[id] === f.id);
+        const td = changes.filter(isCell).map(ch => liveEl && liveEl.querySelector(`[data-cell="${CSS.escape(ch.id)}"]`)).find(Boolean);
+        const sigs = changes.filter(ch => ch.kind === "signal" && ch.op === "show");
+        const rest = changes.filter(ch => !sigs.includes(ch));
         const text = (el.textContent || "").trim() || f.value || "";
-        flyFrom(el, tds[0], text);                                  // one chip, to the row the panel shows; other cells fill as it lands
-        setTimeout(() => applyLive(changes), FLY_MS - 60);
+        if (td) fly(el, td, text, false, () => applyLive(rest));
+        else {
+          const tr = foundSlot(f);
+          if (tr) fly(el, tr.querySelector(".lr-v"), text, false, () => { applyLive(rest); revealFound(tr); });
+          else applyLive(rest);
+        }
+        // observations fly in once the numbers have landed, so the panel is not pulled two ways
+        for (const ch of sigs) obsQ.push({ch, el, at: performance.now()});
       }, ZAP_LAND);
     }
+    // One flight: the panel moves to the destination and holds it until the chip lands.
+    // Flights take turns: a chip launches when the panel is free or its destination
+    // is already on screen, so every number lands where the viewer can see it.
+    // One that waits too long fills its place without a chip.
+    let lastFlight = 0;
+    const flightQ = [];
+    function inPanelView(dest){
+      const sc = document.body.classList.contains("rec") ? liveEl : (document.querySelector(".read-side") || liveEl);
+      if (!sc || !dest.isConnected) return false;
+      const b = sc.getBoundingClientRect(), r = dest.getBoundingClientRect(), head = (liveEl.querySelector(".lr-top") || {}).offsetHeight || 0;
+      return r.top >= b.top + head && r.bottom <= Math.min(innerHeight, b.bottom);
+    }
+    function fly(el, dest, text, obs, land){ flightQ.push({el, dest, text, obs, land, at: performance.now()}); pumpFlights(); }
+    function pumpFlights(){
+      while (flightQ.length){
+        const q = flightQ[0], now = performance.now(), busy = state.flightLock && now < state.flightLock.until;
+        if (now - q.at > 1800 || !q.el.isConnected){ flightQ.shift(); q.land(); continue; }
+        if (busy && (!inPanelView(q.dest) || now < followBusyUntil)){ setTimeout(pumpFlights, 60); return; }
+        flightQ.shift();
+        lastFlight = now;
+        if (!busy){                                   // a chip launched mid-flight leaves the panel where it is
+          state.flightLock = {el: q.dest, until: now + FLY_MS + 150};
+          liveFollow(q.dest);
+        }
+        flyFrom(q.el, q.dest, q.text, q.obs);
+        setTimeout(() => { if (state.flightLock && state.flightLock.el === q.dest) state.flightLock = null; q.land(); pumpFlights(); }, FLY_MS - 60);
+      }
+    }
+    const obsQ = [];
+    setInterval(() => {
+      if (!obsQ.length || zapQ.length || performance.now() - lastFlight < FLY_MS + 250) return;
+      const {ch, el, at} = obsQ.shift();
+      const sg = state.live && (state.live.plan.signals || []).find(x => x.id === ch.id);
+      const r = el.isConnected ? el.getBoundingClientRect() : null;
+      const ph = document.getElementById("lr-sigs-ph"), ol = document.getElementById("lr-sigs");
+      const dest = ph && !ph.hidden ? ph : ol && (ol.lastElementChild || ol);   // where the new observation will appear
+      if (!sg || !dest || !r || r.bottom < 0 || r.top > innerHeight * (window.READER_VIEW_FRAC || 1) || performance.now() - at > 6000){ applyLive([ch]); return; }
+      zapTo(el, true, true);
+      setTimeout(() => fly(el, dest, sg.headline, true, () => applyLive([ch])), ZAP_LAND);
+    }, 120);
     state.zapFly = (f, el, changes) => { zapQ.push({f, el, changes, at: performance.now()}); pumpZaps(); };
 
     // -- eye scanner: a narrow cone sweeps smoothly in front of the eyes.
