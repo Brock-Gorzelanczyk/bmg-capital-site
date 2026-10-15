@@ -2697,15 +2697,13 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       B.appendChild(curtain);
       document.getElementById("read-run").click();
       try {
-        await wait(() => vis("read-skip"));
-        await sleep(400);
+        await wait(() => vis("read-skip"), 50);
         const jb = vis("read-jump");
         if (jb){
           // lift the curtain only once the view has actually moved to the statements, then settled
           const y0 = scrollY; jb.click();
           await wait(() => scrollY - y0 > innerHeight * 0.5, 100, 15000).catch(() => {});
           let last = scrollY; await wait(() => { const st = Math.abs(scrollY - last) < 40; last = scrollY; return st; }, 250, 5000).catch(() => {});
-          await sleep(300);
         }
         // The hidden statement-page jump can leave feet and joint memory on the cover.
         // Replant only the startup pose; leave the normal gait and movement rules alone.
@@ -2716,7 +2714,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
           state.feet = gaitFeet(); state.silkAnchor = null;
           drawSpider();
           // Let the freshly planted legs take their first normal steps behind the curtain.
-          await sleep(600);
+          await sleep(200);
           let settled = 0;
           await wait(() => {
             const ready = state.legJ.length === N_LEGS && state.feet.length === N_LEGS &&
