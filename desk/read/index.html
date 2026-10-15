@@ -2842,8 +2842,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
 
     // -- counter of real counts, and the scan beam on the spider's reading line
     let hud = null, beam = null, hudTimer = 0;
+    // The narrow cone scanner is off (owner, 2026-10-15); set EYE_CONE = true to bring it back.
+    const EYE_CONE = false;
     function startOverlays(){
-      startEyeScanner();
+      if (EYE_CONE) startEyeScanner();
       hud = document.createElement("div"); hud.id = "rec-hud";     // (the full-width scan line was removed at the owner's request)
       B.append(hud);
       const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
