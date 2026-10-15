@@ -221,6 +221,16 @@ body.recmode .sig-pop.s-observation{--c:#6ff4ff}body.recmode .sig-pop.s-watch{--
 #rec-beam{position:fixed;left:0;right:0;height:2px;z-index:24;pointer-events:none;background:linear-gradient(90deg,transparent,#6ff4ff 18%,#6ff4ff 82%,transparent);box-shadow:0 0 14px 2px rgba(111,244,255,.65);opacity:.75;animation:recbeam 1.6s ease-in-out infinite}
 #rec-beam::before{content:'';position:absolute;left:0;right:0;bottom:2px;height:46px;background:linear-gradient(to top,rgba(111,244,255,.13),transparent)}
 @keyframes recbeam{0%,100%{opacity:.55}50%{opacity:.95}}
+
+/* Record palette overrides only color; the default keeps the established look. */
+body.recmode[data-rec-palette] svg.spider .leg,body.recmode[data-rec-palette] svg.spider .body,body.recmode[data-rec-palette] svg.spider .sight{stroke:var(--crawler-main)!important}
+body.recmode[data-rec-palette] svg.spider .head{fill:var(--crawler-main)!important}
+body.recmode[data-rec-palette] svg.spider .foot,body.recmode[data-rec-palette] svg.spider .knee{fill:var(--crawler-accent)!important}
+body.recmode[data-rec-palette] svg.spider .link-thread{stroke:var(--crawler-accent)!important}
+body.recmode[data-rec-palette] svg.spider .silk,body.recmode[data-rec-palette] svg.spider .mesh,body.recmode[data-rec-palette] svg.spider .thread{stroke:var(--crawler-trail)!important}
+#rec-palette{max-width:220px;padding:7px;border:1px solid #cad2d8;border-radius:6px;background:#fff;color:#111;font:inherit}
+.rec-palette-preview{display:flex;align-items:center;gap:8px;margin:8px 0 16px;font-size:12px;color:#9aa6b1}
+.rec-palette-preview i{display:inline-block;width:16px;height:16px;border-radius:50%;background:var(--swatch);box-shadow:0 0 9px var(--swatch)}
 #rec-eye{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:25}
 #rec-hud{position:fixed;top:calc(100vh - var(--rec-h) - 40px);left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;white-space:nowrap;font:600 12px 'IBM Plex Mono',monospace;color:#6ff4ff;background:rgba(0,0,0,.72);border:1px solid rgba(111,244,255,.45);border-radius:20px;padding:5px 12px;box-shadow:0 0 14px rgba(111,244,255,.25)}
 #rec-hud b{color:#fff;margin-right:4px}#rec-hud span{margin-left:8px}
@@ -2458,6 +2468,14 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     B.classList.add("rec", "recmode", "rec-dark");
     window.READER_VIEW_FRAC = 0.6;                    // the bottom 40% is the live report panel
     const leave = () => { if (window.opener && !window.opener.closed){ window.close(); } location.href = "/desk/read/"; };
+    const palettes = {
+      default: {name: "Original cyan + pink (default)", main: "#6ff4ff", accent: "#ff3da6", trail: "#9fb4ff"},
+      electric: {name: "Electric violet", main: "#bd8cff", accent: "#58f7ff", trail: "#edb7ff"},
+      acid: {name: "Acid lime", main: "#b7ff3c", accent: "#ff63d8", trail: "#67ffd2"},
+      sunset: {name: "Neon sunset", main: "#ffae45", accent: "#ff4f8b", trail: "#d08cff"},
+      arctic: {name: "Arctic blue", main: "#65baff", accent: "#e9fbff", trail: "#78ffdc"},
+      laser: {name: "Laser red", main: "#ff5c6b", accent: "#ffe45c", trail: "#ff9fce"}
+    };
     const canRecord = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.MediaRecorder);
     const setup = document.createElement("div");
     setup.id = "rec-setup";
@@ -2468,6 +2486,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       <label class="opt">Jump to the ending after <span><input type="number" id="rec-finish" min="5" max="600" value="115"> s</span></label>
       <label class="opt">Key findings held on screen <span><input type="number" id="rec-keys" min="0" max="30" value="4"> s</span></label>
       <label class="opt">One-page summary on screen <span><input type="number" id="rec-one" min="0" max="30" value="5"> s</span></label>
+      <label class="opt">Crawler colors <select id="rec-palette">${Object.entries(palettes).map(([id, p]) => `<option value="${id}">${p.name}</option>`).join("")}</select></label>
+      <div class="rec-palette-preview" id="rec-palette-preview" aria-label="Crawler color preview"></div>
       <label class="opt">Dark page <input type="checkbox" id="rec-dark" checked></label>
       ${canRecord ? `<label class="opt">Record this window (downloads a video) <input type="checkbox" id="rec-capture" checked></label>` : ""}
       <button id="rec-start" type="button" disabled>Start</button>
@@ -2479,6 +2499,19 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     const fileIn = document.getElementById("read-file"), startBtn = setup.querySelector("#rec-start");
     fileIn.addEventListener("change", () => { startBtn.disabled = !fileIn.files[0]; });
     drop.addEventListener("drop", () => setTimeout(() => { startBtn.disabled = !(fileIn.files[0] || drop.classList.contains("has")); }, 0));
+    const palettePicker = setup.querySelector("#rec-palette");
+    const applyPalette = () => {
+      const p = palettes[palettePicker.value] || palettes.default;
+      if (palettePicker.value === "default") delete B.dataset.recPalette;
+      else B.dataset.recPalette = palettePicker.value;
+      for (const [key, value] of Object.entries({main: p.main, accent: p.accent, trail: p.trail})){
+        B.style.setProperty(`--crawler-${key}`, value);
+      }
+      setup.querySelector("#rec-palette-preview").innerHTML =
+        `<i style="--swatch:${p.main}"></i><i style="--swatch:${p.accent}"></i><i style="--swatch:${p.trail}"></i><span>Body + legs · joints · trails</span>`;
+    };
+    palettePicker.addEventListener("change", applyPalette);
+    applyPalette();
     setup.querySelector("#rec-dark").addEventListener("change", e => B.classList.toggle("rec-dark", e.target.checked));
     addEventListener("keydown", e => {
       if (e.key === "Escape") leave();
@@ -2528,10 +2561,10 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     function startEyeScanner(){
       const NS = "http://www.w3.org/2000/svg";
       const svg = document.createElementNS(NS, "svg"); svg.id = "rec-eye";
-      svg.innerHTML = `<defs><linearGradient id="rec-eye-g" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6ff4ff" stop-opacity=".55"/><stop offset="1" stop-color="#6ff4ff" stop-opacity=".08"/></linearGradient>
+      svg.innerHTML = `<defs><linearGradient id="rec-eye-g" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="var(--crawler-main, #6ff4ff)" stop-opacity=".55"/><stop offset="1" stop-color="var(--crawler-main, #6ff4ff)" stop-opacity=".08"/></linearGradient>
         <filter id="rec-eye-b"><feGaussianBlur stdDeviation="3"/></filter></defs>
-        <polygon class="cone" fill="url(#rec-eye-g)"/><line class="glow" stroke="#6ff4ff" stroke-width="3" filter="url(#rec-eye-b)"/><line class="edge" stroke="#e8feff" stroke-width="1.2"/>
-        <circle class="lens" r="6" fill="#6ff4ff" filter="url(#rec-eye-b)"/><circle class="core" r="2.4" fill="#fff"/>`;
+        <polygon class="cone" fill="url(#rec-eye-g)"/><line class="glow" stroke="var(--crawler-main, #6ff4ff)" stroke-width="3" filter="url(#rec-eye-b)"/><line class="edge" stroke="#e8feff" stroke-width="1.2"/>
+        <circle class="lens" r="6" fill="var(--crawler-main, #6ff4ff)" filter="url(#rec-eye-b)"/><circle class="core" r="2.4" fill="#fff"/>`;
       B.appendChild(svg);
       const g = svg.querySelector("#rec-eye-g"), cone = svg.querySelector(".cone"), glow = svg.querySelector(".glow"), edge = svg.querySelector(".edge");
       const lens = svg.querySelector(".lens"), core = svg.querySelector(".core");
