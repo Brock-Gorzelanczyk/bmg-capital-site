@@ -918,7 +918,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
   addEventListener("wheel", () => { state.userScrolledAt = performance.now(); }, {passive: true});
   addEventListener("touchmove", () => { state.userScrolledAt = performance.now(); }, {passive: true});
+  const DECORATIVE_TEXT_EFFECTS = false;
   function drawEye(){
+    if (!DECORATIVE_TEXT_EFFECTS) return;
     // The eye's blue line pings like the pink one (reference clip): it
     // shoots from the head to a word on the line ahead, the word flashes
     // blue in place, the line fades, then it jumps to the next word. It
@@ -1092,7 +1094,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const bv = state.bodyVel || (state.bodyVel = {x: 0, y: 0});
       const tempo = state.recordBodyTempo || 1;
       // Scale spring response as well as its cap, preserving the same damping shape.
-      const k = 7 * tempo * tempo, c = (state.recordBodyTempo ? 2 * Math.sqrt(7) : 4.6) * tempo, vmax = (CRAWL_BASE * U) * mul;
+      const k = 7 * tempo * tempo, c = 4.6 * tempo, vmax = (CRAWL_BASE * U) * mul;
       bv.x += (k * (t.x - state.body.x) - c * bv.x) * dt;
       bv.y += (k * (t.y - state.body.y) - c * bv.y) * dt;
       const vm = Math.hypot(bv.x, bv.y);
@@ -1104,8 +1106,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       // Never leave the frame: ease back inside 15%..80% of the screen.
       const vh = innerHeight * (window.READER_VIEW_FRAC || 1);   // a pinned panel can cover the bottom
       const sy = dr.top + state.body.y, lo = vh * 0.22, hi = vh * 0.72;
-      const frameEase = 1 - Math.exp(-8 * dt);
-      if (sy > hi) state.body.y -= (sy - hi) * frameEase; else if (sy < lo) state.body.y += (lo - sy) * frameEase;
+      if (sy > hi) state.body.y -= (sy - hi) * 0.25; else if (sy < lo) state.body.y += (lo - sy) * 0.25;
       // Face the actual direction of travel over the page (crawl plus the
       // scroll it rides), which while reading is mostly down the page.
       if (state.lastBodyP && dt > 0){
@@ -1118,7 +1119,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
           const want = Math.atan2(state.vel.y, state.vel.x);
           if (state.faceHeading == null) state.faceHeading = want;
           let fd = want - state.faceHeading; fd = Math.atan2(Math.sin(fd), Math.cos(fd));
-          state.faceHeading = Math.atan2(Math.sin(state.faceHeading + Math.max(-2.8 * dt, Math.min(2.8 * dt, fd * (1 - Math.exp(-5 * dt))))), Math.cos(state.faceHeading + Math.max(-2.8 * dt, Math.min(2.8 * dt, fd * (1 - Math.exp(-5 * dt))))));
+          state.faceHeading = Math.atan2(Math.sin(state.faceHeading + fd * Math.min(1, dt * 5)), Math.cos(state.faceHeading + fd * Math.min(1, dt * 5)));
         }
       }
       state.lastBodyP = {x: state.body.x, y: state.body.y};
@@ -1357,6 +1358,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   addEventListener("resize", () => { requestAnimationFrame(() => (state.fx || []).forEach(fxPlace)); });
   function fxCount(kind){ return state.fx.filter(o => o.kind === kind).length; }
   function fxOn(cand, kind){
+    if (!DECORATIVE_TEXT_EFFECTS) return;
     // cand: {els, text, score} or a single word element
     if (cand && cand.nodeType === 1) cand = {els: [cand], text: cand.textContent.trim(), score: 1};
     if (!cand || !cand.els.length || !cand.els[0].isConnected) return;
@@ -1450,6 +1452,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   function fxTick(now, dt){
     const ms = dt * 1000;
     state.fx = state.fx.filter(o => { o.age += ms; if (o.age >= o.ttl){ fxOff(o); return false; } fxStyle(o); return true; });
+    if (!DECORATIVE_TEXT_EFFECTS) return;
     const rows = state.rows;
     if (!rows || !rows.length) return;
     const mul = state.recordEffectTempo || ((state.speedMul || 1) * Math.sqrt(state.boost || 1));
@@ -1483,6 +1486,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     }
   }
   function maybePing(now){
+    if (!DECORATIVE_TEXT_EFFECTS) return;
     const mul = state.recordEffectTempo || ((state.speedMul || 1) * Math.sqrt(state.boost || 1));
     if (state.ping && now - state.ping.start < PING_MS / mul) return;
     if (now - (state.lastPingAt || 0) < 260 / mul) return;
@@ -1959,6 +1963,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     return out;
   }
   function highlightRun(words, color){
+    if (!DECORATIVE_TEXT_EFFECTS) return;
     // Highlight the words where they sit on the page; nothing is copied
     // or moved. Fades after ~4 s.
     const cls = "hl-" + color;
@@ -3006,8 +3011,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         }
         if (highlights && pace > 1){
           state.speedMul = Math.max(2, previousTempo);
-          state.recordBodyTempo = 4.8;
-          state.recordTravelTempo = 4.8;
+          state.recordBodyTempo = 3.2;
+          state.recordTravelTempo = 3.2;
           state.recordEffectTempo = 0.75;
         }
         if (rec) rec.start(500);                                   // the clip starts here, on the statements
