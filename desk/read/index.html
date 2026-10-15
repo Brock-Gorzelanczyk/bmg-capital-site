@@ -2896,7 +2896,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     function highlightTimeline(start, end, targets, duration){
       if (!(end > start) || !targets.length) return null;
       const points = [{y:start,t:0}], step = 16;
-      const cost = y => .25 + targets.reduce((peak, at) => Math.max(peak, 1.75 * Math.exp(-(((y-at)/90)**2))), 0);
+      const cost = y => .45 + targets.reduce((peak, at) => Math.max(peak, .55 * Math.exp(-(((y-at)/90)**2))), 0);
       let total = 0, previous = start;
       for (let y = Math.min(end,start+step); ; y = Math.min(end,y+step)){
         total += (y-previous) * (cost(previous)+cost(y)) / 2;
@@ -2906,8 +2906,13 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       let elapsed = 0, index = 1;
       return dt => {
         elapsed = Math.min(duration, elapsed + dt);
-        // Ease into and out of the uninterrupted shot.
-        const k = elapsed / duration, time = (k*k*(3-2*k)) * duration;
+        // Only the first/last half-second ease; keep the middle moving briskly.
+        const ramp = Math.min(.5, duration / 4);
+        const tail = elapsed - (duration - ramp);
+        const travel = elapsed < ramp ? elapsed * elapsed / (2 * ramp) :
+          elapsed <= duration - ramp ? elapsed - ramp / 2 :
+          duration - 1.5 * ramp + tail - tail * tail / (2 * ramp);
+        const time = travel / (duration - ramp) * duration;
         while (index < points.length-1 && points[index].t < time) index++;
         const a=points[index-1], b=points[index], mix=(time-a.t)/(b.t-a.t || 1);
         return a.y + (b.y-a.y)*Math.max(0,Math.min(1,mix));
