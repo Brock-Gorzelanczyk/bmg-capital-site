@@ -179,6 +179,12 @@ svg.spider .knee{fill:#ff3d9a}
 .rl-t button:disabled{opacity:.55;cursor:default}
 #lib-status{margin:0;font-size:13px;color:#5d6862}#lib-status:empty{display:none}#lib-status.err{color:#b42318}
 #lib-rows tr[hidden]{display:none}
+@media (max-width:600px){
+  main.read-page{padding-left:max(16px, env(safe-area-inset-left, 0px))!important;padding-right:max(16px, env(safe-area-inset-right, 0px))!important}
+  .rl-t th:nth-child(4),.rl-t td:nth-child(4){display:none}
+  .read-edgar,.read-library{padding:12px}
+}
+#read-live .lr-src{white-space:normal;overflow:visible;text-overflow:clip}
 #read-drop-name.too-big{color:#b42318;font-weight:600}
 #read-drop b{display:block;font-size:16px;color:#141414;margin-bottom:4px}
 #read-ticker{height:44px;padding:0 12px;border:1px solid #c9c9c4;border-radius:8px;font:500 15px 'IBM Plex Mono',monospace;align-self:center}
