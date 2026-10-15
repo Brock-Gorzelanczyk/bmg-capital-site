@@ -205,7 +205,7 @@ body.recmode.rec-dark .fx-outline{border-color:#6ff4ff!important}body.recmode.re
 body.recmode #doc-h1{display:none!important}
 body.recmode #bmg-report .rp-bar{display:none!important}
 #rec-setup #read-drop{background:#0c121a!important;color:#e8edf2!important}#rec-setup #read-drop span{color:#9aa4b1!important}#rec-setup #read-drop b{color:#e8edf2!important}
-#rec-setup{position:fixed;inset:0;z-index:3000;background:#05070c;color:#e8edf2;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:24px;font:15px/1.4 'IBM Plex Sans',sans-serif}
+#rec-setup{overflow-y:auto;justify-content:safe center;position:fixed;inset:0;z-index:3000;background:#05070c;color:#e8edf2;display:flex;flex-direction:column;gap:14px;padding:24px;font:15px/1.4 'IBM Plex Sans',sans-serif}
 #rec-setup h2{margin:0;font-size:22px}#rec-setup p{margin:0;color:#9aa4b1;font-size:13px}
 #rec-setup #read-drop{display:flex;flex-direction:column;gap:4px;border:1.5px dashed #3a4656;border-radius:10px;padding:14px;cursor:pointer;color:#e8edf2}
 #rec-setup #read-drop.has{border-color:#2fdc74}
@@ -247,7 +247,7 @@ body.recmode[data-rec-palette] .sig-pop.s-observation,body.recmode[data-rec-pale
 body.recmode[data-rec-palette] .sig-pop .sev.s-observation{background:var(--crawler-main);color:#05070c}
 body.recmode[data-rec-palette] #rec-hud{color:var(--crawler-main);border-color:color-mix(in srgb,var(--crawler-main) 45%,transparent);box-shadow:0 0 14px color-mix(in srgb,var(--crawler-main) 25%,transparent)}
 body.recmode[data-rec-palette] #rec-end h3,body.recmode[data-rec-palette] .rk-one h2 span{color:var(--crawler-main)}
-#rec-palette{max-width:220px;padding:7px;border:1px solid #cad2d8;border-radius:6px;background:#fff;color:#111;font:inherit}
+#rec-palette,#rec-quality{max-width:220px;padding:7px;border:1px solid #cad2d8;border-radius:6px;background:#fff;color:#111;font:inherit}
 .rec-palette-preview{display:flex;align-items:center;gap:8px;margin:8px 0 16px;font-size:12px;color:#9aa6b1}
 .rec-palette-preview i{display:inline-block;width:16px;height:16px;border-radius:50%;background:var(--swatch);box-shadow:0 0 9px var(--swatch)}
 #rec-eye{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:25}
@@ -2587,6 +2587,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       <label class="opt">Crawler colors <select id="rec-palette">${Object.entries(palettes).map(([id, p]) => `<option value="${id}">${p.name}</option>`).join("")}</select></label>
       <div class="rec-palette-preview" id="rec-palette-preview" aria-label="Crawler color preview"></div>
       <label class="opt">Dark page <input type="checkbox" id="rec-dark" checked></label>
+      ${canRecord ? `<label class="opt">Video quality <select id="rec-quality"><option value="high" selected>High Quality · 1080 × 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label><p>High Quality requests portrait Full HD at 24 Mbps. Chrome may supply a lower resolution or frame rate. Actual capture details appear with the download.</p>` : ""}
       ${canRecord ? `<label class="opt">Record this window (downloads a video) <input type="checkbox" id="rec-capture" checked></label>` : ""}
       <button id="rec-start" type="button" disabled>Start</button>
       <p>Space pauses. Esc leaves record mode. The clip starts when the black screen lifts on the first financial statement.</p>`;
@@ -2735,13 +2736,29 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     }
 
     // -- recording this tab (optional)
-    let rec = null, chunks = [], recType = "", stream = null;
+    let rec = null, chunks = [], recType = "", stream = null, captureDetails = "";
     async function askCapture(){
+      const high = setup.querySelector("#rec-quality")?.value === "high";
+      const video = high ? {width: {ideal: 1080}, height: {ideal: 1920}, frameRate: {ideal: 60, max: 60}} : {frameRate: 30};
       try {
-        stream = await navigator.mediaDevices.getDisplayMedia({video: {frameRate: 30}, audio: false, preferCurrentTab: true, selfBrowserSurface: "include"});
+        stream = await navigator.mediaDevices.getDisplayMedia({video, audio: false, preferCurrentTab: true, selfBrowserSurface: "include"});
       } catch (e) { stream = null; return false; }
+      chunks = [];
       recType = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
-      rec = new MediaRecorder(stream, recType ? {mimeType: recType, videoBitsPerSecond: 12e6} : {videoBitsPerSecond: 12e6});
+      const bitrate = high ? 24e6 : 12e6;
+      try {
+        rec = new MediaRecorder(stream, recType ? {mimeType: recType, videoBitsPerSecond: bitrate} : {videoBitsPerSecond: bitrate});
+      } catch (e) {
+        // If this encoder rejects the requested bitrate/container, use its supported default.
+        try { rec = new MediaRecorder(stream, {videoBitsPerSecond: 12e6}); recType = rec.mimeType || ""; }
+        catch (fallbackError) { stream.getTracks().forEach(t => t.stop()); stream = null; rec = null; return false; }
+      }
+      const actual = stream.getVideoTracks()[0]?.getSettings() || {};
+      const size = actual.width && actual.height ? `${actual.width} × ${actual.height}` : "resolution unavailable";
+      const fps = actual.frameRate ? `${Math.round(actual.frameRate * 10) / 10} fps` : "frame rate unavailable";
+      const rate = rec.videoBitsPerSecond ? `${Math.round(rec.videoBitsPerSecond / 1e6)} Mbps encoder target` : "encoder bitrate unavailable";
+      captureDetails = `${high ? "High Quality" : "Standard"}: ${size} · ${fps} · ${rate}`;
+      state.captureQuality = {...actual, requestedQuality: high ? "high" : "standard", encoderBitsPerSecond: rec.videoBitsPerSecond || null};
       rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
       return true;
     }
@@ -2797,6 +2814,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
       bar.innerHTML = `${blob ? `<a class="rf-dl" download="BMG-${esc((co.ticker || "reader").replace(/[^A-Za-z0-9]/g, ""))}-${stamp}.${ext}" href="${URL.createObjectURL(blob)}">Download recording (${ext.toUpperCase()}, ${(blob.size / 1e6).toFixed(1)} MB)</a>` : `<span>Not recorded in the browser (screen sharing was off or declined).</span>`}
         <button type="button" id="rf-again">Record again</button><button type="button" id="rf-back">&larr; Back to reader</button>`;
+      if (blob && captureDetails){
+        const details = document.createElement("small"); details.id = "rec-capture-details";
+        details.textContent = captureDetails; details.style.display = "block";
+        bar.appendChild(details);
+      }
       end.appendChild(bar);
       bar.querySelector("#rf-again").onclick = () => location.reload();
       bar.querySelector("#rf-back").onclick = leave;
