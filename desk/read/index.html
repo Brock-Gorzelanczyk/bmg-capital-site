@@ -40,7 +40,7 @@ svg.spider .body{fill:#05070c;stroke:#3b6cff;stroke-width:2}
 svg.spider .head{fill:#4fe3ff;stroke:none}
 svg.spider .link-thread{stroke:#ff3d9a;stroke-width:1.6;stroke-linecap:round}
 /* Keep distant word links and the trailing anchor out of the crawler visual. */
-svg.spider .sight,svg.spider .link-thread,svg.spider .silk{display:none!important}
+svg.spider .silk{display:none!important}
 svg.spider .leg{stroke:#5fe6ff;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 svg.spider .foot{fill:#ff3d9a;stroke:none}
 svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.85}
@@ -698,6 +698,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   // spider is sized to the text it reads, whatever the document.
   let U = 1;
   const MIN_REACH = 45, LO_REACH = 55, HI_REACH = 105, TARGET_REACH = 80;
+  const STRETCH_MAX = 1.25;   // a waiting leg may stretch to 125% of full reach, no further
   const BODY_MS = 160, FADE_MS = 600, BEAM_MAX = 260;
   const MAX_OUTLINES = 24;
   // Pre-divide 2*PI into N_LEGS sectors; one foot per 45-degree slice.
@@ -882,8 +883,12 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       if (Math.hypot(j[3].x - foot.x, j[3].y - foot.y) < 0.3) break;
     }
     state.legJ[i] = j;
-    // Keep all three segments rigid even while an unreachable planted foot catches up.
-    return j;
+    // The foot is drawn where it is planted, so a leg stretches while an
+    // out-of-reach foot waits for its step, but never past STRETCH_MAX of
+    // full reach: beyond that the drawn foot slides along with the body so
+    // the crawler still reads as a spider.
+    const fx = foot.x - hip.x, fy = foot.y - hip.y, fd = Math.hypot(fx, fy), cap = 3 * L * STRETCH_MAX;
+    return [j[0], j[1], j[2], fd > cap ? {x: hip.x + fx / fd * cap, y: hip.y + fy / fd * cap} : {x: foot.x, y: foot.y}];
   }
 
   const SCROLL_SPEED = 140;   // px per second at 1x, matched to the clip (lines per second)
@@ -918,7 +923,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
   addEventListener("wheel", () => { state.userScrolledAt = performance.now(); }, {passive: true});
   addEventListener("touchmove", () => { state.userScrolledAt = performance.now(); }, {passive: true});
-  const DECORATIVE_TEXT_EFFECTS = false;
+  const DECORATIVE_TEXT_EFFECTS = true;
+  // The two zap lines (blue eye, pink ping) only reach words near the
+  // spider; a farther target is skipped so no line crosses the filing.
+  const ZAP_MAX = HI_REACH * 2.5;
+  function nearSpider(el){ const c = docSpaceCenter(el); return Math.hypot(c.x - state.body.x, c.y - state.body.y) <= ZAP_MAX; }
   function drawEye(){
     if (!DECORATIVE_TEXT_EFFECTS) return;
     // The eye's blue line pings like the pink one (reference clip): it
@@ -939,7 +948,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       state.eyeK = ((state.eyeK || 0) + 1 + Math.floor(Math.random() * 3)) % Math.max(1, els.length);
       const w = (state.eyeFocus && state.eyeFocus.isConnected && state.eyeFocus !== state.lastEyeFocus) ? state.eyeFocus : els[state.eyeK];
       state.lastEyeFocus = state.eyeFocus;
-      if (w && w !== state.lastPingEl){
+      if (w && w !== state.lastPingEl && nearSpider(w)){
         p = state.bping = {el: w, start: now};
         w.classList.add("hl-bping");
         setTimeout(() => w.classList.remove("hl-bping"), 420 / mul);
@@ -1489,7 +1498,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (state.ping && now - state.ping.start < PING_MS / mul) return;
     if (now - (state.lastPingAt || 0) < 260 / mul) return;
     const w = pickPingTarget();
-    if (!w) return;
+    if (!w || !nearSpider(w)) return;
     state.lastPingAt = now; state.lastPingEl = w;
     state.ping = {el: w, start: now};
     if (Math.random() < 0.35) setTimeout(() => fxOn(w, Math.random() < 0.5 ? "ink" : "outline"), 220 / mul);
