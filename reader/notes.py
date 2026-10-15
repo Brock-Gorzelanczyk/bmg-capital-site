@@ -14,14 +14,22 @@ from .facts import SCALE, fmt_value
 NOTE = re.compile(r"^note\s+\d+\b", re.I)
 REVENUE_TOTAL = re.compile(r"^total (?:net )?(?:sales|revenues?)$")
 # Note totals that stand on their own in a report; other "Total ..." lines need their table to be read.
-NOTE_TOTAL = re.compile(r"^total (?:(?:operating |finance )?lease costs?|property and equipment net|(?:non operating|other) income(?: expense)?(?: net)?|cash taxes paid(?: net of refunds)?|(?:long term )?debt(?: principal(?: amount)?| face value)?|face value of (?:long term )?debt)$")
+NOTE_TOTAL = re.compile(r"^total (?:(?:operating |finance )?lease costs?|property and equipment net|(?:non operating|other) income(?: expense)?(?: net)?|cash taxes paid(?: net of refunds)?|(?:long term )?debt(?: principal(?: amount)?| face value)?|face value of (?:long term )?debt)$"
+                        r"|^cash paid for (?:interest on (?:debt|borrowings|long term debt)|income taxes)\b.*$")
+
+
+def audited_note(r):
+    # A note titled "... and Supplemental Disclosures" (Amazon Note 1) is flagged supplemental by its
+    # title alone; its tables are audited notes, not pro forma or quarterly data.
+    return (r.get('scope') == 'supplemental' and re.search(r'supplemental disclosures', r['table_title'], re.I)
+            and not re.search(r'pro forma|unaudited|non-gaap|quarterly', r['table_title'] + ' ' + r.get('intro', ''), re.I))
 
 
 def observations(fb, make_signal):
     groups = defaultdict(list)
     for r in fb.rows:
         if (NOTE.match(r['table_title']) and r['statement'] == 'other'
-                and not r.get('other_registrant') and r.get('scope') not in ('affiliate', 'subsidiary', 'supplemental')
+                and not r.get('other_registrant') and (r.get('scope') not in ('affiliate', 'subsidiary', 'supplemental') or audited_note(r))
                 and r.get('pdf_page') and r.get('scale') in SCALE):
             groups[r['table_id']].append(r)
     out, seen = [], set()
@@ -203,7 +211,7 @@ def observations(fb, make_signal):
             share_count = bool(re.search(r'changes in shares|shares of common stock|number of shares', context, re.I))
             if share_count and re.search(r'^(?:common stock|(?:common )?shares?) (?:outstanding.*(?:ending|end)|repurchased|issued)', r['key']):
                 emit(r, 'shares', unit='shares', absolute='repurchased' in r['key'])
-            elif r['unit'] == 'shares' and re.search(r'weighted average (?:basic|diluted) shares', r['key']):
+            elif r['unit'] == 'shares' and re.search(r'weighted average (?:basic|diluted) shares|shares used in (?:the )?computation of (?:basic|diluted) (?:earnings|net income|net loss|loss) per share', r['key']):
                 emit(r, 'weighted_average_shares', unit='shares')
             elif r['unit'] == 'USD' and not re.search(r'income tax|deferred tax', r['table_title'] + ' ' + r['heading'], re.I) and re.fullmatch(r'(?:total )?(?:share|stock) based compensation expense', r['key']):
                 emit(r, 'stock_compensation')
