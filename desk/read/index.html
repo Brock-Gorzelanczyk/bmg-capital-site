@@ -482,6 +482,10 @@ body:is(.readerfx,.recmode) .lr-row-enter{animation:report-row-in .42s cubic-bez
 body:is(.readerfx,.recmode) .lr-c.flash{animation:report-number-pulse 1.1s ease-out}
 body:is(.readerfx,.recmode) .lr-sig.flash{animation:report-row-in .42s cubic-bezier(.2,.8,.2,1),report-number-pulse 1.1s ease-out}
 @media(prefers-reduced-motion:reduce){body:is(.readerfx,.recmode) .lr-row-enter,body:is(.readerfx,.recmode) .lr-c.flash,body:is(.readerfx,.recmode) .lr-sig.flash{animation:none}}
+/* Video branding follows the crawler; ordinary website branding stays green. */
+body.recmode .bmg-line polyline{stroke:var(--crawler-main,#6ff4ff)}
+body.recmode .bmg-line circle{fill:var(--crawler-main,#6ff4ff)}
+body.recmode #rec-end .rk-brand>span{color:#fff}
 </style>
 <!-- bmg-theme --><link rel="stylesheet" href="/assets/theme.css"><script>try{if(localStorage.getItem("bmg-theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script><script src="/assets/theme.js" defer></script>
 </head>
