@@ -39,6 +39,8 @@ svg.spider .sight{stroke:#5fe6ff;stroke-width:1.4;stroke-linecap:round}
 svg.spider .body{fill:#05070c;stroke:#3b6cff;stroke-width:2}
 svg.spider .head{fill:#4fe3ff;stroke:none}
 svg.spider .link-thread{stroke:#ff3d9a;stroke-width:1.6;stroke-linecap:round}
+/* Keep distant word links and the trailing anchor out of the crawler visual. */
+svg.spider .sight,svg.spider .link-thread,svg.spider .silk{display:none!important}
 svg.spider .leg{stroke:#5fe6ff;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 svg.spider .foot{fill:#ff3d9a;stroke:none}
 svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.85}
@@ -182,9 +184,10 @@ body.rec .rs-tabs{display:none}body.rec #pane-found{display:none!important}body.
 body.recmode .site-header,body.recmode .read-page>h1,body.recmode .read-page>.lede,body.recmode .read-form,body.recmode details.paste,body.recmode .read-privacy,body.recmode .desk-row,body.recmode #read-error,body.recmode #read-summary,body.recmode #read-stages,body.recmode #read-ctl,body.recmode .back{display:none!important}
 body.recmode main.read-page{max-width:none!important;padding:0 6px!important;margin:0!important}
 body.recmode .read-grid{display:block!important}body.recmode .stage{border:none!important}body.recmode .stage .strip{display:none!important}
-body.recmode .doc{margin-bottom:48vh!important;max-width:none!important}   /* full page width: zooming in clipped wide statement columns */
-body.recmode{--rec-h:40vh;overflow-x:hidden!important}html:has(body.recmode){overflow-x:hidden}
-body.recmode .read-side{padding:10px 16px 0!important;box-shadow:0 -8px 24px rgba(0,0,0,.18)!important;border-radius:16px 16px 0 0!important}
+body.recmode .doc{margin-bottom:36vh!important;max-width:none!important}   /* full page width: zooming in clipped wide statement columns */
+body.recmode{--rec-h:28vh;overflow-x:hidden!important}html:has(body.recmode){overflow-x:hidden}
+body.recmode .read-side{box-sizing:border-box;padding:6px 12px 0!important;box-shadow:0 -8px 24px rgba(0,0,0,.18)!important;border-radius:16px 16px 0 0!important}
+body.recmode .lr-v{font-size:15px}body.recmode .lr-t td{padding:3px 5px}body.recmode .lr h4{margin:8px 0 3px}
 body.recmode.rec-dark,body.recmode.rec-dark main.read-page,body.recmode.rec-dark .read-grid,body.recmode.rec-dark .stage,body.recmode.rec-dark .doc,body.recmode.rec-dark #doc,body.recmode.rec-dark #docbody{background:#000!important}
 body.recmode.rec-dark .pdfpage{background:#000!important;box-shadow:none!important}
 body.recmode.rec-dark .pdfpage canvas{filter:invert(1) hue-rotate(180deg) contrast(1.1)}
@@ -204,7 +207,7 @@ body.recmode.rec-dark .fx-outline{border-color:#6ff4ff!important}body.recmode.re
 body.recmode #doc-h1{display:none!important}
 body.recmode #bmg-report .rp-bar{display:none!important}
 #rec-setup #read-drop{background:#0c121a!important;color:#e8edf2!important}#rec-setup #read-drop span{color:#9aa4b1!important}#rec-setup #read-drop b{color:#e8edf2!important}
-#rec-setup{position:fixed;inset:0;z-index:3000;background:#05070c;color:#e8edf2;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:24px;font:15px/1.4 'IBM Plex Sans',sans-serif}
+#rec-setup{overflow-y:auto;justify-content:safe center;position:fixed;inset:0;z-index:3000;background:#05070c;color:#e8edf2;display:flex;flex-direction:column;gap:14px;padding:24px;font:15px/1.4 'IBM Plex Sans',sans-serif}
 #rec-setup h2{margin:0;font-size:22px}#rec-setup p{margin:0;color:#9aa4b1;font-size:13px}
 #rec-setup #read-drop{display:flex;flex-direction:column;gap:4px;border:1.5px dashed #3a4656;border-radius:10px;padding:14px;cursor:pointer;color:#e8edf2}
 #rec-setup #read-drop.has{border-color:#2fdc74}
@@ -213,17 +216,46 @@ body.recmode #bmg-report .rp-bar{display:none!important}
 #rec-start{height:46px;border:0;border-radius:10px;background:#2fdc74;color:#04130a;font-weight:700;font-size:17px;cursor:pointer}
 #rec-start:disabled{opacity:.5;cursor:default}
 .rec-back{align-self:flex-start;background:none;border:1px solid #3a4656;color:#9aa4b1;border-radius:8px;padding:6px 12px;cursor:pointer;font:13px 'IBM Plex Sans',sans-serif}
-body.recmode .sig-pop{background:rgba(8,12,20,.95);color:#f2f6fa;border:1.5px solid var(--c);border-left-width:5px;box-shadow:0 0 26px color-mix(in srgb,var(--c) 55%,transparent),0 10px 30px rgba(0,0,0,.5);font-size:14.5px;animation:recpop .55s cubic-bezier(.2,1.5,.4,1) both}
-body.recmode .sig-pop b{font-size:17px;color:#fff}body.recmode .sig-pop small{color:#8fa0b3}body.recmode .sig-pop::after{background:rgba(8,12,20,.95)}
+body.recmode .sig-pop{background:rgba(8,12,20,.95);color:#f2f6fa;border:.75px solid var(--c);border-left-width:2.5px;box-shadow:0 0 13px color-mix(in srgb,var(--c) 55%,transparent),0 10px 30px rgba(0,0,0,.5);box-sizing:border-box;padding:1.5px 2.5px;line-height:1.2;font-size:5px;border-radius:5px;animation:recpop .55s cubic-bezier(.2,1.5,.4,1) both}
+body.recmode .sig-pop b{font-size:6px;color:#fff;margin:2px 0 1px}body.recmode .sig-pop small{color:#8fa0b3;font-size:4px;margin-top:2px}body.recmode .sig-pop .sev{font-size:3.5px;padding:1px 2px}body.recmode .sig-pop::after{background:rgba(8,12,20,.95)}
 body.recmode .sig-pop.s-observation{--c:#6ff4ff}body.recmode .sig-pop.s-watch{--c:#ffb020}body.recmode .sig-pop.s-flag{--c:#ff4d6d}
 @keyframes recpop{0%{opacity:0;transform:scale(.55) translateY(10px)}100%{opacity:1;transform:none}}
 #rec-beam{position:fixed;left:0;right:0;height:2px;z-index:24;pointer-events:none;background:linear-gradient(90deg,transparent,#6ff4ff 18%,#6ff4ff 82%,transparent);box-shadow:0 0 14px 2px rgba(111,244,255,.65);opacity:.75;animation:recbeam 1.6s ease-in-out infinite}
 #rec-beam::before{content:'';position:absolute;left:0;right:0;bottom:2px;height:46px;background:linear-gradient(to top,rgba(111,244,255,.13),transparent)}
 @keyframes recbeam{0%,100%{opacity:.55}50%{opacity:.95}}
+
+/* Record palette overrides only color; the default keeps the established look. */
+body.recmode[data-rec-palette] svg.spider .leg,body.recmode[data-rec-palette] svg.spider .body,body.recmode[data-rec-palette] svg.spider .sight{stroke:var(--crawler-main)!important}
+body.recmode[data-rec-palette] svg.spider .head{fill:var(--crawler-main)!important}
+body.recmode[data-rec-palette] svg.spider .foot,body.recmode[data-rec-palette] svg.spider .knee{fill:var(--crawler-accent)!important}
+body.recmode[data-rec-palette] svg.spider .link-thread{stroke:var(--crawler-accent)!important}
+body.recmode[data-rec-palette] svg.spider .silk,body.recmode[data-rec-palette] svg.spider .mesh,body.recmode[data-rec-palette] svg.spider .thread{stroke:var(--crawler-trail)!important}
+/* Keep the reader's text effects in the selected crawler palette. */
+body.recmode[data-rec-palette] .w:is(.hl-cyan,.hl-bping,.cyanfill,.salmon,.found.org,.found.blue):not(.hl-out){background:color-mix(in srgb,var(--crawler-main) 38%,transparent)!important;box-shadow:0 0 0 1px var(--crawler-main)!important}
+body.recmode[data-rec-palette] .w:is(.hl-pink,.hl-ping,.fillbox,.found.pink):not(.hl-out){background:color-mix(in srgb,var(--crawler-accent) 38%,transparent)!important;box-shadow:0 0 0 1px var(--crawler-accent)!important}
+body.recmode[data-rec-palette] .w.hl-blue:not(.hl-out){background:color-mix(in srgb,var(--crawler-trail) 22%,transparent)!important;box-shadow:0 0 0 1px var(--crawler-trail)!important}
+body.recmode[data-rec-palette] .beam{background:color-mix(in srgb,var(--crawler-main) 28%,transparent)!important;box-shadow:none!important}
+body.recmode[data-rec-palette] :is(.fx-fill,.fx-strip){background:var(--crawler-main)!important;color:#05070c!important;box-shadow:none!important}
+body.recmode[data-rec-palette] :is(.fx-fill,.fx-strip):nth-child(2n){background:var(--crawler-accent)!important;color:#05070c!important}
+body.recmode[data-rec-palette] :is(.fx-ink,.fx-accent,.liftlbl,.w.lift){color:var(--crawler-main)!important}
+body.recmode[data-rec-palette] :is(.fx-ink,.fx-accent):nth-child(2n),body.recmode[data-rec-palette] :is(.liftlbl,.w.lift).f3{color:var(--crawler-accent)!important}
+body.recmode[data-rec-palette] .fx-outline{border-color:var(--crawler-main)!important}
+body.recmode[data-rec-palette] .fx-outline:nth-child(2n){border-color:var(--crawler-accent)!important}
+body.recmode[data-rec-palette] .w.sig-observation{--c:var(--crawler-main)}
+body.recmode[data-rec-palette] .rec-fly{background:var(--crawler-main);color:#05070c;box-shadow:0 0 16px var(--crawler-main)}
+body.recmode[data-rec-palette] .stage .fx-accent{background:var(--crawler-main)!important;color:#05070c!important;box-shadow:none!important}
+body.recmode[data-rec-palette] .stage .fx-accent:nth-child(2n){background:var(--crawler-accent)!important;color:#05070c!important}
+body.recmode[data-rec-palette] .sig-pop.s-observation,body.recmode[data-rec-palette] #rec-end .s-observation{--c:var(--crawler-main)}
+body.recmode[data-rec-palette] .sig-pop .sev.s-observation{background:var(--crawler-main);color:#05070c}
+body.recmode[data-rec-palette] #rec-hud{color:var(--crawler-main);border-color:color-mix(in srgb,var(--crawler-main) 45%,transparent);box-shadow:0 0 14px color-mix(in srgb,var(--crawler-main) 25%,transparent)}
+body.recmode[data-rec-palette] #rec-end h3,body.recmode[data-rec-palette] .rk-one h2 span{color:var(--crawler-main)}
+#rec-palette,#rec-quality,#rec-format,#rec-pace{max-width:220px;padding:7px;border:1px solid #cad2d8;border-radius:6px;background:#fff;color:#111;font:inherit}
+.rec-palette-preview{display:flex;align-items:center;gap:8px;margin:8px 0 16px;font-size:12px;color:#9aa6b1}
+.rec-palette-preview i{display:inline-block;width:16px;height:16px;border-radius:50%;background:var(--swatch);box-shadow:0 0 9px var(--swatch)}
 #rec-eye{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:25}
-#rec-hud{position:fixed;top:calc(60vh - 40px);left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;white-space:nowrap;font:600 12px 'IBM Plex Mono',monospace;color:#6ff4ff;background:rgba(0,0,0,.72);border:1px solid rgba(111,244,255,.45);border-radius:20px;padding:5px 12px;box-shadow:0 0 14px rgba(111,244,255,.25)}
+#rec-hud{position:fixed;top:calc(100vh - var(--rec-h) - 40px);left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;white-space:nowrap;font:600 12px 'IBM Plex Mono',monospace;color:#6ff4ff;background:rgba(0,0,0,.72);border:1px solid rgba(111,244,255,.45);border-radius:20px;padding:5px 12px;box-shadow:0 0 14px rgba(111,244,255,.25)}
 #rec-hud b{color:#fff;margin-right:4px}#rec-hud span{margin-left:8px}
-.rec-fly{position:fixed;z-index:45;pointer-events:none;font:700 15px 'IBM Plex Mono',monospace;color:#00202a;background:#6ff4ff;border-radius:5px;padding:1px 7px;box-shadow:0 0 16px rgba(111,244,255,.9);transition:transform .85s cubic-bezier(.55,0,.2,1),opacity .85s ease-in}
+.rec-fly{position:fixed;z-index:45;pointer-events:none;font:700 10px/1.2 'IBM Plex Mono',monospace;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;color:#00202a;background:#6ff4ff;border-radius:5px;padding:1px 4px;box-shadow:0 0 7px rgba(111,244,255,.5);transition:transform .85s cubic-bezier(.55,0,.2,1),opacity .85s ease-in}
 .rec-fly.go{opacity:.15}.rec-fly.ghost{background:#ff3da6;color:#fff;box-shadow:0 0 16px rgba(255,61,166,.9)}
 body.recmode .lr-c.flash{animation:reccell 1.3s ease}@keyframes reccell{0%{background:rgba(111,244,255,.55)}100%{background:transparent}}
 #rec-end{position:fixed;inset:0;z-index:3100;background:#05070c;color:#eef3f8;display:flex;flex-direction:column;justify-content:center;padding:26px 22px;font:15px/1.4 'IBM Plex Sans',sans-serif}
@@ -388,6 +420,77 @@ table.rs td{border-bottom:1px solid #eee;padding:6px 8px;vertical-align:top}
 table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
 .muted{color:#6b6f76}
 @media (max-width:900px){.read-grid{grid-template-columns:minmax(0,1fr)}.stage .strip{flex-wrap:wrap;height:auto;min-height:36px;row-gap:4px;padding-top:4px;padding-bottom:4px}.stage .strip .status{white-space:normal;overflow:visible}.read-side{position:static;max-height:none}.read-form{grid-template-columns:1fr}}
+
+/* Shared reader appearance, independent of recording layout. */
+body.readerfx.rec-dark .pdfpage{background:#000!important;box-shadow:none!important}
+body.readerfx.rec-dark .pdfpage canvas{filter:invert(1) hue-rotate(180deg) contrast(1.1)}
+body.readerfx.rec-dark svg.spider .leg{stroke:#6ff4ff!important;stroke-width:2.6!important}
+body.readerfx.rec-dark svg.spider .foot,body.readerfx.rec-dark svg.spider .knee{fill:#ff3da6!important}
+body.readerfx.rec-dark svg.spider .body{stroke:#6ff4ff!important}body.readerfx.rec-dark svg.spider .mesh{stroke:#9fb4ff!important}
+body.readerfx.rec-dark .beam{background:rgba(39,200,255,.28)!important;color:transparent!important;box-shadow:none!important}
+body.readerfx.rec-dark .pdftext .w.salmon,body.readerfx.rec-dark .pdftext .w.found.org{background:rgba(39,200,255,.38)!important}
+body.readerfx.rec-dark .stage,body.readerfx.rec-dark .doc,body.readerfx.rec-dark #doc{--page:#000}
+body.readerfx.rec-dark .stage .liftlbl{background:rgba(0,0,0,.88)!important}
+body.readerfx.rec-dark .stage .liftlbl.f1,body.readerfx.rec-dark .stage .liftlbl.f2{color:#6ff4ff!important}body.readerfx.rec-dark .stage .liftlbl.f3{color:#ff5cc0!important}
+body.readerfx.rec-dark .fx-fill,body.readerfx.rec-dark .fx-strip{background:rgba(39,200,255,.88)!important;color:#00202a!important;box-shadow:none!important}
+body.readerfx.rec-dark .fx-fill:nth-child(2n),body.readerfx.rec-dark .fx-strip:nth-child(2n){background:rgba(255,61,166,.88)!important;color:#fff!important}
+body.readerfx.rec-dark .fx-ink,body.readerfx.rec-dark .fx-accent{color:#6ff4ff!important;box-shadow:none!important}
+body.readerfx.rec-dark .fx-ink:nth-child(2n),body.readerfx.rec-dark .fx-accent:nth-child(2n){color:#ff5cc0!important}
+body.readerfx.rec-dark .fx-outline{border-color:#6ff4ff!important}body.readerfx.rec-dark .fx-outline:nth-child(2n){border-color:#ff5cc0!important}
+body.readerfx .sig-pop{background:rgba(8,12,20,.95);color:#f2f6fa;border:.75px solid var(--c);border-left-width:2.5px;box-shadow:0 0 13px color-mix(in srgb,var(--c) 55%,transparent),0 10px 30px rgba(0,0,0,.5);box-sizing:border-box;padding:1.5px 2.5px;line-height:1.2;font-size:5px;border-radius:5px;animation:recpop .55s cubic-bezier(.2,1.5,.4,1) both}
+body.readerfx .sig-pop b{font-size:6px;color:#fff;margin:2px 0 1px}body.readerfx .sig-pop small{color:#8fa0b3;font-size:4px;margin-top:2px}body.readerfx .sig-pop .sev{font-size:3.5px;padding:1px 2px}body.readerfx .sig-pop::after{background:rgba(8,12,20,.95)}
+body.readerfx .sig-pop.s-observation{--c:#6ff4ff}body.readerfx .sig-pop.s-watch{--c:#ffb020}body.readerfx .sig-pop.s-flag{--c:#ff4d6d}
+body.readerfx[data-rec-palette] svg.spider .leg,body.readerfx[data-rec-palette] svg.spider .body,body.readerfx[data-rec-palette] svg.spider .sight{stroke:var(--crawler-main)!important}
+body.readerfx[data-rec-palette] svg.spider .head{fill:var(--crawler-main)!important}
+body.readerfx[data-rec-palette] svg.spider .foot,body.readerfx[data-rec-palette] svg.spider .knee{fill:var(--crawler-accent)!important}
+body.readerfx[data-rec-palette] svg.spider .link-thread{stroke:var(--crawler-accent)!important}
+body.readerfx[data-rec-palette] svg.spider .silk,body.readerfx[data-rec-palette] svg.spider .mesh,body.readerfx[data-rec-palette] svg.spider .thread{stroke:var(--crawler-trail)!important}
+body.readerfx[data-rec-palette] .w:is(.hl-cyan,.hl-bping,.cyanfill,.salmon,.found.org,.found.blue):not(.hl-out){background:color-mix(in srgb,var(--crawler-main) 38%,transparent)!important;box-shadow:0 0 0 1px var(--crawler-main)!important}
+body.readerfx[data-rec-palette] .w:is(.hl-pink,.hl-ping,.fillbox,.found.pink):not(.hl-out){background:color-mix(in srgb,var(--crawler-accent) 38%,transparent)!important;box-shadow:0 0 0 1px var(--crawler-accent)!important}
+body.readerfx[data-rec-palette] .w.hl-blue:not(.hl-out){background:color-mix(in srgb,var(--crawler-trail) 22%,transparent)!important;box-shadow:0 0 0 1px var(--crawler-trail)!important}
+body.readerfx[data-rec-palette] .beam{background:color-mix(in srgb,var(--crawler-main) 28%,transparent)!important;box-shadow:none!important}
+body.readerfx[data-rec-palette] :is(.fx-fill,.fx-strip){background:var(--crawler-main)!important;color:#05070c!important;box-shadow:none!important}
+body.readerfx[data-rec-palette] :is(.fx-fill,.fx-strip):nth-child(2n){background:var(--crawler-accent)!important;color:#05070c!important}
+body.readerfx[data-rec-palette] :is(.fx-ink,.fx-accent,.liftlbl,.w.lift){color:var(--crawler-main)!important}
+body.readerfx[data-rec-palette] :is(.fx-ink,.fx-accent):nth-child(2n),body.readerfx[data-rec-palette] :is(.liftlbl,.w.lift).f3{color:var(--crawler-accent)!important}
+body.readerfx[data-rec-palette] .fx-outline{border-color:var(--crawler-main)!important}
+body.readerfx[data-rec-palette] .fx-outline:nth-child(2n){border-color:var(--crawler-accent)!important}
+body.readerfx[data-rec-palette] .w.sig-observation{--c:var(--crawler-main)}
+body.readerfx[data-rec-palette] .rec-fly{background:var(--crawler-main);color:#05070c;box-shadow:0 0 16px var(--crawler-main)}
+body.readerfx[data-rec-palette] .stage .fx-accent{background:var(--crawler-main)!important;color:#05070c!important;box-shadow:none!important}
+body.readerfx[data-rec-palette] .stage .fx-accent:nth-child(2n){background:var(--crawler-accent)!important;color:#05070c!important}
+body.readerfx[data-rec-palette] .sig-pop.s-observation,body.readerfx[data-rec-palette] #rec-end .s-observation{--c:var(--crawler-main)}
+body.readerfx[data-rec-palette] .sig-pop .sev.s-observation{background:var(--crawler-main);color:#05070c}
+body.readerfx[data-rec-palette] #rec-hud{color:var(--crawler-main);border-color:color-mix(in srgb,var(--crawler-main) 45%,transparent);box-shadow:0 0 14px color-mix(in srgb,var(--crawler-main) 25%,transparent)}
+body.readerfx[data-rec-palette] #rec-end h3,body.readerfx[data-rec-palette] .rk-one h2 span{color:var(--crawler-main)}
+body.readerfx.rec-dark .stage,body.readerfx.rec-dark #doc,body.readerfx.rec-dark #docbody{background:#000!important}
+body.readerfx .sig-pop span:not(.sev),body.recmode .sig-pop span:not(.sev){color:#cbd5e1}
+#reader-appearance{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:12px 0 18px;padding:12px;border:1px solid #d7ddd9;border-radius:9px;font:14px 'IBM Plex Sans',sans-serif}
+#reader-appearance .opt{display:flex;align-items:center;gap:8px}#reader-appearance .rec-palette-preview{margin:0;color:#65716b}
+body.readerfx .lr-v{font-size:15px}body.readerfx .lr-t td{padding:3px 5px}
+@media(max-width:900px){body.readerfx .read-side{max-height:28vh!important;box-sizing:border-box}body.readerfx .read-side.collapsed{max-height:44px!important}body.readerfx .read-grid{padding-bottom:30vh}}
+
+#rec-end .rk-one h2,#rec-end .rk-one h2 span{color:#fff!important}
+/* Touched-word outlines have their own palette, separate from highlight fills. */
+body.recmode[data-rec-palette] .stage,body.readerfx[data-rec-palette] .stage{--t1:var(--crawler-main);--t2:var(--crawler-accent);--t3:var(--crawler-main);--t4:var(--crawler-accent);--t5:var(--crawler-main)}
+/* Observation styling follows the crawler in popups, both report tabs and ending cards. */
+body:is(.readerfx,.recmode) .s-observation{--c:var(--crawler-main,#6ff4ff)!important}
+body:is(.readerfx,.recmode) .sev.s-observation{background:var(--crawler-main,#6ff4ff)!important;color:#05070c!important}
+body:is(.readerfx,.recmode) :is(.lr-sig,.sg).s-observation:focus-visible{outline-color:var(--crawler-main,#6ff4ff)}
+/* Fresh report findings move once, then settle into readable rows. */
+@keyframes report-row-in{from{opacity:.35;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes report-number-pulse{0%{background:color-mix(in srgb,var(--crawler-main,#6ff4ff) 42%,white);box-shadow:0 0 12px color-mix(in srgb,var(--crawler-main,#6ff4ff) 35%,transparent)}100%{background:transparent;box-shadow:none}}
+body:is(.readerfx,.recmode) .lr-row-enter{animation:report-row-in .42s cubic-bezier(.2,.8,.2,1)}
+body:is(.readerfx,.recmode) .lr-c.flash{animation:report-number-pulse 1.1s ease-out}
+body:is(.readerfx,.recmode) .lr-sig.flash{animation:report-row-in .42s cubic-bezier(.2,.8,.2,1),report-number-pulse 1.1s ease-out}
+@media(prefers-reduced-motion:reduce){body:is(.readerfx,.recmode) .lr-row-enter,body:is(.readerfx,.recmode) .lr-c.flash,body:is(.readerfx,.recmode) .lr-sig.flash{animation:none}}
+/* Video branding follows the crawler; ordinary website branding stays green. */
+body.recmode .bmg-line polyline{stroke:var(--crawler-main,#6ff4ff)}
+body.recmode .bmg-line circle{fill:var(--crawler-main,#6ff4ff)}
+body.recmode #rec-end .rk-brand>span{color:#fff}
+@keyframes highlight-ending-in{from{opacity:0}to{opacity:1}}
+.rec-highlight-ending{animation:highlight-ending-in .4s ease-out}
+@media(prefers-reduced-motion:reduce){.rec-highlight-ending{animation:none}}
 </style>
 <!-- bmg-theme --><link rel="stylesheet" href="/assets/theme.css"><script>try{if(localStorage.getItem("bmg-theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script><script src="/assets/theme.js" defer></script>
 </head>
@@ -745,7 +848,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       const pts = solveLeg(i, hip, f, sx, sy);
       L.poly.style.display = L.foot.style.display = L.knee.style.display = L.ankle.style.display = "";
       L.poly.setAttribute("points", pts.map(q => `${clampN(q.x)},${clampN(q.y)}`).join(" "));
-      L.foot.setAttribute("cx", clampN(f.x)); L.foot.setAttribute("cy", clampN(f.y));
+      L.foot.setAttribute("cx", clampN(pts[3].x)); L.foot.setAttribute("cy", clampN(pts[3].y));
       L.knee.setAttribute("cx", clampN(pts[1].x)); L.knee.setAttribute("cy", clampN(pts[1].y));
       L.ankle.setAttribute("cx", clampN(pts[2].x)); L.ankle.setAttribute("cy", clampN(pts[2].y));
       if (DEBUG) L.foot.style.fill = state.legAnim[i] ? "#ff9f1c" : "#3ddc84";
@@ -779,8 +882,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       if (Math.hypot(j[3].x - foot.x, j[3].y - foot.y) < 0.3) break;
     }
     state.legJ[i] = j;
-    // The foot drawn where it is planted (an out-of-reach foot triggers a step).
-    return [j[0], j[1], j[2], {x: foot.x, y: foot.y}];
+    // Keep all three segments rigid even while an unreachable planted foot catches up.
+    return j;
   }
 
   const SCROLL_SPEED = 140;   // px per second at 1x, matched to the clip (lines per second)
@@ -796,7 +899,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     const before = state.sy;
     // Ease the boost in and out (~0.4 s) so speed changes are smooth.
     state.boost = (state.boost || 1) + ((state.boostTarget || 1) - (state.boost || 1)) * Math.min(1, dt * 1.6);
-    state.scrollPos += SCROLL_SPEED * U * (state.speedMul || 1) * state.boost * dt;
+    if (state.recordCamera) state.scrollPos = state.recordCamera(dt);
+    else state.scrollPos += SCROLL_SPEED * U * (state.speedMul || 1) * state.boost * dt;
     let maxS = Math.max(0, docGeo().sh - innerHeight);
     if (state.scrollPos > maxS){ geo = null; maxS = Math.max(0, docGeo().sh - innerHeight); }   // page grew since it was measured
     state.scrollPos = Math.min(state.scrollPos, maxS);
@@ -814,7 +918,9 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   }
   addEventListener("wheel", () => { state.userScrolledAt = performance.now(); }, {passive: true});
   addEventListener("touchmove", () => { state.userScrolledAt = performance.now(); }, {passive: true});
+  const DECORATIVE_TEXT_EFFECTS = false;
   function drawEye(){
+    if (!DECORATIVE_TEXT_EFFECTS) return;
     // The eye's blue line pings like the pink one (reference clip): it
     // shoots from the head to a word on the line ahead, the word flashes
     // blue in place, the line fades, then it jumps to the next word. It
@@ -825,7 +931,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     }
     if (!state.sightEl.isConnected) spiderSvg.appendChild(state.sightEl);
     const now = performance.now();
-    const mul = (state.speedMul || 1) * Math.sqrt(state.boost || 1);
+    const mul = state.recordEffectTempo || ((state.speedMul || 1) * Math.sqrt(state.boost || 1));
     let p = state.bping;
     if (rows && rows.length && (!p || now - p.start > 300 / mul) && now - (state.lastPingAt || 0) > 110 / mul){
       const ri = Math.min(rows.length - 1, (state.walkState.lineIdx || 0) + 1 + Math.floor(Math.random() * 2));
@@ -1250,6 +1356,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   addEventListener("resize", () => { requestAnimationFrame(() => (state.fx || []).forEach(fxPlace)); });
   function fxCount(kind){ return state.fx.filter(o => o.kind === kind).length; }
   function fxOn(cand, kind){
+    if (!DECORATIVE_TEXT_EFFECTS) return;
     // cand: {els, text, score} or a single word element
     if (cand && cand.nodeType === 1) cand = {els: [cand], text: cand.textContent.trim(), score: 1};
     if (!cand || !cand.els.length || !cand.els[0].isConnected) return;
@@ -1304,10 +1411,11 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   function easeOutBack(t){ const c = 1.9; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); }
   function fxStyle(o){
     // per-frame transform: 150-250 ms activation with a slight overshoot
-    const act = 200, t = Math.min(1, o.age / act);
+    const act = state.recordEffectTempo ? 450 : 200, t = Math.min(1, o.age / act);
+    const activation = state.recordEffectTempo ? t * t * (3 - 2 * t) : easeOutBack(t);
     let sc = 1, rot = 0, op = 1;
     if (o.kind === "accent"){
-      if (o.age < o.hold) sc = 0.7 + (o.target - 0.7) * easeOutBack(t);
+      if (o.age < o.hold) sc = 0.7 + (o.target - 0.7) * activation;
       else {
         const u = Math.min(1, (o.age - o.hold) / 350);
         sc = o.target + (1 - o.target) * (u * u * (3 - 2 * u));
@@ -1318,11 +1426,11 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
         }
       }
     } else if (o.kind === "strip"){
-      sc = 0.85 + 0.3 * easeOutBack(t);
+      sc = 0.85 + 0.3 * activation;
       const u = Math.min(1, Math.max(0, (o.age - 120) / 1600));
       rot = o.angle * (u * u * (3 - 2 * u));
     } else if (o.kind === "fill"){
-      sc = 0.85 + 0.2 * easeOutBack(t);
+      sc = 0.85 + 0.2 * activation;
     } else {
       op = t;
     }
@@ -1342,9 +1450,10 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   function fxTick(now, dt){
     const ms = dt * 1000;
     state.fx = state.fx.filter(o => { o.age += ms; if (o.age >= o.ttl){ fxOff(o); return false; } fxStyle(o); return true; });
+    if (!DECORATIVE_TEXT_EFFECTS) return;
     const rows = state.rows;
     if (!rows || !rows.length) return;
-    const mul = (state.speedMul || 1) * Math.sqrt(state.boost || 1);
+    const mul = state.recordEffectTempo || ((state.speedMul || 1) * Math.sqrt(state.boost || 1));
     const lh = 14 * U, by = state.body.y;
     // rows around and ahead of the spider
     let lo = 0, hi = rows.length;
@@ -1375,7 +1484,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     }
   }
   function maybePing(now){
-    const mul = (state.speedMul || 1) * Math.sqrt(state.boost || 1);
+    if (!DECORATIVE_TEXT_EFFECTS) return;
+    const mul = state.recordEffectTempo || ((state.speedMul || 1) * Math.sqrt(state.boost || 1));
     if (state.ping && now - state.ping.start < PING_MS / mul) return;
     if (now - (state.lastPingAt || 0) < 260 / mul) return;
     const w = pickPingTarget();
@@ -1393,7 +1503,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       spiderSvg.appendChild(l);
     }
     const p = state.ping;
-    const mul = (state.speedMul || 1) * Math.sqrt(state.boost || 1);
+    const mul = state.recordEffectTempo || ((state.speedMul || 1) * Math.sqrt(state.boost || 1));
     const now = performance.now();
     if (!p || !p.el.isConnected || now - p.start > PING_MS / mul){ l.style.display = "none"; return; }
     const t = (now - p.start) / (PING_MS / mul);
@@ -1697,7 +1807,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       for (let k = 1; k < rs.length; k++){ const g = rs[k].y - rs[k - 1].y; if (g > 6 && g < 60) gaps.push(g); }
       gaps.sort((a, b) => a - b);
       const lh = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 14;
-      U = Math.max(0.8, Math.min(2.2, lh / 14));
+      U = 0.9 * Math.max(0.8, Math.min(2.2, lh / 14));
     }
     plantInitialFeet();
     window.scrollTo({top: Math.max(0, dRect.top + window.scrollY - 60), behavior: "smooth"});
@@ -1851,6 +1961,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     return out;
   }
   function highlightRun(words, color){
+    if (!DECORATIVE_TEXT_EFFECTS) return;
     // Highlight the words where they sit on the page; nothing is copied
     // or moved. Fades after ~4 s.
     const cls = "hl-" + color;
@@ -2233,7 +2344,6 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     state.readFound = state.panelIds.size;
     countEl.textContent = `${state.readFound} of ${state.readTotal} shown`;
     if (state.live && el) applyLive(state.live.revealFinding(f.id));      // only findings the walk reached
-    if (state.recFly && el) state.recFly(f, el);                           // record mode: the number flies into the report
   }
 
   state.onRow = (els) => {
@@ -2315,7 +2425,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (vr.bottom < 40 || vr.top > innerHeight - 20) return;     // passed during a jump: listed, not popped
     // the callout sits beside the figure, in document space, so it scrolls with the page
     // Above the figure, over lines already read, with a pointer down to it.
-    const c = docSpaceCenter(el), W = doc.clientWidth || 800, w = Math.min(310, W - 24);
+    const c = docSpaceCenter(el), W = doc.clientWidth || 800, w = Math.min((document.body.classList.contains("recmode") || document.body.classList.contains("readerfx")) ? 57.5 : 310, W - 24);
     const left = Math.max(8, Math.min(W - w - 8, c.x - w * 0.62));
     const box = document.createElement("div");
     box.className = "sig-pop s-" + sg.severity;
@@ -2329,7 +2439,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (er.y - hh - 14 < 0){ box.style.top = (er.y + er.h + 14) + "px"; box.classList.add("below"); }
     state.pops = (state.pops || []).filter(x => x.isConnected);
     state.pops.push(box);
-    while (state.pops.length > 2){ const old = state.pops.shift(); old.classList.add("out"); setTimeout(() => old.remove(), 400); }
+    while (state.pops.length > ((document.body.classList.contains("recmode") || document.body.classList.contains("readerfx")) ? 1 : 2)){ const old = state.pops.shift(); old.classList.add("out"); setTimeout(() => old.remove(), 400); }
     const life = 6500 / Math.max(0.5, state.speedMul || 1);
     setTimeout(() => { box.classList.add("out"); setTimeout(() => box.remove(), 450); }, REDUCED ? 9000 : life);
   }
@@ -2353,9 +2463,9 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (!L || typeof LiveReportModel === "undefined"){ liveEl.innerHTML = `<p class="muted">The live report is not available for this result.</p>`; return; }
     state.live = new LiveReportModel(L);
     const co = rep.company || {};
+    followAnim++; reportReviewIndex = 0; reportNextReview = performance.now() + 1600;
     liveEl.innerHTML = `<div class="lr-top"><header class="lr-head"><div class="lr-brand">BMG Capital <span>report</span>${BMG_LINE}</div>
-        <div class="lr-co"><b>${esc(co.name || "")}</b> ${esc([co.ticker, co.form, co.period].filter(Boolean).join(" · "))}</div>
-        <div class="lr-basis" title="${esc(L.basis)}">Replay of completed analysis</div></header>
+        <div class="lr-co" title="${esc([co.period, L.basis].filter(Boolean).join(" · "))}"><b>${esc(co.name || "")}</b> ${esc([co.ticker, co.form].filter(Boolean).join(" · "))}</div></header>
       <div class="lr-prog" id="lr-prog" aria-live="polite"></div></div>
       ${L.sections.map(s => `<section class="lr-sec" data-sec="${s.id}"><h4>${esc(s.title)}</h4><table class="lr-t"><thead><tr><th></th>${((s.rows[0] || {}).cells || []).map(c => `<th>${esc(L.cells[c].period || "")}</th>`).join("")}</tr></thead>
         <tbody>${s.rows.map(r => `<tr><td>${esc(r.label)}</td>${r.cells.map(c => `<td class="lr-c" data-cell="${esc(c)}"><span class="ph" aria-label="not read yet">···</span></td>`).join("")}</tr>`).join("")}</tbody></table></section>`).join("")}
@@ -2379,40 +2489,64 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
         ol.appendChild(li);
         const ph = document.getElementById("lr-sigs-ph");
         if (ph){ const left = state.live.plan.signals.length - ol.children.length; ph.textContent = left > 0 ? `${left} pending` : ""; ph.hidden = !left; }
-        liveFollow(ph && !ph.hidden ? ph : li);      // keep the last line fully in view
+        liveFollow(li);      // keep the last line fully in view
         setTimeout(() => li.classList.remove("flash"), 1400);
         continue;
       }
       const td = liveEl.querySelector(`[data-cell="${CSS.escape(ch.id)}"]`);
       if (!td) continue;
       td.innerHTML = liveCellHTML(ch.id, ch);
+      const row = td.closest("tr");
+      if (ch.via === "walk" && row && !row.dataset.arrived){
+        row.dataset.arrived = "1"; row.classList.add("lr-row-enter");
+        setTimeout(() => row.classList.remove("lr-row-enter"), 450);
+      }
       liveFollow(td);
+      if (ch.op === "show" && ch.state !== "withdrawn" && state.recTransfer) state.recTransfer(ch, td);
       td.classList.toggle("is-w", ch.state === "withdrawn");
       td.classList.add("flash"); setTimeout(() => td.classList.remove("flash"), 1400);
     }
     liveProgress();
   }
-  // recording layout: the panel is shorter than the report, so it glides to each new figure
-  let followAnim = 0;
-  function liveFollow(el){
-    if (!document.body.classList.contains("rec") || !liveEl) return;
-    const box = liveEl.getBoundingClientRect(), r = el.getBoundingClientRect();
+  // Follow fresh evidence inside the report only; leave the document camera alone.
+  let followAnim = 0, followHoldUntil = 0, reportLastFinding = 0, reportNextReview = 0, reportReviewIndex = 0;
+  const reportSide = document.querySelector(".read-side");
+  if (reportSide) for (const event of ["wheel", "touchstart", "keydown"]){
+    reportSide.addEventListener(event, () => { followHoldUntil = performance.now() + 5000; followAnim++; }, {passive:true});
+  }
+  function liveFollow(el, reviewing = false){
+    if (!reviewing){ reportLastFinding = performance.now(); reportNextReview = reportLastFinding + 1600; }
+    if (!liveEl || performance.now() < followHoldUntil || liveEl.hidden) return;
+    const scroller = document.body.classList.contains("rec") ? liveEl : reportSide;
+    if (!scroller || !scroller.clientHeight || scroller.scrollHeight <= scroller.clientHeight) return;
+    const box = scroller.getBoundingClientRect(), r = el.getBoundingClientRect();
     const top = liveEl.querySelector(".lr-top"), head = top ? top.offsetHeight : 0;
-    const pad = 28, from = liveEl.scrollTop;
-    let to = from;
-    if (r.bottom > box.bottom - pad) to = from + (r.bottom - box.bottom) + pad;
-    else if (r.top < box.top + head + pad) to = Math.max(0, from - (box.top + head + pad - r.top));
-    if (Math.abs(to - from) < 2) return;
-    if (REDUCED){ liveEl.scrollTop = to; return; }
-    const id = ++followAnim, t0 = performance.now(), dur = 420;
+    const pad = 16, from = scroller.scrollTop;
+    const center = box.top + head + (box.height - head) * .5;
+    const to = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, from + (r.top + r.height / 2 - center)));
+    if (Math.abs(to - from) < 3) return;
+    if (REDUCED){ scroller.scrollTop = to; return; }
+    const id = ++followAnim, t0 = performance.now(), dur = reviewing ? 1000 : 420;
     const step = now => {
-      if (id !== followAnim) return;
-      const k = Math.min(1, (now - t0) / dur), e = k < .5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
-      liveEl.scrollTop = from + (to - from) * e;
+      if (id !== followAnim || !el.isConnected) return;
+      const k = Math.min(1, (now - t0) / dur), e = 1 - (1 - k) ** 3;
+      scroller.scrollTop = from + (to - from) * e;
       if (k < 1) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
   }
+  // During quiet source stretches, review only figures already revealed in the report.
+  setInterval(() => {
+    const now = performance.now();
+    if (REDUCED || !walking() || state.paused || !liveEl || liveEl.hidden ||
+        document.getElementById("rec-end") || now < followHoldUntil || now < reportNextReview) return;
+    const items = [...liveEl.querySelectorAll("tr")].filter(row => row.querySelector(".lr-v"));
+    items.push(...liveEl.querySelectorAll(".lr-sig"));
+    if (items.length < 2) return;
+    const next = items[reportReviewIndex++ % items.length];
+    reportNextReview = now + 1800;
+    liveFollow(next, true);
+  }, 200);
   function liveProgress(final){
     if (!state.live) return;
     const c = state.live.counts();
@@ -2452,11 +2586,20 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       const h = Math.min(960, (screen.availHeight || 900) - 60), w = Math.round(h * 9 / 16);
       window.open("/desk/read/?layout=record&mode=rec", "bmg-record", `popup=yes,width=${w},height=${h}`);
     });
-    if (!/[?&]mode=rec\b/.test(location.search)) return;
+    const isRecord = /[?&]mode=rec\b/.test(location.search);
     const B = document.body;
-    B.classList.add("rec", "recmode", "rec-dark");
-    window.READER_VIEW_FRAC = 0.6;                    // the bottom 40% is the live report panel
+    if (isRecord) B.classList.add("rec", "recmode", "rec-dark");
+    else B.classList.add("readerfx", "rec-dark");
+    if (isRecord) window.READER_VIEW_FRAC = 0.6;                    // the bottom 40% is the live report panel
     const leave = () => { if (window.opener && !window.opener.closed){ window.close(); } location.href = "/desk/read/"; };
+    const palettes = {
+      default: {name: "Original cyan + pink (default)", main: "#6ff4ff", accent: "#ff3da6", trail: "#9fb4ff"},
+      electric: {name: "Electric violet", main: "#bd8cff", accent: "#58f7ff", trail: "#edb7ff"},
+      acid: {name: "Acid lime", main: "#b7ff3c", accent: "#ff63d8", trail: "#67ffd2"},
+      sunset: {name: "Neon sunset", main: "#ffae45", accent: "#ff4f8b", trail: "#d08cff"},
+      arctic: {name: "Arctic blue", main: "#65baff", accent: "#e9fbff", trail: "#78ffdc"},
+      laser: {name: "Laser red", main: "#ff5c6b", accent: "#ffe45c", trail: "#ff9fce"}
+    };
     const canRecord = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.MediaRecorder);
     const setup = document.createElement("div");
     setup.id = "rec-setup";
@@ -2464,22 +2607,63 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       <h2>Record mode</h2>
       <p>Choose a 10-K or 10-Q PDF and press Start. ${canRecord ? "With “Record this window” on, Chrome asks you to share this tab, and the finished clip downloads at the end." : "Use your Mac's screen recorder (Shift-Command-5, Record Selected Portion) on this window."}</p>
       <div id="rec-file-slot"></div>
+      <label class="opt">Clip format <select id="rec-format"><option value="highlights" selected>40-second continuous highlights</option><option value="custom">Custom length</option></select></label>
+      <label class="opt">Highlight pace <select id="rec-pace"><option value="1.6" selected>Fast · faster crawler, steady highlights</option><option value="1">Brisk · focus on statements</option></select></label>
+      <p>Highlights: 2-second opening, 33 seconds through statement findings, 5-second ending. Continuous scrolling, with more time around real figures.</p>
       <label class="opt">Jump to the ending after <span><input type="number" id="rec-finish" min="5" max="600" value="115"> s</span></label>
       <label class="opt">Key findings held on screen <span><input type="number" id="rec-keys" min="0" max="30" value="4"> s</span></label>
       <label class="opt">One-page summary on screen <span><input type="number" id="rec-one" min="0" max="30" value="5"> s</span></label>
+      <label class="opt">Crawler colors <select id="rec-palette">${Object.entries(palettes).map(([id, p]) => `<option value="${id}">${p.name}</option>`).join("")}</select></label>
+      <div class="rec-palette-preview" id="rec-palette-preview" aria-label="Crawler color preview"></div>
       <label class="opt">Dark page <input type="checkbox" id="rec-dark" checked></label>
+      ${canRecord ? `<label class="opt">Video quality <select id="rec-quality"><option value="high" selected>High Quality · 1080 × 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label><p>High Quality requests portrait Full HD at 24 Mbps. Chrome may supply a lower resolution or frame rate. Actual capture details appear with the download.</p>` : ""}
       ${canRecord ? `<label class="opt">Record this window (downloads a video) <input type="checkbox" id="rec-capture" checked></label>` : ""}
       <button id="rec-start" type="button" disabled>Start</button>
-      <p>Space pauses. Esc leaves record mode. The clip starts when the black screen lifts on the first financial statement.</p>`;
-    B.appendChild(setup);
-    setup.querySelector("#rec-back").addEventListener("click", leave);
-    const drop = document.getElementById("read-drop");
-    setup.querySelector("#rec-file-slot").appendChild(drop);            // the reader's own file picker
+      <p>Space pauses. Esc leaves record mode. Highlight clips include a two-second logo opening. Custom clips start when the black screen lifts on the first financial statement.</p>`;
     const fileIn = document.getElementById("read-file"), startBtn = setup.querySelector("#rec-start");
-    fileIn.addEventListener("change", () => { startBtn.disabled = !fileIn.files[0]; });
-    drop.addEventListener("drop", () => setTimeout(() => { startBtn.disabled = !(fileIn.files[0] || drop.classList.contains("has")); }, 0));
+    if (isRecord){
+      B.appendChild(setup);
+      setup.querySelector("#rec-back").addEventListener("click", leave);
+      const drop = document.getElementById("read-drop");
+      setup.querySelector("#rec-file-slot").appendChild(drop);
+      fileIn.addEventListener("change", () => { startBtn.disabled = !fileIn.files[0]; });
+      drop.addEventListener("drop", () => setTimeout(() => { startBtn.disabled = !(fileIn.files[0] || drop.classList.contains("has")); }, 0));
+    } else {
+      const colors = setup.querySelector("#rec-palette").closest("label");
+      const preview = setup.querySelector("#rec-palette-preview");
+      const dark = setup.querySelector("#rec-dark").closest("label");
+      setup.replaceChildren(colors, preview, dark);
+      setup.id = "reader-appearance";
+      document.querySelector(".read-form").after(setup);
+    }
+    if (isRecord){
+      const format = setup.querySelector("#rec-format");
+      const syncFormat = () => {
+        const highlights = format.value === "highlights";
+        setup.querySelector("#rec-pace").disabled = !highlights;
+        for (const [id, value] of [["rec-finish",33],["rec-keys",3],["rec-one",2]]){
+          const input = setup.querySelector("#" + id);
+          input.disabled = highlights;
+          input.value = highlights ? value : {"rec-finish":115,"rec-keys":4,"rec-one":5}[id];
+        }
+      };
+      format.addEventListener("change", syncFormat); syncFormat();
+    }
+    const palettePicker = setup.querySelector("#rec-palette");
+    const applyPalette = () => {
+      const p = palettes[palettePicker.value] || palettes.default;
+      if (palettePicker.value === "default") delete B.dataset.recPalette;
+      else B.dataset.recPalette = palettePicker.value;
+      for (const [key, value] of Object.entries({main: p.main, accent: p.accent, trail: p.trail})){
+        B.style.setProperty(`--crawler-${key}`, value);
+      }
+      setup.querySelector("#rec-palette-preview").innerHTML =
+        `<i style="--swatch:${p.main}"></i><i style="--swatch:${p.accent}"></i><i style="--swatch:${p.trail}"></i><span>Body + legs · joints · trails</span>`;
+    };
+    palettePicker.addEventListener("change", applyPalette);
+    applyPalette();
     setup.querySelector("#rec-dark").addEventListener("change", e => B.classList.toggle("rec-dark", e.target.checked));
-    addEventListener("keydown", e => {
+    if (isRecord) addEventListener("keydown", e => {
       if (e.key === "Escape") leave();
       if (e.key === " " && !setup.isConnected){ e.preventDefault(); const p = document.getElementById("ctl-pause"); if (p) p.click(); }
     });
@@ -2501,52 +2685,90 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     };
     popSignal = (sg, el) => { popQ.push([sg, el]); pump(); };
 
-    // -- a found number flies from the page into its cell in the report panel
-    let flying = 0;
-    state.recFly = (f, el) => {
-      if (!f || !f.value || f.group !== "Financials" || flying > 4 || !el || !el.isConnected) return;
-      const td = liveEl && f.ref ? liveEl.querySelector(`[data-cell="${CSS.escape(f.ref)}"]`) : null;
-      const a = el.getBoundingClientRect();
-      if (a.bottom < 0 || a.top > innerHeight) return;
-      const chip = document.createElement("div");
-      chip.className = "rec-fly" + (td ? "" : " ghost");
-      chip.textContent = f.value;
-      chip.style.left = a.left + "px"; chip.style.top = (a.top - 2) + "px";
-      B.appendChild(chip); flying++;
-      const b = td ? td.getBoundingClientRect() : {left: a.left, top: a.top - 60, width: 0};
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        chip.style.transform = `translate(${(b.left + (b.width || 0) / 2) - (a.left + chip.offsetWidth / 2)}px, ${b.top - a.top}px) scale(${td ? .85 : 1.15})`;
-        chip.classList.add("go");
-      }));
-      setTimeout(() => { chip.remove(); flying--; }, 1000);
+    // Every newly shown report cell gets a transfer; bursts queue instead of dropping.
+    const transferQ = []; let transferTimer = null;
+    function pumpTransfers(){
+      transferTimer = null;
+      const item = transferQ.shift();
+      if (!item) return;
+      const {ch, td} = item;
+      if (td.isConnected){
+        const cell = state.live.plan.cells[ch.id];
+        const fact = (cell && cell.requires || []).map(id => state.live.plan.fact_to_finding[id]).find(Boolean);
+        const source = (state.readRes.findings || []).find(f => f.id === fact);
+        const r = source && source._el && source._el.isConnected ? source._el.getBoundingClientRect() : null;
+        const stage = document.getElementById("read-stage") || doc;
+        const sr = stage.getBoundingClientRect();
+        const panel = (document.querySelector(".read-side") || liveEl).getBoundingClientRect(), target = td.getBoundingClientRect();
+        const visibleSource = r && r.top >= 0 && r.bottom < panel.top;
+        // Off-screen/derived figures start at the crawler, never at a false source word.
+        const body = spiderSvg.querySelector("rect.body");
+        const br = body && body.getBoundingClientRect();
+        const x = visibleSource ? r.left : br ? br.left : sr.left + sr.width / 2;
+        const y = visibleSource ? r.top : br ? br.top : Math.max(20, panel.top - 60);
+        const chip = document.createElement("div"); chip.className = "rec-fly";
+        chip.textContent = ch.display || "";
+        chip.style.left = Math.max(4, Math.min(innerWidth - 154, x)) + "px";
+        chip.style.top = Math.max(4, Math.min(panel.top - 20, y)) + "px";
+        B.appendChild(chip);
+        const start = chip.getBoundingClientRect();
+        const tx = Math.max(panel.left + 12, Math.min(panel.right - 12, target.left + target.width / 2));
+        const ty = Math.max(panel.top + 20, Math.min(Math.min(innerHeight, panel.bottom) - 16, target.top + target.height / 2));
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          chip.style.transform = `translate(${tx - start.left - start.width / 2}px, ${ty - start.top}px) scale(.85)`;
+          chip.classList.add("go");
+        }));
+        setTimeout(() => chip.remove(), 1000);
+      }
+      if (transferQ.length) transferTimer = setTimeout(pumpTransfers, 160);
+    }
+    state.recTransfer = (ch, td) => {
+      transferQ.push({ch, td});
+      if (transferTimer === null) transferTimer = setTimeout(pumpTransfers, 0);
     };
 
-    // -- eye scanner: a narrow cyan cone from the spider's eyes onto the line it reads.
+    // -- eye scanner: a narrow cone sweeps smoothly in front of the eyes.
     // Drawn over the spider every frame from where its eyes are; the spider itself is untouched.
     let eyeRaf = 0;
     function startEyeScanner(){
       const NS = "http://www.w3.org/2000/svg";
       const svg = document.createElementNS(NS, "svg"); svg.id = "rec-eye";
-      svg.innerHTML = `<defs><linearGradient id="rec-eye-g" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6ff4ff" stop-opacity=".55"/><stop offset="1" stop-color="#6ff4ff" stop-opacity=".08"/></linearGradient>
+      svg.innerHTML = `<defs><linearGradient id="rec-eye-g" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="var(--crawler-main, #6ff4ff)" stop-opacity=".55"/><stop offset="1" stop-color="var(--crawler-main, #6ff4ff)" stop-opacity=".08"/></linearGradient>
         <filter id="rec-eye-b"><feGaussianBlur stdDeviation="3"/></filter></defs>
-        <polygon class="cone" fill="url(#rec-eye-g)"/><line class="glow" stroke="#6ff4ff" stroke-width="3" filter="url(#rec-eye-b)"/><line class="edge" stroke="#e8feff" stroke-width="1.2"/>
-        <circle class="lens" r="6" fill="#6ff4ff" filter="url(#rec-eye-b)"/><circle class="core" r="2.4" fill="#fff"/>`;
+        <polygon class="cone" fill="url(#rec-eye-g)"/><line class="glow" stroke="var(--crawler-main, #6ff4ff)" stroke-width="3" filter="url(#rec-eye-b)"/><line class="edge" stroke="#e8feff" stroke-width="1.2"/>
+        <circle class="lens" r="6" fill="var(--crawler-main, #6ff4ff)" filter="url(#rec-eye-b)"/><circle class="core" r="2.4" fill="#fff"/>`;
       B.appendChild(svg);
       const g = svg.querySelector("#rec-eye-g"), cone = svg.querySelector(".cone"), glow = svg.querySelector(".glow"), edge = svg.querySelector(".edge");
       const lens = svg.querySelector(".lens"), core = svg.querySelector(".core");
-      const W = 110;                                                  // half-width where the cone lands
-      const frame = () => {
+      const W = 30, reach = 85, sweep = Math.PI / 10;
+      const started = performance.now();
+      let heading = null, previous = null;
+      const frame = (now = performance.now()) => {
         eyeRaf = requestAnimationFrame(frame);
         const eyes = [...document.querySelectorAll("#spider .eye, #spider .head")].map(e => e.getBoundingClientRect()).filter(r => r.width > 0);
-        if (!eyes.length || document.getElementById("rec-end")){ svg.style.display = "none"; return; }
+        if (!eyes.length || document.getElementById("rec-end")){ svg.style.display = "none"; previous = null; return; }
         svg.style.display = "";
+        if (!isRecord){
+          const bounds = doc.getBoundingClientRect();
+          svg.style.clipPath = `inset(${Math.max(0,bounds.top)}px ${Math.max(0,innerWidth-bounds.right)}px ${Math.max(0,innerHeight-bounds.bottom)}px ${Math.max(0,bounds.left)}px)`;
+        }
         const ex = eyes.reduce((t, r) => t + r.left + r.width / 2, 0) / eyes.length;
         const ey = eyes.reduce((t, r) => t + r.top + r.height / 2, 0) / eyes.length;
-        let ty = innerHeight * 0.3;                                   // the reading line
-        if (Math.abs(ty - ey) < 40) ty = ey + 120;                    // eyes on the line: project just below them
-        g.setAttribute("x1", ex); g.setAttribute("y1", ey); g.setAttribute("x2", ex); g.setAttribute("y2", ty);
-        cone.setAttribute("points", `${ex - 3},${ey} ${ex + 3},${ey} ${ex + W},${ty} ${ex - W},${ty}`);
-        for (const l of [glow, edge]){ l.setAttribute("x1", ex - W); l.setAttribute("y1", ty); l.setAttribute("x2", ex + W); l.setAttribute("y2", ty); }
+        // Follow the existing head direction without changing the spider's motion.
+        // Shortest-angle easing avoids a snap when headings wrap between -PI and PI.
+        const want = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
+        const dt = previous == null ? 0 : Math.min(.05, Math.max(0, (now - previous) / 1000));
+        previous = now;
+        if (heading == null) heading = want;
+        const turn = Math.atan2(Math.sin(want - heading), Math.cos(want - heading));
+        heading += turn * (1 - Math.exp(-dt / .22));
+        // A sine sweep slows to zero at each end before reversing direction.
+        const angle = heading + sweep * Math.sin((now - started) * Math.PI * 2 / 4000);
+        const dx = Math.cos(angle), dy = Math.sin(angle), nx = -dy, ny = dx;
+        const tx = ex + dx * reach, ty = ey + dy * reach;
+        g.setAttribute("x1", ex); g.setAttribute("y1", ey); g.setAttribute("x2", tx); g.setAttribute("y2", ty);
+        cone.setAttribute("points", `${ex - nx * 3},${ey - ny * 3} ${ex + nx * 3},${ey + ny * 3} ${tx + nx * W},${ty + ny * W} ${tx - nx * W},${ty - ny * W}`);
+        for (const l of [glow, edge]){ l.setAttribute("x1", tx - nx * W); l.setAttribute("y1", ty - ny * W); l.setAttribute("x2", tx + nx * W); l.setAttribute("y2", ty + ny * W); }
         for (const c of [lens, core]){ c.setAttribute("cx", ex); c.setAttribute("cy", ey); }
       };
       frame();
@@ -2564,20 +2786,43 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
         const figs = liveEl ? liveEl.querySelectorAll(".lr-c .lr-v").length : 0;
         const obs = document.querySelectorAll("#lr-sigs li").length;
         const pages = [...document.querySelectorAll(".pdfpage")];
-        const mid = innerHeight * 0.3;
+        if (!isRecord){
+          const bounds = doc.getBoundingClientRect(), side = document.querySelector(".read-side");
+          const limit = side && getComputedStyle(side).position === "fixed" ? side.getBoundingClientRect().top : innerHeight;
+          hud.style.top = Math.max(8, Math.min(limit - 40, bounds.bottom - 40)) + "px";
+          hud.style.left = (bounds.left + bounds.width / 2) + "px";
+          hud.hidden = bounds.bottom < 0 || bounds.top > innerHeight;
+        }
+        const mid = innerHeight * (isRecord ? 0.3 : 0.5);
         const i = pages.findIndex(x => { const r = x.getBoundingClientRect(); return r.top <= mid && r.bottom >= mid; });
         hud.innerHTML = `<b>${esc(tag || "BMG READER")}</b> <span>${figs} figure${figs === 1 ? "" : "s"}</span> <span>${obs} observation${obs === 1 ? "" : "s"}</span>${i >= 0 ? ` <span>p.${i + 1}</span>` : ""}`;
       }, 200);
     }
 
     // -- recording this tab (optional)
-    let rec = null, chunks = [], recType = "", stream = null;
+    let rec = null, chunks = [], recType = "", stream = null, captureDetails = "";
     async function askCapture(){
+      const high = setup.querySelector("#rec-quality")?.value === "high";
+      const video = high ? {width: {ideal: 1080}, height: {ideal: 1920}, frameRate: {ideal: 60, max: 60}} : {frameRate: 30};
       try {
-        stream = await navigator.mediaDevices.getDisplayMedia({video: {frameRate: 30}, audio: false, preferCurrentTab: true, selfBrowserSurface: "include"});
+        stream = await navigator.mediaDevices.getDisplayMedia({video, audio: false, preferCurrentTab: true, selfBrowserSurface: "include"});
       } catch (e) { stream = null; return false; }
+      chunks = [];
       recType = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
-      rec = new MediaRecorder(stream, recType ? {mimeType: recType, videoBitsPerSecond: 12e6} : {videoBitsPerSecond: 12e6});
+      const bitrate = high ? 24e6 : 12e6;
+      try {
+        rec = new MediaRecorder(stream, recType ? {mimeType: recType, videoBitsPerSecond: bitrate} : {videoBitsPerSecond: bitrate});
+      } catch (e) {
+        // If this encoder rejects the requested bitrate/container, use its supported default.
+        try { rec = new MediaRecorder(stream, {videoBitsPerSecond: 12e6}); recType = rec.mimeType || ""; }
+        catch (fallbackError) { stream.getTracks().forEach(t => t.stop()); stream = null; rec = null; return false; }
+      }
+      const actual = stream.getVideoTracks()[0]?.getSettings() || {};
+      const size = actual.width && actual.height ? `${actual.width} × ${actual.height}` : "resolution unavailable";
+      const fps = actual.frameRate ? `${Math.round(actual.frameRate * 10) / 10} fps` : "frame rate unavailable";
+      const rate = rec.videoBitsPerSecond ? `${Math.round(rec.videoBitsPerSecond / 1e6)} Mbps encoder target` : "encoder bitrate unavailable";
+      captureDetails = `${high ? "High Quality" : "Standard"}: ${size} · ${fps} · ${rate}`;
+      state.captureQuality = {...actual, requestedQuality: high ? "high" : "standard", encoderBitsPerSecond: rec.videoBitsPerSecond || null};
       rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
       return true;
     }
@@ -2593,7 +2838,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     const pageOf = ids => { const F = (state.readRes.report.evidence || {}).facts || {}, C = (state.readRes.report.evidence || {}).calcs || {};
       const pg = new Set(); const walk = (i, d = 0) => { if (d > 4) return; const f = F[i]; if (f){ const p = (f.source || {}).pdf_page; if (p) pg.add(p); return; } ((C[i] || {}).inputs || []).forEach(j => walk(j, d + 1)); };
       (ids || []).forEach(i => walk(i)); return [...pg].sort((a, b) => a - b).slice(0, 2).map(p => "p." + p).join(" "); };
-    function ending(keySecs, oneSecs){
+    async function ending(keySecs, oneSecs, highlights = false){
       const rep = state.readRes.report, co = rep.company || {};
       const F = rep.evidence.facts, C = rep.evidence.calcs, ev = id => F[id] || C[id];
       const tile = (k, label) => {
@@ -2605,6 +2850,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       };
       const kf = (rep.exec_findings || []).slice(0, 4);
       const end = document.createElement("div"); end.id = "rec-end";
+      if (highlights) end.classList.add("rec-highlight-ending");
       end.innerHTML = `<div class="rk-phase rk-keys"><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span></div>
           <h3>Key findings &middot; ${esc(co.name || "")}</h3>
           <ol>${kf.map(x => `<li class="s-${x.severity}"><span class="sev s-${x.severity}">${SEV[x.severity].l}</span><b>${esc(x.headline)}</b><small>${esc(pageOf(x.refs))}</small></li>`).join("")}</ol></div>
@@ -2617,8 +2863,8 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       B.appendChild(end);
       return (async () => {
         const items = [...end.querySelectorAll(".rk-keys li")];
-        for (const li of items){ await sleep(550); li.classList.add("in"); }
-        await sleep(keySecs * 1000);                                   // hold once every finding is on screen
+        for (const li of items){ await sleep(highlights ? 150 : 550); li.classList.add("in"); }
+        await sleep(highlights ? Math.max(0, 3000 - items.length * 150) : keySecs * 1000);                                   // hold once every finding is on screen
         end.querySelector(".rk-keys").hidden = true;
         const one = end.querySelector(".rk-one"); one.hidden = false;
         requestAnimationFrame(() => one.classList.add("in"));
@@ -2633,12 +2879,137 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
       bar.innerHTML = `${blob ? `<a class="rf-dl" download="BMG-${esc((co.ticker || "reader").replace(/[^A-Za-z0-9]/g, ""))}-${stamp}.${ext}" href="${URL.createObjectURL(blob)}">Download recording (${ext.toUpperCase()}, ${(blob.size / 1e6).toFixed(1)} MB)</a>` : `<span>Not recorded in the browser (screen sharing was off or declined).</span>`}
         <button type="button" id="rf-again">Record again</button><button type="button" id="rf-back">&larr; Back to reader</button>`;
+      if (blob && captureDetails){
+        const details = document.createElement("small"); details.id = "rec-capture-details";
+        details.textContent = captureDetails; details.style.display = "block";
+        bar.appendChild(details);
+      }
       end.appendChild(bar);
       bar.querySelector("#rf-again").onclick = () => location.reload();
       bar.querySelector("#rf-back").onclick = leave;
     }
 
+    const settleSpiderPose = async () => {
+      if (!state.feet || !state.feet.length) return;
+          state.legAnim = {}; state.legJ = []; state.legLast = [];
+          state.vel = {x: 0, y: 0}; state.bodyVel = {x: 0, y: 0};
+          state.lastBodyP = {...state.body}; state.faceHeading = Math.PI / 2;
+          state.feet = gaitFeet(); state.silkAnchor = null;
+          drawSpider();
+          // Let the freshly planted legs take their first normal steps behind the curtain.
+          await sleep(200);
+          let settled = 0;
+          await wait(() => {
+            const ready = state.legJ.length === N_LEGS && state.feet.length === N_LEGS &&
+              state.feet.every((foot, i) => {
+                const hip = state.legJ[i] && state.legJ[i][0];
+                return foot && hip && Number.isFinite(foot.x) && Number.isFinite(foot.y) &&
+                  Math.hypot(foot.x - hip.x, foot.y - hip.y) <= 3 * SEG0 * U;
+              });
+            settled = ready ? settled + 1 : 0;
+            return settled >= 4;
+          }, 80, 3000);
+    };
+    if (!isRecord){
+      let jumpVersion = 0;
+      state.readerJumpSettled = async () => {
+        const version = ++jumpVersion, token = state.loadToken;
+        spiderSvg.style.visibility = "hidden";
+        try {
+          await wait(() => token !== state.loadToken || (state.scrollPos != null && Math.abs(scrollY - state.scrollPos) < 40), 50, 15000);
+          if (token === state.loadToken && version === jumpVersion) await settleSpiderPose();
+        } catch (e) { /* Restore visibility even if a run is cancelled mid-jump. */ }
+        finally { if (version === jumpVersion) spiderSvg.style.visibility = ""; }
+      };
+      let activeToken = null;
+      const clearReaderOverlays = () => {
+        cancelAnimationFrame(eyeRaf); clearInterval(hudTimer);
+        document.getElementById("rec-eye")?.remove();
+        document.getElementById("rec-hud")?.remove();
+        popQ.length = 0;
+      };
+      setInterval(() => {
+        if (walking()){
+          if (activeToken !== state.loadToken){
+            clearReaderOverlays(); activeToken = state.loadToken; startOverlays();
+          }
+        } else if (activeToken !== null){
+          clearReaderOverlays(); activeToken = null;
+        }
+      }, 100);
+      return;
+    }
+
+    function highlightTimeline(start, end, targets, duration, textRows = []){
+      if (!(end > start) || !targets.length) return null;
+      const points = [{y:start,t:0}], step = 16;
+      // Spend less of the fixed clip in empty page gaps; blend at the edges.
+      const cost = y => {
+        let lo=0, hi=textRows.length;
+        while(lo<hi){ const m=(lo+hi)>>1; if(textRows[m]<y) lo=m+1; else hi=m; }
+        const distance = Math.min(lo<textRows.length ? Math.abs(textRows[lo]-y) : Infinity, lo ? Math.abs(textRows[lo-1]-y) : Infinity);
+        const density = textRows.length ? Math.exp(-Math.pow(distance/85,2)) : 1;
+        return .12 + .33*density + targets.reduce((peak, at) => Math.max(peak, .55 * Math.exp(-(((y-at)/90)**2))), 0);
+      };
+      let total = 0, previous = start;
+      for (let y = Math.min(end,start+step); ; y = Math.min(end,y+step)){
+        total += (y-previous) * (cost(previous)+cost(y)) / 2;
+        points.push({y,t:total}); previous=y; if (y === end) break;
+      }
+      for (const point of points) point.t = point.t / total * duration;
+      let elapsed = 0, index = 1;
+      return dt => {
+        elapsed = Math.min(duration, elapsed + dt);
+        // Only the first/last half-second ease; keep the middle moving briskly.
+        const ramp = Math.min(.5, duration / 4);
+        const tail = elapsed - (duration - ramp);
+        const travel = elapsed < ramp ? elapsed * elapsed / (2 * ramp) :
+          elapsed <= duration - ramp ? elapsed - ramp / 2 :
+          duration - 1.5 * ramp + tail - tail * tail / (2 * ramp);
+        const time = travel / (duration - ramp) * duration;
+        while (index < points.length-1 && points[index].t < time) index++;
+        const a=points[index-1], b=points[index], mix=(time-a.t)/(b.t-a.t || 1);
+        return a.y + (b.y-a.y)*Math.max(0,Math.min(1,mix));
+      };
+    }
+    function startHighlights(pace = 1.6){
+      const pages = [...docBody.querySelectorAll(".pdfpage")], first = state.jumpPage;
+      if (!first || !pages.length) return;
+      const findings = (state.readRes?.findings || []).filter(f => f.group === "Financials" && f.pdf_page >= first && f.pdf_page <= first + 5);
+      const line = innerHeight * (window.READER_VIEW_FRAC || 1) * .5;
+      const targets = [];
+      for (const finding of findings){
+        const page = pages[finding.pdf_page-1];
+        if (!page) continue;
+        const word = [...page.querySelectorAll(".w")].find(w => holds(w,tokenOf(finding)));
+        if (word) targets.push(word.getBoundingClientRect().top + scrollY - line);
+      }
+      const start = state.scrollPos ?? scrollY;
+      const ahead = [...new Set(targets.map(y=>Math.round(y/24)*24))].filter(y=>y>=start).sort((a,b)=>a-b);
+      if (!ahead.length) return;
+      const baseEnd = ahead[ahead.length-1]+100;
+      // A faster fixed-length clip needs more actual document distance, not a longer hold.
+      const end = Math.min(Math.max(0,document.documentElement.scrollHeight-innerHeight),start+(baseEnd-start)*pace);
+      if (pace > 1){
+        const more = (state.readRes?.findings || []).filter(f => f.pdf_page > first && f.pdf_page <= first+12);
+        for (const finding of more){
+          const page = pages[finding.pdf_page-1]; if (!page) continue;
+          const bounds = page.getBoundingClientRect();
+          if (bounds.top+scrollY-line > end || bounds.bottom+scrollY-line < start) continue;
+          const word = [...page.querySelectorAll(".w")].find(w => holds(w,tokenOf(finding)));
+          if (word){ const y=word.getBoundingClientRect().top+scrollY-line; if (y>=start && y<=end) ahead.push(Math.round(y/24)*24); }
+        }
+      }
+      const routeTargets = [...new Set(ahead)].sort((a,b)=>a-b);
+      const rowOffset = docTop() + (state.sy || 0) - line;
+      const textRows = (state.rows || []).map(row => row.y + rowOffset).sort((a,b)=>a-b);
+      state.recordCamera = highlightTimeline(start,end,routeTargets,33,textRows);
+      state.highlightPlan = {start,end,targets:routeTargets.length,duration:33,pace};
+    }
     startBtn.addEventListener("click", async () => {
+      const highlights = setup.querySelector("#rec-format").value === "highlights";
+      const pace = +setup.querySelector("#rec-pace").value || 1.6;
+      const previousTempo = state.speedMul || 1;
       const finishAt = Math.max(5, +setup.querySelector("#rec-finish").value || 115);
       const keySecs = Math.max(0, +setup.querySelector("#rec-keys").value || 0);
       const oneSecs = Math.max(0, +setup.querySelector("#rec-one").value || 0);
@@ -2651,33 +3022,41 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       B.appendChild(curtain);
       document.getElementById("read-run").click();
       try {
-        await wait(() => vis("read-skip"));
-        await sleep(400);
+        await wait(() => vis("read-skip"), 50);
         const jb = vis("read-jump");
         if (jb){
           // lift the curtain only once the view has actually moved to the statements, then settled
           const y0 = scrollY; jb.click();
           await wait(() => scrollY - y0 > innerHeight * 0.5, 100, 15000).catch(() => {});
           let last = scrollY; await wait(() => { const st = Math.abs(scrollY - last) < 40; last = scrollY; return st; }, 250, 5000).catch(() => {});
-          await sleep(300);
+        }
+        // The hidden statement-page jump can leave feet and joint memory on the cover.
+        // Replant only the startup pose; leave the normal gait and movement rules alone.
+        if (state.feet && state.feet.length){
+          await settleSpiderPose();
         }
         if (rec) rec.start(500);                                   // the clip starts here, on the statements
+        if (highlights){ await sleep(2000); startHighlights(pace); }
         startOverlays();
         curtain.classList.add("out"); setTimeout(() => curtain.remove(), 400);
         // count only time that is not paused
         let left = finishAt * 1000, last = Date.now();
         await wait(() => { const now = Date.now(); const paused = (document.getElementById("ctl-pause") || {}).textContent === "Resume";
                             if (!paused) left -= now - last; last = now; return left <= 0; }, 100);
+        state.recordCamera = null;
         const sk = vis("read-skip"); if (sk) sk.click();
         clearInterval(hudTimer);
         await wait(() => state.readRes && state.readRes.report, 100, 30000);
-        const end = await ending(keySecs, oneSecs);
+        const end = await ending(keySecs, oneSecs, highlights);
         const blob = await stopCapture();
         finalControls(end, blob);
       } catch (e) {
+        state.recordCamera = null;
         curtain.remove();
         const blob = await stopCapture();
         if (blob){ const end = document.createElement("div"); end.id = "rec-end"; B.appendChild(end); finalControls(end, blob); }
+      } finally {
+        state.speedMul = previousTempo;
       }
     });
   })();
@@ -3010,7 +3389,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
   }
 
   // ---- the report on screen (same report JSON as the PDF) ----
-  const BMG_LINE = '<svg class="bmg-line" viewBox="0 0 100 86" aria-hidden="true"><polyline points="6,80 40,46 62,64 92,22" fill="none" stroke="#2fdc74" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><circle cx="92" cy="16" r="14" fill="#2fdc74"/></svg>';
+  const BMG_LINE = '<svg class="bmg-line" viewBox="-4 -4 114 94" aria-hidden="true"><polyline points="6,80 40,46 62,64 92,22" fill="none" stroke="#2fdc74" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><circle cx="92" cy="16" r="14" fill="#2fdc74"/></svg>';
   const NF = "Not found in the reviewed filing";
   function reportHTML(rep, res){
     const F = rep.evidence.facts, C = rep.evidence.calcs;
@@ -3329,7 +3708,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
         if (offs.length) applyLive(state.live.markEarlier(Math.min(...offs)));
       }
       const y = pg.getBoundingClientRect().top + window.scrollY - innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5 + 40;
-      if (y > state.scrollPos) state.scrollPos = y;
+      if (y > state.scrollPos){ state.scrollPos = y; if (state.readerJumpSettled) state.readerJumpSettled(); }
     };
     go();
   });
