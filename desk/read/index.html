@@ -255,7 +255,7 @@ body.recmode[data-rec-palette] #rec-end h3,body.recmode[data-rec-palette] .rk-on
 #rec-eye{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:25}
 #rec-hud{position:fixed;top:calc(100vh - var(--rec-h) - 40px);left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;white-space:nowrap;font:600 12px 'IBM Plex Mono',monospace;color:#6ff4ff;background:rgba(0,0,0,.72);border:1px solid rgba(111,244,255,.45);border-radius:20px;padding:5px 12px;box-shadow:0 0 14px rgba(111,244,255,.25)}
 #rec-hud b{color:#fff;margin-right:4px}#rec-hud span{margin-left:8px}
-.rec-fly{position:fixed;z-index:45;pointer-events:none;font:700 15px 'IBM Plex Mono',monospace;color:#00202a;background:#6ff4ff;border-radius:5px;padding:1px 7px;box-shadow:0 0 16px rgba(111,244,255,.9);transition:transform .85s cubic-bezier(.55,0,.2,1),opacity .85s ease-in}
+.rec-fly{position:fixed;z-index:45;pointer-events:none;font:700 10px/1.2 'IBM Plex Mono',monospace;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;color:#00202a;background:#6ff4ff;border-radius:5px;padding:1px 4px;box-shadow:0 0 7px rgba(111,244,255,.5);transition:transform .85s cubic-bezier(.55,0,.2,1),opacity .85s ease-in}
 .rec-fly.go{opacity:.15}.rec-fly.ghost{background:#ff3da6;color:#fff;box-shadow:0 0 16px rgba(255,61,166,.9)}
 body.recmode .lr-c.flash{animation:reccell 1.3s ease}@keyframes reccell{0%{background:rgba(111,244,255,.55)}100%{background:transparent}}
 #rec-end{position:fixed;inset:0;z-index:3100;background:#05070c;color:#eef3f8;display:flex;flex-direction:column;justify-content:center;padding:26px 22px;font:15px/1.4 'IBM Plex Sans',sans-serif}
@@ -2346,7 +2346,6 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     state.readFound = state.panelIds.size;
     countEl.textContent = `${state.readFound} of ${state.readTotal} shown`;
     if (state.live && el) applyLive(state.live.revealFinding(f.id));      // only findings the walk reached
-    if (state.recFly && el) state.recFly(f, el);                           // record mode: the number flies into the report
   }
 
   state.onRow = (els) => {
@@ -2505,6 +2504,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         setTimeout(() => row.classList.remove("lr-row-enter"), 450);
       }
       liveFollow(td);
+      if (ch.op === "show" && ch.state !== "withdrawn" && state.recTransfer) state.recTransfer(ch, td);
       td.classList.toggle("is-w", ch.state === "withdrawn");
       td.classList.add("flash"); setTimeout(() => td.classList.remove("flash"), 1400);
     }
@@ -2687,24 +2687,46 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     };
     popSignal = (sg, el) => { popQ.push([sg, el]); pump(); };
 
-    // -- a found number flies from the page into its cell in the report panel
-    let flying = 0;
-    state.recFly = (f, el) => {
-      if (!f || !f.value || f.group !== "Financials" || flying > 4 || !el || !el.isConnected) return;
-      const td = liveEl && f.ref ? liveEl.querySelector(`[data-cell="${CSS.escape(f.ref)}"]`) : null;
-      const a = el.getBoundingClientRect();
-      if (a.bottom < 0 || a.top > innerHeight) return;
-      const chip = document.createElement("div");
-      chip.className = "rec-fly" + (td ? "" : " ghost");
-      chip.textContent = f.value;
-      chip.style.left = a.left + "px"; chip.style.top = (a.top - 2) + "px";
-      B.appendChild(chip); flying++;
-      const b = td ? td.getBoundingClientRect() : {left: a.left, top: a.top - 60, width: 0};
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        chip.style.transform = `translate(${(b.left + (b.width || 0) / 2) - (a.left + chip.offsetWidth / 2)}px, ${b.top - a.top}px) scale(${td ? .85 : 1.15})`;
-        chip.classList.add("go");
-      }));
-      setTimeout(() => { chip.remove(); flying--; }, 1000);
+    // Every newly shown report cell gets a transfer; bursts queue instead of dropping.
+    const transferQ = []; let transferTimer = null;
+    function pumpTransfers(){
+      transferTimer = null;
+      const item = transferQ.shift();
+      if (!item) return;
+      const {ch, td} = item;
+      if (td.isConnected){
+        const cell = state.live.plan.cells[ch.id];
+        const fact = (cell && cell.requires || []).map(id => state.live.plan.fact_to_finding[id]).find(Boolean);
+        const source = (state.readRes.findings || []).find(f => f.id === fact);
+        const r = source && source._el && source._el.isConnected ? source._el.getBoundingClientRect() : null;
+        const stage = document.getElementById("read-stage") || doc;
+        const sr = stage.getBoundingClientRect();
+        const panel = (document.querySelector(".read-side") || liveEl).getBoundingClientRect(), target = td.getBoundingClientRect();
+        const visibleSource = r && r.top >= 0 && r.bottom < panel.top;
+        // Off-screen/derived figures start at the crawler, never at a false source word.
+        const body = spiderSvg.querySelector("rect.body");
+        const br = body && body.getBoundingClientRect();
+        const x = visibleSource ? r.left : br ? br.left : sr.left + sr.width / 2;
+        const y = visibleSource ? r.top : br ? br.top : Math.max(20, panel.top - 60);
+        const chip = document.createElement("div"); chip.className = "rec-fly";
+        chip.textContent = ch.display || "";
+        chip.style.left = Math.max(4, Math.min(innerWidth - 154, x)) + "px";
+        chip.style.top = Math.max(4, Math.min(panel.top - 20, y)) + "px";
+        B.appendChild(chip);
+        const start = chip.getBoundingClientRect();
+        const tx = Math.max(panel.left + 12, Math.min(panel.right - 12, target.left + target.width / 2));
+        const ty = Math.max(panel.top + 20, Math.min(Math.min(innerHeight, panel.bottom) - 16, target.top + target.height / 2));
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          chip.style.transform = `translate(${tx - start.left - start.width / 2}px, ${ty - start.top}px) scale(.85)`;
+          chip.classList.add("go");
+        }));
+        setTimeout(() => chip.remove(), 1000);
+      }
+      if (transferQ.length) transferTimer = setTimeout(pumpTransfers, 160);
+    }
+    state.recTransfer = (ch, td) => {
+      transferQ.push({ch, td});
+      if (transferTimer === null) transferTimer = setTimeout(pumpTransfers, 0);
     };
 
     // -- eye scanner: a narrow cone sweeps smoothly in front of the eyes.
