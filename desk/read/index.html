@@ -182,9 +182,10 @@ body.rec .rs-tabs{display:none}body.rec #pane-found{display:none!important}body.
 body.recmode .site-header,body.recmode .read-page>h1,body.recmode .read-page>.lede,body.recmode .read-form,body.recmode details.paste,body.recmode .read-privacy,body.recmode .desk-row,body.recmode #read-error,body.recmode #read-summary,body.recmode #read-stages,body.recmode #read-ctl,body.recmode .back{display:none!important}
 body.recmode main.read-page{max-width:none!important;padding:0 6px!important;margin:0!important}
 body.recmode .read-grid{display:block!important}body.recmode .stage{border:none!important}body.recmode .stage .strip{display:none!important}
-body.recmode .doc{margin-bottom:48vh!important;max-width:none!important}   /* full page width: zooming in clipped wide statement columns */
-body.recmode{--rec-h:40vh;overflow-x:hidden!important}html:has(body.recmode){overflow-x:hidden}
-body.recmode .read-side{padding:10px 16px 0!important;box-shadow:0 -8px 24px rgba(0,0,0,.18)!important;border-radius:16px 16px 0 0!important}
+body.recmode .doc{margin-bottom:36vh!important;max-width:none!important}   /* full page width: zooming in clipped wide statement columns */
+body.recmode{--rec-h:28vh;overflow-x:hidden!important}html:has(body.recmode){overflow-x:hidden}
+body.recmode .read-side{box-sizing:border-box;padding:6px 12px 0!important;box-shadow:0 -8px 24px rgba(0,0,0,.18)!important;border-radius:16px 16px 0 0!important}
+body.recmode .lr-v{font-size:15px}body.recmode .lr-t td{padding:3px 5px}body.recmode .lr h4{margin:8px 0 3px}
 body.recmode.rec-dark,body.recmode.rec-dark main.read-page,body.recmode.rec-dark .read-grid,body.recmode.rec-dark .stage,body.recmode.rec-dark .doc,body.recmode.rec-dark #doc,body.recmode.rec-dark #docbody{background:#000!important}
 body.recmode.rec-dark .pdfpage{background:#000!important;box-shadow:none!important}
 body.recmode.rec-dark .pdfpage canvas{filter:invert(1) hue-rotate(180deg) contrast(1.1)}
@@ -221,7 +222,7 @@ body.recmode .sig-pop.s-observation{--c:#6ff4ff}body.recmode .sig-pop.s-watch{--
 #rec-beam::before{content:'';position:absolute;left:0;right:0;bottom:2px;height:46px;background:linear-gradient(to top,rgba(111,244,255,.13),transparent)}
 @keyframes recbeam{0%,100%{opacity:.55}50%{opacity:.95}}
 #rec-eye{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:25}
-#rec-hud{position:fixed;top:calc(60vh - 40px);left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;white-space:nowrap;font:600 12px 'IBM Plex Mono',monospace;color:#6ff4ff;background:rgba(0,0,0,.72);border:1px solid rgba(111,244,255,.45);border-radius:20px;padding:5px 12px;box-shadow:0 0 14px rgba(111,244,255,.25)}
+#rec-hud{position:fixed;top:calc(100vh - var(--rec-h) - 40px);left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;white-space:nowrap;font:600 12px 'IBM Plex Mono',monospace;color:#6ff4ff;background:rgba(0,0,0,.72);border:1px solid rgba(111,244,255,.45);border-radius:20px;padding:5px 12px;box-shadow:0 0 14px rgba(111,244,255,.25)}
 #rec-hud b{color:#fff;margin-right:4px}#rec-hud span{margin-left:8px}
 .rec-fly{position:fixed;z-index:45;pointer-events:none;font:700 15px 'IBM Plex Mono',monospace;color:#00202a;background:#6ff4ff;border-radius:5px;padding:1px 7px;box-shadow:0 0 16px rgba(111,244,255,.9);transition:transform .85s cubic-bezier(.55,0,.2,1),opacity .85s ease-in}
 .rec-fly.go{opacity:.15}.rec-fly.ghost{background:#ff3da6;color:#fff;box-shadow:0 0 16px rgba(255,61,166,.9)}
