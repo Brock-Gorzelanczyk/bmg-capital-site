@@ -471,6 +471,10 @@ body.readerfx .lr-v{font-size:15px}body.readerfx .lr-t td{padding:3px 5px}
 #rec-end .rk-one h2,#rec-end .rk-one h2 span{color:#fff!important}
 /* Touched-word outlines have their own palette, separate from highlight fills. */
 body.recmode[data-rec-palette] .stage,body.readerfx[data-rec-palette] .stage{--t1:var(--crawler-main);--t2:var(--crawler-accent);--t3:var(--crawler-main);--t4:var(--crawler-accent);--t5:var(--crawler-main)}
+/* Observation styling follows the crawler in popups, both report tabs and ending cards. */
+body:is(.readerfx,.recmode) .s-observation{--c:var(--crawler-main,#6ff4ff)!important}
+body:is(.readerfx,.recmode) .sev.s-observation{background:var(--crawler-main,#6ff4ff)!important;color:#05070c!important}
+body:is(.readerfx,.recmode) :is(.lr-sig,.sg).s-observation:focus-visible{outline-color:var(--crawler-main,#6ff4ff)}
 </style>
 <!-- bmg-theme --><link rel="stylesheet" href="/assets/theme.css"><script>try{if(localStorage.getItem("bmg-theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script><script src="/assets/theme.js" defer></script>
 </head>
