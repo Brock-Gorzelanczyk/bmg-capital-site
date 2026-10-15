@@ -927,7 +927,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     }
     if (!state.sightEl.isConnected) spiderSvg.appendChild(state.sightEl);
     const now = performance.now();
-    const mul = (state.speedMul || 1) * Math.sqrt(state.boost || 1);
+    const mul = state.recordEffectTempo || ((state.speedMul || 1) * Math.sqrt(state.boost || 1));
     let p = state.bping;
     if (rows && rows.length && (!p || now - p.start > 300 / mul) && now - (state.lastPingAt || 0) > 110 / mul){
       const ri = Math.min(rows.length - 1, (state.walkState.lineIdx || 0) + 1 + Math.floor(Math.random() * 2));
@@ -1086,7 +1086,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (t && walking()){
       // Body: damped spring toward the goal with a capped speed, so it
       // follows with a slight lag and the legs catch up (Astra brief).
-      const mul = state.speedMul || 1;
+      const mul = state.recordTravelTempo || state.speedMul || 1;
       const bv = state.bodyVel || (state.bodyVel = {x: 0, y: 0});
       const tempo = state.recordBodyTempo || 1;
       // Scale spring response as well as its cap, preserving the same damping shape.
@@ -1408,10 +1408,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   function easeOutBack(t){ const c = 1.9; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); }
   function fxStyle(o){
     // per-frame transform: 150-250 ms activation with a slight overshoot
-    const act = 200, t = Math.min(1, o.age / act);
+    const act = state.recordEffectTempo ? 450 : 200, t = Math.min(1, o.age / act);
+    const activation = state.recordEffectTempo ? t * t * (3 - 2 * t) : easeOutBack(t);
     let sc = 1, rot = 0, op = 1;
     if (o.kind === "accent"){
-      if (o.age < o.hold) sc = 0.7 + (o.target - 0.7) * easeOutBack(t);
+      if (o.age < o.hold) sc = 0.7 + (o.target - 0.7) * activation;
       else {
         const u = Math.min(1, (o.age - o.hold) / 350);
         sc = o.target + (1 - o.target) * (u * u * (3 - 2 * u));
@@ -1422,11 +1423,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         }
       }
     } else if (o.kind === "strip"){
-      sc = 0.85 + 0.3 * easeOutBack(t);
+      sc = 0.85 + 0.3 * activation;
       const u = Math.min(1, Math.max(0, (o.age - 120) / 1600));
       rot = o.angle * (u * u * (3 - 2 * u));
     } else if (o.kind === "fill"){
-      sc = 0.85 + 0.2 * easeOutBack(t);
+      sc = 0.85 + 0.2 * activation;
     } else {
       op = t;
     }
@@ -1448,7 +1449,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     state.fx = state.fx.filter(o => { o.age += ms; if (o.age >= o.ttl){ fxOff(o); return false; } fxStyle(o); return true; });
     const rows = state.rows;
     if (!rows || !rows.length) return;
-    const mul = (state.speedMul || 1) * Math.sqrt(state.boost || 1);
+    const mul = state.recordEffectTempo || ((state.speedMul || 1) * Math.sqrt(state.boost || 1));
     const lh = 14 * U, by = state.body.y;
     // rows around and ahead of the spider
     let lo = 0, hi = rows.length;
@@ -1479,7 +1480,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     }
   }
   function maybePing(now){
-    const mul = (state.speedMul || 1) * Math.sqrt(state.boost || 1);
+    const mul = state.recordEffectTempo || ((state.speedMul || 1) * Math.sqrt(state.boost || 1));
     if (state.ping && now - state.ping.start < PING_MS / mul) return;
     if (now - (state.lastPingAt || 0) < 260 / mul) return;
     const w = pickPingTarget();
@@ -1497,7 +1498,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       spiderSvg.appendChild(l);
     }
     const p = state.ping;
-    const mul = (state.speedMul || 1) * Math.sqrt(state.boost || 1);
+    const mul = state.recordEffectTempo || ((state.speedMul || 1) * Math.sqrt(state.boost || 1));
     const now = performance.now();
     if (!p || !p.el.isConnected || now - p.start > PING_MS / mul){ l.style.display = "none"; return; }
     const t = (now - p.start) / (PING_MS / mul);
@@ -2601,7 +2602,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       <p>Choose a 10-K or 10-Q PDF and press Start. ${canRecord ? "With “Record this window” on, Chrome asks you to share this tab, and the finished clip downloads at the end." : "Use your Mac's screen recorder (Shift-Command-5, Record Selected Portion) on this window."}</p>
       <div id="rec-file-slot"></div>
       <label class="opt">Clip format <select id="rec-format"><option value="highlights" selected>40-second continuous highlights</option><option value="custom">Custom length</option></select></label>
-      <label class="opt">Highlight pace <select id="rec-pace"><option value="1.6" selected>Fast · 2× spider + faster scroll</option><option value="1">Brisk · focus on statements</option></select></label>
+      <label class="opt">Highlight pace <select id="rec-pace"><option value="1.6" selected>Fast · faster crawler, steady highlights</option><option value="1">Brisk · focus on statements</option></select></label>
       <p>Highlights: 2-second opening, 33 seconds through statement findings, 5-second ending. Continuous scrolling, with more time around real figures.</p>
       <label class="opt">Jump to the ending after <span><input type="number" id="rec-finish" min="5" max="600" value="115"> s</span></label>
       <label class="opt">Key findings held on screen <span><input type="number" id="rec-keys" min="0" max="30" value="4"> s</span></label>
@@ -2973,6 +2974,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const pace = +setup.querySelector("#rec-pace").value || 1.6;
       const previousTempo = state.speedMul || 1;
       const previousBodyTempo = state.recordBodyTempo || 1;
+      const previousTravelTempo = state.recordTravelTempo;
+      const previousEffectTempo = state.recordEffectTempo;
       const finishAt = Math.max(5, +setup.querySelector("#rec-finish").value || 115);
       const keySecs = Math.max(0, +setup.querySelector("#rec-keys").value || 0);
       const oneSecs = Math.max(0, +setup.querySelector("#rec-one").value || 0);
@@ -3000,7 +3003,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         }
         if (highlights && pace > 1){
           state.speedMul = Math.max(2, previousTempo);
-          state.recordBodyTempo = 2;
+          state.recordBodyTempo = 3.2;
+          state.recordTravelTempo = 3.2;
+          state.recordEffectTempo = 0.75;
         }
         if (rec) rec.start(500);                                   // the clip starts here, on the statements
         if (highlights){ await sleep(2000); startHighlights(pace); }
@@ -3025,6 +3030,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       } finally {
         state.speedMul = previousTempo;
         state.recordBodyTempo = previousBodyTempo;
+        state.recordTravelTempo = previousTravelTempo;
+        state.recordEffectTempo = previousEffectTempo;
       }
     });
   })();
