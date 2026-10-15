@@ -2071,6 +2071,40 @@ async def edgar_document(cik: int, accession: str, document: str):
     return Response(content=data, media_type=kind, headers={"Cache-Control": "no-store"})
 
 
+# ----------------------------------------------------------------------
+# Crawler: My reads (owner's Mac only). Finished reads are saved to local disk and reopen instantly.
+# ----------------------------------------------------------------------
+_READS_LIBRARY = None
+if os.environ.get("BMG_LOCAL") == "1":
+    try:
+        from reader.library import Library as _Library
+        from reader import jobs as _jobs_for_library
+        _READS_LIBRARY = _Library(Path(os.environ.get("INTAKE_DATA_DIR") or CACHE_DIR) / "reads")
+        _jobs_for_library.MANAGER.library = _READS_LIBRARY
+    except Exception:
+        log.exception("My reads library unavailable")
+
+
+@app.get("/api/reads")
+def reads_list():
+    if not _READS_LIBRARY:
+        return JSONResponse(status_code=403, content={"error": "My reads is available on the local crawler only."})
+    return {"reads": _READS_LIBRARY.entries()}
+
+
+@app.get("/api/reads/{sha}/file")
+def reads_file(sha: str):
+    if not _READS_LIBRARY:
+        return JSONResponse(status_code=403, content={"error": "My reads is available on the local crawler only."})
+    got = _READS_LIBRARY.source(sha)
+    if not got:
+        return JSONResponse(status_code=404, content={"error": "That saved read was not found."})
+    data, title = got
+    safe = re.sub(r"[^\w .()\-]", "_", title)[:160]
+    return Response(content=data, media_type="application/octet-stream",
+                    headers={"Cache-Control": "no-store", "X-Read-Title": safe})
+
+
 @app.get("/api/read/limits")
 def read_limits():
     """What this server accepts, so the page states the real limit instead of a hard-coded one."""

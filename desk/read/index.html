@@ -162,7 +162,23 @@ svg.spider .knee{fill:#ff3d9a}
 #edgar-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 #edgar-list:empty{display:none}
 #edgar-list li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border:1px solid #e6e8e4;border-radius:8px;background:#fff;font-size:14px}
+#edgar-list li.re-more{justify-content:center;border-style:dashed;background:transparent}
 #edgar-list li small{display:block;color:#6b6f76;font:12px 'IBM Plex Mono',monospace}
+.read-library{margin:0 0 16px;padding:14px 16px;border:1px solid #e3e3dc;border-radius:10px;background:#fbfbf9;display:flex;flex-direction:column;gap:8px}
+.read-library .rl-head{display:flex;align-items:baseline;gap:10px}
+.read-library h2{margin:0;font:600 15px 'IBM Plex Sans',sans-serif;color:#141414}
+#lib-count{font:12px 'IBM Plex Mono',monospace;color:#6b6f76}
+.rl-wrap{overflow-x:auto}
+.rl-t{width:100%;border-collapse:collapse;font-size:14px}
+.rl-t th{font:500 11px 'IBM Plex Mono',monospace;color:#6b6f76;text-align:left;padding:4px 8px;border-bottom:1px solid #e3e3dc}
+.rl-t td{padding:8px;border-bottom:1px solid #eeeeea;vertical-align:middle}
+.rl-t td small{display:block;color:#6b6f76;font:12px 'IBM Plex Mono',monospace}
+.rl-t .num{font:13px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rl-t .ok{color:#0f7d47;font-weight:600}.rl-t .warn{color:#b4610e;font-weight:600}
+.rl-t button{height:32px;padding:0 14px;border-radius:8px;border:1px solid #0f7d47;background:#fff;color:#0f7d47;font-weight:600;cursor:pointer}
+.rl-t button:disabled{opacity:.55;cursor:default}
+#lib-status{margin:0;font-size:13px;color:#5d6862}#lib-status:empty{display:none}#lib-status.err{color:#b42318}
+#lib-rows tr[hidden]{display:none}
 #read-drop-name.too-big{color:#b42318;font-weight:600}
 #read-drop b{display:block;font-size:16px;color:#141414;margin-bottom:4px}
 #read-ticker{height:44px;padding:0 12px;border:1px solid #c9c9c4;border-radius:8px;font:500 15px 'IBM Plex Mono',monospace;align-self:center}
@@ -540,6 +556,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   <h2 id="edgar-h">Load from SEC EDGAR</h2>
   <div class="re-row"><input id="edgar-ticker" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="Ticker, for example AMZN" aria-label="Ticker to look up on SEC EDGAR"><button id="edgar-find" type="button">Find filings</button><span id="edgar-status" role="status"></span></div>
   <ol id="edgar-list"></ol>
+</section>
+<section class="read-library" id="read-library" hidden aria-labelledby="lib-h">
+  <div class="rl-head"><h2 id="lib-h">My reads</h2><span id="lib-count"></span></div>
+  <div class="rl-wrap"><table class="rl-t"><thead><tr><th>Filing</th><th>Figures</th><th>Checks</th><th>Saved</th><th></th></tr></thead><tbody id="lib-rows"></tbody></table></div>
+  <p id="lib-status" role="status"></p>
 </section>
 <div class="read-form">
   <label id="read-drop"><input type="file" id="read-file" hidden accept=".pdf,.docx,.pptx,.htm,.html,.txt,.md"><b>Drop a file here or click to choose</b><span id="read-drop-name">PDF, DOCX, PPTX, HTML or text, up to <span id="read-max">10</span> MB.</span></label>
@@ -2324,7 +2345,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     READ_MAX.bytes = j.max_bytes; READ_MAX.local = !!j.local;
     const el = document.getElementById("read-max"); if (el) el.textContent = READ_MAX.mb();
     document.dispatchEvent(new CustomEvent("bmg-read-limits"));
-    if (READ_MAX.local) document.getElementById("read-edgar").hidden = false;
+    if (READ_MAX.local){ document.getElementById("read-edgar").hidden = false; loadLibrary(); }
   }).catch(() => {});
   const errBox = document.getElementById("read-error");
   const stage = document.getElementById("read-stage");
@@ -2342,6 +2363,42 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     dropName.classList.toggle("too-big", !!big);
     drop.classList.toggle("has", !!f);
   }
+  // My reads (owner's Mac only): every finished read is saved by the local server. Open sends the
+  // saved file again; the server returns the saved result at once, so the report, the spider
+  // replay, the PDF and compare all work exactly as after a fresh read.
+  async function loadLibrary(){
+    const box = document.getElementById("read-library"), rows = document.getElementById("lib-rows");
+    if (!box) return;
+    let j;
+    try { const r = await fetch("/api/reads", {cache: "no-store"}); if (!r.ok) return; j = await r.json(); } catch (e){ return; }
+    const reads = j.reads || [];
+    box.hidden = !reads.length;
+    document.getElementById("lib-count").textContent = reads.length ? `${reads.length} saved` : "";
+    const checks = e => e.second_check === "done" ? (e.flagged ? `<span class="warn">${e.flagged} to look at</span>` : `<span class="ok">verified</span>`)
+      : e.checks_run != null ? (e.checks_failed ? `<span class="warn">${e.checks_failed} of ${e.checks_run} failed</span>` : `<span class="ok">${e.checks_run} of ${e.checks_run} passed</span>`) : "";
+    rows.innerHTML = reads.map((e, i) => `<tr${i >= 8 ? " hidden" : ""}><td><b>${esc(e.company || e.title)}</b>${e.ticker ? " · " + esc(e.ticker) : ""}<small>${esc([e.form, e.period].filter(Boolean).join(" · ") || e.title)}</small></td>
+      <td class="num">${e.findings} found<small>${e.signals} signals</small></td><td>${checks(e)}</td><td class="num">${esc(e.saved_at || "")}</td>
+      <td><button type="button" data-sha="${esc(e.sha256)}" data-ticker="${esc(e.job_ticker || "")}">Open</button></td></tr>`).join("")
+      + (reads.length > 8 ? `<tr><td colspan="5"><button type="button" data-more="1">Show ${reads.length - 8} older</button></td></tr>` : "");
+  }
+  document.getElementById("lib-rows")?.addEventListener("click", async e => {
+    const st = document.getElementById("lib-status");
+    if (e.target.closest("button[data-more]")){ document.querySelectorAll("#lib-rows tr[hidden]").forEach(tr => { tr.hidden = false; }); e.target.closest("tr").remove(); return; }
+    const b = e.target.closest("button[data-sha]"); if (!b) return;
+    b.disabled = true; st.classList.remove("err"); st.textContent = "Opening the saved read...";
+    try {
+      const r = await fetch(`/api/reads/${b.dataset.sha}/file`, {cache: "no-store"});
+      if (!r.ok){ st.classList.add("err"); st.textContent = "That saved read could not be opened."; return; }
+      const title = r.headers.get("X-Read-Title") || "saved-read";
+      pick(new File([await r.blob()], title));
+      const tk = document.getElementById("read-ticker"); if (tk) tk.value = b.dataset.ticker || "";
+      st.textContent = "";
+      runRead.click();
+    } catch (x){ st.classList.add("err"); st.textContent = "Could not reach the local server."; }
+    finally { b.disabled = false; }
+  });
+  document.addEventListener("bmg-read-done", () => { if (READ_MAX.local) loadLibrary(); });
+
   // Load a filing by ticker from SEC EDGAR (owner's Mac only): list recent 10-K and 10-Q
   // filings, fetch the chosen one through the local server, then run it like a dropped file.
   (function edgarLoader(){
@@ -2361,13 +2418,15 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         found = j;
         if (!j.filings.length){ say(`${j.company} has no 10-K or 10-Q in its recent filings.`, true); return; }
         say(`${j.company} · CIK ${j.cik}`);
-        list.innerHTML = j.filings.map((f, i) => `<li><span><b>${esc(f.form)}</b>${f.period ? " · period ended " + esc(f.period) : ""}<small>filed ${esc(f.filed)} · ${esc(f.accession)}</small></span><button type="button" data-i="${i}">Read</button></li>`).join("");
+        list.innerHTML = j.filings.map((f, i) => `<li${i >= 6 ? " hidden" : ""}><span><b>${esc(f.form)}</b>${f.period ? " · period ended " + esc(f.period) : ""}<small>filed ${esc(f.filed)} · ${esc(f.accession)}</small></span><button type="button" data-i="${i}">Read</button></li>`).join("")
+          + (j.filings.length > 6 ? `<li class="re-more"><button type="button" data-more="1">Show ${j.filings.length - 6} older</button></li>` : "");
       } catch (e){ say("Could not reach the local server.", true); }
       finally { find.disabled = false; }
     }
     find.addEventListener("click", lookup);
     tick.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); lookup(); } });
     list.addEventListener("click", async e => {
+      if (e.target.closest("button[data-more]")){ list.querySelectorAll("li[hidden]").forEach(li => { li.hidden = false; }); e.target.closest("li").remove(); return; }
       const b = e.target.closest("button[data-i]"); if (!b || !found) return;
       const f = found.filings[+b.dataset.i];
       list.querySelectorAll("button").forEach(x => { x.disabled = true; });
@@ -2382,7 +2441,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         const name = `${found.ticker} ${f.form.replace("/", "-")} ${f.period || f.filed} filed ${f.filed} ${f.accession}.${ext}`;
         pick(new File([blob], name, {type: blob.type || "text/html"}));
         const tk = document.getElementById("read-ticker"); if (tk) tk.value = found.ticker;
-        say(`Loaded ${f.form} filed ${f.filed}. Reading...`);
+        say(`Loaded ${f.form} for the period ended ${f.period || f.filed} (filed ${f.filed}). Reading...`);
+        list.innerHTML = "";                                   // the choice is made; keep the page short
         runRead.click();
       } catch (x){ say("Could not reach the local server.", true); }
       finally { list.querySelectorAll("button").forEach(x => { x.disabled = false; }); }
@@ -3494,6 +3554,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   // ---- present the result: draw the document, walk, then the finish card ----
   async function present(res){
     state.readRes = res;
+    document.dispatchEvent(new CustomEvent("bmg-read-done"));          // My reads refreshes its list
     const rp = res.report;
     state.sigById = {}; (rp.signals || []).forEach(sg => { state.sigById[sg.id] = {...sg}; });
     if (rp.brief){ drawBrief(rp.brief, true); drawSigSum({signals: (rp.signals || []).length, ...Object.fromEntries(["flag", "watch", "observation"].map(k => [k, (rp.signals || []).filter(x => x.severity === k).length]))}); }
