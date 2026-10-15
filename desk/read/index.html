@@ -2674,6 +2674,28 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
           let last = scrollY; await wait(() => { const st = Math.abs(scrollY - last) < 40; last = scrollY; return st; }, 250, 5000).catch(() => {});
           await sleep(300);
         }
+        // The hidden statement-page jump can leave feet and joint memory on the cover.
+        // Replant only the startup pose; leave the normal gait and movement rules alone.
+        if (state.feet && state.feet.length){
+          state.legAnim = {}; state.legJ = []; state.legLast = [];
+          state.vel = {x: 0, y: 0}; state.bodyVel = {x: 0, y: 0};
+          state.lastBodyP = {...state.body}; state.faceHeading = Math.PI / 2;
+          state.feet = gaitFeet(); state.silkAnchor = null;
+          drawSpider();
+          // Let the freshly planted legs take their first normal steps behind the curtain.
+          await sleep(600);
+          let settled = 0;
+          await wait(() => {
+            const ready = state.legJ.length === N_LEGS && state.feet.length === N_LEGS &&
+              state.feet.every((foot, i) => {
+                const hip = state.legJ[i] && state.legJ[i][0];
+                return foot && hip && Number.isFinite(foot.x) && Number.isFinite(foot.y) &&
+                  Math.hypot(foot.x - hip.x, foot.y - hip.y) <= 3 * SEG0 * U;
+              });
+            settled = ready ? settled + 1 : 0;
+            return settled >= 4;
+          }, 80, 3000);
+        }
         if (rec) rec.start(500);                                   // the clip starts here, on the statements
         startOverlays();
         curtain.classList.add("out"); setTimeout(() => curtain.remove(), 400);
