@@ -1103,7 +1103,9 @@ async def snapshot(ticker: str = Query(..., min_length=1,
 from fastapi import UploadFile, File, Form
 import fact_checker as fc
 
-CHECK_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+# 10 MB on the public site; 50 MB on the owner's Mac (BMG_LOCAL=1), where JPMorgan's 12.9 MB
+# and Prologis's 11.5 MB 10-Ks must fit (known issue #46).
+CHECK_MAX_BYTES = (50 if os.environ.get("BMG_LOCAL") == "1" else 10) * 1024 * 1024
 CHECK_RL_WINDOW_S = 60
 CHECK_RL_MAX = 6  # per IP per window
 _check_rl_hits: dict[str, list[float]] = {}
@@ -1991,6 +1993,88 @@ async def _read_core(data: bytes, kind: str, title: str, ticker: Optional[str]) 
         "stored_facts": len(stored), "prior_runs": len(prior),
         "last_run": (prior[0].get("read_at") or "")[:10] if prior else None,
         "already_saved": any(r.get("source_sha256") == sha for r in prior)}
+
+
+# ----------------------------------------------------------------------
+# Crawler: load a filing by ticker from SEC EDGAR (owner's Mac only)
+# ----------------------------------------------------------------------
+EDGAR_FORMS = ("10-K", "10-Q", "10-K/A", "10-Q/A", "20-F", "40-F")
+TTL_SUBMISSIONS = 6 * 3600   # a company's filing list; new filings show within six hours
+EDGAR_DOC_DIR = CACHE_DIR / "edgar"
+
+
+def _edgar_denied() -> Optional[JSONResponse]:
+    if os.environ.get("BMG_LOCAL") != "1":
+        return JSONResponse(status_code=403, content={"error": "Loading filings from SEC EDGAR is available on the local crawler only."})
+    return None
+
+
+@app.get("/api/edgar/filings")
+async def edgar_filings(ticker: str = Query(..., max_length=12)):
+    """Recent 10-K and 10-Q filings for a ticker, newest first, from the SEC's submissions feed."""
+    denied = _edgar_denied()
+    if denied:
+        return denied
+    t = re.sub(r"[^A-Z0-9.\-]", "", ticker.upper())
+    if not t:
+        return JSONResponse(status_code=400, content={"error": "Enter a ticker, for example AMZN."})
+    client = HTTP_CLIENT or httpx.AsyncClient(timeout=20.0, follow_redirects=True)
+    try:
+        tmap = await _ticker_map(client)
+        row = tmap.get(t) or tmap.get(t.replace(".", "-"))
+        if not row:
+            return JSONResponse(status_code=404, content={"error": f"No SEC filer has the ticker {t}."})
+        cik = int(row["cik_str"])
+        sub = await _sec_fetch_json(f"https://data.sec.gov/submissions/CIK{cik:010d}.json", TTL_SUBMISSIONS, client)
+    except httpx.HTTPError as e:
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not answer ({type(e).__name__}). Try again in a minute."})
+    recent = ((sub or {}).get("filings") or {}).get("recent") or {}
+    out = []
+    for i, form in enumerate(recent.get("form", [])):
+        if form not in EDGAR_FORMS:
+            continue
+        acc, doc = recent["accessionNumber"][i], recent["primaryDocument"][i]
+        out.append({"form": form, "filed": recent["filingDate"][i], "period": (recent.get("reportDate") or [""] * (i + 1))[i],
+                    "accession": acc, "document": doc,
+                    "url": f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/{doc}"})
+        if len(out) >= 12:
+            break
+    return {"ticker": t, "cik": cik, "company": (sub or {}).get("name") or row.get("title"), "filings": out}
+
+
+@app.get("/api/edgar/document")
+async def edgar_document(cik: int, accession: str, document: str):
+    """The filing's primary document, fetched once from SEC EDGAR and then served from the local cache."""
+    denied = _edgar_denied()
+    if denied:
+        return denied
+    if not re.fullmatch(r"\d{10}-\d{2}-\d{6}", accession) or not re.fullmatch(r"[\w.\-]{1,120}\.(?:htm|html|txt|pdf)", document, re.I):
+        return JSONResponse(status_code=400, content={"error": "That is not an EDGAR filing reference."})
+    path = EDGAR_DOC_DIR / f"{cik}-{accession}-{document}"
+    if path.exists():
+        data = path.read_bytes()
+    else:
+        url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession.replace('-', '')}/{document}"
+        client = HTTP_CLIENT or httpx.AsyncClient(timeout=60.0, follow_redirects=True)
+        try:
+            await SEC_LIMITER.acquire()
+            r = await client.get(url, headers={"User-Agent": SEC_USER_AGENT}, timeout=60.0)
+            r.raise_for_status()
+        except httpx.HTTPError as e:
+            return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return the filing ({type(e).__name__})."})
+        data = r.content
+        if len(data) > CHECK_MAX_BYTES:
+            return JSONResponse(status_code=413, content={"error": f"The filing is {len(data) / 1e6:.1f} MB; the limit is {CHECK_MAX_BYTES // 1048576} MB."})
+        EDGAR_DOC_DIR.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    kind = "application/pdf" if document.lower().endswith(".pdf") else "text/plain" if document.lower().endswith(".txt") else "text/html; charset=utf-8"
+    return Response(content=data, media_type=kind, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/read/limits")
+def read_limits():
+    """What this server accepts, so the page states the real limit instead of a hard-coded one."""
+    return {"max_bytes": CHECK_MAX_BYTES, "local": os.environ.get("BMG_LOCAL") == "1"}
 
 
 @app.post("/api/read")
