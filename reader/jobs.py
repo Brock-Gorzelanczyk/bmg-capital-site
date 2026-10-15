@@ -120,9 +120,14 @@ class JobManager:
                 log.exception("reader library lookup failed")
         if saved:
             job.started = time.time()
+            try:
+                original = self.library.stages(sha, ticker)
+            except Exception:
+                original = {}
             for stage in ("Upload", "Parse", "Identify", "Extract", "Validate", "Analyze", "Build report"):
-                job.stages[stage] = {"state": "done", "saved": True}
-                job.emit("stage", {"stage": stage, "state": "done", "saved": True})
+                detail = {**(original.get(stage) or {}), "state": "done", "saved": True}
+                job.stages[stage] = detail
+                job.emit("stage", {"stage": stage, **detail})
             self._finish(job, saved)
             log.info("reader job %s reopened from My reads", job.id[:8])
             return job, False

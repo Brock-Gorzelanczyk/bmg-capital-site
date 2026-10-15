@@ -2336,7 +2336,27 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const wrap = document.createElement("div"); wrap.className = "htmldoc";
     wrap.innerHTML = d.body.innerHTML;
     into.appendChild(wrap);
+    fitHtml(wrap);
   }
+  // A filing's own layout can be wider than the reader (Amazon's June 2026 10-Q statements need 1,440 px).
+  // Scale the whole filing down with CSS zoom so every column is visible. The words stay real text, laid out
+  // at the smaller size, so the spider's footholds, scrolling and page height stay true. Runs before the
+  // spider measures any word, and again on resize.
+  function fitHtml(wrap){
+    if (!wrap || !wrap.isConnected) return;
+    wrap.style.zoom = "";
+    const avail = wrap.clientWidth, natural = wrap.scrollWidth;
+    const z = natural > avail + 1 ? Math.max(0.15, avail / natural) : 1;
+    wrap.style.zoom = z === 1 ? "" : z.toFixed(4);
+    wrap.dataset.fit = z.toFixed(3);
+  }
+  addEventListener("resize", () => {
+    const w = document.querySelector("#doc .htmldoc");
+    if (!w) return;
+    const before = w.dataset.fit;
+    fitHtml(w);
+    if (w.dataset.fit !== before){ bumpLayout(); geo = null; }
+  });
 
   // ---- upload, Run, watch the spider, then a summary ----
   state.maxChars = 200000;
@@ -3445,7 +3465,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (name === "Upload") return d.pct != null && d.state === "running" ? `${d.pct}%` : d.state === "done" ? "received" : "";
     if (d.state === "running") return "working";
     if (d.state !== "done") return "";
-    const s = d.seconds != null ? ` · ${d.seconds}s` : "";
+    // A reopened saved read shows the original counts, marked as saved; older saves have none.
+    const s = d.saved ? " · saved read" : d.seconds != null ? ` · ${d.seconds}s` : "";
+    const need = {Parse: ["pages", "sections"], Extract: ["table_rows", "facts"], Validate: ["checks", "failed"], "Build report": ["findings"], Analyze: ["signals"]}[name];
+    if (d.saved && need && need.some(k => d[k] == null)) return "saved read";
     const pl = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
     if (name === "Parse") return `${pl(d.pages, "page")}, ${pl(d.sections, "section")}${s}`;
     if (name === "Extract") return `${d.table_rows} table rows, ${d.facts} facts${s}`;

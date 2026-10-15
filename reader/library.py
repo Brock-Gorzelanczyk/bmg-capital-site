@@ -50,7 +50,7 @@ class Library:
         if not src.exists():
             src.write_bytes(data)
         with gzip.open(self.root / f"{job.sha256}-{(job.ticker or '_').upper()}.json.gz", "wt", encoding="utf-8") as fh:
-            json.dump({"version": VERSION, "result": res}, fh, default=str)
+            json.dump({"version": VERSION, "result": res, "stages": getattr(job, "stages", None) or {}}, fh, default=str)
         entry = {"key": key, "sha256": job.sha256, "job_ticker": job.ticker or "", "ticker": (job.ticker or co.get("ticker") or co.get("ticker_hint") or ""),
                  "company": co.get("name") or "", "form": co.get("form") or "", "period": co.get("period") or "",
                  "title": job.title, "kind": job.kind, "findings": len(rep.get("findings") or []),
@@ -65,14 +65,23 @@ class Library:
             tmp.write_text(json.dumps(idx, indent=1))
             tmp.replace(self.index_path)
 
-    def lookup(self, sha: str, ticker: Optional[str]) -> Optional[dict]:
+    def _load(self, sha: str, ticker: Optional[str]) -> Optional[dict]:
         path = self.root / f"{sha}-{(ticker or '_').upper()}.json.gz"
         try:
             with gzip.open(path, "rt", encoding="utf-8") as fh:
                 saved = json.load(fh)
         except (OSError, ValueError):
             return None
-        return saved["result"] if saved.get("version") == VERSION else None
+        return saved if saved.get("version") == VERSION else None
+
+    def lookup(self, sha: str, ticker: Optional[str]) -> Optional[dict]:
+        saved = self._load(sha, ticker)
+        return saved["result"] if saved else None
+
+    def stages(self, sha: str, ticker: Optional[str]) -> dict:
+        """The stage counters of the original read (pages, facts, checks ...), so a reopened read shows them."""
+        saved = self._load(sha, ticker)
+        return (saved or {}).get("stages") or {}
 
     def entries(self) -> list[dict]:
         return self._index()

@@ -147,6 +147,20 @@ def _screen_text(name: str, scr: Optional[dict], fmt, version: str, prof_key: st
     return f"Screen ({'lessor' if prof_key == 'Railcar leasing' else prof_key.lower()} profile, {version}): " + ", ".join(parts) + "."
 
 
+def _col_for(row: dict, fact: dict):
+    """The column of a table row that holds the same period as `fact`, or None. Filings print columns
+    newest first or oldest first, so values[0] is not "the current year" (Amazon FY2025 lists 2023 first)."""
+    p = fact.get("period") or {}
+    for i, c in enumerate(row.get("cols") or []):
+        if i >= len(row.get("values") or []) or row["values"][i] is None:
+            continue
+        if c.get("type") not in (None, "", p.get("type")) and p.get("type") not in (None, "", "unknown"):
+            continue
+        if (p.get("end") and c.get("end") == p.get("end")) or (not p.get("end") and p.get("year") and str(c.get("year")) == str(p.get("year"))):
+            return i
+    return None
+
+
 def _rows_like(fb, stmt: str, pat: str, table_id=None) -> list:
     from .facts import _core
     return [r for r in fb.rows if r["statement"] == stmt and _core(r) and r["unit"] == "USD" and _re.search(pat, r["key"])
@@ -265,9 +279,10 @@ def analyze(fb, profile: str, kpis: list, watch: Optional[list] = None) -> list[
             gain_table = source_table(gn0)
             gain_label = gn0.get("formula") or (gn0.get("source") or {}).get("row_label", "")
             itemized = _rows_like(fb, "income", r"divestiture|sale of (business|subsidiary|interest)", gain_table) if gain_table is not None else []
-            if itemized and itemized[0]["values"][0]:
+            col = _col_for(itemized[0], gn0) if itemized else None
+            if col is not None and itemized[0]["values"][col]:
                 rr = itemized[0]
-                v = rr["values"][0] * SCALE.get(rr["scale"], 1.0)
+                v = rr["values"][col] * SCALE.get(rr["scale"], 1.0)
                 text += f" The current year includes \"{rr['full_label']}\" of {fmt_value(v, 'USD')}, which the statement itemizes separately."
             out.append(_sig("gains_share", "Asset-sale gains in pretax income", sh, _pct(sh), "observation", f"Asset-sale gains {_pct(sh)} of pretax income", text,
                             "Observation, not screened: whether such gains recur depends on the business model, shown here across the years the filing presents.",
@@ -291,9 +306,10 @@ def analyze(fb, profile: str, kpis: list, watch: Optional[list] = None) -> list[
         evid = []
         for pat, lab in ((r"^depreciation( and amortization)?|^depreciation", "depreciation"), (r"gains?|losses on (disposition|sale)", "gains on sales")):
             rr = [x for x in _rows_like(fb, "cashflow", pat) if x["values"]]
-            if rr:
+            col = _col_for(rr[0], cfo) if rr else None
+            if col is not None:                  # only the same period as the cash flow figure it explains
                 x = rr[0]
-                evid.append(f"\"{x['full_label']}\" {fmt_value(x['values'][0] * SCALE.get(x['scale'], 1.0), 'USD')}")
+                evid.append(f"\"{x['full_label']}\" {fmt_value(x['values'][col] * SCALE.get(x['scale'], 1.0), 'USD')}")
         text = f"Operating cash flow of {cfo['display']} against consolidated net income of {nic['display']}."
         if evid:
             text += " Reconciling items in the cash flow statement include " + "; ".join(evid[:2]) + "."

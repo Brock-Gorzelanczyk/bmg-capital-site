@@ -8,6 +8,8 @@ section being replayed, which the panel says). The plan carries no timing.
 """
 from __future__ import annotations
 
+import re
+
 SECTIONS = [
     ("income", "Income statement", [("revenue", "Revenue"), ("gross_profit", "Gross profit"), ("operating_income", "Operating income"),
                                      ("pretax_income", "Income before income taxes"), ("net_income", "Net income"), ("eps_diluted", "Diluted EPS")]),
@@ -64,6 +66,12 @@ def plan(rep: dict) -> dict:
                                            if (facts[j].get("source") or {}).get("pdf_page")})}
         return i
 
+    def _period_key(f):
+        # newest first: the period's end date, else the latest year in its label
+        p = f["period"]
+        years = re.findall(r"(?:19|20)\d\d", " ".join(str(p.get(k) or "") for k in ("label", "short")))
+        return (p.get("end") or "", max(years) if years else "")
+
     sections = []
     for sid, title, metrics in SECTIONS:
         rows = []
@@ -75,7 +83,7 @@ def plan(rep: dict) -> dict:
                 label = (facts.get(r.get("current")) or calcs.get(r.get("current")) or {}).get("name") or label
             else:
                 cand = sorted([f for f in facts.values() if f["metric"] == m and f["status"] != "Unavailable"],
-                              key=lambda f: f["period"].get("end") or "", reverse=True)
+                              key=_period_key, reverse=True)
                 cand = [c for c in cand if not cand or c["period"]["type"] == cand[0]["period"]["type"]][:2]
                 ids = [c["id"] for c in cand] + [c["id"] for c in calcs.values() if c.get("metric") == m and c.get("status") != "Unavailable"][:2 - len(cand)]
                 if ids:
@@ -83,6 +91,14 @@ def plan(rep: dict) -> dict:
             if ids:
                 rows.append({"metric": m, "label": label, "cells": [cell(i) for i in ids]})
         if rows:
+            # Every row sits under the section's column headers (the first row's periods). A row whose
+            # cells carry the same periods in another order is put in header order, so a figure can
+            # never show under the wrong year (AMZN 10-Q, June 2026: pretax income was reversed).
+            head = [cells[c]["period"] for c in rows[0]["cells"]]
+            for row in rows[1:]:
+                got = [cells[c]["period"] for c in row["cells"]]
+                if sorted(got) == sorted(head) and got != head:
+                    row["cells"] = sorted(row["cells"], key=lambda c: head.index(cells[c]["period"]))
             sections.append({"id": sid, "title": title, "rows": rows})
     ratios = []
     for cid, label in CALCS:
