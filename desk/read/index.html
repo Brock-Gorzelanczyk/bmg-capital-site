@@ -1034,9 +1034,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const c = docSpaceCenter(f.el), d = Math.hypot(c.x - bx, c.y - by);
     return d >= MIN_REACH && d <= HI_REACH * 1.7 && sectorIndex(bx, by, c.x, c.y) === i;
   }
+  // The original gait stays at 1x over text; only empty-band travel speeds up.
+  function gapCrawlTempo(){ return Math.sqrt(Math.max(1, Math.min(4, state.boost || 1))); }
   function startLegStep(i, to, now){
     const from = state.feet[i] || {x: state.body.x, y: state.body.y};
-    state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 180 / (state.speedMul || 1)};
+    state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 180 / ((state.speedMul || 1) * gapCrawlTempo())};
   }
   function advanceLegs(now){
     for (const k of Object.keys(state.legAnim)){
@@ -1105,7 +1107,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const vm = Math.hypot(v.x, v.y);
       const half = Math.max(STEP0 * U, Math.min(80 * U, vm * 0.24));
       // plus the distance the body travels during the swing itself
-      const sw = 0.18 / (state.speedMul || 1);
+      const sw = 0.18 / ((state.speedMul || 1) * gapCrawlTempo());
       const pref = vm > 1 ? {x: rest.x + v.x / vm * half + v.x * sw, y: rest.y + v.y / vm * half + v.y * sw} : rest;
       const hj = state.legJ[i] ? state.legJ[i][0] : state.body;
       // how far the foot has fallen behind its neutral spot along travel,
@@ -1137,7 +1139,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       // follows with a slight lag and the legs catch up (Astra brief).
       const mul = state.speedMul || 1;
       const bv = state.bodyVel || (state.bodyVel = {x: 0, y: 0});
-      const k = 7, c = 4.6, vmax = (CRAWL_BASE * U) * mul;
+      const gapTempo = gapCrawlTempo();
+      const k = 7 * gapTempo * gapTempo, c = 4.6 * gapTempo, vmax = (CRAWL_BASE * U) * mul * gapTempo;
       bv.x += (k * (t.x - state.body.x) - c * bv.x) * dt;
       bv.y += (k * (t.y - state.body.y) - c * bv.y) * dt;
       const vm = Math.hypot(bv.x, bv.y);
