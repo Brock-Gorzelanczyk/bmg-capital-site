@@ -848,7 +848,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const pts = solveLeg(i, hip, f, sx, sy);
       L.poly.style.display = L.foot.style.display = L.knee.style.display = L.ankle.style.display = "";
       L.poly.setAttribute("points", pts.map(q => `${clampN(q.x)},${clampN(q.y)}`).join(" "));
-      L.foot.setAttribute("cx", clampN(f.x)); L.foot.setAttribute("cy", clampN(f.y));
+      L.foot.setAttribute("cx", clampN(pts[3].x)); L.foot.setAttribute("cy", clampN(pts[3].y));
       L.knee.setAttribute("cx", clampN(pts[1].x)); L.knee.setAttribute("cy", clampN(pts[1].y));
       L.ankle.setAttribute("cx", clampN(pts[2].x)); L.ankle.setAttribute("cy", clampN(pts[2].y));
       if (DEBUG) L.foot.style.fill = state.legAnim[i] ? "#ff9f1c" : "#3ddc84";
@@ -882,8 +882,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       if (Math.hypot(j[3].x - foot.x, j[3].y - foot.y) < 0.3) break;
     }
     state.legJ[i] = j;
-    // The foot drawn where it is planted (an out-of-reach foot triggers a step).
-    return [j[0], j[1], j[2], {x: foot.x, y: foot.y}];
+    // Keep all three segments rigid even while an unreachable planted foot catches up.
+    return j;
   }
 
   const SCROLL_SPEED = 140;   // px per second at 1x, matched to the clip (lines per second)
@@ -1092,7 +1092,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const bv = state.bodyVel || (state.bodyVel = {x: 0, y: 0});
       const tempo = state.recordBodyTempo || 1;
       // Scale spring response as well as its cap, preserving the same damping shape.
-      const k = 7 * tempo * tempo, c = 4.6 * tempo, vmax = (CRAWL_BASE * U) * mul;
+      const k = 7 * tempo * tempo, c = (state.recordBodyTempo ? 2 * Math.sqrt(7) : 4.6) * tempo, vmax = (CRAWL_BASE * U) * mul;
       bv.x += (k * (t.x - state.body.x) - c * bv.x) * dt;
       bv.y += (k * (t.y - state.body.y) - c * bv.y) * dt;
       const vm = Math.hypot(bv.x, bv.y);
@@ -1104,7 +1104,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       // Never leave the frame: ease back inside 15%..80% of the screen.
       const vh = innerHeight * (window.READER_VIEW_FRAC || 1);   // a pinned panel can cover the bottom
       const sy = dr.top + state.body.y, lo = vh * 0.22, hi = vh * 0.72;
-      if (sy > hi) state.body.y -= (sy - hi) * 0.25; else if (sy < lo) state.body.y += (lo - sy) * 0.25;
+      const frameEase = 1 - Math.exp(-8 * dt);
+      if (sy > hi) state.body.y -= (sy - hi) * frameEase; else if (sy < lo) state.body.y += (lo - sy) * frameEase;
       // Face the actual direction of travel over the page (crawl plus the
       // scroll it rides), which while reading is mostly down the page.
       if (state.lastBodyP && dt > 0){
@@ -1117,7 +1118,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
           const want = Math.atan2(state.vel.y, state.vel.x);
           if (state.faceHeading == null) state.faceHeading = want;
           let fd = want - state.faceHeading; fd = Math.atan2(Math.sin(fd), Math.cos(fd));
-          state.faceHeading = Math.atan2(Math.sin(state.faceHeading + fd * Math.min(1, dt * 5)), Math.cos(state.faceHeading + fd * Math.min(1, dt * 5)));
+          state.faceHeading = Math.atan2(Math.sin(state.faceHeading + Math.max(-2.8 * dt, Math.min(2.8 * dt, fd * (1 - Math.exp(-5 * dt))))), Math.cos(state.faceHeading + Math.max(-2.8 * dt, Math.min(2.8 * dt, fd * (1 - Math.exp(-5 * dt))))));
         }
       }
       state.lastBodyP = {x: state.body.x, y: state.body.y};
@@ -3005,8 +3006,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         }
         if (highlights && pace > 1){
           state.speedMul = Math.max(2, previousTempo);
-          state.recordBodyTempo = 3.2;
-          state.recordTravelTempo = 3.2;
+          state.recordBodyTempo = 4.8;
+          state.recordTravelTempo = 4.8;
           state.recordEffectTempo = 0.75;
         }
         if (rec) rec.start(500);                                   // the clip starts here, on the statements
