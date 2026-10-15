@@ -418,6 +418,56 @@ table.rs td{border-bottom:1px solid #eee;padding:6px 8px;vertical-align:top}
 table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
 .muted{color:#6b6f76}
 @media (max-width:900px){.read-grid{grid-template-columns:minmax(0,1fr)}.stage .strip{flex-wrap:wrap;height:auto;min-height:36px;row-gap:4px;padding-top:4px;padding-bottom:4px}.stage .strip .status{white-space:normal;overflow:visible}.read-side{position:static;max-height:none}.read-form{grid-template-columns:1fr}}
+
+/* Shared reader appearance, independent of recording layout. */
+body.readerfx.rec-dark .pdfpage{background:#000!important;box-shadow:none!important}
+body.readerfx.rec-dark .pdfpage canvas{filter:invert(1) hue-rotate(180deg) contrast(1.1)}
+body.readerfx.rec-dark svg.spider .leg{stroke:#6ff4ff!important;stroke-width:2.6!important}
+body.readerfx.rec-dark svg.spider .foot,body.readerfx.rec-dark svg.spider .knee{fill:#ff3da6!important}
+body.readerfx.rec-dark svg.spider .body{stroke:#6ff4ff!important}body.readerfx.rec-dark svg.spider .mesh{stroke:#9fb4ff!important}
+body.readerfx.rec-dark .beam{background:rgba(39,200,255,.28)!important;color:transparent!important;box-shadow:none!important}
+body.readerfx.rec-dark .pdftext .w.salmon,body.readerfx.rec-dark .pdftext .w.found.org{background:rgba(39,200,255,.38)!important}
+body.readerfx.rec-dark .stage,body.readerfx.rec-dark .doc,body.readerfx.rec-dark #doc{--page:#000}
+body.readerfx.rec-dark .stage .liftlbl{background:rgba(0,0,0,.88)!important}
+body.readerfx.rec-dark .stage .liftlbl.f1,body.readerfx.rec-dark .stage .liftlbl.f2{color:#6ff4ff!important}body.readerfx.rec-dark .stage .liftlbl.f3{color:#ff5cc0!important}
+body.readerfx.rec-dark .fx-fill,body.readerfx.rec-dark .fx-strip{background:rgba(39,200,255,.88)!important;color:#00202a!important;box-shadow:none!important}
+body.readerfx.rec-dark .fx-fill:nth-child(2n),body.readerfx.rec-dark .fx-strip:nth-child(2n){background:rgba(255,61,166,.88)!important;color:#fff!important}
+body.readerfx.rec-dark .fx-ink,body.readerfx.rec-dark .fx-accent{color:#6ff4ff!important;box-shadow:none!important}
+body.readerfx.rec-dark .fx-ink:nth-child(2n),body.readerfx.rec-dark .fx-accent:nth-child(2n){color:#ff5cc0!important}
+body.readerfx.rec-dark .fx-outline{border-color:#6ff4ff!important}body.readerfx.rec-dark .fx-outline:nth-child(2n){border-color:#ff5cc0!important}
+body.readerfx .sig-pop{background:rgba(8,12,20,.95);color:#f2f6fa;border:1.5px solid var(--c);border-left-width:5px;box-shadow:0 0 26px color-mix(in srgb,var(--c) 55%,transparent),0 10px 30px rgba(0,0,0,.5);box-sizing:border-box;padding:3px 5px;line-height:1.2;font-size:10px;animation:recpop .55s cubic-bezier(.2,1.5,.4,1) both}
+body.readerfx .sig-pop b{font-size:12px;color:#fff}body.readerfx .sig-pop small{color:#8fa0b3;font-size:8px}body.readerfx .sig-pop .sev{font-size:7px;padding:2px 4px}body.readerfx .sig-pop::after{background:rgba(8,12,20,.95)}
+body.readerfx .sig-pop.s-observation{--c:#6ff4ff}body.readerfx .sig-pop.s-watch{--c:#ffb020}body.readerfx .sig-pop.s-flag{--c:#ff4d6d}
+body.readerfx[data-rec-palette] svg.spider .leg,body.readerfx[data-rec-palette] svg.spider .body,body.readerfx[data-rec-palette] svg.spider .sight{stroke:var(--crawler-main)!important}
+body.readerfx[data-rec-palette] svg.spider .head{fill:var(--crawler-main)!important}
+body.readerfx[data-rec-palette] svg.spider .foot,body.readerfx[data-rec-palette] svg.spider .knee{fill:var(--crawler-accent)!important}
+body.readerfx[data-rec-palette] svg.spider .link-thread{stroke:var(--crawler-accent)!important}
+body.readerfx[data-rec-palette] svg.spider .silk,body.readerfx[data-rec-palette] svg.spider .mesh,body.readerfx[data-rec-palette] svg.spider .thread{stroke:var(--crawler-trail)!important}
+body.readerfx[data-rec-palette] .w:is(.hl-cyan,.hl-bping,.cyanfill,.salmon,.found.org,.found.blue):not(.hl-out){background:color-mix(in srgb,var(--crawler-main) 38%,transparent)!important;box-shadow:0 0 0 1px var(--crawler-main)!important}
+body.readerfx[data-rec-palette] .w:is(.hl-pink,.hl-ping,.fillbox,.found.pink):not(.hl-out){background:color-mix(in srgb,var(--crawler-accent) 38%,transparent)!important;box-shadow:0 0 0 1px var(--crawler-accent)!important}
+body.readerfx[data-rec-palette] .w.hl-blue:not(.hl-out){background:color-mix(in srgb,var(--crawler-trail) 22%,transparent)!important;box-shadow:0 0 0 1px var(--crawler-trail)!important}
+body.readerfx[data-rec-palette] .beam{background:color-mix(in srgb,var(--crawler-main) 28%,transparent)!important;box-shadow:none!important}
+body.readerfx[data-rec-palette] :is(.fx-fill,.fx-strip){background:var(--crawler-main)!important;color:#05070c!important;box-shadow:none!important}
+body.readerfx[data-rec-palette] :is(.fx-fill,.fx-strip):nth-child(2n){background:var(--crawler-accent)!important;color:#05070c!important}
+body.readerfx[data-rec-palette] :is(.fx-ink,.fx-accent,.liftlbl,.w.lift){color:var(--crawler-main)!important}
+body.readerfx[data-rec-palette] :is(.fx-ink,.fx-accent):nth-child(2n),body.readerfx[data-rec-palette] :is(.liftlbl,.w.lift).f3{color:var(--crawler-accent)!important}
+body.readerfx[data-rec-palette] .fx-outline{border-color:var(--crawler-main)!important}
+body.readerfx[data-rec-palette] .fx-outline:nth-child(2n){border-color:var(--crawler-accent)!important}
+body.readerfx[data-rec-palette] .w.sig-observation{--c:var(--crawler-main)}
+body.readerfx[data-rec-palette] .rec-fly{background:var(--crawler-main);color:#05070c;box-shadow:0 0 16px var(--crawler-main)}
+body.readerfx[data-rec-palette] .stage .fx-accent{background:var(--crawler-main)!important;color:#05070c!important;box-shadow:none!important}
+body.readerfx[data-rec-palette] .stage .fx-accent:nth-child(2n){background:var(--crawler-accent)!important;color:#05070c!important}
+body.readerfx[data-rec-palette] .sig-pop.s-observation,body.readerfx[data-rec-palette] #rec-end .s-observation{--c:var(--crawler-main)}
+body.readerfx[data-rec-palette] .sig-pop .sev.s-observation{background:var(--crawler-main);color:#05070c}
+body.readerfx[data-rec-palette] #rec-hud{color:var(--crawler-main);border-color:color-mix(in srgb,var(--crawler-main) 45%,transparent);box-shadow:0 0 14px color-mix(in srgb,var(--crawler-main) 25%,transparent)}
+body.readerfx[data-rec-palette] #rec-end h3,body.readerfx[data-rec-palette] .rk-one h2 span{color:var(--crawler-main)}
+body.readerfx.rec-dark .stage,body.readerfx.rec-dark #doc,body.readerfx.rec-dark #docbody{background:#000!important}
+body.readerfx .sig-pop span:not(.sev),body.recmode .sig-pop span:not(.sev){color:#cbd5e1}
+#reader-appearance{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:12px 0 18px;padding:12px;border:1px solid #d7ddd9;border-radius:9px;font:14px 'IBM Plex Sans',sans-serif}
+#reader-appearance .opt{display:flex;align-items:center;gap:8px}#reader-appearance .rec-palette-preview{margin:0;color:#65716b}
+body.readerfx .lr-v{font-size:15px}body.readerfx .lr-t td{padding:3px 5px}
+@media(max-width:900px){body.readerfx .read-side{max-height:28vh!important;box-sizing:border-box}body.readerfx .read-side.collapsed{max-height:44px!important}body.readerfx .read-grid{padding-bottom:30vh}}
+
 </style>
 <!-- bmg-theme --><link rel="stylesheet" href="/assets/theme.css"><script>try{if(localStorage.getItem("bmg-theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script><script src="/assets/theme.js" defer></script>
 </head>
@@ -2345,7 +2395,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (vr.bottom < 40 || vr.top > innerHeight - 20) return;     // passed during a jump: listed, not popped
     // the callout sits beside the figure, in document space, so it scrolls with the page
     // Above the figure, over lines already read, with a pointer down to it.
-    const c = docSpaceCenter(el), W = doc.clientWidth || 800, w = Math.min(document.body.classList.contains("recmode") ? 115 : 310, W - 24);
+    const c = docSpaceCenter(el), W = doc.clientWidth || 800, w = Math.min((document.body.classList.contains("recmode") || document.body.classList.contains("readerfx")) ? 115 : 310, W - 24);
     const left = Math.max(8, Math.min(W - w - 8, c.x - w * 0.62));
     const box = document.createElement("div");
     box.className = "sig-pop s-" + sg.severity;
@@ -2359,7 +2409,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     if (er.y - hh - 14 < 0){ box.style.top = (er.y + er.h + 14) + "px"; box.classList.add("below"); }
     state.pops = (state.pops || []).filter(x => x.isConnected);
     state.pops.push(box);
-    while (state.pops.length > (document.body.classList.contains("recmode") ? 1 : 2)){ const old = state.pops.shift(); old.classList.add("out"); setTimeout(() => old.remove(), 400); }
+    while (state.pops.length > ((document.body.classList.contains("recmode") || document.body.classList.contains("readerfx")) ? 1 : 2)){ const old = state.pops.shift(); old.classList.add("out"); setTimeout(() => old.remove(), 400); }
     const life = 6500 / Math.max(0.5, state.speedMul || 1);
     setTimeout(() => { box.classList.add("out"); setTimeout(() => box.remove(), 450); }, REDUCED ? 9000 : life);
   }
@@ -2482,10 +2532,11 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       const h = Math.min(960, (screen.availHeight || 900) - 60), w = Math.round(h * 9 / 16);
       window.open("/desk/read/?layout=record&mode=rec", "bmg-record", `popup=yes,width=${w},height=${h}`);
     });
-    if (!/[?&]mode=rec\b/.test(location.search)) return;
+    const isRecord = /[?&]mode=rec\b/.test(location.search);
     const B = document.body;
-    B.classList.add("rec", "recmode", "rec-dark");
-    window.READER_VIEW_FRAC = 0.6;                    // the bottom 40% is the live report panel
+    if (isRecord) B.classList.add("rec", "recmode", "rec-dark");
+    else B.classList.add("readerfx", "rec-dark");
+    if (isRecord) window.READER_VIEW_FRAC = 0.6;                    // the bottom 40% is the live report panel
     const leave = () => { if (window.opener && !window.opener.closed){ window.close(); } location.href = "/desk/read/"; };
     const palettes = {
       default: {name: "Original cyan + pink (default)", main: "#6ff4ff", accent: "#ff3da6", trail: "#9fb4ff"},
@@ -2511,13 +2562,22 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       ${canRecord ? `<label class="opt">Record this window (downloads a video) <input type="checkbox" id="rec-capture" checked></label>` : ""}
       <button id="rec-start" type="button" disabled>Start</button>
       <p>Space pauses. Esc leaves record mode. The clip starts when the black screen lifts on the first financial statement.</p>`;
-    B.appendChild(setup);
-    setup.querySelector("#rec-back").addEventListener("click", leave);
-    const drop = document.getElementById("read-drop");
-    setup.querySelector("#rec-file-slot").appendChild(drop);            // the reader's own file picker
     const fileIn = document.getElementById("read-file"), startBtn = setup.querySelector("#rec-start");
-    fileIn.addEventListener("change", () => { startBtn.disabled = !fileIn.files[0]; });
-    drop.addEventListener("drop", () => setTimeout(() => { startBtn.disabled = !(fileIn.files[0] || drop.classList.contains("has")); }, 0));
+    if (isRecord){
+      B.appendChild(setup);
+      setup.querySelector("#rec-back").addEventListener("click", leave);
+      const drop = document.getElementById("read-drop");
+      setup.querySelector("#rec-file-slot").appendChild(drop);
+      fileIn.addEventListener("change", () => { startBtn.disabled = !fileIn.files[0]; });
+      drop.addEventListener("drop", () => setTimeout(() => { startBtn.disabled = !(fileIn.files[0] || drop.classList.contains("has")); }, 0));
+    } else {
+      const colors = setup.querySelector("#rec-palette").closest("label");
+      const preview = setup.querySelector("#rec-palette-preview");
+      const dark = setup.querySelector("#rec-dark").closest("label");
+      setup.replaceChildren(colors, preview, dark);
+      setup.id = "reader-appearance";
+      document.querySelector(".read-form").after(setup);
+    }
     const palettePicker = setup.querySelector("#rec-palette");
     const applyPalette = () => {
       const p = palettes[palettePicker.value] || palettes.default;
@@ -2532,7 +2592,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
     palettePicker.addEventListener("change", applyPalette);
     applyPalette();
     setup.querySelector("#rec-dark").addEventListener("change", e => B.classList.toggle("rec-dark", e.target.checked));
-    addEventListener("keydown", e => {
+    if (isRecord) addEventListener("keydown", e => {
       if (e.key === "Escape") leave();
       if (e.key === " " && !setup.isConnected){ e.preventDefault(); const p = document.getElementById("ctl-pause"); if (p) p.click(); }
     });
@@ -2595,6 +2655,10 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
         const eyes = [...document.querySelectorAll("#spider .eye, #spider .head")].map(e => e.getBoundingClientRect()).filter(r => r.width > 0);
         if (!eyes.length || document.getElementById("rec-end")){ svg.style.display = "none"; previous = null; return; }
         svg.style.display = "";
+        if (!isRecord){
+          const bounds = doc.getBoundingClientRect();
+          svg.style.clipPath = `inset(${Math.max(0,bounds.top)}px ${Math.max(0,innerWidth-bounds.right)}px ${Math.max(0,innerHeight-bounds.bottom)}px ${Math.max(0,bounds.left)}px)`;
+        }
         const ex = eyes.reduce((t, r) => t + r.left + r.width / 2, 0) / eyes.length;
         const ey = eyes.reduce((t, r) => t + r.top + r.height / 2, 0) / eyes.length;
         // Follow the existing head direction without changing the spider's motion.
@@ -2629,7 +2693,14 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
         const figs = liveEl ? liveEl.querySelectorAll(".lr-c .lr-v").length : 0;
         const obs = document.querySelectorAll("#lr-sigs li").length;
         const pages = [...document.querySelectorAll(".pdfpage")];
-        const mid = innerHeight * 0.3;
+        if (!isRecord){
+          const bounds = doc.getBoundingClientRect(), side = document.querySelector(".read-side");
+          const limit = side && getComputedStyle(side).position === "fixed" ? side.getBoundingClientRect().top : innerHeight;
+          hud.style.top = Math.max(8, Math.min(limit - 40, bounds.bottom - 40)) + "px";
+          hud.style.left = (bounds.left + bounds.width / 2) + "px";
+          hud.hidden = bounds.bottom < 0 || bounds.top > innerHeight;
+        }
+        const mid = innerHeight * (isRecord ? 0.3 : 0.5);
         const i = pages.findIndex(x => { const r = x.getBoundingClientRect(); return r.top <= mid && r.bottom >= mid; });
         hud.innerHTML = `<b>${esc(tag || "BMG READER")}</b> <span>${figs} figure${figs === 1 ? "" : "s"}</span> <span>${obs} observation${obs === 1 ? "" : "s"}</span>${i >= 0 ? ` <span>p.${i + 1}</span>` : ""}`;
       }, 200);
@@ -2703,6 +2774,57 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
       bar.querySelector("#rf-back").onclick = leave;
     }
 
+    const settleSpiderPose = async () => {
+      if (!state.feet || !state.feet.length) return;
+          state.legAnim = {}; state.legJ = []; state.legLast = [];
+          state.vel = {x: 0, y: 0}; state.bodyVel = {x: 0, y: 0};
+          state.lastBodyP = {...state.body}; state.faceHeading = Math.PI / 2;
+          state.feet = gaitFeet(); state.silkAnchor = null;
+          drawSpider();
+          // Let the freshly planted legs take their first normal steps behind the curtain.
+          await sleep(200);
+          let settled = 0;
+          await wait(() => {
+            const ready = state.legJ.length === N_LEGS && state.feet.length === N_LEGS &&
+              state.feet.every((foot, i) => {
+                const hip = state.legJ[i] && state.legJ[i][0];
+                return foot && hip && Number.isFinite(foot.x) && Number.isFinite(foot.y) &&
+                  Math.hypot(foot.x - hip.x, foot.y - hip.y) <= 3 * SEG0 * U;
+              });
+            settled = ready ? settled + 1 : 0;
+            return settled >= 4;
+          }, 80, 3000);
+    };
+    if (!isRecord){
+      let jumpVersion = 0;
+      state.readerJumpSettled = async () => {
+        const version = ++jumpVersion, token = state.loadToken;
+        spiderSvg.style.visibility = "hidden";
+        try {
+          await wait(() => token !== state.loadToken || (state.scrollPos != null && Math.abs(scrollY - state.scrollPos) < 40), 50, 15000);
+          if (token === state.loadToken && version === jumpVersion) await settleSpiderPose();
+        } catch (e) { /* Restore visibility even if a run is cancelled mid-jump. */ }
+        finally { if (version === jumpVersion) spiderSvg.style.visibility = ""; }
+      };
+      let activeToken = null;
+      const clearReaderOverlays = () => {
+        cancelAnimationFrame(eyeRaf); clearInterval(hudTimer);
+        document.getElementById("rec-eye")?.remove();
+        document.getElementById("rec-hud")?.remove();
+        popQ.length = 0;
+      };
+      setInterval(() => {
+        if (walking()){
+          if (activeToken !== state.loadToken){
+            clearReaderOverlays(); activeToken = state.loadToken; startOverlays();
+          }
+        } else if (activeToken !== null){
+          clearReaderOverlays(); activeToken = null;
+        }
+      }, 100);
+      return;
+    }
+
     startBtn.addEventListener("click", async () => {
       const finishAt = Math.max(5, +setup.querySelector("#rec-finish").value || 115);
       const keySecs = Math.max(0, +setup.querySelector("#rec-keys").value || 0);
@@ -2727,24 +2849,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
         // The hidden statement-page jump can leave feet and joint memory on the cover.
         // Replant only the startup pose; leave the normal gait and movement rules alone.
         if (state.feet && state.feet.length){
-          state.legAnim = {}; state.legJ = []; state.legLast = [];
-          state.vel = {x: 0, y: 0}; state.bodyVel = {x: 0, y: 0};
-          state.lastBodyP = {...state.body}; state.faceHeading = Math.PI / 2;
-          state.feet = gaitFeet(); state.silkAnchor = null;
-          drawSpider();
-          // Let the freshly planted legs take their first normal steps behind the curtain.
-          await sleep(200);
-          let settled = 0;
-          await wait(() => {
-            const ready = state.legJ.length === N_LEGS && state.feet.length === N_LEGS &&
-              state.feet.every((foot, i) => {
-                const hip = state.legJ[i] && state.legJ[i][0];
-                return foot && hip && Number.isFinite(foot.x) && Number.isFinite(foot.y) &&
-                  Math.hypot(foot.x - hip.x, foot.y - hip.y) <= 3 * SEG0 * U;
-              });
-            settled = ready ? settled + 1 : 0;
-            return settled >= 4;
-          }, 80, 3000);
+          await settleSpiderPose();
         }
         if (rec) rec.start(500);                                   // the clip starts here, on the statements
         startOverlays();
@@ -3414,7 +3519,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
         if (offs.length) applyLive(state.live.markEarlier(Math.min(...offs)));
       }
       const y = pg.getBoundingClientRect().top + window.scrollY - innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5 + 40;
-      if (y > state.scrollPos) state.scrollPos = y;
+      if (y > state.scrollPos){ state.scrollPos = y; if (state.readerJumpSettled) state.readerJumpSettled(); }
     };
     go();
   });
