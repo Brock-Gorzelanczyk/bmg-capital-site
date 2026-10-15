@@ -247,7 +247,7 @@ body.recmode[data-rec-palette] .sig-pop.s-observation,body.recmode[data-rec-pale
 body.recmode[data-rec-palette] .sig-pop .sev.s-observation{background:var(--crawler-main);color:#05070c}
 body.recmode[data-rec-palette] #rec-hud{color:var(--crawler-main);border-color:color-mix(in srgb,var(--crawler-main) 45%,transparent);box-shadow:0 0 14px color-mix(in srgb,var(--crawler-main) 25%,transparent)}
 body.recmode[data-rec-palette] #rec-end h3,body.recmode[data-rec-palette] .rk-one h2 span{color:var(--crawler-main)}
-#rec-palette,#rec-quality,#rec-format{max-width:220px;padding:7px;border:1px solid #cad2d8;border-radius:6px;background:#fff;color:#111;font:inherit}
+#rec-palette,#rec-quality,#rec-format,#rec-pace{max-width:220px;padding:7px;border:1px solid #cad2d8;border-radius:6px;background:#fff;color:#111;font:inherit}
 .rec-palette-preview{display:flex;align-items:center;gap:8px;margin:8px 0 16px;font-size:12px;color:#9aa6b1}
 .rec-palette-preview i{display:inline-block;width:16px;height:16px;border-radius:50%;background:var(--swatch);box-shadow:0 0 9px var(--swatch)}
 #rec-eye{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:25}
@@ -2585,6 +2585,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       <p>Choose a 10-K or 10-Q PDF and press Start. ${canRecord ? "With “Record this window” on, Chrome asks you to share this tab, and the finished clip downloads at the end." : "Use your Mac's screen recorder (Shift-Command-5, Record Selected Portion) on this window."}</p>
       <div id="rec-file-slot"></div>
       <label class="opt">Clip format <select id="rec-format"><option value="highlights" selected>40-second continuous highlights</option><option value="custom">Custom length</option></select></label>
+      <label class="opt">Highlight pace <select id="rec-pace"><option value="1.6" selected>Fast · more filing in the same time</option><option value="1">Brisk · focus on statements</option></select></label>
       <p>Highlights: 2-second opening, 33 seconds through statement findings, 5-second ending. Continuous scrolling, with more time around real figures.</p>
       <label class="opt">Jump to the ending after <span><input type="number" id="rec-finish" min="5" max="600" value="115"> s</span></label>
       <label class="opt">Key findings held on screen <span><input type="number" id="rec-keys" min="0" max="30" value="4"> s</span></label>
@@ -2616,6 +2617,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const format = setup.querySelector("#rec-format");
       const syncFormat = () => {
         const highlights = format.value === "highlights";
+        setup.querySelector("#rec-pace").disabled = !highlights;
         for (const [id, value] of [["rec-finish",33],["rec-keys",3],["rec-one",2]]){
           const input = setup.querySelector("#" + id);
           input.disabled = highlights;
@@ -2918,7 +2920,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         return a.y + (b.y-a.y)*Math.max(0,Math.min(1,mix));
       };
     }
-    function startHighlights(){
+    function startHighlights(pace = 1.6){
       const pages = [...docBody.querySelectorAll(".pdfpage")], first = state.jumpPage;
       if (!first || !pages.length) return;
       const findings = (state.readRes?.findings || []).filter(f => f.group === "Financials" && f.pdf_page >= first && f.pdf_page <= first + 5);
@@ -2933,12 +2935,26 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const start = state.scrollPos ?? scrollY;
       const ahead = [...new Set(targets.map(y=>Math.round(y/24)*24))].filter(y=>y>=start).sort((a,b)=>a-b);
       if (!ahead.length) return;
-      const end = Math.min(Math.max(0,document.documentElement.scrollHeight-innerHeight),ahead[ahead.length-1]+100);
-      state.recordCamera = highlightTimeline(start,end,ahead,33);
-      state.highlightPlan = {start,end,targets:ahead.length,duration:33};
+      const baseEnd = ahead[ahead.length-1]+100;
+      // A faster fixed-length clip needs more actual document distance, not a longer hold.
+      const end = Math.min(Math.max(0,document.documentElement.scrollHeight-innerHeight),start+(baseEnd-start)*pace);
+      if (pace > 1){
+        const more = (state.readRes?.findings || []).filter(f => f.pdf_page > first && f.pdf_page <= first+12);
+        for (const finding of more){
+          const page = pages[finding.pdf_page-1]; if (!page) continue;
+          const bounds = page.getBoundingClientRect();
+          if (bounds.top+scrollY-line > end || bounds.bottom+scrollY-line < start) continue;
+          const word = [...page.querySelectorAll(".w")].find(w => holds(w,tokenOf(finding)));
+          if (word){ const y=word.getBoundingClientRect().top+scrollY-line; if (y>=start && y<=end) ahead.push(Math.round(y/24)*24); }
+        }
+      }
+      const routeTargets = [...new Set(ahead)].sort((a,b)=>a-b);
+      state.recordCamera = highlightTimeline(start,end,routeTargets,33);
+      state.highlightPlan = {start,end,targets:routeTargets.length,duration:33,pace};
     }
     startBtn.addEventListener("click", async () => {
       const highlights = setup.querySelector("#rec-format").value === "highlights";
+      const pace = +setup.querySelector("#rec-pace").value || 1.6;
       const finishAt = Math.max(5, +setup.querySelector("#rec-finish").value || 115);
       const keySecs = Math.max(0, +setup.querySelector("#rec-keys").value || 0);
       const oneSecs = Math.max(0, +setup.querySelector("#rec-one").value || 0);
@@ -2965,7 +2981,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
           await settleSpiderPose();
         }
         if (rec) rec.start(500);                                   // the clip starts here, on the statements
-        if (highlights){ await sleep(2000); startHighlights(); }
+        if (highlights){ await sleep(2000); startHighlights(pace); }
         startOverlays();
         curtain.classList.add("out"); setTimeout(() => curtain.remove(), 400);
         // count only time that is not paused
