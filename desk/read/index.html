@@ -2456,8 +2456,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     state.live = new LiveReportModel(L);
     const co = rep.company || {};
     liveEl.innerHTML = `<div class="lr-top"><header class="lr-head"><div class="lr-brand">BMG Capital <span>report</span>${BMG_LINE}</div>
-        <div class="lr-co"><b>${esc(co.name || "")}</b> ${esc([co.ticker, co.form, co.period].filter(Boolean).join(" · "))}</div>
-        <div class="lr-basis" title="${esc(L.basis)}">Replay of completed analysis</div></header>
+        <div class="lr-co" title="${esc([co.period, L.basis].filter(Boolean).join(" · "))}"><b>${esc(co.name || "")}</b> ${esc([co.ticker, co.form].filter(Boolean).join(" · "))}</div></header>
       <div class="lr-prog" id="lr-prog" aria-live="polite"></div></div>
       ${L.sections.map(s => `<section class="lr-sec" data-sec="${s.id}"><h4>${esc(s.title)}</h4><table class="lr-t"><thead><tr><th></th>${((s.rows[0] || {}).cells || []).map(c => `<th>${esc(L.cells[c].period || "")}</th>`).join("")}</tr></thead>
         <tbody>${s.rows.map(r => `<tr><td>${esc(r.label)}</td>${r.cells.map(c => `<td class="lr-c" data-cell="${esc(c)}"><span class="ph" aria-label="not read yet">···</span></td>`).join("")}</tr>`).join("")}</tbody></table></section>`).join("")}
