@@ -1034,11 +1034,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const c = docSpaceCenter(f.el), d = Math.hypot(c.x - bx, c.y - by);
     return d >= MIN_REACH && d <= HI_REACH * 1.7 && sectorIndex(bx, by, c.x, c.y) === i;
   }
-  // The original gait stays at 1x over text; only empty-band travel speeds up.
-  function gapCrawlTempo(){ return Math.sqrt(Math.max(1, Math.min(4, state.boost || 1))); }
   function startLegStep(i, to, now){
     const from = state.feet[i] || {x: state.body.x, y: state.body.y};
-    state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 180 / ((state.speedMul || 1) * gapCrawlTempo())};
+    state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 180 / (state.speedMul || 1)};
   }
   function advanceLegs(now){
     for (const k of Object.keys(state.legAnim)){
@@ -1107,7 +1105,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const vm = Math.hypot(v.x, v.y);
       const half = Math.max(STEP0 * U, Math.min(80 * U, vm * 0.24));
       // plus the distance the body travels during the swing itself
-      const sw = 0.18 / ((state.speedMul || 1) * gapCrawlTempo());
+      const sw = 0.18 / (state.speedMul || 1);
       const pref = vm > 1 ? {x: rest.x + v.x / vm * half + v.x * sw, y: rest.y + v.y / vm * half + v.y * sw} : rest;
       const hj = state.legJ[i] ? state.legJ[i][0] : state.body;
       // how far the foot has fallen behind its neutral spot along travel,
@@ -1139,8 +1137,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       // follows with a slight lag and the legs catch up (Astra brief).
       const mul = state.speedMul || 1;
       const bv = state.bodyVel || (state.bodyVel = {x: 0, y: 0});
-      const gapTempo = gapCrawlTempo();
-      const k = 7 * gapTempo * gapTempo, c = 4.6 * gapTempo, vmax = (CRAWL_BASE * U) * mul * gapTempo;
+      const k = 7, c = 4.6, vmax = (CRAWL_BASE * U) * mul;
       bv.x += (k * (t.x - state.body.x) - c * bv.x) * dt;
       bv.y += (k * (t.y - state.body.y) - c * bv.y) * dt;
       const vm = Math.hypot(bv.x, bv.y);
@@ -2519,7 +2516,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (!L || typeof LiveReportModel === "undefined"){ liveEl.innerHTML = `<p class="muted">The live report is not available for this result.</p>`; return; }
     state.live = new LiveReportModel(L);
     const co = rep.company || {};
-    followAnim++; reportReviewIndex = 0; reportNextReview = performance.now() + 1600; state.foundKeys = new Set();
+    followAnim++; reportReviewIndex = 0; reportNextReview = performance.now() + 1600; state.foundKeys = new Set(); state.reportFollowPending = null;
     liveEl.innerHTML = `<div class="lr-top"><header class="lr-head"><div class="lr-brand">BMG Capital <span>report</span>${BMG_LINE}</div>
         <div class="lr-co" title="${esc([co.period, L.basis].filter(Boolean).join(" · "))}"><b>${esc(co.name || "")}</b> ${esc([co.ticker, co.form].filter(Boolean).join(" · "))}</div></header>
       <div class="lr-prog" id="lr-prog" aria-live="polite"></div></div>
@@ -2609,8 +2606,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (!liveEl || performance.now() < followHoldUntil || liveEl.hidden) return;
     // While a zapped number is in flight the panel stays on its destination row.
     const lock = state.flightLock;
-    if (lock && performance.now() < lock.until && lock.el !== el) return;
-    if ((state.chipsInFlight || 0) > 0 && !(lock && lock.el === el)) return;   // never slide the panel under a chip in the air
+    if (lock && performance.now() < lock.until && lock.el !== el){ state.reportFollowPending = el; return; }
+    if ((state.chipsInFlight || 0) > 0 && !(lock && lock.el === el)){ state.reportFollowPending = el; return; }
     const scroller = document.body.classList.contains("rec") ? liveEl : reportSide;
     if (!scroller || !scroller.clientHeight || scroller.scrollHeight <= scroller.clientHeight) return;
     const box = scroller.getBoundingClientRect(), r = el.getBoundingClientRect();
@@ -2630,14 +2627,24 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     };
     requestAnimationFrame(step);
   }
-  // During quiet source stretches, review only figures already revealed in the report.
+  function drainReportFollow(now = performance.now()){
+    const pending = state.reportFollowPending;
+    if (pending && !pending.isConnected) state.reportFollowPending = null;
+    if (pending && pending.isConnected && !state.paused && now >= followHoldUntil &&
+        !(state.flightLock && now < state.flightLock.until) && !(state.chipsInFlight > 0)){
+      state.reportFollowPending = null; liveFollow(pending); return true;
+    }
+    return false;
+  }
+  // During quiet source stretches, review only content already revealed in the report.
   setInterval(() => {
     const now = performance.now();
+    if (drainReportFollow(now)) return;
     if (REDUCED || !walking() || state.paused || !liveEl || liveEl.hidden ||
         document.getElementById("rec-end") || now < followHoldUntil || now < reportNextReview ||
         (state.flightLock && now < state.flightLock.until)) return;
     const items = [...liveEl.querySelectorAll("tr")].filter(row => row.querySelector(".lr-v"));
-    items.push(...liveEl.querySelectorAll(".lr-sig"));
+    items.push(...liveEl.querySelectorAll(".lr-sig, #lr-read tr:not(.pending)"));
     if (items.length < 2) return;
     const next = items[reportReviewIndex++ % items.length];
     reportNextReview = now + 1800;
@@ -2791,6 +2798,15 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // as it arrives. Calculated cells and figures from the completed analysis
     // never fly: only what the spider actually zapped goes to the report.
     const zapQ = []; let zapBusy = false;
+    function readerSourceVisible(el){
+      if (!el || !el.isConnected) return false;
+      const r = el.getBoundingClientRect();
+      const panel = document.querySelector(".read-side");
+      const p = panel && panel.getBoundingClientRect();
+      const covered = p && getComputedStyle(panel).position === "fixed" && r.right > p.left && r.left < p.right;
+      const bottom = covered && p.top > 0 ? Math.min(innerHeight, p.top) : innerHeight;
+      return r.bottom >= 0 && r.top < bottom && r.right >= 0 && r.left < innerWidth;
+    }
     const FLY_MS = 650, ZAP_LAND = 130;
     function flyFrom(el, td, text, obs){
       const s0 = el.getBoundingClientRect();
@@ -2819,10 +2835,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       // Only a figure the spider is reading right now is zapped and flown: one on
       // screen, near its eyes, reached a moment ago. Anything else (read while the
       // screen was dark, or left behind by a burst) fills its cell quietly.
-      const r = el.isConnected ? el.getBoundingClientRect() : null;
-      const bottom = innerHeight * (window.READER_VIEW_FRAC || 1);
-      if (!r || r.bottom < 0 || r.top > bottom || performance.now() - at > 1500 || !zapTo(el, false, true)){
-        applyLive(changes); const tr = foundSlot(f); if (tr) tr.classList.remove("pending");
+      if (!readerSourceVisible(el) || performance.now() - at > 1500 || !zapTo(el, false, true)){
+        applyLive(changes); const tr = foundSlot(f); if (tr) revealFound(tr);
         zapBusy = false; pumpZaps(); return;
       }
       setTimeout(() => { zapBusy = false; pumpZaps(); }, zapQ.length > 4 ? 90 : 180);
@@ -2878,10 +2892,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       if (!obsQ.length || zapQ.length || performance.now() - lastFlight < FLY_MS + 250) return;
       const {ch, el, at} = obsQ.shift();
       const sg = state.live && (state.live.plan.signals || []).find(x => x.id === ch.id);
-      const r = el.isConnected ? el.getBoundingClientRect() : null;
       const ph = document.getElementById("lr-sigs-ph"), ol = document.getElementById("lr-sigs");
       const dest = ph && !ph.hidden ? ph : ol && (ol.lastElementChild || ol);   // where the new observation will appear
-      if (!sg || !dest || !r || r.bottom < 0 || r.top > innerHeight * (window.READER_VIEW_FRAC || 1) || performance.now() - at > 6000){ applyLive([ch]); return; }
+      if (!sg || !dest || !readerSourceVisible(el) || performance.now() - at > 6000){ applyLive([ch]); return; }
       zapTo(el, true, true);
       setTimeout(() => fly(el, dest, sg.headline, true, () => applyLive([ch])), ZAP_LAND);
     }, 120);
@@ -2902,6 +2915,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         key = m[1].toLowerCase().replace(/\s+/g, " ");
         title = (m[1] + (rest ? ": " + rest : "")).slice(0, 80);
         if (/^note/i.test(key)) inNotes = true;
+      } else if (/^(?:(?:CONDENSED|CONSOLIDATED|COMBINED)\s+)+(?:STATEMENTS?\s+OF\s+|BALANCE\s+SHEETS?\b)/i.test(line) &&
+          /^[A-Z]/.test(line) && !/[.,;:\d]$/.test(line) &&
+          words.every(w => /^(?:of|and|the|in)$/i.test(w) || /^[A-Z(]/.test(w))){
+        key = "statement:" + line.toLowerCase(); title = line;
       } else {
         // inside the notes, a short Title Case line with no figures is a subheading ("Use of Estimates")
         if (!inNotes || words.length > 7 || /\d/.test(line) || /[.,;:]$/.test(line) || !/^[A-Z]/.test(line)) return;
@@ -2917,8 +2934,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const tr = document.createElement("tr"); tr.className = "lr-found-row pending";
       tr.innerHTML = `<td colspan="2"><b class="lr-readt">${esc(title)}</b><span class="lr-src">${page ? "p." + page : ""}</span></td>`;
       tb.appendChild(tr); tb.closest("section").hidden = false;
-      const el = els[0], rr = el.getBoundingClientRect(), bottom = innerHeight * (window.READER_VIEW_FRAC || 1);
-      if (rr.bottom < 0 || rr.top > bottom || !zapTo(el, true, true)){ tr.classList.remove("pending"); return; }
+      const el = els.find(w => readerSourceVisible(w) && nearSpider(w, 1.3)) || els[0];
+      if (!readerSourceVisible(el) || !zapTo(el, true, true)){ revealFound(tr); return; }
       els.slice(0, 6).forEach(w => { w.classList.add("hl-zap"); setTimeout(() => w.classList.remove("hl-zap"), 1100); });
       setTimeout(() => fly(el, tr.querySelector("td"), title, true, () => revealFound(tr)), ZAP_LAND);
     };
