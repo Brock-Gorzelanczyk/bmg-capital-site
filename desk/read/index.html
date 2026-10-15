@@ -41,6 +41,10 @@ svg.spider .head{fill:#4fe3ff;stroke:none}
 svg.spider .link-thread{stroke:#ff3d9a;stroke-width:1.6;stroke-linecap:round}
 /* Keep distant word links and the trailing anchor out of the crawler visual. */
 svg.spider .silk{display:none!important}
+svg.spider line.zap{stroke-width:1.8;filter:drop-shadow(0 0 3px currentColor)}
+svg.spider line.zap.strong{stroke-width:2.4;filter:drop-shadow(0 0 5px currentColor)}
+.w.hl-zap{background:rgba(111,244,255,.45)!important;box-shadow:0 0 0 1.5px #6ff4ff,0 0 12px #6ff4ff;border-radius:2px}
+body[data-rec-palette] .w.hl-zap{background:color-mix(in srgb,var(--crawler-main) 45%,transparent)!important;box-shadow:0 0 0 1.5px var(--crawler-main),0 0 12px var(--crawler-main)}
 svg.spider .leg{stroke:#5fe6ff;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 svg.spider .foot{fill:#ff3d9a;stroke:none}
 svg.spider .thread{stroke:#4f7bff;stroke-width:1;opacity:.85}
@@ -924,10 +928,41 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   addEventListener("wheel", () => { state.userScrolledAt = performance.now(); }, {passive: true});
   addEventListener("touchmove", () => { state.userScrolledAt = performance.now(); }, {passive: true});
   const DECORATIVE_TEXT_EFFECTS = true;
-  // The two zap lines (blue eye, pink ping) only reach words near the
-  // spider; a farther target is skipped so no line crosses the filing.
-  const ZAP_MAX = HI_REACH * 2.5;
-  function nearSpider(el){ const c = docSpaceCenter(el); return Math.hypot(c.x - state.body.x, c.y - state.body.y) <= ZAP_MAX; }
+  // Laser zaps (first-video look): a quick line from the spider's eyes to
+  // each word it marks. Every outline or highlight it draws gets one, and so
+  // does every figure it reads into the report. A word farther than
+  // ZAP_REACH leg reaches is never zapped, so no line crosses the filing.
+  const ZAP_MS = 340, ZAP_REACH = 3.5;   // zap range in leg reaches
+  function eyeXY(){
+    const fh = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
+    return {x: state.body.x + Math.cos(fh) * 16 * U, y: state.body.y + Math.sin(fh) * 16 * U};
+  }
+  function nearSpider(el, k = 1){ const c = docSpaceCenter(el), e = eyeXY(); return Math.hypot(c.x - e.x, c.y - e.y) <= HI_REACH * U * ZAP_REACH * k; }
+  function zapTo(el, pink, strong){
+    if (!el || !el.isConnected || !state.body || !nearSpider(el, strong ? 1.3 : 1)) return false;
+    const pool = state.zapPool || (state.zapPool = []), now = performance.now();
+    let z = pool.find(o => now - o.start > o.ms);
+    if (!z){
+      if (pool.length < 6){ z = {l: document.createElementNS(SVG_NS, "line"), start: 0, ms: 0}; pool.push(z); }
+      else z = pool.reduce((a, b) => a.start < b.start ? a : b);
+    }
+    z.el = el; z.start = now; z.ms = strong ? ZAP_MS * 1.5 : ZAP_MS;
+    z.l.setAttribute("class", (pink ? "link-thread" : "sight") + " zap" + (strong ? " strong" : ""));
+    return true;
+  }
+  function drawZaps(){
+    const now = performance.now();
+    for (const z of state.zapPool || []){
+      const t = (now - z.start) / (z.ms || 1);
+      if (t >= 1 || !z.el || !z.el.isConnected){ z.l.style.display = "none"; continue; }
+      if (!z.l.isConnected) spiderSvg.appendChild(z.l);
+      const e = eyeXY(), c = docSpaceCenter(z.el);
+      const grow = Math.min(1, t / 0.3), fade = t < 0.55 ? 1 : Math.max(0, 1 - (t - 0.55) / 0.45);
+      z.l.style.display = ""; z.l.style.opacity = fade.toFixed(2);
+      z.l.setAttribute("x1", clampN(e.x)); z.l.setAttribute("y1", clampN(e.y));
+      z.l.setAttribute("x2", clampN(e.x + (c.x - e.x) * grow)); z.l.setAttribute("y2", clampN(e.y + (c.y - e.y) * grow));
+    }
+  }
   function drawEye(){
     if (!DECORATIVE_TEXT_EFFECTS) return;
     // The eye's blue line pings like the pink one (reference clip): it
@@ -989,7 +1024,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
   // camera first: scrolling while the layout is still clean avoids a forced
   // re-layout of the whole document every frame
-  function drawSpider(){ state.drawnAt = performance.now(); camera(); drawSilk(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawBody(); }
+  function drawSpider(){ state.drawnAt = performance.now(); camera(); drawSilk(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawZaps(); drawBody(); }
   // Keep the legs flexing and the eye scanning between steps too.
   // ---- crawl: body creeps continuously; legs step one or two at a time
   const CRAWL_BASE = 68;   // px/s per unit at 1x (~2 lines/s) across the screen; riding the scroll does the rest
@@ -1370,6 +1405,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (cand && cand.nodeType === 1) cand = {els: [cand], text: cand.textContent.trim(), score: 1};
     if (!cand || !cand.els.length || !cand.els[0].isConnected) return;
     if (cand.els.some(w => w._fx || w.classList.contains("found"))) return;
+    if (!nearSpider(cand.els[0])) return;                // every mark comes with a zap from the eyes
     if (FX_CAP[kind] && fxCount(kind) >= FX_CAP[kind]) kind = kind === "strip" ? "accent" : "fill";
     if (kind === "accent" && fxCount("accent") >= FX_CAP.accent) kind = "fill";
     if (kind === "fill" && fxCount("fill") >= FX_CAP.fill) kind = "outline";
@@ -1414,6 +1450,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       if (o.target < 1.4){ o.kind = "fill"; d.className = "fx fx-fill"; d.style.background = pal.bg; d.style.color = pal.fg; o.ttl = 4200 + Math.random() * 2200; }
     }
     fxStyle(o);
+    zapTo(cand.els[0], kind === "fill" || kind === "strip" ? Math.random() < 0.5 : kind === "ink");
     state.fx.push(o);
     while (state.fx.length > FX_MAX) fxOff(state.fx.shift());
   }
@@ -1816,7 +1853,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       for (let k = 1; k < rs.length; k++){ const g = rs[k].y - rs[k - 1].y; if (g > 6 && g < 60) gaps.push(g); }
       gaps.sort((a, b) => a - b);
       const lh = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 14;
-      U = 0.9 * Math.max(0.8, Math.min(2.2, lh / 14));
+      // Size and speed follow the text (1/14 of a line, as in the first video).
+      // The old 0.8 floor made the spider 31% too big on narrow Record pages.
+      U = Math.max(0.5, Math.min(2.2, lh / 14));
     }
     plantInitialFeet();
     window.scrollTo({top: Math.max(0, dRect.top + window.scrollY - 60), behavior: "smooth"});
@@ -2352,7 +2391,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     renderChips();
     state.readFound = state.panelIds.size;
     countEl.textContent = `${state.readFound} of ${state.readTotal} shown`;
-    if (state.live && el) applyLive(state.live.revealFinding(f.id));      // only findings the walk reached
+    if (state.live && el){                                                  // only findings the walk reached
+      const changes = state.live.revealFinding(f.id);
+      if (state.zapFly) state.zapFly(f, el, changes); else applyLive(changes);
+    }
   }
 
   state.onRow = (els) => {
@@ -2511,7 +2553,6 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         setTimeout(() => row.classList.remove("lr-row-enter"), 450);
       }
       liveFollow(td);
-      if (ch.op === "show" && ch.state !== "withdrawn" && state.recTransfer) state.recTransfer(ch, td);
       td.classList.toggle("is-w", ch.state === "withdrawn");
       td.classList.add("flash"); setTimeout(() => td.classList.remove("flash"), 1400);
     }
@@ -2526,6 +2567,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   function liveFollow(el, reviewing = false){
     if (!reviewing){ reportLastFinding = performance.now(); reportNextReview = reportLastFinding + 1600; }
     if (!liveEl || performance.now() < followHoldUntil || liveEl.hidden) return;
+    // While a zapped number is in flight the panel stays on its destination row.
+    const lock = state.flightLock;
+    if (lock && performance.now() < lock.until && lock.el !== el) return;
     const scroller = document.body.classList.contains("rec") ? liveEl : reportSide;
     if (!scroller || !scroller.clientHeight || scroller.scrollHeight <= scroller.clientHeight) return;
     const box = scroller.getBoundingClientRect(), r = el.getBoundingClientRect();
@@ -2548,7 +2592,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   setInterval(() => {
     const now = performance.now();
     if (REDUCED || !walking() || state.paused || !liveEl || liveEl.hidden ||
-        document.getElementById("rec-end") || now < followHoldUntil || now < reportNextReview) return;
+        document.getElementById("rec-end") || now < followHoldUntil || now < reportNextReview ||
+        (state.flightLock && now < state.flightLock.until)) return;
     const items = [...liveEl.querySelectorAll("tr")].filter(row => row.querySelector(".lr-v"));
     items.push(...liveEl.querySelectorAll(".lr-sig"));
     if (items.length < 2) return;
@@ -2616,7 +2661,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       <h2>Record mode</h2>
       <p>Choose a 10-K or 10-Q PDF and press Start. ${canRecord ? "With “Record this window” on, Chrome asks you to share this tab, and the finished clip downloads at the end." : "Use your Mac's screen recorder (Shift-Command-5, Record Selected Portion) on this window."}</p>
       <div id="rec-file-slot"></div>
-      <label class="opt">Clip format <select id="rec-format"><option value="highlights" selected>40-second continuous highlights</option><option value="custom">Custom length</option></select></label>
+      <label class="opt">Clip format <select id="rec-format"><option value="custom" selected>Continuous read (first-video movement)</option><option value="highlights">40-second highlights camera</option></select></label>
       <label class="opt">Highlight pace <select id="rec-pace"><option value="1.6" selected>Fast · faster crawler, steady highlights</option><option value="1">Brisk · focus on statements</option></select></label>
       <p>Highlights: 2-second opening, 33 seconds through statement findings, 5-second ending. Continuous scrolling, with more time around real figures.</p>
       <label class="opt">Jump to the ending after <span><input type="number" id="rec-finish" min="5" max="600" value="115"> s</span></label>
@@ -2694,47 +2739,59 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     };
     popSignal = (sg, el) => { popQ.push([sg, el]); pump(); };
 
-    // Every newly shown report cell gets a transfer; bursts queue instead of dropping.
-    const transferQ = []; let transferTimer = null;
-    function pumpTransfers(){
-      transferTimer = null;
-      const item = transferQ.shift();
-      if (!item) return;
-      const {ch, td} = item;
-      if (td.isConnected){
-        const cell = state.live.plan.cells[ch.id];
-        const fact = (cell && cell.requires || []).map(id => state.live.plan.fact_to_finding[id]).find(Boolean);
-        const source = (state.readRes.findings || []).find(f => f.id === fact);
-        const r = source && source._el && source._el.isConnected ? source._el.getBoundingClientRect() : null;
-        const stage = document.getElementById("read-stage") || doc;
-        const sr = stage.getBoundingClientRect();
-        const panel = (document.querySelector(".read-side") || liveEl).getBoundingClientRect(), target = td.getBoundingClientRect();
-        const visibleSource = r && r.top >= 0 && r.bottom < panel.top;
-        // Off-screen/derived figures start at the crawler, never at a false source word.
-        const body = spiderSvg.querySelector("rect.body");
-        const br = body && body.getBoundingClientRect();
-        const x = visibleSource ? r.left : br ? br.left : sr.left + sr.width / 2;
-        const y = visibleSource ? r.top : br ? br.top : Math.max(20, panel.top - 60);
-        const chip = document.createElement("div"); chip.className = "rec-fly";
-        chip.textContent = ch.display || "";
-        chip.style.left = Math.max(4, Math.min(innerWidth - 154, x)) + "px";
-        chip.style.top = Math.max(4, Math.min(panel.top - 20, y)) + "px";
-        B.appendChild(chip);
-        const start = chip.getBoundingClientRect();
-        const tx = Math.max(panel.left + 12, Math.min(panel.right - 12, target.left + target.width / 2));
-        const ty = Math.max(panel.top + 20, Math.min(Math.min(innerHeight, panel.bottom) - 16, target.top + target.height / 2));
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          chip.style.transform = `translate(${tx - start.left - start.width / 2}px, ${ty - start.top}px) scale(.85)`;
-          chip.classList.add("go");
-        }));
-        setTimeout(() => chip.remove(), 1000);
-      }
-      if (transferQ.length) transferTimer = setTimeout(pumpTransfers, 160);
+    // A figure the spider reads is zapped from its eyes; when the zap lands the
+    // number leaves the page and flies into its report cell, and the cell fills
+    // as it arrives. Calculated cells and figures from the completed analysis
+    // never fly: only what the spider actually zapped goes to the report.
+    const zapQ = []; let zapBusy = false;
+    const FLY_MS = 650, ZAP_LAND = 130;
+    function flyFrom(el, td, text){
+      const s0 = el.getBoundingClientRect();
+      const chip = document.createElement("div"); chip.className = "rec-fly";
+      chip.textContent = text;
+      chip.style.left = s0.left + "px"; chip.style.top = s0.top + "px";
+      chip.style.transition = "none";
+      B.appendChild(chip);
+      const w0 = chip.offsetWidth, t0 = performance.now();
+      const step = (now) => {
+        const k = Math.min(1, (now - t0) / FLY_MS), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+        const a = el.isConnected ? el.getBoundingClientRect() : s0, b = td.getBoundingClientRect();
+        const x0 = a.left, y0 = a.top, x1 = b.left + b.width / 2 - w0 / 2, y1 = b.top + b.height / 2 - 8;
+        const arc = Math.sin(k * Math.PI) * -40;
+        chip.style.transform = `translate(${(x1 - x0) * e + (x0 - s0.left)}px, ${(y1 - y0) * e + (y0 - s0.top) + arc}px) scale(${1 + .25 * Math.sin(k * Math.PI)})`;
+        chip.style.opacity = k > .85 ? (1 - (k - .85) / .15).toFixed(2) : "1";
+        if (k < 1) requestAnimationFrame(step); else chip.remove();
+      };
+      requestAnimationFrame(step);
     }
-    state.recTransfer = (ch, td) => {
-      transferQ.push({ch, td});
-      if (transferTimer === null) transferTimer = setTimeout(pumpTransfers, 0);
-    };
+    function pumpZaps(){
+      if (zapBusy || !zapQ.length) return;
+      zapBusy = true;
+      const {f, el, changes, at} = zapQ.shift();
+      // Only a figure the spider is reading right now is zapped and flown: one on
+      // screen, near its eyes, reached a moment ago. Anything else (read while the
+      // screen was dark, or left behind by a burst) fills its cell quietly.
+      const r = el.isConnected ? el.getBoundingClientRect() : null;
+      const bottom = innerHeight * (window.READER_VIEW_FRAC || 1);
+      if (!r || r.bottom < 0 || r.top > bottom || performance.now() - at > 1500 || !zapTo(el, false, true)){
+        applyLive(changes); zapBusy = false; pumpZaps(); return;
+      }
+      setTimeout(() => { zapBusy = false; pumpZaps(); }, zapQ.length > 4 ? 90 : 180);
+      el.classList.add("hl-zap"); setTimeout(() => el.classList.remove("hl-zap"), 1100);
+      setTimeout(() => {
+        const plan = state.live && state.live.plan;
+        const direct = changes.filter(ch => ch.kind !== "signal" && ch.op === "show" && ch.state !== "withdrawn" && plan && plan.cells[ch.id] &&
+          (plan.cells[ch.id].requires || []).some(id => plan.fact_to_finding[id] === f.id));
+        const tds = direct.map(ch => liveEl && liveEl.querySelector(`[data-cell="${CSS.escape(ch.id)}"]`)).filter(Boolean);
+        if (!tds.length){ applyLive(changes); return; }
+        state.flightLock = {el: tds[0], until: performance.now() + FLY_MS + 600};
+        liveFollow(tds[0]);                                         // bring the destination row into view while it flies
+        const text = (el.textContent || "").trim() || f.value || "";
+        flyFrom(el, tds[0], text);                                  // one chip, to the row the panel shows; other cells fill as it lands
+        setTimeout(() => applyLive(changes), FLY_MS - 60);
+      }, ZAP_LAND);
+    }
+    state.zapFly = (f, el, changes) => { zapQ.push({f, el, changes, at: performance.now()}); pumpZaps(); };
 
     // -- eye scanner: a narrow cone sweeps smoothly in front of the eyes.
     // Drawn over the spider every frame from where its eyes are; the spider itself is untouched.
