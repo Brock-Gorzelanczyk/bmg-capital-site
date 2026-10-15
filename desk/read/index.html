@@ -2599,7 +2599,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       <p>Choose a 10-K or 10-Q PDF and press Start. ${canRecord ? "With “Record this window” on, Chrome asks you to share this tab, and the finished clip downloads at the end." : "Use your Mac's screen recorder (Shift-Command-5, Record Selected Portion) on this window."}</p>
       <div id="rec-file-slot"></div>
       <label class="opt">Clip format <select id="rec-format"><option value="highlights" selected>40-second continuous highlights</option><option value="custom">Custom length</option></select></label>
-      <label class="opt">Highlight pace <select id="rec-pace"><option value="1.6" selected>Fast · more filing in the same time</option><option value="1">Brisk · focus on statements</option></select></label>
+      <label class="opt">Highlight pace <select id="rec-pace"><option value="1.6" selected>Fast · 2× spider + faster scroll</option><option value="1">Brisk · focus on statements</option></select></label>
       <p>Highlights: 2-second opening, 33 seconds through statement findings, 5-second ending. Continuous scrolling, with more time around real figures.</p>
       <label class="opt">Jump to the ending after <span><input type="number" id="rec-finish" min="5" max="600" value="115"> s</span></label>
       <label class="opt">Key findings held on screen <span><input type="number" id="rec-keys" min="0" max="30" value="4"> s</span></label>
@@ -2969,6 +2969,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     startBtn.addEventListener("click", async () => {
       const highlights = setup.querySelector("#rec-format").value === "highlights";
       const pace = +setup.querySelector("#rec-pace").value || 1.6;
+      const previousTempo = state.speedMul || 1;
       const finishAt = Math.max(5, +setup.querySelector("#rec-finish").value || 115);
       const keySecs = Math.max(0, +setup.querySelector("#rec-keys").value || 0);
       const oneSecs = Math.max(0, +setup.querySelector("#rec-one").value || 0);
@@ -2994,6 +2995,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         if (state.feet && state.feet.length){
           await settleSpiderPose();
         }
+        if (highlights && pace > 1) state.speedMul = Math.max(2, previousTempo);
         if (rec) rec.start(500);                                   // the clip starts here, on the statements
         if (highlights){ await sleep(2000); startHighlights(pace); }
         startOverlays();
@@ -3014,6 +3016,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         curtain.remove();
         const blob = await stopCapture();
         if (blob){ const end = document.createElement("div"); end.id = "rec-end"; B.appendChild(end); finalControls(end, blob); }
+      } finally {
+        state.speedMul = previousTempo;
       }
     });
   })();
