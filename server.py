@@ -2100,7 +2100,7 @@ def reads_file(sha: str):
     if not got:
         return JSONResponse(status_code=404, content={"error": "That saved read was not found."})
     data, title = got
-    safe = re.sub(r"[^\w .()\-]", "_", title)[:160]
+    safe = re.sub(r"[^\w .()\-]", "_", title, flags=re.ASCII)[:160]
     return Response(content=data, media_type="application/octet-stream",
                     headers={"Cache-Control": "no-store", "X-Read-Title": safe})
 
