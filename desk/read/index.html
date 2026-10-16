@@ -2385,6 +2385,12 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     o.pdf.destroy();
   }
 
+  function pdfPixelRatio(nativeRatio, captureWidth, viewportWidth){
+    // Raster detail follows actual display/capture pixels; CSS word geometry
+    // stays unchanged. Bound memory on very small recording windows.
+    return Math.min(4, Math.max(1, nativeRatio || 1, (captureWidth || 0) / Math.max(1, viewportWidth)));
+  }
+
   async function renderPdf(file, into){
     // Each page: a canvas drawn as the spider nears it, plus an invisible
     // word layer positioned exactly over the printed text. A page's canvas
@@ -2433,9 +2439,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     }
     const draw = async (pg) => {
       if (pg.drawn) return; pg.drawn = true;
-      // draw at the screen's pixel density (CSS keeps the box size), so text stays sharp
-      // on retina screens and in 1.5x recordings instead of being upscaled from 1x
-      const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+      // Match native/capture pixels without moving the invisible word layer.
+      const captureWidth = document.body.classList.contains("recmode")
+        ? (state.captureQuality?.width || state.recordRenderWidth || 0) : 0;
+      const dpr = pdfPixelRatio(window.devicePixelRatio, captureWidth, innerWidth);
       const c = document.createElement("canvas");
       c.width = Math.floor(pg.vp.width * dpr); c.height = Math.floor(pg.vp.height * dpr);
       pg.box.insertBefore(c, pg.box.firstChild);
@@ -3094,7 +3101,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       <label class="opt">Crawler colors <select id="rec-palette">${Object.entries(palettes).map(([id, p]) => `<option value="${id}">${p.name}</option>`).join("")}</select></label>
       <div class="rec-palette-preview" id="rec-palette-preview" aria-label="Crawler color preview"></div>
       <label class="opt">Dark page <input type="checkbox" id="rec-dark" checked></label>
-      ${canRecord ? `<label class="opt">Video quality <select id="rec-quality"><option value="high" selected>High Quality · 1080 × 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label><p>High Quality requests portrait Full HD at 24 Mbps. Chrome may supply a lower resolution or frame rate. Actual capture details appear with the download.</p>` : ""}
+      ${canRecord ? `<label class="opt">Video quality <select id="rec-quality"><option value="high" selected>High Quality · 1080 × 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label><p>High Quality requests portrait Full HD at 32 Mbps. Chrome may supply a lower resolution or frame rate. Actual capture details appear with the download.</p>` : ""}
       ${canRecord ? `<label class="opt">Record this window (downloads a video) <input type="checkbox" id="rec-capture" checked></label>` : ""}
       <button id="rec-start" type="button" disabled>Start</button>
       <p>Space pauses. Esc leaves record mode. Highlight clips include a two-second logo opening. Custom clips start when the black screen lifts on the first financial statement.</p>`;
@@ -3408,7 +3415,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       } catch (e) { stream = null; return false; }
       chunks = [];
       recType = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
-      const bitrate = high ? 24e6 : 12e6;
+      const bitrate = high ? 32e6 : 12e6;
       try {
         rec = new MediaRecorder(stream, recType ? {mimeType: recType, videoBitsPerSecond: bitrate} : {videoBitsPerSecond: bitrate});
       } catch (e) {
@@ -3612,6 +3619,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const finishAt = Math.max(5, +setup.querySelector("#rec-finish").value || 115);
       const keySecs = Math.max(0, +setup.querySelector("#rec-keys").value || 0);
       const oneSecs = Math.max(0, +setup.querySelector("#rec-one").value || 0);
+      state.recordRenderWidth = setup.querySelector("#rec-quality")?.value === "standard" ? 0 : 1080;
+      state.captureQuality = null;
       const capture = setup.querySelector("#rec-capture");
       if (capture && capture.checked) await askCapture();          // asked first, while the click still counts as a user gesture
       setup.remove();
