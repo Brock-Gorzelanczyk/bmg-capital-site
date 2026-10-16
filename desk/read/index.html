@@ -2414,7 +2414,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const data = new Uint8Array(await file.arrayBuffer());
     const pdf = await pdfjs.getDocument({data, isEvalSupported: false}).promise;
     const width = Math.max(320, into.clientWidth || doc.clientWidth - 56);
-    const pages = [];
+    const pages = [], textRuns = [], fragment = document.createDocumentFragment();
     const maxPages = Math.min(pdf.numPages, 120);
     for (let n = 1; n <= maxPages; n++){
       const page = await pdf.getPage(n);
@@ -2425,7 +2425,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       box.style.width = vp.width + "px"; box.style.height = vp.height + "px";
       const layer = document.createElement("div"); layer.className = "pdftext";
       box.appendChild(layer);
-      into.appendChild(box);
+      fragment.appendChild(box);
       const tc = await page.getTextContent();
       const spans = [];
       for (const it of tc.items){
@@ -2439,12 +2439,14 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         layer.appendChild(sp);
         spans.push([sp, it.width * vp.scale]);
       }
-      // Batch: read every natural width, then stretch each run to the
-      // printed width so the word boxes sit on the real glyphs.
-      const ws = spans.map(([sp]) => sp.getBoundingClientRect().width);
-      spans.forEach(([sp, target], k) => { if (ws[k] > 0 && target > 0) sp.style.transform = `scaleX(${target / ws[k]})`; });
+      textRuns.push(...spans);
       pages.push({page, vp, box, drawn: false, canvas: null, task: null});
     }
+    // Insert once, measure all runs together, then apply glyph alignment.
+    // Measuring after every page repeatedly lays out the growing full filing.
+    into.appendChild(fragment);
+    const widths = textRuns.map(([sp]) => sp.getBoundingClientRect().width);
+    textRuns.forEach(([sp, target], k) => { if (widths[k] > 0 && target > 0) sp.style.transform = `scaleX(${target / widths[k]})`; });
     if (pdf.numPages > maxPages){
       const more = document.createElement("p"); more.className = "muted";
       more.textContent = `Showing the first ${maxPages} of ${pdf.numPages} pages.`;
