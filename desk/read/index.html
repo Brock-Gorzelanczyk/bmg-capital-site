@@ -295,28 +295,33 @@ body.recmode[data-rec-palette] #rec-end h3,body.recmode[data-rec-palette] .rk-on
 .rec-palette-preview .cp-swatches{display:flex;align-items:center;gap:8px}
 .rec-palette-preview i{display:inline-block;width:16px;height:16px;border-radius:50%;background:var(--swatch);box-shadow:0 0 9px var(--swatch)}
 .rec-palette-preview .cp-m{--swatch:var(--pm)}.rec-palette-preview .cp-a{--swatch:var(--pa)}.rec-palette-preview .cp-t{--swatch:var(--pt)}
-.cp-svg{display:block;max-width:100%;height:auto;border-radius:10px;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
-.cp-bg{fill:#0b0d12}.cp-word{fill:#232b36}.cp-hit text{font:600 11px 'IBM Plex Mono',ui-monospace,monospace;text-anchor:middle;fill:#e9eef4}
-.cp-light .cp-bg{fill:#fff}.cp-light .cp-word{fill:#dfe4e9}.cp-light .cp-hit text{fill:#111}.cp-light .cp-svg{box-shadow:0 0 0 1px #d7ddd9}
-.cp-hit-m rect{fill:color-mix(in srgb,var(--pm) 38%,transparent);stroke:var(--pm);stroke-width:1.2}
-.cp-hit-a rect{fill:color-mix(in srgb,var(--pa) 38%,transparent);stroke:var(--pa);stroke-width:1.2}
-.cp-leg polyline{fill:none;stroke:var(--pm);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
-.cp-knee,.cp-foot{fill:var(--pa)}
+#new-version{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:#0b0d12;color:#e9eef4;border:1px solid #2fd27a;box-shadow:0 6px 24px rgba(0,0,0,.45);font:14px 'IBM Plex Sans',sans-serif;max-width:calc(100vw - 32px)}
+#new-version button{font:inherit;padding:5px 12px;border-radius:7px;border:0;background:#2fd27a;color:#05070c;cursor:pointer}#new-version .nv-later{background:transparent;color:#9aa6b1;border:1px solid #39434f}
+.cp-stage{position:relative;width:min(100%,460px);aspect-ratio:320/132;border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.08);contain:layout paint;isolation:isolate}
+.cp-layer,.cp-rig{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
+.cp-bg{fill:#0b0d12}.cp-word{fill:#232b36}.cp-num{font:600 11px 'IBM Plex Mono',ui-monospace,monospace;text-anchor:middle;fill:#e9eef4}
+.cp-light .cp-bg{fill:#fff}.cp-light .cp-word{fill:#dfe4e9}.cp-light .cp-num{fill:#111}.cp-light .cp-stage{box-shadow:0 0 0 1px #d7ddd9}
+.cp-hit-m .cp-box{fill:color-mix(in srgb,var(--pm) 38%,transparent);stroke:var(--pm);stroke-width:1.2}
+.cp-hit-a .cp-box{fill:color-mix(in srgb,var(--pa) 38%,transparent);stroke:var(--pa);stroke-width:1.2}
+.cp-boxglow{fill:none;stroke-width:5;opacity:.45}.cp-hit-m .cp-boxglow{stroke:var(--pm)}.cp-hit-a .cp-boxglow{stroke:var(--pa)}
+.cp-legline{fill:none;stroke:var(--pm);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.cp-joint{fill:var(--pa)}
 .cp-mesh{stroke:var(--pt);stroke-width:1.1;opacity:.75}.cp-silk{stroke:var(--pt);stroke-width:1;opacity:.6}
-.cp-body{fill:#05070c;stroke:var(--pb);stroke-width:2}.cp-light .cp-body{fill:#05070c}
-.cp-head{fill:var(--pm)}
-.cp-zap{stroke-width:1.8;stroke-linecap:round;stroke-dasharray:4 5}
-.cp-zap-m{stroke:var(--pm);filter:drop-shadow(0 0 3px var(--pm))}.cp-zap-a{stroke:var(--pa);filter:drop-shadow(0 0 3px var(--pa))}
-.cp-hit-m rect{filter:drop-shadow(0 0 5px var(--pm))}.cp-hit-a rect{filter:drop-shadow(0 0 5px var(--pa))}
-.cp-spider{transform-origin:160px 58px;animation:cp-bob 1.6s ease-in-out infinite}
-.cp-leg{transform-origin:160px 58px}.cp-leg.cp-a{animation:cp-step 0.8s ease-in-out infinite}.cp-leg.cp-b{animation:cp-step 0.8s ease-in-out infinite reverse}
-.cp-zap{animation:cp-zap .9s linear infinite}.cp-zap-a{animation-delay:-.45s}
-.cp-hit rect{animation:cp-glow 1.8s ease-in-out infinite}.cp-hit-a rect{animation-delay:-.9s}
-@keyframes cp-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.5px)}}
+.cp-body{fill:#05070c;stroke:var(--pb);stroke-width:2}.cp-head{fill:var(--pm)}
+.cp-zapline{stroke-width:1.8;stroke-linecap:round;stroke-dasharray:4 5}.cp-zapglow{stroke-width:5;stroke-linecap:round;opacity:.28}
+.cp-zm{stroke:var(--pm)}.cp-za{stroke:var(--pa)}
+/* Only transform and opacity move: composited, no repaint. Origin = the spider's body center. */
+.cp-rig,.cp-legs,.cp-zap,.cp-glow{will-change:transform,opacity}
+.cp-legs{transform-origin:50% 43.94%}
+.cp-live .cp-rig{animation:cp-bob 1.6s ease-in-out infinite}
+.cp-live .cp-legs-a{animation:cp-step .8s ease-in-out infinite}.cp-live .cp-legs-b{animation:cp-step .8s ease-in-out infinite reverse}
+.cp-live .cp-zap-m{animation:cp-zap 1.2s ease-in-out infinite}.cp-live .cp-zap-a{animation:cp-zap 1.2s ease-in-out -.6s infinite}
+.cp-live .cp-glow{animation:cp-glow 1.8s ease-in-out infinite}
+@keyframes cp-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.2%)}}
 @keyframes cp-step{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
-@keyframes cp-zap{from{stroke-dashoffset:18}to{stroke-dashoffset:0}}
-@keyframes cp-glow{0%,100%{opacity:1}50%{opacity:.7}}
-@media (prefers-reduced-motion:reduce){.cp-spider,.cp-leg,.cp-zap,.cp-hit rect{animation:none}}
+@keyframes cp-zap{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes cp-glow{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion:reduce){.cp-live :is(.cp-rig,.cp-legs,.cp-zap,.cp-glow){animation:none}}
 #rec-eye{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:25}
 #rec-hud{position:fixed;top:calc(100vh - var(--rec-h) - 40px);left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;white-space:nowrap;font:600 12px 'IBM Plex Mono',monospace;color:#6ff4ff;background:rgba(0,0,0,.72);border:1px solid rgba(111,244,255,.45);border-radius:20px;padding:5px 12px;box-shadow:0 0 14px rgba(111,244,255,.25)}
 #rec-hud b{color:#fff;margin-right:4px}#rec-hud span{margin-left:8px}
@@ -2266,8 +2271,12 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
 
   // ---- crawler color preview: a small spider on a strip of page, drawn in the chosen colors ----
   function crawlerPreviewSvg(){
+    // Stacked layers that only move with transform and opacity, so the GPU animates them
+    // without repainting and the preview never competes with the spider for frames.
+    // Everything is vector: sharp at any screen density, 4K included.
     const W = 320, H = 132, bx = 160, by = 58;
-    const words = [];   // grey word bars: four rows of "text" behind the spider
+    const svg = (cls, body) => `<svg class="cp-layer ${cls}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${body}</svg>`;
+    const words = [];
     [16, 34, 52, 70].forEach((y, row) => {
       let x = 14 + (row % 2) * 9;
       for (let k = 0; x < W - 20; k++){
@@ -2276,34 +2285,34 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         x += w + 7;
       }
     });
-    // the zapped numbers on the bottom row
-    const nums = [
-      {x: 26, w: 52, t: "12.4%", c: "a"}, {x: 112, w: 30, t: "net", c: ""}, {x: 150, w: 44, t: "sales", c: ""}, {x: 226, w: 70, t: "$80.9B", c: "m"}
-    ];
     const ny = 104;
-    const numSvg = nums.map(n => n.c
-      ? `<g class="cp-hit cp-hit-${n.c}"><rect x="${n.x - 4}" y="${ny - 13}" width="${n.w + 8}" height="18" rx="3"/><text x="${n.x + n.w / 2}" y="${ny}">${n.t}</text></g>`
-      : `<rect class="cp-word" x="${n.x}" y="${ny - 8}" width="${n.w}" height="7" rx="2"/>`).join("");
+    const hits = [{x: 26, w: 52, t: "12.4%", c: "a"}, {x: 226, w: 70, t: "$80.9B", c: "m"}];
+    const plain = [{x: 112, w: 30}, {x: 150, w: 44}];
+    const box = (n, cls) => `<rect class="${cls}" x="${n.x - 4}" y="${ny - 13}" width="${n.w + 8}" height="18" rx="3"/>`;
+    const page = `<rect class="cp-bg" x="0" y="0" width="${W}" height="${H}" rx="10"/>${words.join("")}`
+      + plain.map(n => `<rect class="cp-word" x="${n.x}" y="${ny - 8}" width="${n.w}" height="7" rx="2"/>`).join("")
+      + hits.map(n => `<g class="cp-hit-${n.c}">${box(n, "cp-box")}<text class="cp-num" x="${n.x + n.w / 2}" y="${ny}">${n.t}</text></g>`).join("");
+    const glow = hits.map(n => `<g class="cp-hit-${n.c}">${box(n, "cp-boxglow")}</g>`).join("");
     const feet = [[204, 22], [220, 48], [214, 78], [196, 94], [116, 22], [100, 48], [106, 78], [124, 94]];
-    const leg = ([fx, fy], i) => {
+    const leg = ([fx, fy]) => {
       const mx = (bx + fx) / 2, my = (by + fy) / 2, dx = fx - bx, dy = fy - by, len = Math.hypot(dx, dy);
-      const kx = mx + dx / len * 10, ky = my + dy / len * 10 - 12;
-      return `<g class="cp-leg ${i % 2 ? "cp-b" : "cp-a"}"><polyline points="${bx},${by} ${kx.toFixed(1)},${ky.toFixed(1)} ${fx},${fy}"/><circle class="cp-knee" cx="${kx.toFixed(1)}" cy="${ky.toFixed(1)}" r="2.6"/><circle class="cp-foot" cx="${fx}" cy="${fy}" r="3.2"/></g>`;
+      const kx = (mx + dx / len * 10).toFixed(1), ky = (my + dy / len * 10 - 12).toFixed(1);
+      return `<polyline class="cp-legline" points="${bx},${by} ${kx},${ky} ${fx},${fy}"/><circle class="cp-joint" cx="${kx}" cy="${ky}" r="2.6"/><circle class="cp-joint" cx="${fx}" cy="${fy}" r="3.2"/>`;
     };
+    const legsA = feet.filter((_, i) => i % 2 === 0).map(leg).join(""), legsB = feet.filter((_, i) => i % 2).map(leg).join("");
     const mesh = [[0, 1], [1, 2], [2, 3], [4, 5], [5, 6], [6, 7], [0, 4]].map(([a, b]) =>
       `<line class="cp-mesh" x1="${feet[a][0]}" y1="${feet[a][1]}" x2="${feet[b][0]}" y2="${feet[b][1]}"/>`).join("");
     const hx = bx, hy = by + 21;
-    return `<svg class="cp-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Preview of the crawler in these colors">
-      <rect class="cp-bg" x="0" y="0" width="${W}" height="${H}" rx="10"/>
-      ${words.join("")}${numSvg}
-      <line class="cp-silk" x1="${bx}" y1="${by - 18}" x2="${bx}" y2="0"/>
-      <g class="cp-spider">${mesh}${feet.map(leg).join("")}
-        <line class="cp-zap cp-zap-m" x1="${hx}" y1="${hy}" x2="261" y2="${ny - 13}"/>
-        <line class="cp-zap cp-zap-a" x1="${hx}" y1="${hy}" x2="52" y2="${ny - 13}"/>
-        <rect class="cp-body" x="${bx - 7}" y="${by - 17}" width="14" height="34" rx="3"/>
-        <circle class="cp-head" cx="${hx}" cy="${hy}" r="4.6"/>
-      </g>
-    </svg>`;
+    const zap = (c, x2) => `<line class="cp-zapglow cp-z${c}" x1="${hx}" y1="${hy}" x2="${x2}" y2="${ny - 13}"/><line class="cp-zapline cp-z${c}" x1="${hx}" y1="${hy}" x2="${x2}" y2="${ny - 13}"/>`;
+    return `<div class="cp-stage" role="img" aria-label="Preview of the crawler in these colors">
+      ${svg("cp-page", page)}${svg("cp-glow", glow)}
+      <div class="cp-rig">
+        ${svg("cp-web", `<line class="cp-silk" x1="${bx}" y1="${by - 18}" x2="${bx}" y2="-20"/>${mesh}`)}
+        ${svg("cp-zap cp-zap-a", zap("a", 52))}${svg("cp-zap cp-zap-m", zap("m", 261))}
+        ${svg("cp-legs cp-legs-a", legsA)}${svg("cp-legs cp-legs-b", legsB)}
+        ${svg("cp-core", `<rect class="cp-body" x="${bx - 7}" y="${by - 17}" width="14" height="34" rx="3"/><circle class="cp-head" cx="${hx}" cy="${hy}" r="4.6"/>`)}
+      </div>
+    </div>`;
   }
 
   // ---- original-format rendering --------------------------------------
@@ -2474,11 +2483,37 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   const runRead = document.getElementById("read-run");
   // The server says how big a file it takes (10 MB public, 50 MB on the owner's Mac).
   const READ_MAX = {bytes: 10 * 1024 * 1024, local: false, mb(){ return Math.round(this.bytes / 1048576); }};
+  // On the owner's Mac, start-reader.command pulls new versions from GitHub every 2 minutes.
+  // The page picks them up by itself: it reloads when nothing is being read, and otherwise
+  // offers a Reload button so a crawl or recording in progress is never cut off.
+  function watchForNewVersion(){
+    let tag = null, shown = false;
+    const busy = () => !!document.querySelector("svg.spider rect.body") || (document.body.classList.contains("recmode") && !document.getElementById("rec-setup")?.isConnected);
+    const check = async () => {
+      let t = null;
+      try { const r = await fetch(location.pathname, {method: "HEAD", cache: "no-store"}); t = r.ok && r.headers.get("etag"); } catch (e) { return; }
+      if (!t) return;
+      if (tag === null){ tag = t; return; }
+      if (t === tag) return;
+      if (!busy()){ location.reload(); return; }
+      if (shown) return;
+      shown = true;
+      const bar = document.createElement("div");
+      bar.id = "new-version";
+      bar.innerHTML = `New version of the Crawler is ready. <button type="button">Reload</button> <button type="button" class="nv-later">Later</button>`;
+      bar.querySelector("button").addEventListener("click", () => location.reload());
+      bar.querySelector(".nv-later").addEventListener("click", () => bar.remove());
+      document.body.appendChild(bar);
+    };
+    check(); setInterval(check, 20000);
+  }
+
   fetch("/api/read/limits", {cache: "no-store"}).then(r => r.ok ? r.json() : null).then(j => {
     if (!j || !j.max_bytes) return;
     READ_MAX.bytes = j.max_bytes; READ_MAX.local = !!j.local;
     const el = document.getElementById("read-max"); if (el) el.textContent = READ_MAX.mb();
     document.dispatchEvent(new CustomEvent("bmg-read-limits"));
+    if (READ_MAX.local) watchForNewVersion();
     if (READ_MAX.local){
       const privacy = document.querySelector(".read-privacy");
       if (privacy) privacy.textContent = "On this Mac, the crawler saves each completed file and report in My reads so you can reopen them after a reload or server restart. Saved reads stay on this Mac; the app does not automatically delete them. Nothing is saved to the vault unless the owner presses Save with the owner key.";
@@ -3050,6 +3085,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     try { const saved = localStorage.getItem(PALETTE_LS); if (saved && palettes[saved]) palettePicker.value = saved; } catch (e) {}
     const previewEl = setup.querySelector("#rec-palette-preview");
     previewEl.innerHTML = `<div class="cp-swatches"><i class="cp-m"></i><i class="cp-a"></i><i class="cp-t"></i><span>Body + legs · joints · trails</span></div>${crawlerPreviewSvg()}`;
+    // Animate only while the preview is on screen and the spider is not crawling.
+    let cpVisible = true;
+    const cpLive = () => previewEl.classList.toggle("cp-live", cpVisible && !document.querySelector("svg.spider rect.body"));
+    if ("IntersectionObserver" in window) new IntersectionObserver(es => { cpVisible = es[es.length - 1].isIntersecting; cpLive(); }).observe(previewEl);
+    setInterval(cpLive, 1000);
     const applyPalette = () => {
       const p = palettes[palettePicker.value] || palettes.default;
       if (palettePicker.value === "default") delete B.dataset.recPalette;
