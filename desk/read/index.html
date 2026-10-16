@@ -291,7 +291,32 @@ body.recmode[data-rec-palette] #rec-hud{color:var(--crawler-main);border-color:c
 body.recmode[data-rec-palette] #rec-end h3,body.recmode[data-rec-palette] .rk-one h2 span{color:var(--crawler-main)}
 #rec-palette,#rec-quality,#rec-format,#rec-pace{max-width:220px;padding:7px;border:1px solid #cad2d8;border-radius:6px;background:#fff;color:#111;font:inherit}
 .rec-palette-preview{display:flex;align-items:center;gap:8px;margin:8px 0 16px;font-size:12px;color:#9aa6b1}
+.rec-palette-preview{flex-direction:column;align-items:flex-start;--pm:#6ff4ff;--pa:#ff3da6;--pt:#9fb4ff;--pb:#6ff4ff}
+.rec-palette-preview .cp-swatches{display:flex;align-items:center;gap:8px}
 .rec-palette-preview i{display:inline-block;width:16px;height:16px;border-radius:50%;background:var(--swatch);box-shadow:0 0 9px var(--swatch)}
+.rec-palette-preview .cp-m{--swatch:var(--pm)}.rec-palette-preview .cp-a{--swatch:var(--pa)}.rec-palette-preview .cp-t{--swatch:var(--pt)}
+.cp-svg{display:block;max-width:100%;height:auto;border-radius:10px;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+.cp-bg{fill:#0b0d12}.cp-word{fill:#232b36}.cp-hit text{font:600 11px 'IBM Plex Mono',ui-monospace,monospace;text-anchor:middle;fill:#e9eef4}
+.cp-light .cp-bg{fill:#fff}.cp-light .cp-word{fill:#dfe4e9}.cp-light .cp-hit text{fill:#111}.cp-light .cp-svg{box-shadow:0 0 0 1px #d7ddd9}
+.cp-hit-m rect{fill:color-mix(in srgb,var(--pm) 38%,transparent);stroke:var(--pm);stroke-width:1.2}
+.cp-hit-a rect{fill:color-mix(in srgb,var(--pa) 38%,transparent);stroke:var(--pa);stroke-width:1.2}
+.cp-leg polyline{fill:none;stroke:var(--pm);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.cp-knee,.cp-foot{fill:var(--pa)}
+.cp-mesh{stroke:var(--pt);stroke-width:1.1;opacity:.75}.cp-silk{stroke:var(--pt);stroke-width:1;opacity:.6}
+.cp-body{fill:#05070c;stroke:var(--pb);stroke-width:2}.cp-light .cp-body{fill:#05070c}
+.cp-head{fill:var(--pm)}
+.cp-zap{stroke-width:1.8;stroke-linecap:round;stroke-dasharray:4 5}
+.cp-zap-m{stroke:var(--pm);filter:drop-shadow(0 0 3px var(--pm))}.cp-zap-a{stroke:var(--pa);filter:drop-shadow(0 0 3px var(--pa))}
+.cp-hit-m rect{filter:drop-shadow(0 0 5px var(--pm))}.cp-hit-a rect{filter:drop-shadow(0 0 5px var(--pa))}
+.cp-spider{transform-origin:160px 58px;animation:cp-bob 1.6s ease-in-out infinite}
+.cp-leg{transform-origin:160px 58px}.cp-leg.cp-a{animation:cp-step 0.8s ease-in-out infinite}.cp-leg.cp-b{animation:cp-step 0.8s ease-in-out infinite reverse}
+.cp-zap{animation:cp-zap .9s linear infinite}.cp-zap-a{animation-delay:-.45s}
+.cp-hit rect{animation:cp-glow 1.8s ease-in-out infinite}.cp-hit-a rect{animation-delay:-.9s}
+@keyframes cp-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.5px)}}
+@keyframes cp-step{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
+@keyframes cp-zap{from{stroke-dashoffset:18}to{stroke-dashoffset:0}}
+@keyframes cp-glow{0%,100%{opacity:1}50%{opacity:.7}}
+@media (prefers-reduced-motion:reduce){.cp-spider,.cp-leg,.cp-zap,.cp-hit rect{animation:none}}
 #rec-eye{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:25}
 #rec-hud{position:fixed;top:calc(100vh - var(--rec-h) - 40px);left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;white-space:nowrap;font:600 12px 'IBM Plex Mono',monospace;color:#6ff4ff;background:rgba(0,0,0,.72);border:1px solid rgba(111,244,255,.45);border-radius:20px;padding:5px 12px;box-shadow:0 0 14px rgba(111,244,255,.25)}
 #rec-hud b{color:#fff;margin-right:4px}#rec-hud span{margin-left:8px}
@@ -508,7 +533,7 @@ body.readerfx[data-rec-palette] #rec-end h3,body.readerfx[data-rec-palette] .rk-
 body.readerfx.rec-dark .stage,body.readerfx.rec-dark #doc,body.readerfx.rec-dark #docbody{background:#000!important}
 body.readerfx .sig-pop span:not(.sev),body.recmode .sig-pop span:not(.sev){color:#cbd5e1}
 #reader-appearance{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:12px 0 18px;padding:12px;border:1px solid #d7ddd9;border-radius:9px;font:14px 'IBM Plex Sans',sans-serif}
-#reader-appearance .opt{display:flex;align-items:center;gap:8px}#reader-appearance .rec-palette-preview{margin:0;color:#65716b}
+#reader-appearance .opt{display:flex;align-items:center;gap:8px}#reader-appearance .rec-palette-preview{margin:0;color:#65716b;order:3;flex-basis:100%}
 body.readerfx .lr-v{font-size:15px}body.readerfx .lr-t td{padding:3px 5px}
 @media(max-width:900px){body.readerfx .read-side{max-height:28vh!important;box-sizing:border-box}body.readerfx .read-side.collapsed{max-height:44px!important}body.readerfx .read-grid{padding-bottom:30vh}}
 
@@ -2239,6 +2264,48 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
 
 
 
+  // ---- crawler color preview: a small spider on a strip of page, drawn in the chosen colors ----
+  function crawlerPreviewSvg(){
+    const W = 320, H = 132, bx = 160, by = 58;
+    const words = [];   // grey word bars: four rows of "text" behind the spider
+    [16, 34, 52, 70].forEach((y, row) => {
+      let x = 14 + (row % 2) * 9;
+      for (let k = 0; x < W - 20; k++){
+        const w = 14 + ((row * 7 + k * 13) % 5) * 7;
+        words.push(`<rect class="cp-word" x="${x}" y="${y - 5}" width="${Math.min(w, W - 14 - x)}" height="7" rx="2"/>`);
+        x += w + 7;
+      }
+    });
+    // the zapped numbers on the bottom row
+    const nums = [
+      {x: 26, w: 52, t: "12.4%", c: "a"}, {x: 112, w: 30, t: "net", c: ""}, {x: 150, w: 44, t: "sales", c: ""}, {x: 226, w: 70, t: "$80.9B", c: "m"}
+    ];
+    const ny = 104;
+    const numSvg = nums.map(n => n.c
+      ? `<g class="cp-hit cp-hit-${n.c}"><rect x="${n.x - 4}" y="${ny - 13}" width="${n.w + 8}" height="18" rx="3"/><text x="${n.x + n.w / 2}" y="${ny}">${n.t}</text></g>`
+      : `<rect class="cp-word" x="${n.x}" y="${ny - 8}" width="${n.w}" height="7" rx="2"/>`).join("");
+    const feet = [[204, 22], [220, 48], [214, 78], [196, 94], [116, 22], [100, 48], [106, 78], [124, 94]];
+    const leg = ([fx, fy], i) => {
+      const mx = (bx + fx) / 2, my = (by + fy) / 2, dx = fx - bx, dy = fy - by, len = Math.hypot(dx, dy);
+      const kx = mx + dx / len * 10, ky = my + dy / len * 10 - 12;
+      return `<g class="cp-leg ${i % 2 ? "cp-b" : "cp-a"}"><polyline points="${bx},${by} ${kx.toFixed(1)},${ky.toFixed(1)} ${fx},${fy}"/><circle class="cp-knee" cx="${kx.toFixed(1)}" cy="${ky.toFixed(1)}" r="2.6"/><circle class="cp-foot" cx="${fx}" cy="${fy}" r="3.2"/></g>`;
+    };
+    const mesh = [[0, 1], [1, 2], [2, 3], [4, 5], [5, 6], [6, 7], [0, 4]].map(([a, b]) =>
+      `<line class="cp-mesh" x1="${feet[a][0]}" y1="${feet[a][1]}" x2="${feet[b][0]}" y2="${feet[b][1]}"/>`).join("");
+    const hx = bx, hy = by + 21;
+    return `<svg class="cp-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Preview of the crawler in these colors">
+      <rect class="cp-bg" x="0" y="0" width="${W}" height="${H}" rx="10"/>
+      ${words.join("")}${numSvg}
+      <line class="cp-silk" x1="${bx}" y1="${by - 18}" x2="${bx}" y2="0"/>
+      <g class="cp-spider">${mesh}${feet.map(leg).join("")}
+        <line class="cp-zap cp-zap-m" x1="${hx}" y1="${hy}" x2="261" y2="${ny - 13}"/>
+        <line class="cp-zap cp-zap-a" x1="${hx}" y1="${hy}" x2="52" y2="${ny - 13}"/>
+        <rect class="cp-body" x="${bx - 7}" y="${by - 17}" width="14" height="34" rx="3"/>
+        <circle class="cp-head" cx="${hx}" cy="${hy}" r="4.6"/>
+      </g>
+    </svg>`;
+  }
+
   // ---- original-format rendering --------------------------------------
   function wrapWords(text){
     return text.split(/(\s+)/).map(t => (!t || /^\s+$/.test(t)) ? escapeHTML(t) : `<span class="w">${escapeHTML(t)}</span>`).join("");
@@ -2917,8 +2984,19 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       gold: {name: "Gold rush", main: "#ffd23f", accent: "#3dc9ff", trail: "#fff1a8"},
       toxic: {name: "Toxic green", main: "#39ff6a", accent: "#b06bff", trail: "#a8ffbf"},
       tron: {name: "Grid teal + orange", main: "#00ffd5", accent: "#ff7a1a", trail: "#7dfff0"},
-      bubblegum: {name: "Bubblegum ice", main: "#ff8fd1", accent: "#8fe9ff", trail: "#ffd1ec"}
+      bubblegum: {name: "Bubblegum ice", main: "#ff8fd1", accent: "#8fe9ff", trail: "#ffd1ec"},
+      ticker: {name: "Ticker green + red", main: "#00e676", accent: "#ff3b5c", trail: "#b9f6ca"},
+      terminal: {name: "Terminal amber", main: "#ffa028", accent: "#fff3d6", trail: "#ff7a00"},
+      chrome: {name: "Chrome silver", main: "#e8eef5", accent: "#39d5ff", trail: "#8d9bab"},
+      coral: {name: "Coral reef", main: "#ff7f6a", accent: "#3fffe0", trail: "#ffc2b3"},
+      ultraviolet: {name: "Ultraviolet", main: "#8a6bff", accent: "#ff4fd8", trail: "#c3b5ff"},
+      synthwave: {name: "Synthwave", main: "#ff2e97", accent: "#ffd319", trail: "#8a5cff"},
+      icefire: {name: "Ice + fire", main: "#9be7ff", accent: "#ff5a2b", trail: "#e0f7ff"},
+      aurora: {name: "Aurora", main: "#4dffb8", accent: "#a66bff", trail: "#66d9ff"},
+      cobalt: {name: "Cobalt + amber", main: "#3d7bff", accent: "#ffb000", trail: "#9db8ff"},
+      rosegold: {name: "Rose gold", main: "#ffb59e", accent: "#ffe08a", trail: "#ff8fa3"}
     };
+    const PALETTE_LS = "bmg-crawler-palette";
     const canRecord = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.MediaRecorder);
     const setup = document.createElement("div");
     setup.id = "rec-setup";
@@ -2969,6 +3047,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       format.addEventListener("change", syncFormat); syncFormat();
     }
     const palettePicker = setup.querySelector("#rec-palette");
+    try { const saved = localStorage.getItem(PALETTE_LS); if (saved && palettes[saved]) palettePicker.value = saved; } catch (e) {}
+    const previewEl = setup.querySelector("#rec-palette-preview");
+    previewEl.innerHTML = `<div class="cp-swatches"><i class="cp-m"></i><i class="cp-a"></i><i class="cp-t"></i><span>Body + legs · joints · trails</span></div>${crawlerPreviewSvg()}`;
     const applyPalette = () => {
       const p = palettes[palettePicker.value] || palettes.default;
       if (palettePicker.value === "default") delete B.dataset.recPalette;
@@ -2976,12 +3057,16 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       for (const [key, value] of Object.entries({main: p.main, accent: p.accent, trail: p.trail})){
         B.style.setProperty(`--crawler-${key}`, value);
       }
-      setup.querySelector("#rec-palette-preview").innerHTML =
-        `<i style="--swatch:${p.main}"></i><i style="--swatch:${p.accent}"></i><i style="--swatch:${p.trail}"></i><span>Body + legs · joints · trails</span>`;
+      // The light page's default spider has a blue body outline; every other case uses the main color.
+      const dark = setup.querySelector("#rec-dark").checked;
+      previewEl.style.setProperty("--pm", p.main); previewEl.style.setProperty("--pa", p.accent); previewEl.style.setProperty("--pt", p.trail);
+      previewEl.style.setProperty("--pb", palettePicker.value === "default" && !dark ? "#3b6cff" : p.main);
+      previewEl.classList.toggle("cp-light", !dark);
+      try { localStorage.setItem(PALETTE_LS, palettePicker.value); } catch (e) {}
     };
     palettePicker.addEventListener("change", applyPalette);
     applyPalette();
-    setup.querySelector("#rec-dark").addEventListener("change", e => B.classList.toggle("rec-dark", e.target.checked));
+    setup.querySelector("#rec-dark").addEventListener("change", e => { B.classList.toggle("rec-dark", e.target.checked); applyPalette(); });
     if (isRecord) addEventListener("keydown", e => {
       if (e.key === "Escape") leave();
       if (e.key === " " && !setup.isConnected){ e.preventDefault(); const p = document.getElementById("ctl-pause"); if (p) p.click(); }
