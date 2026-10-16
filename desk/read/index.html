@@ -797,6 +797,31 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     factBuffer:{}, lastRenderedCount:0, pendingRenderDoc:null,
     currentHost:"", currentType:"", currentPub:"", loadToken:0, docQueue:[]};
 
+  // Opt-in timing evidence for local rendering investigations; no change to the walk.
+  const renderProfile = /[?&]profile=1(?:&|$)/.test(location.search)
+    ? {frames: [], draws: [], last: 0, updated: 0} : null;
+  function profileFrame(now){
+    if (!renderProfile) return;
+    const p = renderProfile;
+    if (!walking() || state.paused || !state.feet.length || document.hidden){ p.last = 0; return; }
+    if (p.last) p.frames.push(now - p.last);
+    p.last = now;
+    if (p.frames.length > 600) p.frames.shift();
+    if (now - p.updated < 1000 || !p.frames.length) return;
+    p.updated = now;
+    let out = document.getElementById("crawler-performance");
+    if (!out){ out = document.createElement("output"); out.id = "crawler-performance"; out.hidden = true; document.body.appendChild(out); }
+    const values = p.frames.slice().sort((a,b) => a-b);
+    const mean = a => a.reduce((sum,x) => sum+x,0) / Math.max(1,a.length);
+    const canvases = [...docBody.querySelectorAll("canvas")];
+    out.textContent = JSON.stringify({samples: values.length, rafFps: +(1000/mean(values)).toFixed(1),
+      frameP50: +values[Math.floor((values.length-1)*.5)].toFixed(1),
+      frameP95: +values[Math.floor((values.length-1)*.95)].toFixed(1),
+      over50ms: values.filter(x => x>50).length, drawMeanMs: +mean(p.draws).toFixed(2),
+      svgHeight: spiderSvg.getAttribute("height"), words: docBody.querySelectorAll(".w").length,
+      canvasCount: canvases.length, canvasPixels: canvases.reduce((n,c)=>n+c.width*c.height,0)});
+  }
+
   function escapeHTML(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
   function fmtDate(iso){if(!iso) return "";const d=new Date(iso);return isNaN(d)?iso:d.toLocaleString("en-US",{timeZone:"America/Chicago",month:"short",day:"2-digit",hour:"2-digit",minute:"2-digit"});}
   async function fetchJSON(url){try{const r=await fetch(url,{cache:"no-store"});if(!r.ok) throw new Error(r.status);return await r.json();}catch(e){return {error:String(e)};}}
@@ -1102,7 +1127,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
   // camera first: scrolling while the layout is still clean avoids a forced
   // re-layout of the whole document every frame
-  function drawSpider(){ state.drawnAt = performance.now(); camera(); drawSilk(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawZaps(); drawBody(); }
+  function drawSpider(){
+    const start = performance.now(); state.drawnAt = start;
+    camera(); drawSilk(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawZaps(); drawBody();
+    if (renderProfile){ renderProfile.draws.push(performance.now()-start); if (renderProfile.draws.length>600) renderProfile.draws.shift(); }
+  }
   // Keep the legs flexing and the eye scanning between steps too.
   // ---- crawl: body creeps continuously; legs step one or two at a time
   const CRAWL_BASE = 68;   // px/s per unit at 1x (~2 lines/s) across the screen; riding the scroll does the rest
@@ -1205,6 +1234,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
   (function crawl(now){
     requestAnimationFrame(crawl);
+    profileFrame(now);
     const dt = Math.min(0.05, (now - (state.lastCrawl || now)) / 1000);
     state.lastCrawl = now;
     if (state.paused || !state.feet || !state.feet.length) return;
