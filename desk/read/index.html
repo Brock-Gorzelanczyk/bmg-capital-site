@@ -33,7 +33,7 @@
 .found.pink{background:rgba(255,43,214,.22);box-shadow:0 0 10px rgba(255,43,214,.5)}
 .found.org{background:rgba(255,159,28,.22);box-shadow:0 0 10px rgba(255,159,28,.5)}
 .found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
-svg.spider{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
+svg.spider{position:absolute;left:0;top:0;width:100%;pointer-events:none;overflow:hidden;z-index:3}
 svg.spider .eye{fill:rgba(143,216,255,.55)}
 svg.spider .sight{stroke:#5fe6ff;stroke-width:1.4;stroke-linecap:round}
 svg.spider .body{fill:#05070c;stroke:#3b6cff;stroke-width:2}
@@ -827,7 +827,23 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   async function fetchJSON(url){try{const r=await fetch(url,{cache:"no-store"});if(!r.ok) throw new Error(r.status);return await r.json();}catch(e){return {error:String(e)};}}
   function setStatus(s){statusEl.innerHTML = s;}
 
-  function sizeSvg(){const r=doc.getBoundingClientRect(); spiderSvg.setAttribute("viewBox",`0 0 ${r.width} ${r.height}`); spiderSvg.setAttribute("width",r.width); spiderSvg.setAttribute("height",r.height);}
+  function spiderWindow(width, height, scrollTop, viewportHeight){
+    const h = Math.min(height, viewportHeight + 1024);
+    const top = Math.max(0, Math.min(height - h, Math.floor(scrollTop - 512)));
+    return {width, height: h, top};
+  }
+  function sizeSvg(){
+    // Clip the drawing surface to the viewport, keeping all gait coordinates
+    // in document space. A full 10-K otherwise repaints a huge SVG every frame.
+    const g = docGeo(), v = spiderWindow(g.width, g.height, state.sy - g.absTop, innerHeight);
+    const key = `${v.width} ${v.height} ${v.top}`;
+    if (state.svgWindow === key) return;
+    state.svgWindow = key;
+    spiderSvg.style.top = v.top + "px";
+    spiderSvg.style.height = v.height + "px";
+    spiderSvg.setAttribute("viewBox", `0 ${v.top} ${v.width} ${v.height}`);
+    spiderSvg.setAttribute("width", v.width); spiderSvg.setAttribute("height", v.height);
+  }
 
   function clearSpider(){
     spiderSvg.innerHTML = "";
@@ -1129,7 +1145,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   // re-layout of the whole document every frame
   function drawSpider(){
     const start = performance.now(); state.drawnAt = start;
-    camera(); drawSilk(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawZaps(); drawBody();
+    camera(); sizeSvg(); drawSilk(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawZaps(); drawBody();
     if (renderProfile){ renderProfile.draws.push(performance.now()-start); if (renderProfile.draws.length>600) renderProfile.draws.shift(); }
   }
   // Keep the legs flexing and the eye scanning between steps too.
