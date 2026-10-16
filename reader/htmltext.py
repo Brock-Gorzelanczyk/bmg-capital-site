@@ -30,8 +30,22 @@ def _clean(s: str) -> str:
     return re.sub(r"[ \t    ​]+", " ", s or "")
 
 
+def _cell_join(el) -> str:
+    """The cell's text. A line break or block inside the cell separates words ("Three Months Ended<br/>June 30,");
+    inline tags do not, since they can split one number ("202" + "5")."""
+    out = [el.text or ""]
+    for ch in el:
+        if isinstance(ch.tag, str):
+            block = _tag(ch) in _BLOCK
+            out.append(" " if block else "")
+            out.append(_cell_join(ch))
+            out.append(" " if block else "")
+        out.append(ch.tail or "")
+    return "".join(out)
+
+
 def _cell_text(td) -> str:
-    t = _clean("".join(td.itertext())).strip()        # tags can split one number ("202" + "5")
+    t = _clean(_cell_join(td)).strip()
     return re.sub(r"\s+\)", ")", re.sub(r"\(\s+", "(", t))
 
 

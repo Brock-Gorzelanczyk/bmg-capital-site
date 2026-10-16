@@ -436,7 +436,11 @@ def parse(doc) -> list[dict]:
             row_index += 1
             groups = []
             close_after = True
-        if close_after or label.lower().startswith("total "):
+        # A total closes its section; so does a subtotal named like the heading it closes
+        # ("Finance lease cost:" ... "Finance lease cost  3,596"), or the rows after it inherit
+        # that heading (Amazon FY2025 p.55: "Total lease cost" read as a finance lease line).
+        names_heading = heading and label.strip(" :").lower() == heading.strip(" :").lower()
+        if close_after or label.lower().startswith("total ") or names_heading:
             heading = next_heading or ""
     # a combined statement of income and comprehensive income ("Consolidated
     # Statements of Comprehensive Income" running from revenue to EPS) is the

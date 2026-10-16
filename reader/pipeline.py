@@ -113,6 +113,10 @@ def run(data: bytes, kind: str, title: str, ticker: Optional[str] = None,
     # optional second check (Claude re-reads each statement figure on its page); off without ANTHROPIC_API_KEY
     from . import verify as _verify
     rep["second_check"] = _verify.run(rep, doc.body, doc.page_starts)
+    sc = rep["second_check"]
+    if sc.get("status") == "done":
+        rep["methodology"].append(f"Second check: a language model ({sc.get('model')}) re-read {sc.get('checked')} figures on their cited pages and "
+                                  "labelled each one; it cannot change a value. Its results are a review aid, not part of the extraction.")
     from . import live as _live
     rep["live"] = _live.plan(rep)            # built after validation: nothing withdrawn can appear
     rep["timings"] = timings

@@ -7,6 +7,7 @@ was not found. It never recommends buying or selling.
 """
 from __future__ import annotations
 
+import os
 import re
 from datetime import datetime, timezone
 from typing import Optional
@@ -291,13 +292,15 @@ def build(doc, rows: list, fb: "F.FactBook", claims: Optional[list] = None, anal
         "risks": {"items": rf, "note": rf_note, "watch": watch, "followups": followups},
         "checks": fb.checks,
         "methodology": [
-            "The uploaded file was read once and not saved. Text was extracted page by page; running headers and footers were removed and printed page numbers recorded.",
+            ("The file and this report are kept on the owner's computer (My reads) so the read can be reopened; nothing is published. "
+             if os.environ.get("BMG_LOCAL") == "1" else "The uploaded file was read once and not saved. ")
+            + "Text was extracted page by page; running headers and footers were removed and printed page numbers recorded.",
             "Financial statement tables were parsed row by row with their column periods, scale caption and units. Values in parentheses are negative; a dash is reported as nil.",
             "Each metric is taken from its primary statement. The same label in other tables is used as a cross-check; differing values are flagged for review, not resolved silently.",
             "Arithmetic identities (gross profit, balance sheet totals, EPS against net income and diluted shares) are checked where the inputs exist.",
             "Calculations use only cited inputs of the same period. Percentage changes are withheld when the base is zero or negative.",
             "Risks come from the Risk Factors headings, with short quoted evidence; the 'why it may matter' lines are BMG interpretation, not statements from the filing.",
-            "No language model is used, so instructions written inside a document cannot change the report.",
+            "Figures are extracted by fixed rules, not a language model, so instructions written inside a document cannot change them.",
         ],
         "evidence": {"facts": fb.facts, "calcs": fb.calcs},
     }

@@ -7,7 +7,15 @@
 # Stop:   close the Terminal window, or press Control-C in it.
 #
 # First run sets up Python libraries in .venv inside this folder (a few minutes, one time).
-# Each run pulls the latest version from GitHub when this folder is a git clone.
+#
+# Stays up to date by itself: on start, and every 2 minutes while it runs, it pulls the branch it follows
+# from GitHub (fast-forward only, so your own uncommitted or local work is never overwritten). New Python
+# code restarts the server; a new page only needs a browser refresh.
+# Which branch: the one this folder is on, unless ~/.bmg-reader-follow names another one, e.g.
+#   echo main > ~/.bmg-reader-follow
+# If this copy has commits GitHub does not (an old local merge), they are kept on a branch named
+# reader-backup-<date> and this copy moves to GitHub's version. Uncommitted edits are never touched:
+# while there are any, updates wait and the window says so.
 
 cd "$(dirname "$0")" || exit 1
 PORT="${PORT:-8000}"
@@ -23,9 +31,51 @@ if curl -fs "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1; then
 fi
 
 # Latest version (only for a git clone; a ZIP download is updated by downloading again).
-if [ -d .git ] && command -v git >/dev/null 2>&1; then
-  echo "Checking for updates..."
-  git pull --ff-only -q 2>/dev/null || echo "  (could not update; using the copy on this Mac)"
+FOLLOW=""
+[ -s "$HOME/.bmg-reader-follow" ] && FOLLOW="$(tr -d '[:space:]' < "$HOME/.bmg-reader-follow")"
+HAS_GIT=0
+[ -d .git ] && command -v git >/dev/null 2>&1 && HAS_GIT=1
+
+clean() { [ -z "$(git status --porcelain --untracked-files=no)" ]; }
+
+update() {   # returns 0 and sets CHANGED when new commits were pulled
+  [ "$HAS_GIT" = 1 ] || return 1
+  git fetch -q origin "$FOLLOW" 2>/dev/null || return 1
+  local before after b
+  before="$(git rev-parse HEAD)"
+  [ "$before" = "$(git rev-parse "origin/$FOLLOW")" ] && return 1
+  if ! clean; then
+    [ -z "$WARNED" ] && echo "  Updates are waiting: this copy has uncommitted edits (git status shows them)." && WARNED=1
+    return 1
+  fi
+  if git merge-base --is-ancestor HEAD "origin/$FOLLOW"; then
+    git merge --ff-only -q "origin/$FOLLOW" || return 1
+  else
+    b="reader-backup-$(date '+%Y%m%d-%H%M%S')"
+    git branch "$b" HEAD && git reset -q --hard "origin/$FOLLOW" || return 1
+    echo "  This copy had commits GitHub does not; they are kept on branch $b."
+  fi
+  after="$(git rev-parse HEAD)"
+  [ "$before" != "$after" ] || return 1
+  CHANGED="$(git diff --name-only "$before" "$after")"
+  return 0
+}
+
+if [ "$HAS_GIT" = 1 ]; then
+  CURRENT="$(git rev-parse --abbrev-ref HEAD)"
+  [ -n "$FOLLOW" ] || FOLLOW="$CURRENT"
+  echo "Following branch: $FOLLOW"
+  git fetch -q origin "$FOLLOW" 2>/dev/null || echo "  (could not reach GitHub, or it has no branch $FOLLOW; using the copy on this Mac)"
+  if [ "$CURRENT" != "$FOLLOW" ]; then
+    if clean; then
+      git checkout -q "$FOLLOW" 2>/dev/null || git checkout -q -b "$FOLLOW" "origin/$FOLLOW" 2>/dev/null \
+        || echo "  (could not switch from $CURRENT to $FOLLOW; staying on $CURRENT)"
+    else
+      echo "  Staying on $CURRENT: it has uncommitted changes. Commit or stash them to follow $FOLLOW."
+      FOLLOW="$CURRENT"
+    fi
+  fi
+  update && echo "  Updated to $(git log -1 --format='%h %s' | cut -c1-90)"
 fi
 
 # Python 3.10 or newer.
@@ -79,5 +129,31 @@ if [ -n "$ANTHROPIC_API_KEY" ]; then echo "Second check: on (Claude re-reads eac
 echo
 echo "BMG Capital reader: $URL"
 echo "Leave this window open while you use it. Close it (or press Control-C) to stop."
+echo "Updates from GitHub ($FOLLOW) are pulled every 2 minutes while it runs."
 echo
-exec .venv/bin/python -m uvicorn server:app --host 127.0.0.1 --port "$PORT" --log-level warning
+
+start_server() { .venv/bin/python -m uvicorn server:app --host 127.0.0.1 --port "$PORT" --log-level warning & SERVER=$!; }
+trap 'kill "$SERVER" 2>/dev/null; exit 0' INT TERM HUP
+start_server
+TICK=0
+while kill -0 "$SERVER" 2>/dev/null; do
+  sleep 5
+  TICK=$((TICK + 5))
+  [ "$TICK" -ge 120 ] || continue
+  TICK=0
+  if update; then
+    echo "$(date '+%H:%M') Updated to $(git log -1 --format='%h %s' | cut -c1-90)"
+    if echo "$CHANGED" | grep -q '^requirements.txt$'; then
+      .venv/bin/python -m pip install -q -r requirements.txt && touch .venv/.installed
+    fi
+    if echo "$CHANGED" | grep -qE '\.py$|^requirements.txt$'; then
+      echo "  Server code changed: restarting (saved reads are kept)."
+      kill "$SERVER" 2>/dev/null; wait "$SERVER" 2>/dev/null
+      start_server
+    else
+      echo "  Page changed: refresh your browser (Cmd+Shift+R)."
+    fi
+  fi
+done
+echo "The reader stopped."
+pause_exit 0

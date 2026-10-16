@@ -84,6 +84,7 @@ class JobManager:
         self.jobs: dict[str, Job] = {}
         self.lock = threading.Lock()
         self.pool = ThreadPoolExecutor(max_workers=MAX_RUNNING, thread_name_prefix="reader")
+        self.library = None    # a library.Library on the owner's Mac: saves finished reads, reopens them instantly
 
     # ------------------------------------------------------------------
     def _sweep(self):
@@ -111,6 +112,25 @@ class JobManager:
                 raise ReadError(503, "The reader is busy. Try again in a minute.")
             job = Job(owner, sha, title, kind, ticker)
             self.jobs[job.id] = job
+        saved = None
+        if self.library:
+            try:
+                saved = self.library.lookup(sha, ticker)
+            except Exception:
+                log.exception("reader library lookup failed")
+        if saved:
+            job.started = time.time()
+            try:
+                original = self.library.stages(sha, ticker)
+            except Exception:
+                original = {}
+            for stage in ("Upload", "Parse", "Identify", "Extract", "Validate", "Analyze", "Build report"):
+                detail = {**(original.get(stage) or {}), "state": "done", "saved": True}
+                job.stages[stage] = detail
+                job.emit("stage", {"stage": stage, **detail})
+            self._finish(job, saved)
+            log.info("reader job %s reopened from My reads", job.id[:8])
+            return job, False
         self.pool.submit(self._run, job, data)
         log.info("reader job %s queued kind=%s bytes=%d", job.id[:8], kind, len(data))
         return job, False
@@ -151,13 +171,13 @@ class JobManager:
 
         try:
             res = pipeline.run(data, job.kind, job.title, job.ticker, progress=progress, cancelled=cancelled)
-            job.result = res
-            job.stages["Ready"] = {"state": "done"}
-            job.stage = "Ready"
-            job.state = "done"
+            self._finish(job, res)
+            if self.library:
+                try:
+                    self.library.save(job, data, res)
+                except Exception:
+                    log.exception("reader library save failed")
             rep = res["report"]
-            job.emit("findings", {"count": len(rep["findings"])})
-            job.emit("done", {"coverage": rep["coverage"]["status"], "issues": len(rep["coverage"]["issues"]), "validation_passed": rep["validation"]["passed"]})
             log.info("reader job %s done in %.1fs findings=%d issues=%d validation=%s", job.id[:8], time.time() - job.started,
                      len(rep["findings"]), len(rep["coverage"]["issues"]), rep["validation"]["passed"])
         except pipeline.Cancelled:
@@ -178,6 +198,15 @@ class JobManager:
             log.exception("reader job %s crashed at %s", job.id[:8], job.stage)
         finally:
             del data
+
+    def _finish(self, job: Job, res: dict):
+        job.result = res
+        job.stages["Ready"] = {"state": "done"}
+        job.stage = "Ready"
+        job.state = "done"
+        rep = res["report"]
+        job.emit("findings", {"count": len(rep["findings"])})
+        job.emit("done", {"coverage": rep["coverage"]["status"], "issues": len(rep["coverage"]["issues"]), "validation_passed": rep["validation"]["passed"]})
 
     def pdf(self, job: Job) -> bytes:
         if job.pdf is None:

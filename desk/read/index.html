@@ -151,6 +151,41 @@ svg.spider .knee{fill:#ff3d9a}
 .read-form{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:stretch;margin-bottom:12px}
 #read-drop{border:2px dashed #c9c9c4;border-radius:10px;padding:18px;text-align:center;cursor:pointer;color:#4a4a4a;background:#fafaf7}
 #read-drop.over,#read-drop.has{border-color:#0f7d47;background:#f1f8f4;color:#0f7d47}
+.read-edgar{margin:0 0 16px;padding:14px 16px;border:1px solid #e3e3dc;border-radius:10px;background:#fbfbf9;display:flex;flex-direction:column;gap:10px}
+.read-edgar h2,.read-library h2{border:0!important;padding:0!important;margin:0;font:600 15px 'IBM Plex Sans',sans-serif;color:#141414}
+.read-edgar .re-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+#edgar-ticker{height:40px;width:220px;max-width:100%;padding:0 12px;border:1px solid #d6d6cf;border-radius:8px;font:15px 'IBM Plex Mono',monospace;text-transform:uppercase}
+#edgar-ticker::placeholder{text-transform:none}
+#edgar-find,#edgar-list button{height:40px;padding:0 16px;border-radius:8px;border:1px solid #0f7d47;background:#0f7d47;color:#fff;font-weight:600;cursor:pointer}
+#edgar-list button{height:34px;background:#fff;color:#0f7d47}
+#edgar-list button:disabled,#edgar-find:disabled{opacity:.55;cursor:default}
+#edgar-status{font-size:13px;color:#5d6862}#edgar-status.err{color:#b42318}
+#edgar-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+#edgar-list:empty{display:none}
+#edgar-list li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border:1px solid #e6e8e4;border-radius:8px;background:#fff;font-size:14px}
+#edgar-list li.re-more{justify-content:center;border-style:dashed;background:transparent}
+#edgar-list li small{display:block;color:#6b6f76;font:12px 'IBM Plex Mono',monospace}
+.read-library{margin:0 0 16px;padding:14px 16px;border:1px solid #e3e3dc;border-radius:10px;background:#fbfbf9;display:flex;flex-direction:column;gap:8px}
+.read-library .rl-head{display:flex;align-items:baseline;gap:10px}
+#lib-count{font:12px 'IBM Plex Mono',monospace;color:#6b6f76}
+.rl-wrap{overflow-x:auto}
+.rl-t{width:100%;border-collapse:collapse;font-size:14px}
+.rl-t th{font:500 11px 'IBM Plex Mono',monospace;color:#6b6f76;text-align:left;padding:4px 8px;border-bottom:1px solid #e3e3dc}
+.rl-t td{padding:8px;border-bottom:1px solid #eeeeea;vertical-align:middle}
+.rl-t td small{display:block;color:#6b6f76;font:12px 'IBM Plex Mono',monospace}
+.rl-t .num{font:13px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rl-t .ok{color:#0f7d47;font-weight:600}.rl-t .warn{color:#b4610e;font-weight:600}
+.rl-t button{height:32px;padding:0 14px;border-radius:8px;border:1px solid #0f7d47;background:#fff;color:#0f7d47;font-weight:600;cursor:pointer}
+.rl-t button:disabled{opacity:.55;cursor:default}
+#lib-status{margin:0;font-size:13px;color:#5d6862}#lib-status:empty{display:none}#lib-status.err{color:#b42318}
+#lib-rows tr[hidden]{display:none}
+@media (max-width:600px){
+  main.read-page{padding-left:max(16px, env(safe-area-inset-left, 0px))!important;padding-right:max(16px, env(safe-area-inset-right, 0px))!important}
+  .rl-t th:nth-child(4),.rl-t td:nth-child(4){display:none}
+  .read-edgar,.read-library{padding:12px}
+}
+#read-live .lr-src{white-space:normal;overflow:visible;text-overflow:clip}
+#read-drop-name.too-big{color:#b42318;font-weight:600}
 #read-drop b{display:block;font-size:16px;color:#141414;margin-bottom:4px}
 #read-ticker{height:44px;padding:0 12px;border:1px solid #c9c9c4;border-radius:8px;font:500 15px 'IBM Plex Mono',monospace;align-self:center}
 #read-run{height:44px;padding:0 26px;background:#0f7d47;color:#fff;border:none;border-radius:8px;font-weight:600;font-size:16px;cursor:pointer;align-self:center}
@@ -174,7 +209,7 @@ details.paste textarea{width:100%;min-height:110px;margin-top:8px;font:13px 'IBM
 .lr-t{width:100%;border-collapse:collapse;table-layout:fixed}.lr-t th{font:500 10px 'IBM Plex Mono',monospace;color:#8a9099;text-align:right;padding:2px 4px}.lr-t td{padding:3px 4px;border-top:1px solid #f0f0ec;vertical-align:top}
 .lr-t td:first-child{width:44%;color:#2a2a2a}.lr-t td small{display:block;color:#9aa0a8;font-size:10px}.lr-t.lr-r td:first-child{width:62%}
 .lr-c{text-align:right;height:30px}.lr-c .ph{font:400 11px 'IBM Plex Mono',monospace}.lr-v{font:600 12.5px 'IBM Plex Mono',monospace;background:none;border:0;padding:0;color:#141414;cursor:pointer;text-decoration:underline dotted #b5b5ae;text-underline-offset:3px}
-tr.lr-found-row.pending{visibility:hidden}body.rec #read-live .lr-obs{padding-bottom:140px}.rec-fly.obs{max-width:210px;white-space:normal;font:700 11px/1.25 'IBM Plex Sans',sans-serif;padding:5px 8px;text-align:left}
+tr.lr-found-row.pending{visibility:hidden}.lr-readt{display:block;font:600 13px/1.3 'IBM Plex Sans',sans-serif;white-space:normal}body.rec #read-live .lr-obs{padding-bottom:140px}.rec-fly.obs{max-width:210px;white-space:normal;font:700 11px/1.25 'IBM Plex Sans',sans-serif;padding:5px 8px;text-align:left}
 .lr-v:hover,.lr-v:focus-visible{color:#1f5fd6}.lr-src{display:block;font:400 9.5px 'IBM Plex Mono',monospace;color:#9aa0a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lr-b{display:inline-block;font:600 9px 'IBM Plex Mono',monospace;font-style:normal;text-transform:uppercase;border-radius:3px;padding:0 4px}.lr-b.corr{background:#e7efff;color:#1f5fd6}.lr-b.stale{background:#fff1e0;color:#a35d00}.lr-w{color:#c0262c;text-decoration:line-through;font:500 11px 'IBM Plex Mono',monospace}
 .lr-c.flash,.lr-sig.flash{animation:lrflash 1.4s ease}@keyframes lrflash{0%{background:#fff3b8}100%{background:transparent}}
@@ -186,7 +221,7 @@ tr.lr-found-row.pending{visibility:hidden}body.rec #read-live .lr-obs{padding-bo
 body.rec .read-side{position:fixed!important;left:0;right:0;bottom:0;top:auto;height:var(--rec-h,40vh);max-height:none!important;border-radius:0;border:0;border-top:1px solid #e3e3dc;overflow:hidden;z-index:40}
 body.rec .rs-tabs{display:none}body.rec #pane-found{display:none!important}body.rec #read-live{display:block!important;height:100%;overflow:hidden}body.rec .lr{font-size:15px}body.rec .lr-top{position:sticky;top:0;z-index:3;background:#fff;padding-bottom:4px;border-bottom:1px solid #eceee9}body.rec .lr-top::after{content:;position:absolute;left:0;right:0;bottom:-26px;height:26px;background:linear-gradient(#fff,rgba(255,255,255,0));pointer-events:none}body.rec .lr-t td{padding:4px 6px}
 /* Record mode (?layout=record&mode=rec): the TikTok look built into the page, for screen recording */
-body.recmode .site-header,body.recmode .read-page>h1,body.recmode .read-page>.lede,body.recmode .read-form,body.recmode details.paste,body.recmode .read-privacy,body.recmode .desk-row,body.recmode #read-error,body.recmode #read-summary,body.recmode #read-stages,body.recmode #read-ctl,body.recmode .back{display:none!important}
+body.recmode .site-header,body.recmode .read-page>h1,body.recmode .read-page>.lede,body.recmode .read-form,body.recmode .read-edgar,body.recmode .read-library,body.recmode details.paste,body.recmode .read-privacy,body.recmode .desk-row,body.recmode #read-error,body.recmode #read-summary,body.recmode #read-stages,body.recmode #read-ctl,body.recmode .back{display:none!important}
 body.recmode main.read-page{max-width:none!important;padding:0 6px!important;margin:0!important}
 body.recmode .read-grid{display:block!important}body.recmode .stage{border:none!important}body.recmode .stage .strip{display:none!important}
 body.recmode .doc{margin-bottom:36vh!important;max-width:none!important}   /* full page width: zooming in clipped wide statement columns */
@@ -326,8 +361,10 @@ body.recmode .lr-c.flash{animation:reccell 1.3s ease}@keyframes reccell{0%{backg
 #bmg-report{position:fixed;inset:0;z-index:2000;background:rgba(20,22,24,.55);display:flex;flex-direction:column;align-items:center}
 #bmg-report[hidden]{display:none}
 body.rp-open{overflow:hidden}
-#bmg-report .rp-bar{display:flex;gap:8px;justify-content:flex-end;width:min(900px,100%);padding:12px 16px 8px;box-sizing:border-box}
-#bmg-report .rp-scroll{overflow:auto;width:100%;flex:1;padding:0 16px 40px;box-sizing:border-box}
+#bmg-report .rp-bar{display:flex;gap:8px;justify-content:flex-end;align-items:center;width:min(860px,calc(100% - 32px));margin-top:16px;padding:10px 14px;box-sizing:border-box;background:#fff;border-radius:6px 6px 0 0;border-bottom:1px solid #e6e8e4;box-shadow:0 -6px 24px rgba(0,0,0,.12)}
+#bmg-report .rp-bar::before{content:'BMG Capital report';margin-right:auto;font:600 13px 'IBM Plex Sans',sans-serif;color:#5d6862}
+#bmg-report .rp-scroll{overflow:auto;width:100%;flex:1;padding:0 16px 40px;box-sizing:border-box;scrollbar-gutter:stable both-edges}
+#bmg-report .rp-doc{border-radius:0 0 6px 6px}
 .rp-doc{max-width:860px;margin:0 auto;background:#fff;color:#141414;border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,.25);padding:44px 56px;font:15px/1.6 'IBM Plex Sans',sans-serif}
 .rp-head{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #141414;padding-bottom:12px;margin-bottom:22px}
 .rp-brand{display:flex;align-items:center;gap:5px;font:800 24px/1 'IBM Plex Sans',sans-serif;letter-spacing:-.03em}
@@ -406,7 +443,7 @@ html,body{overflow-x:clip}
 .rp-issues{flex-basis:100%;font-size:13px;border-top:1px solid #d9eee1;padding-top:10px}.rp-issues ul{margin:4px 0 0;padding-left:18px}.rp-issues.ok{color:#0f7d47}
 .rp-cov{font-size:13px;margin:0 0 16px;padding:8px 12px;background:#f6f8f7;border-radius:8px}
 .rp-st{display:inline-block;font:600 10px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.04em;padding:1px 6px;border-radius:10px;border:1px solid #d8d8d2;white-space:nowrap}.rp-st.ok{color:#0f7d47;border-color:#b7dfc8}.rp-st.warn{color:#b86e00;border-color:#f0d2a6}.rp-st.dim{color:#8a9099}
-.rp-table td small{display:block;font-size:10.5px;color:#8a9099;font-family:'IBM Plex Sans',sans-serif}.rp-tw{overflow-x:auto}.rp-check{border-left:3px solid #2fdc74;background:#f6fbf7;padding:6px 12px;margin:8px 0 14px;font-size:13px}.rp-check p{margin:4px 0}.rp-basis{font:600 10px 'IBM Plex Mono',monospace;color:#6b6f76;text-transform:uppercase}
+.rp-table td small{display:block;font-size:10.5px;color:#8a9099;font-family:'IBM Plex Sans',sans-serif}.rp-tw{overflow-x:auto;-webkit-overflow-scrolling:touch}@media (max-width:600px){.rp-doc{padding:22px 16px!important}.rp-tw .rp-table{min-width:520px}}.rp-check{border-left:3px solid #2fdc74;background:#f6fbf7;padding:6px 12px;margin:8px 0 14px;font-size:13px}.rp-check p{margin:4px 0}.rp-basis{font:600 10px 'IBM Plex Mono',monospace;color:#6b6f76;text-transform:uppercase}
 .cmp-t .who small{display:block;color:#6b6f76;font-size:11px}.cmp-t .nc{font:600 10px 'IBM Plex Mono',monospace;text-transform:uppercase;color:#a35d00}
 .rp-risks{list-style:none;padding:0}.rp-risks li{margin:0 0 14px}.rp-risks blockquote{margin:4px 0;padding:2px 10px;border-left:3px solid #e3e3dc;color:#3a3a3a;font-size:13px}.rp-why{margin:2px 0 0;font-size:13px}.rp-why span{font:600 10px 'IBM Plex Mono',monospace;color:#7a3cff;text-transform:uppercase;margin-right:4px}
 .rp-method,.rp-follow{font-size:13px;padding-left:18px}.rp-ev q{font-size:11.5px}.rp-src.rp-nodoc{opacity:.6;cursor:help}
@@ -523,8 +560,18 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
 <a class="back" href="/">&larr; Back to BMG Capital</a>
 <h1 class="rp">Crawler</h1>
 <p class="lede">Drop in a 10-K or 10-Q and click Run. The server reads the filing, extracts the statements, checks the arithmetic and builds a BMG Capital company report in which every figure cites its page. The spider then shows each finding where it sits in the document.</p>
+<section class="read-edgar" id="read-edgar" hidden aria-labelledby="edgar-h">
+  <h2 id="edgar-h">Load from SEC EDGAR</h2>
+  <div class="re-row"><input id="edgar-ticker" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="Ticker, e.g. AMZN" aria-label="Ticker to look up on SEC EDGAR"><button id="edgar-find" type="button">Find filings</button><span id="edgar-status" role="status"></span></div>
+  <ol id="edgar-list"></ol>
+</section>
+<section class="read-library" id="read-library" hidden aria-labelledby="lib-h">
+  <div class="rl-head"><h2 id="lib-h">My reads</h2><span id="lib-count"></span></div>
+  <div class="rl-wrap"><table class="rl-t"><thead><tr><th>Filing</th><th>Figures</th><th>Checks</th><th>Saved</th><th></th></tr></thead><tbody id="lib-rows"></tbody></table></div>
+  <p id="lib-status" role="status"></p>
+</section>
 <div class="read-form">
-  <label id="read-drop"><input type="file" id="read-file" hidden accept=".pdf,.docx,.pptx,.htm,.html,.txt,.md"><b>Drop a file here or click to choose</b><span id="read-drop-name">PDF, DOCX, PPTX, HTML or text, up to 10 MB.</span></label>
+  <label id="read-drop"><input type="file" id="read-file" hidden accept=".pdf,.docx,.pptx,.htm,.html,.txt,.md"><b>Drop a file here or click to choose</b><span id="read-drop-name">PDF, DOCX, PPTX, HTML or text, up to <span id="read-max">10</span> MB.</span></label>
   <input id="read-ticker" type="text" maxlength="6" autocomplete="off" spellcheck="false" placeholder="Ticker (optional)" aria-label="Ticker (optional)">
   <button id="read-run" type="button">Run</button>
   <button id="read-recmode" type="button" title="Open the reader in a phone-shaped window formatted for screen recording">Record mode</button>
@@ -1832,7 +1879,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     state.currentHost = ev.host; state.currentType = ev.doc_type; state.currentPub = ev.published_at || ev.fetched_at;
     state.foundCount = 0;
     state.currentText = text;
-    h1.textContent = headlineForDoc(ev);
+    // A PDF or HTML filing shows its own cover; the title line would sit over it.
+    h1.textContent = state.renderDoc ? "" : headlineForDoc(ev);
     if (state.renderDoc){
       // Original-format rendering (PDF pages, HTML with its own styling);
       // every word still becomes a .w foothold for the spider.
@@ -2205,10 +2253,23 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     return pdfjsP;
   }
 
+  let pdfOpen = null;   // the filing on screen: released when the next one opens
+  function closePdf(){
+    if (!pdfOpen) return;
+    const o = pdfOpen; pdfOpen = null;
+    o.io.disconnect();
+    removeEventListener("scroll", o.onScroll, true);
+    o.pages.forEach(pg => { if (pg.canvas){ pg.canvas.width = pg.canvas.height = 0; pg.canvas = null; } });
+    o.pdf.destroy();
+  }
+
   async function renderPdf(file, into){
     // Each page: a canvas drawn as the spider nears it, plus an invisible
-    // word layer positioned exactly over the printed text.
+    // word layer positioned exactly over the printed text. A page's canvas
+    // is freed once it is far off screen and redrawn if it comes back, so a
+    // long filing holds a handful of page images, not all of them.
     const pdfjs = await loadPdfjs();
+    closePdf();
     const data = new Uint8Array(await file.arrayBuffer());
     const pdf = await pdfjs.getDocument({data, isEvalSupported: false}).promise;
     const width = Math.max(320, into.clientWidth || doc.clientWidth - 56);
@@ -2241,7 +2302,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       // printed width so the word boxes sit on the real glyphs.
       const ws = spans.map(([sp]) => sp.getBoundingClientRect().width);
       spans.forEach(([sp, target], k) => { if (ws[k] > 0 && target > 0) sp.style.transform = `scaleX(${target / ws[k]})`; });
-      pages.push({page, vp, box, drawn: false});
+      pages.push({page, vp, box, drawn: false, canvas: null, task: null});
     }
     if (pdf.numPages > maxPages){
       const more = document.createElement("p"); more.className = "muted";
@@ -2256,13 +2317,38 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const c = document.createElement("canvas");
       c.width = Math.floor(pg.vp.width * dpr); c.height = Math.floor(pg.vp.height * dpr);
       pg.box.insertBefore(c, pg.box.firstChild);
-      await pg.page.render({canvasContext: c.getContext("2d"), viewport: pg.vp,
-        transform: dpr === 1 ? null : [dpr, 0, 0, dpr, 0, 0]}).promise;
+      pg.canvas = c;
+      pg.task = pg.page.render({canvasContext: c.getContext("2d"), viewport: pg.vp,
+        transform: dpr === 1 ? null : [dpr, 0, 0, dpr, 0, 0]});
+      try { await pg.task.promise; } catch (e) { /* cancelled: the page scrolled away first */ }
+      pg.task = null;
     };
+    const drop = (pg) => {
+      if (!pg.drawn) return;
+      if (pg.task){ pg.task.cancel(); pg.task = null; }
+      if (pg.canvas){ pg.canvas.width = pg.canvas.height = 0; pg.canvas.remove(); pg.canvas = null; }
+      pg.page.cleanup();
+      pg.drawn = false;
+    };
+    // free pages more than 4000px off screen (a wider band than drawing uses, so a page near
+    // the edge is not drawn and dropped over and over); checked on every scroll and every draw
+    let sweepQueued = false;
+    const sweep = () => {
+      sweepQueued = false;
+      for (const pg of pages){
+        if (!pg.drawn) continue;
+        const r = pg.box.getBoundingClientRect();
+        if (r.bottom < -4000 || r.top > innerHeight + 4000) drop(pg);
+      }
+    };
+    const onScroll = () => { if (!sweepQueued){ sweepQueued = true; requestAnimationFrame(sweep); } };
+    addEventListener("scroll", onScroll, true);
+    const byBox = new Map(pages.map(pg => [pg.box, pg]));
     const io = new IntersectionObserver(es => es.forEach(e => {
-      if (e.isIntersecting){ const pg = pages.find(p => p.box === e.target); if (pg) draw(pg); }
+      if (e.isIntersecting){ const pg = byBox.get(e.target); if (pg){ draw(pg); onScroll(); } }
     }), {rootMargin: "1200px 0px"});
     pages.forEach(pg => io.observe(pg.box));
+    pdfOpen = {pdf, pages, io, onScroll};
     if (pages[0]) await draw(pages[0]);
   }
 
@@ -2288,7 +2374,27 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const wrap = document.createElement("div"); wrap.className = "htmldoc";
     wrap.innerHTML = d.body.innerHTML;
     into.appendChild(wrap);
+    fitHtml(wrap);
   }
+  // A filing's own layout can be wider than the reader (Amazon's June 2026 10-Q statements need 1,440 px).
+  // Scale the whole filing down with CSS zoom so every column is visible. The words stay real text, laid out
+  // at the smaller size, so the spider's footholds, scrolling and page height stay true. Runs before the
+  // spider measures any word, and again on resize.
+  function fitHtml(wrap){
+    if (!wrap || !wrap.isConnected) return;
+    wrap.style.zoom = "";
+    const avail = wrap.clientWidth, natural = wrap.scrollWidth;
+    const z = natural > avail + 1 ? Math.max(0.15, avail / natural) : 1;
+    wrap.style.zoom = z === 1 ? "" : z.toFixed(4);
+    wrap.dataset.fit = z.toFixed(3);
+  }
+  addEventListener("resize", () => {
+    const w = document.querySelector("#doc .htmldoc");
+    if (!w) return;
+    const before = w.dataset.fit;
+    fitHtml(w);
+    if (w.dataset.fit !== before){ bumpLayout(); geo = null; }
+  });
 
   // ---- upload, Run, watch the spider, then a summary ----
   state.maxChars = 200000;
@@ -2299,6 +2405,19 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   const pasteIn = document.getElementById("read-paste");
   const tickerIn = document.getElementById("read-ticker");
   const runRead = document.getElementById("read-run");
+  // The server says how big a file it takes (10 MB public, 50 MB on the owner's Mac).
+  const READ_MAX = {bytes: 10 * 1024 * 1024, local: false, mb(){ return Math.round(this.bytes / 1048576); }};
+  fetch("/api/read/limits", {cache: "no-store"}).then(r => r.ok ? r.json() : null).then(j => {
+    if (!j || !j.max_bytes) return;
+    READ_MAX.bytes = j.max_bytes; READ_MAX.local = !!j.local;
+    const el = document.getElementById("read-max"); if (el) el.textContent = READ_MAX.mb();
+    document.dispatchEvent(new CustomEvent("bmg-read-limits"));
+    if (READ_MAX.local){
+      const privacy = document.querySelector(".read-privacy");
+      if (privacy) privacy.textContent = "On this Mac, the crawler saves each completed file and report in My reads so you can reopen them after a reload or server restart. Saved reads stay on this Mac; the app does not automatically delete them. Nothing is saved to the vault unless the owner presses Save with the owner key.";
+      document.getElementById("read-edgar").hidden = false; loadLibrary();
+    }
+  }).catch(() => {});
   const errBox = document.getElementById("read-error");
   const stage = document.getElementById("read-stage");
   const listEl = document.getElementById("read-findings");
@@ -2307,7 +2426,99 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   let chosen = null;
 
   function showErr(m){ errBox.textContent = m; errBox.hidden = !m; }
-  function pick(f){ chosen = f || null; dropName.textContent = f ? `${f.name} (${Math.round(f.size/1024)} KB)` : "No file chosen"; drop.classList.toggle("has", !!f); }
+  function pick(f){
+    chosen = f || null;
+    const size = f ? (f.size >= 1048576 ? `${(f.size / 1048576).toFixed(1)} MB` : `${Math.round(f.size / 1024)} KB`) : "";
+    const big = f && f.size > READ_MAX.bytes;
+    dropName.textContent = f ? `${f.name} (${size})${big ? `, over the ${READ_MAX.mb()} MB limit` : ""}` : "No file chosen";
+    dropName.classList.toggle("too-big", !!big);
+    drop.classList.toggle("has", !!f);
+  }
+  // My reads (owner's Mac only): every finished read is saved by the local server. Open sends the
+  // saved file again; the server returns the saved result at once, so the report, the spider
+  // replay, the PDF and compare all work exactly as after a fresh read.
+  async function loadLibrary(){
+    const box = document.getElementById("read-library"), rows = document.getElementById("lib-rows");
+    if (!box) return;
+    let j;
+    try { const r = await fetch("/api/reads", {cache: "no-store"}); if (!r.ok) return; j = await r.json(); } catch (e){ return; }
+    const reads = j.reads || [];
+    box.hidden = !reads.length;
+    document.getElementById("lib-count").textContent = reads.length ? `${reads.length} saved` : "";
+    const checks = e => e.second_check === "done" ? (e.flagged ? `<span class="warn">${e.flagged} to look at</span>` : `<span class="ok">verified</span>`)
+      : e.checks_run != null ? (e.checks_failed ? `<span class="warn">${e.checks_failed} of ${e.checks_run} failed</span>` : `<span class="ok">${e.checks_run} of ${e.checks_run} passed</span>`) : "";
+    rows.innerHTML = reads.map((e, i) => `<tr${i >= 8 ? " hidden" : ""}><td><b>${esc(e.company || e.title)}</b>${e.ticker ? " · " + esc(e.ticker) : ""}<small>${esc([e.form, e.period].filter(Boolean).join(" · ") || e.title)}</small></td>
+      <td class="num">${e.findings} found<small>${e.signals} signals</small></td><td>${checks(e)}</td><td class="num">${esc(e.saved_at || "")}</td>
+      <td><button type="button" data-sha="${esc(e.sha256)}" data-ticker="${esc(e.job_ticker || "")}">Open</button></td></tr>`).join("")
+      + (reads.length > 8 ? `<tr><td colspan="5"><button type="button" data-more="1">Show ${reads.length - 8} older</button></td></tr>` : "");
+  }
+  document.getElementById("lib-rows")?.addEventListener("click", async e => {
+    const st = document.getElementById("lib-status");
+    if (e.target.closest("button[data-more]")){ document.querySelectorAll("#lib-rows tr[hidden]").forEach(tr => { tr.hidden = false; }); e.target.closest("tr").remove(); return; }
+    const b = e.target.closest("button[data-sha]"); if (!b) return;
+    b.disabled = true; st.classList.remove("err"); st.textContent = "Opening the saved read...";
+    try {
+      const r = await fetch(`/api/reads/${b.dataset.sha}/file`, {cache: "no-store"});
+      if (!r.ok){ st.classList.add("err"); st.textContent = "That saved read could not be opened."; return; }
+      const title = r.headers.get("X-Read-Title") || "saved-read";
+      pick(new File([await r.blob()], title));
+      const tk = document.getElementById("read-ticker"); if (tk) tk.value = b.dataset.ticker || "";
+      st.textContent = "";
+      runRead.click();
+    } catch (x){ st.classList.add("err"); st.textContent = "Could not reach the local server."; }
+    finally { b.disabled = false; }
+  });
+  document.addEventListener("bmg-read-done", () => { if (READ_MAX.local) loadLibrary(); });
+
+  // Load a filing by ticker from SEC EDGAR (owner's Mac only): list recent 10-K and 10-Q
+  // filings, fetch the chosen one through the local server, then run it like a dropped file.
+  (function edgarLoader(){
+    const box = document.getElementById("read-edgar"), tick = document.getElementById("edgar-ticker");
+    const find = document.getElementById("edgar-find"), list = document.getElementById("edgar-list"), st = document.getElementById("edgar-status");
+    if (!box) return;
+    const say = (t, err) => { st.textContent = t; st.classList.toggle("err", !!err); };
+    let found = null;
+    async function lookup(){
+      const t = tick.value.trim().toUpperCase();
+      if (!t){ say("Enter a ticker, for example AMZN.", true); return; }
+      find.disabled = true; list.innerHTML = ""; say("Looking up " + t + " on SEC EDGAR...");
+      try {
+        const r = await fetch("/api/edgar/filings?ticker=" + encodeURIComponent(t), {cache: "no-store"});
+        const j = await r.json();
+        if (!r.ok){ say(j.error || "SEC EDGAR lookup failed.", true); return; }
+        found = j;
+        if (!j.filings.length){ say(`${j.company} has no 10-K or 10-Q in its recent filings.`, true); return; }
+        say(`${j.company} · CIK ${j.cik}`);
+        list.innerHTML = j.filings.map((f, i) => `<li${i >= 6 ? " hidden" : ""}><span><b>${esc(f.form)}</b>${f.period ? " · period ended " + esc(f.period) : ""}<small>filed ${esc(f.filed)} · ${esc(f.accession)}</small></span><button type="button" data-i="${i}">Read</button></li>`).join("")
+          + (j.filings.length > 6 ? `<li class="re-more"><button type="button" data-more="1">Show ${j.filings.length - 6} older</button></li>` : "");
+      } catch (e){ say("Could not reach the local server.", true); }
+      finally { find.disabled = false; }
+    }
+    find.addEventListener("click", lookup);
+    tick.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); lookup(); } });
+    list.addEventListener("click", async e => {
+      if (e.target.closest("button[data-more]")){ list.querySelectorAll("li[hidden]").forEach(li => { li.hidden = false; }); e.target.closest("li").remove(); return; }
+      const b = e.target.closest("button[data-i]"); if (!b || !found) return;
+      const f = found.filings[+b.dataset.i];
+      list.querySelectorAll("button").forEach(x => { x.disabled = true; });
+      say(`Downloading ${f.form} filed ${f.filed} from SEC EDGAR...`);
+      try {
+        const q = new URLSearchParams({cik: found.cik, accession: f.accession, document: f.document});
+        const r = await fetch("/api/edgar/document?" + q, {cache: "no-store"});
+        if (!r.ok){ let m = "Download failed."; try { m = (await r.json()).error || m; } catch (x){} say(m, true); return; }
+        const blob = await r.blob();
+        const ext = (f.document.match(/\.(\w+)$/) || ["", "htm"])[1];
+        // the file name carries the filing's identity into the report's source line
+        const name = `${found.ticker} ${f.form.replace("/", "-")} ${f.period || f.filed} filed ${f.filed} ${f.accession}.${ext}`;
+        pick(new File([blob], name, {type: blob.type || "text/html"}));
+        const tk = document.getElementById("read-ticker"); if (tk) tk.value = found.ticker;
+        say(`Loaded ${f.form} for the period ended ${f.period || f.filed} (filed ${f.filed}). Reading...`);
+        list.innerHTML = "";                                   // the choice is made; keep the page short
+        runRead.click();
+      } catch (x){ say("Could not reach the local server.", true); }
+      finally { list.querySelectorAll("button").forEach(x => { x.disabled = false; }); }
+    });
+  })();
   fileIn.addEventListener("change", () => pick(fileIn.files[0]));
   ["dragenter","dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
   ["dragleave","drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
@@ -2399,6 +2610,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
 
   state.onRow = (els) => {
+    if (state.recSection) state.recSection(els);
     // A finding is shown when the spider's reading line reaches the word
     // that holds it, on the page the server cited (one page either side).
     // Documents without pages use the position in the extracted text.
@@ -2506,7 +2718,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const ip = c.input_pages || [];
     const pg = c.page ? `p.${c.page}` : c.kind === "calculated" ? `calc${ip.length ? " · p." + ip.join(", ") : ""}` : "";
     return `<button type="button" class="lr-v" data-page="${c.page || ip[0] || ""}" data-raw="${esc(c.raw || "")}" title="${esc(c.kind === "calculated" ? (c.formula || "") : c.excerpt)}">${esc(st.display == null ? c.display : st.display)}</button>`
-      + `<span class="lr-src">${pg}${st.via === "earlier" ? " · read before this excerpt" : st.via === "server" ? " · from the completed analysis" : ""}${c.status === "Needs review" ? " · needs review" : ""}</span>${badge}`;
+      + `<span class="lr-src" title="${st.via === "server" ? "From the completed analysis; the spider's walk did not reach this figure" : st.via === "earlier" ? "Read before this excerpt" : ""}">${pg}${st.via === "earlier" ? " · read earlier" : st.via === "server" ? " · full read" : ""}${c.status === "Needs review" ? " · needs review" : ""}</span>${badge}`;
   }
   function liveSkeleton(rep){
     const L = rep.live;
@@ -2515,13 +2727,14 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (!L || typeof LiveReportModel === "undefined"){ liveEl.innerHTML = `<p class="muted">The live report is not available for this result.</p>`; return; }
     state.live = new LiveReportModel(L);
     const co = rep.company || {};
-    followAnim++; reportReviewIndex = 0; reportNextReview = performance.now() + 1600; state.foundKeys = new Set();
+    followAnim++; reportReviewIndex = 0; reportNextReview = performance.now() + 1600; state.foundKeys = new Set(); state.reportFollowPending = null;
     liveEl.innerHTML = `<div class="lr-top"><header class="lr-head"><div class="lr-brand">BMG Capital <span>report</span>${BMG_LINE}</div>
         <div class="lr-co" title="${esc([co.period, L.basis].filter(Boolean).join(" · "))}"><b>${esc(co.name || "")}</b> ${esc([co.ticker, co.form].filter(Boolean).join(" · "))}</div></header>
       <div class="lr-prog" id="lr-prog" aria-live="polite"></div></div>
       ${L.sections.map(s => `<section class="lr-sec" data-sec="${s.id}"><h4>${esc(s.title)}</h4><table class="lr-t"><thead><tr><th></th>${((s.rows[0] || {}).cells || []).map(c => `<th>${esc(L.cells[c].period || "")}</th>`).join("")}</tr></thead>
         <tbody>${s.rows.map(r => `<tr><td>${esc(r.label)}</td>${r.cells.map(c => `<td class="lr-c" data-cell="${esc(c)}"><span class="ph" aria-label="not read yet">···</span></td>`).join("")}</tr>`).join("")}</tbody></table></section>`).join("")}
       ${L.ratios.length ? `<section class="lr-sec"><h4>Calculated <small>shown once every input has been read</small></h4><table class="lr-t lr-r"><tbody>${L.ratios.map(r => `<tr><td>${esc(r.label)}<small>${esc(L.cells[r.id].formula || "")}</small></td><td class="lr-c" data-cell="${esc(r.id)}"><span class="ph">waiting for inputs</span></td></tr>`).join("")}</tbody></table></section>` : ""}
+      <section class="lr-sec lr-read" hidden><h4>Sections read <small>headings the spider reached, with their page</small></h4><table class="lr-t"><tbody id="lr-read"></tbody></table></section>
       <section class="lr-sec lr-found" hidden><h4>More from the filing <small>other figures the spider read, with their page</small></h4><table class="lr-t"><tbody id="lr-found"></tbody></table></section>
       <section class="lr-sec lr-obs"><h4>Observations <small>shown when their evidence has been read</small></h4><ol id="lr-sigs"></ol><p class="ph" id="lr-sigs-ph">${L.signals.length ? `${L.signals.length} pending` : "None for this filing"}</p></section>
       <footer class="lr-foot" id="lr-foot"></footer>`;
@@ -2604,8 +2817,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (!liveEl || performance.now() < followHoldUntil || liveEl.hidden) return;
     // While a zapped number is in flight the panel stays on its destination row.
     const lock = state.flightLock;
-    if (lock && performance.now() < lock.until && lock.el !== el) return;
-    if ((state.chipsInFlight || 0) > 0 && !(lock && lock.el === el)) return;   // never slide the panel under a chip in the air
+    if (lock && performance.now() < lock.until && lock.el !== el){ state.reportFollowPending = el; return; }
+    if ((state.chipsInFlight || 0) > 0 && !(lock && lock.el === el)){ state.reportFollowPending = el; return; }
     const scroller = document.body.classList.contains("rec") ? liveEl : reportSide;
     if (!scroller || !scroller.clientHeight || scroller.scrollHeight <= scroller.clientHeight) return;
     const box = scroller.getBoundingClientRect(), r = el.getBoundingClientRect();
@@ -2625,14 +2838,24 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     };
     requestAnimationFrame(step);
   }
-  // During quiet source stretches, review only figures already revealed in the report.
+  function drainReportFollow(now = performance.now()){
+    const pending = state.reportFollowPending;
+    if (pending && !pending.isConnected) state.reportFollowPending = null;
+    if (pending && pending.isConnected && !state.paused && now >= followHoldUntil &&
+        !(state.flightLock && now < state.flightLock.until) && !(state.chipsInFlight > 0)){
+      state.reportFollowPending = null; liveFollow(pending); return true;
+    }
+    return false;
+  }
+  // During quiet source stretches, review only content already revealed in the report.
   setInterval(() => {
     const now = performance.now();
+    if (drainReportFollow(now)) return;
     if (REDUCED || !walking() || state.paused || !liveEl || liveEl.hidden ||
         document.getElementById("rec-end") || now < followHoldUntil || now < reportNextReview ||
         (state.flightLock && now < state.flightLock.until)) return;
     const items = [...liveEl.querySelectorAll("tr")].filter(row => row.querySelector(".lr-v"));
-    items.push(...liveEl.querySelectorAll(".lr-sig"));
+    items.push(...liveEl.querySelectorAll(".lr-sig, #lr-read tr:not(.pending)"));
     if (items.length < 2) return;
     const next = items[reportReviewIndex++ % items.length];
     reportNextReview = now + 1800;
@@ -2786,6 +3009,15 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // as it arrives. Calculated cells and figures from the completed analysis
     // never fly: only what the spider actually zapped goes to the report.
     const zapQ = []; let zapBusy = false;
+    function readerSourceVisible(el){
+      if (!el || !el.isConnected) return false;
+      const r = el.getBoundingClientRect();
+      const panel = document.querySelector(".read-side");
+      const p = panel && panel.getBoundingClientRect();
+      const covered = p && getComputedStyle(panel).position === "fixed" && r.right > p.left && r.left < p.right;
+      const bottom = covered && p.top > 0 ? Math.min(innerHeight, p.top) : innerHeight;
+      return r.bottom >= 0 && r.top < bottom && r.right >= 0 && r.left < innerWidth;
+    }
     const FLY_MS = 650, ZAP_LAND = 130;
     function flyFrom(el, td, text, obs){
       const s0 = el.getBoundingClientRect();
@@ -2814,10 +3046,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       // Only a figure the spider is reading right now is zapped and flown: one on
       // screen, near its eyes, reached a moment ago. Anything else (read while the
       // screen was dark, or left behind by a burst) fills its cell quietly.
-      const r = el.isConnected ? el.getBoundingClientRect() : null;
-      const bottom = innerHeight * (window.READER_VIEW_FRAC || 1);
-      if (!r || r.bottom < 0 || r.top > bottom || performance.now() - at > 1500 || !zapTo(el, false, true)){
-        applyLive(changes); const tr = foundSlot(f); if (tr) tr.classList.remove("pending");
+      if (!readerSourceVisible(el) || performance.now() - at > 1500 || !zapTo(el, false, true)){
+        applyLive(changes); const tr = foundSlot(f); if (tr) revealFound(tr);
         zapBusy = false; pumpZaps(); return;
       }
       setTimeout(() => { zapBusy = false; pumpZaps(); }, zapQ.length > 4 ? 90 : 180);
@@ -2873,14 +3103,55 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       if (!obsQ.length || zapQ.length || performance.now() - lastFlight < FLY_MS + 250) return;
       const {ch, el, at} = obsQ.shift();
       const sg = state.live && (state.live.plan.signals || []).find(x => x.id === ch.id);
-      const r = el.isConnected ? el.getBoundingClientRect() : null;
       const ph = document.getElementById("lr-sigs-ph"), ol = document.getElementById("lr-sigs");
       const dest = ph && !ph.hidden ? ph : ol && (ol.lastElementChild || ol);   // where the new observation will appear
-      if (!sg || !dest || !r || r.bottom < 0 || r.top > innerHeight * (window.READER_VIEW_FRAC || 1) || performance.now() - at > 6000){ applyLive([ch]); return; }
+      if (!sg || !dest || !readerSourceVisible(el) || performance.now() - at > 6000){ applyLive([ch]); return; }
       zapTo(el, true, true);
       setTimeout(() => fly(el, dest, sg.headline, true, () => applyLive([ch])), ZAP_LAND);
     }, 120);
     state.zapFly = (f, el, changes) => { zapQ.push({f, el, changes, at: performance.now()}); pumpZaps(); };
+
+    // A section heading the spider reads ("Note 1 ...", "Item 7. ...") is zapped and lands in
+    // "Sections read" with its page, so the report keeps moving through pages of plain text.
+    const sectionsSeen = new Set(); let inNotes = false;
+    state.recSection = els => {
+      if (!els || !els.length || els.length > 16 || !state.live) return;
+      const words = els.map(w => (w.textContent || "").trim()).filter(Boolean);
+      const line = words.join(" ").replace(/\s+/g, " ");
+      let m = line.match(/^(Note\s+\d{1,2}|Item\s+\d{1,2}[A-C]?)\b[\s.:\u2014\u2013-]*(.*)$/i), key, title;
+      if (m){
+        const rest = m[2].replace(/^[\u2014\u2013.:-]+\s*/, "").trim();
+        // not a contents line (ends in a page number) and not a cross-reference inside a sentence
+        if ((words.length > 2 && /^\d{1,3}$/.test(words[words.length - 1])) || /[\u201c\u201d"]|for additional information|see /i.test(rest) || (rest && !/^[A-Z]/.test(rest))) return;
+        key = m[1].toLowerCase().replace(/\s+/g, " ");
+        title = (m[1] + (rest ? ": " + rest : "")).slice(0, 80);
+        if (/^note/i.test(key)) inNotes = true;
+      } else if (/^(?:(?:CONDENSED|CONSOLIDATED|COMBINED)\s+)+(?:STATEMENTS?\s+OF\s+|BALANCE\s+SHEETS?\b)/i.test(line) &&
+          /^[A-Z]/.test(line) && !/[.,;:\d]$/.test(line) &&
+          words.every(w => /^(?:of|and|the|in)$/i.test(w) || /^[A-Z(]/.test(w))){
+        key = "statement:" + line.toLowerCase(); title = line;
+      } else {
+        // inside the notes, a short Title Case line with no figures is a subheading ("Use of Estimates")
+        if (!inNotes || words.length > 7 || /\d/.test(line) || /[.,;:]$/.test(line) || !/^[A-Z]/.test(line)) return;
+        if (!words.every(w => w.length <= 3 || /^[A-Z(]/.test(w))) return;
+        if (/^table of contents$/i.test(line)) return;                   // page-header link, not a heading
+        // column headers of a table ("Three Months Ended", "As of December 31") are not sections
+        if (/\b(?:months|weeks|years?|quarters?) ended\b|^(?:as of|at)\b|^(?:unaudited|audited)\b/i.test(line)) return;
+        key = "sub:" + line.toLowerCase(); title = line.slice(0, 80);
+      }
+      if (sectionsSeen.has(key)) return;
+      sectionsSeen.add(key);
+      const pg = els[0].closest(".pdfpage"), page = pg ? [...docBody.querySelectorAll(".pdfpage")].indexOf(pg) + 1 : 0;
+      const tb = document.getElementById("lr-read");
+      if (!tb) return;
+      const tr = document.createElement("tr"); tr.className = "lr-found-row pending";
+      tr.innerHTML = `<td colspan="2"><b class="lr-readt">${esc(title)}</b><span class="lr-src">${page ? "p." + page : ""}</span></td>`;
+      tb.appendChild(tr); tb.closest("section").hidden = false;
+      const el = els.find(w => readerSourceVisible(w) && nearSpider(w, 1.3)) || els[0];
+      if (!readerSourceVisible(el) || !zapTo(el, true, true)){ revealFound(tr); return; }
+      els.slice(0, 6).forEach(w => { w.classList.add("hl-zap"); setTimeout(() => w.classList.remove("hl-zap"), 1100); });
+      setTimeout(() => fly(el, tr.querySelector("td"), title, true, () => revealFound(tr)), ZAP_LAND);
+    };
 
     // -- eye scanner: a narrow cone sweeps smoothly in front of the eyes.
     // Drawn over the spider every frame from where its eyes are; the spider itself is untouched.
@@ -3234,7 +3505,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (name === "Upload") return d.pct != null && d.state === "running" ? `${d.pct}%` : d.state === "done" ? "received" : "";
     if (d.state === "running") return "working";
     if (d.state !== "done") return "";
-    const s = d.seconds != null ? ` · ${d.seconds}s` : "";
+    // A reopened saved read shows the original counts, marked as saved; older saves have none.
+    const s = d.saved ? " · saved read" : d.seconds != null ? ` · ${d.seconds}s` : "";
+    const need = {Parse: ["pages", "sections"], Extract: ["table_rows", "facts"], Validate: ["checks", "failed"], "Build report": ["findings"], Analyze: ["signals"]}[name];
+    if (d.saved && need && need.some(k => d[k] == null)) return "saved read";
     const pl = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
     if (name === "Parse") return `${pl(d.pages, "page")}, ${pl(d.sections, "section")}${s}`;
     if (name === "Extract") return `${d.table_rows} table rows, ${d.facts} facts${s}`;
@@ -3356,6 +3630,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   // ---- present the result: draw the document, walk, then the finish card ----
   async function present(res){
     state.readRes = res;
+    document.dispatchEvent(new CustomEvent("bmg-read-done"));          // My reads refreshes its list
     const rp = res.report;
     state.sigById = {}; (rp.signals || []).forEach(sg => { state.sigById[sg.id] = {...sg}; });
     if (rp.brief){ drawBrief(rp.brief, true); drawSigSum({signals: (rp.signals || []).length, ...Object.fromEntries(["flag", "watch", "observation"].map(k => [k, (rp.signals || []).filter(x => x.severity === k).length]))}); }
@@ -3462,7 +3737,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (state.compareJob) box.insertAdjacentHTML("beforeend", `<button type="button" class="cmp-open">Open comparison</button>`), box.querySelector(".cmp-open").onclick = () => openCompare();
   }
   async function runCompare(file, st, box){
-    if (file.size > 10 * 1024 * 1024){ st.textContent = "That file is over 10 MB."; return; }
+    if (file.size > READ_MAX.bytes){ st.textContent = `That file is over ${READ_MAX.mb()} MB.`; return; }
     if (!state.jobId){ st.textContent = "Run the first filing before comparing."; return; }
     st.textContent = "Uploading..."; box.classList.add("busy");
     const fd = new FormData(); fd.append("file", file);
@@ -3798,7 +4073,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     showErr("");
     const fd = new FormData();
     if (chosen){
-      if (chosen.size > 10 * 1024 * 1024){ showErr(`That file is ${(chosen.size / 1e6).toFixed(1)} MB; the limit is 10 MB.`); return; }
+      if (chosen.size > READ_MAX.bytes){ showErr(`That file is ${(chosen.size / 1e6).toFixed(1)} MB; the limit is ${READ_MAX.mb()} MB.`); return; }
       if (!/\.(pdf|docx|pptx|html?|txt|md)$/i.test(chosen.name)){ showErr("Unsupported file type. Use PDF, DOCX, PPTX, HTML or plain text."); return; }
       fd.append("file", chosen);
     }
