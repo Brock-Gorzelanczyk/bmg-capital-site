@@ -33,7 +33,7 @@
 .found.pink{background:rgba(255,43,214,.22);box-shadow:0 0 10px rgba(255,43,214,.5)}
 .found.org{background:rgba(255,159,28,.22);box-shadow:0 0 10px rgba(255,159,28,.5)}
 .found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
-svg.spider{position:absolute;left:0;top:0;width:100%;pointer-events:none;overflow:hidden;z-index:3}
+svg.spider{contain:strict;position:absolute;left:0;top:0;width:100%;pointer-events:none;overflow:hidden;z-index:3}
 svg.spider .eye{fill:rgba(143,216,255,.55)}
 svg.spider .sight{stroke:#5fe6ff;stroke-width:1.4;stroke-linecap:round}
 svg.spider .body{fill:#05070c;stroke:#3b6cff;stroke-width:2}
@@ -64,7 +64,7 @@ svg.spider .knee{fill:#ff3d9a}
 .w.hl-out{background:transparent!important;color:inherit!important}
 .w.hl-ping{background:rgba(255,45,143,.32);box-shadow:0 0 0 1px #ff2d8f;border-radius:2px}
 .w.hl-bping{background:rgba(39,200,255,.32);box-shadow:0 0 0 1px #27c8ff;border-radius:2px}
-.fxlayer{position:absolute;inset:0;pointer-events:none;z-index:2}
+.fxlayer{contain:layout style size;position:absolute;inset:0;pointer-events:none;z-index:2}
 .fx{position:absolute;white-space:nowrap;box-sizing:border-box;transform-origin:0 50%;border-radius:0}
 .fx-outline{border:1.5px solid}
 .fx-ink{background:var(--page,#fff);padding:0 2px;font-weight:600}
@@ -101,7 +101,7 @@ svg.spider .knee{fill:#ff3d9a}
 .stage .a{color:#0f5fc7;border-bottom-color:rgba(15,95,199,.4)}
 .stage .found{color:#141414}
 #docbody.orig{font:initial;line-height:normal}
-.pdfpage{content-visibility:auto;contain:layout paint;position:relative;margin:0 auto 18px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.pdfpage{content-visibility:auto;contain:strict;position:relative;margin:0 auto 18px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .pdfpage canvas{position:absolute;inset:0;width:100%;height:100%}
 .pdftext{position:absolute;inset:0;overflow:hidden;line-height:1}
 .pdftext .tl{position:absolute;white-space:pre;color:transparent;transform-origin:0 0;font-family:sans-serif}
@@ -2204,7 +2204,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (!found) return;
     if (state.onFound) state.onFound(ev, found);
     found.classList.add("found", familyOf(ev.label));
-    bumpLayout();
+    // Original PDF/HTML fills inherit the filing font and never resize words.
+    if (!docBody.classList.contains("orig")) bumpLayout();
     // Move the body so the value sits TARGET_REACH px away (never under
     // the body), then plant a foot on it.
     const c = elCenter(found);
@@ -2452,6 +2453,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       more.textContent = `Showing the first ${maxPages} of ${pdf.numPages} pages.`;
       into.appendChild(more);
     }
+    const sourceTop = doc.getBoundingClientRect().top;
+    for (const pg of pages) pg.docY = pg.box.getBoundingClientRect().top - sourceTop;
     const draw = async (pg) => {
       if (pg.drawn) return; pg.drawn = true;
       // Match native/capture pixels without moving the invisible word layer.
@@ -2481,8 +2484,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       sweepQueued = false;
       for (const pg of pages){
         if (!pg.drawn) continue;
-        const r = pg.box.getBoundingClientRect();
-        if (r.bottom < -4000 || r.top > innerHeight + 4000) drop(pg);
+        // Fixed PDF page boxes share the cached document origin. Reading
+        // their DOM rects after the spider writes would force another layout.
+        const top = docTop() + pg.docY;
+        if (top + pg.vp.height < -4000 || top > innerHeight + 4000) drop(pg);
       }
     };
     const onScroll = () => { if (!sweepQueued){ sweepQueued = true; requestAnimationFrame(sweep); } };
