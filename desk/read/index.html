@@ -922,8 +922,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     hd.setAttribute("cx", clampN(hx));
     hd.setAttribute("cy", clampN(hy));
     // Keep the body on top of legs and threads.
-    spiderSvg.appendChild(b);
-    spiderSvg.appendChild(hd);
+    if (spiderSvg.lastElementChild !== hd || hd.previousElementSibling !== b){
+      spiderSvg.appendChild(b); spiderSvg.appendChild(hd);
+    }
   }
 
   function finite(v){return typeof v === "number" && isFinite(v);}
