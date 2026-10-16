@@ -800,6 +800,14 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   // Opt-in timing evidence for local rendering investigations; no change to the walk.
   const renderProfile = /[?&]profile=1(?:&|$)/.test(location.search)
     ? {frames: [], draws: [], last: 0, updated: 0} : null;
+  if (renderProfile && typeof PerformanceObserver !== "undefined" && PerformanceObserver.supportedEntryTypes?.includes("long-animation-frame")){
+    new PerformanceObserver(list => {
+      renderProfile.longFrame = list.getEntries().slice(-1).map(e => ({duration: e.duration,
+        renderStart: e.renderStart, styleAndLayoutStart: e.styleAndLayoutStart,
+        scripts: (e.scripts || []).map(s => ({duration: s.duration, forcedStyleAndLayoutDuration: s.forcedStyleAndLayoutDuration,
+          invoker: s.invoker, sourceURL: s.sourceURL, sourceFunctionName: s.sourceFunctionName}))}));
+    }).observe({type: "long-animation-frame", buffered: true});
+  }
   function profileFrame(now){
     if (!renderProfile) return;
     const p = renderProfile;
@@ -818,7 +826,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       frameP50: +values[Math.floor((values.length-1)*.5)].toFixed(1),
       frameP95: +values[Math.floor((values.length-1)*.95)].toFixed(1),
       over50ms: values.filter(x => x>50).length, drawMeanMs: +mean(p.draws).toFixed(2),
-      svgHeight: spiderSvg.getAttribute("height"), words: docBody.querySelectorAll(".w").length,
+      phases: p.phases, longFrame: p.longFrame, svgHeight: spiderSvg.getAttribute("height"), words: docBody.querySelectorAll(".w").length,
       canvasCount: canvases.length, canvasPixels: canvases.reduce((n,c)=>n+c.width*c.height,0)});
   }
 
@@ -1145,7 +1153,12 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   // re-layout of the whole document every frame
   function drawSpider(){
     const start = performance.now(); state.drawnAt = start;
-    camera(); sizeSvg(); drawSilk(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawZaps(); drawBody();
+    if (renderProfile){
+      renderProfile.phases = {};
+      for (const fn of [camera, sizeSvg, drawSilk, drawLegs, redrawThreads, drawBeams, drawEye, drawZaps, drawBody]){
+        const at = performance.now(); fn(); renderProfile.phases[fn.name] = +(performance.now()-at).toFixed(2);
+      }
+    } else { camera(); sizeSvg(); drawSilk(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawZaps(); drawBody(); }
     if (renderProfile){ renderProfile.draws.push(performance.now()-start); if (renderProfile.draws.length>600) renderProfile.draws.shift(); }
   }
   // Keep the legs flexing and the eye scanning between steps too.
