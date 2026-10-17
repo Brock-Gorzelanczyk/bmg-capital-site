@@ -765,7 +765,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
 <script>
 (() => {
   const recordingUrl = new URL(location.href);
-  if (recordingUrl.searchParams.get("mode") === "rec" && recordingUrl.searchParams.get("surface") === "isolated" && recordingUrl.searchParams.get("recording_frame") !== "1"){
+  if (recordingUrl.searchParams.get("mode") === "rec" && recordingUrl.searchParams.get("recording_frame") !== "1"){
     // Keep the recording's animation tree separate from scripts on the outer page.
     const frame = document.createElement("iframe");
     recordingUrl.searchParams.set("recording_frame", "1");
@@ -775,6 +775,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     document.documentElement.style.cssText += ";filter:none;background:#000;overflow:hidden";
     document.body.style.cssText = "margin:0;background:#000;overflow:hidden";
     document.body.replaceChildren(frame);
+    addEventListener("message", e => {
+      if (e.source !== frame.contentWindow || e.origin !== location.origin || e.data?.type !== "bmg-record-exit") return;
+      if (window.opener && !window.opener.closed){ window.close(); return; }
+      location.href = "/desk/read/";
+    });
     return;
   }
   const SVG_NS = "http://www.w3.org/2000/svg";
@@ -3089,14 +3094,30 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const btn = document.getElementById("read-recmode");
     if (btn) btn.addEventListener("click", () => {
       const h = Math.min(960, (screen.availHeight || 900) - 60), w = Math.round(h * 9 / 16);
-      window.open("/desk/read/?layout=record&mode=rec", "bmg-record", `popup=yes,width=${w},height=${h}`);
+      const recordingWindow = window.open("/desk/read/?layout=record&mode=rec", "bmg-record", `popup=yes,width=${w},height=${h}`);
+      if (!recordingWindow || !walking() || state.paused) return;
+      const pause = document.getElementById("ctl-pause"), docId = state.currentDocId;
+      if (!pause) return;
+      // Two live crawls compete for the same renderer while recording.
+      pause.click();
+      const resume = setInterval(() => {
+        if (!recordingWindow.closed) return;
+        clearInterval(resume);
+        if (state.currentDocId === docId && state.paused) pause.click();
+      }, 1000);
     });
     const isRecord = /[?&]mode=rec\b/.test(location.search);
     const B = document.body;
     if (isRecord) B.classList.add("rec", "recmode", "rec-dark");
     else B.classList.add("readerfx", "rec-dark");
     if (isRecord) window.READER_VIEW_FRAC = 0.6;                    // the bottom 40% is the live report panel
-    const leave = () => { if (window.opener && !window.opener.closed){ window.close(); } location.href = "/desk/read/"; };
+    const leave = () => {
+      if (window.frameElement?.id === "recording-surface"){
+        parent.postMessage({type: "bmg-record-exit"}, location.origin); return;
+      }
+      if (window.opener && !window.opener.closed){ window.close(); return; }
+      location.href = "/desk/read/";
+    };
     const palettes = {
       default: {name: "Original cyan + pink (default)", main: "#6ff4ff", accent: "#ff3da6", trail: "#9fb4ff"},
       electric: {name: "Electric violet", main: "#bd8cff", accent: "#58f7ff", trail: "#edb7ff"},
@@ -3457,6 +3478,17 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         diskWriter = await diskFile.createWritable();
       } catch (e) { diskFile = diskWriter = null; }
     }
+    function captureStreamDescription(actual, bits){
+      const size = actual.width && actual.height ? `${actual.width} × ${actual.height}` : "resolution unavailable";
+      const fps = actual.frameRate ? `${Math.round(actual.frameRate * 10) / 10} fps reported` : "frame rate unavailable";
+      const rate = bits ? `${Math.round(bits / 1e6)} Mbps encoder target` : "encoder bitrate unavailable";
+      return `Chrome capture stream: ${size} · ${fps} · ${rate}. Saved video frame rate may be lower.`;
+    }
+    function refreshCaptureDetails(){
+      const actual = stream?.getVideoTracks()[0]?.getSettings() || {};
+      captureDetails = captureStreamDescription(actual, rec?.videoBitsPerSecond || 0);
+      state.captureQuality = {...state.captureQuality, ...actual};
+    }
     async function askCapture(){
       const high = setup.querySelector("#rec-quality")?.value === "high";
       const video = high ? {width: {ideal: 1080}, height: {ideal: 1920}, frameRate: {ideal: 60, max: 60}} : {frameRate: 30};
@@ -3509,6 +3541,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       return new Promise(res => {
         if (!rec || rec.state === "inactive"){ res(null); return; }
         rec.onstop = async () => {
+          refreshCaptureDetails();
           stream.getTracks().forEach(t => t.stop());
           if (diskWriter){
             await diskChain;
@@ -3739,7 +3772,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         if (state.feet && state.feet.length){
           await settleSpiderPose();
         }
-        if (rec) rec.start(500);                                   // the clip starts here, on the statements
+        if (rec){ refreshCaptureDetails(); rec.start(500); }       // sample the settled window as recording starts
         if (highlights){ await sleep(2000); startHighlights(pace); }
         startOverlays();
         if (renderProfile){ renderProfile.frames = []; renderProfile.draws = []; renderProfile.last = 0; }
