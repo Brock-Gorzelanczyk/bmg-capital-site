@@ -103,6 +103,7 @@ svg.spider .knee{fill:#ff3d9a}
 #docbody.orig{font:initial;line-height:normal}
 .pdfpage{content-visibility:auto;contain:strict;position:relative;margin:0 auto 18px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .pdfpage canvas{position:absolute;inset:0;width:100%;height:100%}
+.pdf-readable{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:pre-wrap}
 .pdftext{position:absolute;inset:0;overflow:hidden;line-height:1}
 .pdftext .tl{position:absolute;white-space:pre;color:transparent;transform-origin:0 0;font-family:sans-serif}
 .pdftext .w{color:transparent}
@@ -615,7 +616,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   <div class="stage">
     <div class="strip"><button class="btn" id="ctl-pause" type="button">Pause</button><select id="ctl-speed" aria-label="Speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option></select><button class="btn" id="read-jump" type="button" hidden>Jump to statements</button><button class="btn" id="read-skip" type="button" hidden>Skip to results</button><span class="status" id="status" role="status">idle</span></div>
     <div class="doc" id="doc">
-      <svg class="spider" id="spider"></svg>
+      <svg class="spider" id="spider" aria-hidden="true" focusable="false"></svg>
       <h1 id="doc-h1"></h1>
       <div id="docbody"></div>
     </div>
@@ -1481,7 +1482,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   function fxHash(str){ let h = 7; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0; return h; }
   function fxLayer(){
     let L = state.fxLayer;
-    if (!L || !L.isConnected){ L = state.fxLayer = document.createElement("div"); L.className = "fxlayer"; doc.appendChild(L); }
+    if (!L || !L.isConnected){ L = state.fxLayer = document.createElement("div"); L.className = "fxlayer"; L.setAttribute("aria-hidden", "true"); doc.appendChild(L); }
     return L;
   }
   function rowCands(row){
@@ -2407,6 +2408,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     return Math.min(4, Math.max(1, nativeRatio || 1, (captureWidth || 0) / Math.max(1, viewportWidth)));
   }
 
+  function pdfPageText(items){
+    return items.filter(it => typeof it.str === "string").map(it => it.str + (it.hasEOL ? "\n" : " ")).join("");
+  }
+
   async function renderPdf(file, into){
     // Each page: a canvas drawn as the spider nears it, plus an invisible
     // word layer positioned exactly over the printed text. A page's canvas
@@ -2427,9 +2432,15 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       box.className = "pdfpage";
       box.style.width = vp.width + "px"; box.style.height = vp.height + "px";
       const layer = document.createElement("div"); layer.className = "pdftext";
+      // The word-by-word transparent footholds are visual scaffolding. A single
+      // plain-text copy below preserves the full page for assistive reading.
+      layer.setAttribute("aria-hidden", "true");
       box.appendChild(layer);
       fragment.appendChild(box);
       const tc = await page.getTextContent();
+      const readable = document.createElement("div"); readable.className = "pdf-readable";
+      readable.setAttribute("role", "region"); readable.setAttribute("aria-label", "PDF page " + n);
+      readable.textContent = pdfPageText(tc.items); box.appendChild(readable);
       const spans = [];
       for (const it of tc.items){
         if (!it.str || !it.str.trim()) continue;
@@ -3244,6 +3255,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const s0 = sourceViewportRect(el);
       const chip = document.createElement("div"); chip.className = "rec-fly" + (obs ? " obs" : "");
       chip.textContent = text;
+      chip.setAttribute("aria-hidden", "true");
       chip.style.left = s0.left + "px"; chip.style.top = s0.top + "px";
       chip.style.transition = "none";
       B.appendChild(chip);
