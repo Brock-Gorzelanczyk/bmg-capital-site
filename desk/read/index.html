@@ -811,7 +811,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   function profileFrame(now){
     if (!renderProfile) return;
     const p = renderProfile;
-    if (!walking() || state.paused || !state.feet.length || document.hidden){ p.last = 0; return; }
+    if (!walking() || state.paused || !state.feet.length || document.hidden || document.getElementById("rec-curtain") || document.getElementById("rec-end")){ p.last = 0; return; }
     if (p.last) p.frames.push(now - p.last);
     p.last = now;
     if (p.frames.length > 600) p.frames.shift();
@@ -836,8 +836,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   function setStatus(s){statusEl.innerHTML = s;}
 
   function spiderWindow(width, height, scrollTop, viewportHeight){
-    const h = Math.min(height, viewportHeight + 1024);
-    const top = Math.max(0, Math.min(height - h, Math.floor(scrollTop - 512)));
+    const h = Math.min(height, viewportHeight + 256);
+    const top = Math.max(0, Math.min(height - h, Math.floor(scrollTop - 128)));
     return {width, height: h, top};
   }
   function sizeSvg(){
@@ -3667,6 +3667,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         if (rec) rec.start(500);                                   // the clip starts here, on the statements
         if (highlights){ await sleep(2000); startHighlights(pace); }
         startOverlays();
+        if (renderProfile){ renderProfile.frames = []; renderProfile.draws = []; renderProfile.last = 0; }
         curtain.classList.add("out"); setTimeout(() => curtain.remove(), 400);
         // count only time that is not paused
         let left = finishAt * 1000, last = Date.now();
