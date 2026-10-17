@@ -33,7 +33,7 @@
 .found.pink{background:rgba(255,43,214,.22);box-shadow:0 0 10px rgba(255,43,214,.5)}
 .found.org{background:rgba(255,159,28,.22);box-shadow:0 0 10px rgba(255,159,28,.5)}
 .found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
-svg.spider{contain:strict;position:absolute;left:0;top:0;width:100%;pointer-events:none;overflow:hidden;z-index:3}
+svg.spider{contain:strict;will-change:transform;position:absolute;left:0;top:0;width:100%;pointer-events:none;overflow:hidden;z-index:3}
 svg.spider .eye{fill:rgba(143,216,255,.55)}
 svg.spider .sight{stroke:#5fe6ff;stroke-width:1.4;stroke-linecap:round}
 svg.spider .body{fill:#05070c;stroke:#3b6cff;stroke-width:2}
@@ -162,6 +162,11 @@ svg.spider .knee{fill:#ff3d9a}
 #edgar-status{font-size:13px;color:#5d6862}#edgar-status.err{color:#b42318}
 #edgar-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 #edgar-list:empty{display:none}
+.re-watch{padding-top:8px;border-top:1px dashed #e3e3dc}
+#edgar-watch{height:40px;padding:0 16px;border-radius:8px;border:1px solid #0f7d47;background:#fff;color:#0f7d47;font-weight:600;cursor:pointer}
+#edgar-watch.on{background:#b42318;border-color:#b42318;color:#fff}
+.re-since{font-size:13px;color:#5d6862;display:flex;gap:6px;align-items:center}.re-since input{height:32px;border:1px solid #d6d6cf;border-radius:6px;padding:0 6px}
+#edgar-watch-st{font-size:13px;color:#5d6862}#edgar-watch-st.hit{color:#0f7d47;font-weight:600}
 #edgar-list li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border:1px solid #e6e8e4;border-radius:8px;background:#fff;font-size:14px}
 #edgar-list li.re-more{justify-content:center;border-style:dashed;background:transparent}
 #edgar-list li small{display:block;color:#6b6f76;font:12px 'IBM Plex Mono',monospace}
@@ -289,6 +294,41 @@ body.recmode[data-rec-palette] .sig-pop.s-observation,body.recmode[data-rec-pale
 body.recmode[data-rec-palette] .sig-pop .sev.s-observation{background:var(--crawler-main);color:#05070c}
 body.recmode[data-rec-palette] #rec-hud{color:var(--crawler-main);border-color:color-mix(in srgb,var(--crawler-main) 45%,transparent);box-shadow:0 0 14px color-mix(in srgb,var(--crawler-main) 25%,transparent)}
 body.recmode[data-rec-palette] #rec-end h3,body.recmode[data-rec-palette] .rk-one h2 span{color:var(--crawler-main)}
+.clip-idea{border:1px solid #cad2d8;border-radius:8px;padding:10px 12px;margin:10px 0;display:flex;flex-direction:column;gap:6px}
+.clip-idea legend{font-weight:700;padding:0 4px}.clip-idea p{margin:0;font-size:12px;opacity:.8}
+.clip-idea textarea,.clip-idea input[type=text]{width:100%;box-sizing:border-box;padding:7px;border:1px solid #cad2d8;border-radius:6px;font:inherit;color:#111;background:#fff}
+.clip-idea .opt span{display:flex;gap:6px}.clip-st{min-height:1em}.clip-st.err{color:#d93025;opacity:1}
+body.recmode.rec-dark .htmldoc{background:#000}
+body.recmode.rec-dark .htmldoc *:not(.w){background-color:transparent!important}
+body.recmode.rec-dark .htmldoc *{color:#e8e8e8!important;border-color:#5a5a5a!important}
+body.recmode.rec-dark .htmldoc .w:is(.found,.cyanfill,.fillbox,.salmon){color:#001a22!important}
+body.clip-zoom .doc{width:130vw!important;max-width:none!important;margin-left:-4vw!important}
+body.clip-zoom,body.clip-zoom main.read-page{overflow-x:hidden!important}
+.pics-drop{display:flex;flex-direction:column;gap:2px;padding:12px;border:2px dashed #9aa6b0;border-radius:8px;cursor:pointer;text-align:center}
+.pics-drop.over{border-color:var(--crawler-main,#27c8ff);background:rgba(39,200,255,.08)}.pics-drop span{font-size:12px;opacity:.75}
+.pics-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.pics-list li{display:flex;align-items:center;gap:8px;font-size:12px}.pics-list img{width:44px;height:44px;object-fit:cover;border-radius:4px}
+.pics-list li button{margin-left:auto}
+#rec-pics{position:fixed;inset:0;z-index:61;pointer-events:none}
+#rec-pics[hidden]{display:none}
+.rp-pic{position:absolute;touch-action:none}.rp-pic img{display:block;width:100%;height:auto;pointer-events:none;user-select:none}
+body.pics-edit #rec-pics{pointer-events:auto}
+body.pics-edit .rp-pic{outline:2px dashed var(--crawler-main,#6ff4ff);outline-offset:2px;cursor:move}
+.rp-pic .rp-x,.rp-pic .rp-size{display:none}
+body.pics-edit .rp-pic .rp-x{display:block;position:absolute;top:-14px;right:-14px;width:28px;height:28px;border-radius:50%;border:0;background:#ff3da6;color:#fff;font:700 16px/28px sans-serif;cursor:pointer;padding:0}
+body.pics-edit .rp-pic .rp-size{display:block;position:absolute;right:-10px;bottom:-10px;width:22px;height:22px;border-radius:4px;background:var(--crawler-main,#6ff4ff);cursor:nwse-resize}
+#pics-done{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:62;display:flex;gap:8px;align-items:center;background:rgba(0,0,0,.85);color:#fff;padding:10px 14px;border-radius:10px;font:13px sans-serif}
+#pics-done button{font:600 14px sans-serif;padding:8px 14px;border-radius:8px;border:0;cursor:pointer}
+#clip-intro{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.8);color:#fff;font-family:Inter,'IBM Plex Sans',sans-serif;pointer-events:none;transition:opacity .25s}
+#clip-intro.out{opacity:0}
+#clip-intro .ci-h{position:absolute;left:6.5vw;right:6.5vw;top:13vh;font-size:9.1vw;font-weight:900;line-height:1.04;letter-spacing:-.18vw}
+#clip-intro .ci-row{position:absolute;left:6.5vw;right:6.5vw;top:42.7vh;display:flex;gap:4vw;align-items:center}
+#clip-intro .ci-pic{width:43.5vw;height:27.4vw;border-radius:2.8vw;overflow:hidden;flex:none;position:relative;background:linear-gradient(135deg,#0d2a5c,#081631 70%);border:.2vw solid #3a5a96;box-shadow:0 2vw 5vw rgba(0,0,0,.6)}
+#clip-intro .ci-pic img{width:100%;height:100%;object-fit:cover;display:block}
+#clip-intro .ci-chip{position:absolute;left:4vw;top:8.9vw;width:7vw;height:5.4vw;border-radius:1vw;background:linear-gradient(135deg,#e9cf86,#b28f3a)}
+#clip-intro .ci-nm{position:absolute;left:4vw;bottom:3.7vw;font-size:3.1vw;font-weight:700;letter-spacing:.1vw;color:#dfe7f5}
+#clip-intro .ci-big{font-size:10.9vw;font-weight:900;color:var(--crawler-main,#6ff4ff);line-height:.95;letter-spacing:-.28vw}
+#clip-intro .ci-small{font-size:3.6vw;font-weight:700;margin-top:1vw;color:#d8d8d8;white-space:pre-line}
 #rec-palette,#rec-quality,#rec-format,#rec-pace{max-width:220px;padding:7px;border:1px solid #cad2d8;border-radius:6px;background:#fff;color:#111;font:inherit}
 .rec-palette-preview{display:flex;align-items:center;gap:8px;margin:8px 0 16px;font-size:12px;color:#9aa6b1}
 .rec-palette-preview{flex-direction:column;align-items:flex-start;--pm:#6ff4ff;--pa:#ff3da6;--pt:#9fb4ff;--pb:#6ff4ff}
@@ -594,6 +634,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   <h2 id="edgar-h">Load from SEC EDGAR</h2>
   <div class="re-row"><input id="edgar-ticker" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="Ticker, e.g. AMZN" aria-label="Ticker to look up on SEC EDGAR"><button id="edgar-find" type="button">Find filings</button><span id="edgar-status" role="status"></span></div>
   <ol id="edgar-list"></ol>
+  <div class="re-row re-watch" id="edgar-watch-row" hidden>
+    <button id="edgar-watch" type="button">Watch for the next filing</button>
+    <label class="re-since">Also count filings since <input id="edgar-since" type="date"></label>
+    <span id="edgar-watch-st" role="status"></span>
+  </div>
 </section>
 <section class="read-library" id="read-library" hidden aria-labelledby="lib-h">
   <div class="rl-head"><h2 id="lib-h">My reads</h2><span id="lib-count"></span></div>
@@ -1788,8 +1833,12 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // Only words on rendered lines near the body: scanning every span of
     // a long filing on every step would stall the animation.
     if (state.rows && state.rows.length){
-      const by = state.body.y, out = [];
-      for (const r of state.rows){ if (Math.abs(r.y - by) <= HI_REACH * 1.7 + 30) out.push(...r.els); }
+      // rows are sorted by y: binary search to the first row in reach, then take rows until out of reach
+      // (the same rows, in the same order, as checking every row of a 30,000-line filing)
+      const by = state.body.y, out = [], rows = state.rows, span = HI_REACH * 1.7 + 30;
+      let lo = 0, hi = rows.length;
+      while (lo < hi){ const mid = (lo + hi) >> 1; if (rows[mid].y < by - span) lo = mid + 1; else hi = mid; }
+      for (let i = lo; i < rows.length && rows[i].y <= by + span; i++) out.push(...rows[i].els);
       if (h1.textContent.trim()) out.unshift(h1);
       return out;
     }
@@ -2078,6 +2127,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // no mouse hit-testing over tens of thousands of word spans while the
     // page scrolls itself (restored when the walk ends)
     doc.style.pointerEvents = "none";
+    holdHtmlBlocks(docBody.querySelector(".htmldoc"));
     bumpLayout(); geo = null;      // the document is fully laid out now: measure it afresh
     clearTimeout(state.walkTimer);
     const rows = visualRows();
@@ -2548,6 +2598,46 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     into.appendChild(wrap);
     fitHtml(wrap);
   }
+  // HTML filings are one long page of word spans (180,000 in JPMorgan's 10-K), so every frame painted and
+  // layered all of it: 1.7 fps. Before the walk measures the words, each block box of the filing that keeps
+  // its exact layout under containment is set to content-visibility:auto with its measured height, so the
+  // browser skips the blocks off screen. A block whose words move under containment (a child margin that
+  // collapsed through its edge, overflow) is left alone. The walk then measures every word with the blocks
+  // in place, so cached word positions stay true whether a block is on screen or skipped.
+  function holdHtmlBlocks(wrap){
+    if (!wrap || !wrap.isConnected || wrap.dataset.held) return;
+    wrap.dataset.held = "1";
+    const z = parseFloat(wrap.style.zoom) || 1, MAXH = 1500, units = [];
+    (function walk(el){
+      for (const k of el.children){
+        const cs = getComputedStyle(k), h = k.getBoundingClientRect().height;
+        if (k.tagName === "DIV" && cs.display === "block" && cs.position === "static" && cs.float === "none" && h > 0 && h <= MAXH) units.push(k);
+        else if (k.children.length && h > 0) walk(k);
+      }
+    })(wrap);
+    const words = k => k.getElementsByClassName("w");
+    const read = k => {
+      const r = k.getBoundingClientRect(), ws = words(k), f = ws[0], l = ws[ws.length - 1];
+      return {h: r.height, f: f ? f.getBoundingClientRect().top - r.top : 0, l: l ? l.getBoundingClientRect().top - r.top : 0,
+        over: k.scrollHeight > k.clientHeight + 1 || k.scrollWidth > k.clientWidth + 1};
+    };
+    const before = units.map(read);
+    units.forEach((k, i) => { if (!before[i].over) k.style.contain = "layout paint"; });
+    const after = units.map(read);
+    units.forEach(k => { k.style.contain = ""; });
+    units.forEach((k, i) => {
+      const b = before[i], a = after[i];
+      if (b.over || a.over || Math.abs(a.h - b.h) > 0.01 || Math.abs(a.f - b.f) > 0.01 || Math.abs(a.l - b.l) > 0.01) return;
+      k.style.containIntrinsicSize = `auto none auto ${b.h / z}px`;
+      k.style.contentVisibility = "auto";
+      k.classList.add("cv-held");
+    });
+  }
+  function releaseHtmlBlocks(wrap){
+    if (!wrap || !wrap.dataset.held) return;
+    delete wrap.dataset.held;
+    for (const k of [...wrap.getElementsByClassName("cv-held")]){ k.style.contentVisibility = ""; k.style.containIntrinsicSize = ""; k.classList.remove("cv-held"); }
+  }
   // A filing's own layout can be wider than the reader (Amazon's June 2026 10-Q statements need 1,440 px).
   // Scale the whole filing down with CSS zoom so every column is visible. The words stay real text, laid out
   // at the smaller size, so the spider's footholds, scrolling and page height stay true. Runs before the
@@ -2560,12 +2650,18 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     wrap.style.zoom = z === 1 ? "" : z.toFixed(4);
     wrap.dataset.fit = z.toFixed(3);
   }
+  let rehold = 0;
   addEventListener("resize", () => {
     const w = document.querySelector("#doc .htmldoc");
     if (!w) return;
-    const before = w.dataset.fit;
+    const before = w.dataset.fit, held = !!w.dataset.held || !!rehold;
+    releaseHtmlBlocks(w);       // measure the filing's own width, then hold the blocks again once resizing stops
     fitHtml(w);
-    if (w.dataset.fit !== before){ bumpLayout(); geo = null; }
+    if (held){
+      clearTimeout(rehold);
+      rehold = setTimeout(() => { rehold = 0; if (w.isConnected){ holdHtmlBlocks(w); bumpLayout(); geo = null; } }, 400);
+    }
+    if (w.dataset.fit !== before || held){ bumpLayout(); geo = null; }
   });
 
   // ---- upload, Run, watch the spider, then a summary ----
@@ -2681,13 +2777,14 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       if (!t){ say("Enter a ticker, for example AMZN.", true); return; }
       find.disabled = true; list.innerHTML = ""; say("Looking up " + t + " on SEC EDGAR...");
       try {
-        const r = await fetch("/api/edgar/filings?ticker=" + encodeURIComponent(t), {cache: "no-store"});
+        const r = await fetch("/api/edgar/filings?earnings=1&ticker=" + encodeURIComponent(t), {cache: "no-store"});
         const j = await r.json();
         if (!r.ok){ say(j.error || "SEC EDGAR lookup failed.", true); return; }
         found = j;
         if (!j.filings.length){ say(`${j.company} has no 10-K or 10-Q in its recent filings.`, true); return; }
         say(`${j.company} · CIK ${j.cik}`);
-        list.innerHTML = j.filings.map((f, i) => `<li${i >= 6 ? " hidden" : ""}><span><b>${esc(f.form)}</b>${f.period ? " · period ended " + esc(f.period) : ""}<small>filed ${esc(f.filed)} · ${esc(f.accession)}</small></span><button type="button" data-i="${i}">Read</button></li>`).join("")
+        watchRow.hidden = false;
+        list.innerHTML = j.filings.map((f, i) => `<li${i >= 6 ? " hidden" : ""}><span><b>${esc(f.form)}</b>${f.period && !/^8-K/.test(f.form) ? " · period ended " + esc(f.period) : ""}<small>filed ${esc(f.filed)} · ${esc(f.accession)}</small></span><button type="button" data-i="${i}">Read</button></li>`).join("")
           + (j.filings.length > 6 ? `<li class="re-more"><button type="button" data-more="1">Show ${j.filings.length - 6} older</button></li>` : "");
       } catch (e){ say("Could not reach the local server.", true); }
       finally { find.disabled = false; }
@@ -2697,7 +2794,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     list.addEventListener("click", async e => {
       if (e.target.closest("button[data-more]")){ list.querySelectorAll("li[hidden]").forEach(li => { li.hidden = false; }); e.target.closest("li").remove(); return; }
       const b = e.target.closest("button[data-i]"); if (!b || !found) return;
-      const f = found.filings[+b.dataset.i];
+      readFiling(found.filings[+b.dataset.i]);
+    });
+    async function readFiling(f){
       list.querySelectorAll("button").forEach(x => { x.disabled = true; });
       say(`Downloading ${f.form} filed ${f.filed} from SEC EDGAR...`);
       try {
@@ -2715,6 +2814,54 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         runRead.click();
       } catch (x){ say("Could not reach the local server.", true); }
       finally { list.querySelectorAll("button").forEach(x => { x.disabled = false; }); }
+    }
+
+    // ---- earnings watch: check EDGAR every minute; the first new filing is loaded and read at once ----
+    const watchRow = document.getElementById("edgar-watch-row"), watchBtn = document.getElementById("edgar-watch");
+    const sinceIn = document.getElementById("edgar-since"), wst = document.getElementById("edgar-watch-st");
+    let watch = null;
+    const wsay = (t, hit) => { wst.textContent = t; wst.classList.toggle("hit", !!hit); };
+    function stopWatch(msg){
+      if (watch) clearInterval(watch.timer);
+      watch = null; watchBtn.classList.remove("on"); watchBtn.textContent = "Watch for the next filing";
+      if (msg) wsay(msg);
+    }
+    function alarm(text){
+      try { if (window.Notification && Notification.permission === "granted") new Notification("BMG Crawler: new filing", {body: text}); } catch (e) {}
+      try {
+        const ac = new (window.AudioContext || window.webkitAudioContext)();
+        [0, 0.25, 0.5].forEach(t0 => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 880; g.gain.value = 0.15;
+          o.connect(g); g.connect(ac.destination); o.start(ac.currentTime + t0); o.stop(ac.currentTime + t0 + 0.15); });
+      } catch (e) {}
+      const base = document.title; let n = 0;
+      const flash = setInterval(() => { document.title = (n++ % 2) ? base : "NEW FILING: " + text; if (n > 20){ clearInterval(flash); document.title = base; } }, 700);
+    }
+    async function poll(){
+      if (!watch) return;
+      try {
+        const r = await fetch(`/api/edgar/filings?fresh=1&earnings=1&ticker=${encodeURIComponent(watch.ticker)}`, {cache: "no-store"});
+        const j = await r.json();
+        if (!r.ok){ wsay(`Watching ${watch.ticker}: SEC EDGAR did not answer at ${new Date().toLocaleTimeString()}; trying again in a minute.`); return; }
+        const fresh = j.filings.filter(f => !watch.seen.has(f.accession) || (watch.since && f.filed >= watch.since));
+        if (!fresh.length){ wsay(`Watching ${watch.ticker} · checked ${new Date().toLocaleTimeString()} · nothing new yet (checks every minute; keep this tab open and the Mac awake)`); return; }
+        const f = fresh[0];
+        stopWatch();
+        wsay(`New: ${watch_t(j, f)}. Reading it now.`, true);
+        alarm(watch_t(j, f));
+        found = j;
+        readFiling(f);
+      } catch (e){ wsay(`Watching ${watch.ticker}: the local server did not answer at ${new Date().toLocaleTimeString()}; trying again in a minute.`); }
+    }
+    const watch_t = (j, f) => `${j.ticker} ${f.form} filed ${f.filed}`;
+    watchBtn.addEventListener("click", () => {
+      if (watch){ stopWatch("Stopped watching."); return; }
+      if (!found){ wsay("Find a ticker's filings first."); return; }
+      try { if (window.Notification && Notification.permission === "default") Notification.requestPermission(); } catch (e) {}
+      watch = {ticker: found.ticker, seen: new Set(found.filings.map(f => f.accession)), since: sinceIn.value || "",
+               timer: setInterval(poll, 60000)};
+      watchBtn.classList.add("on"); watchBtn.textContent = "Stop watching";
+      wsay(`Watching ${watch.ticker}...`);
+      poll();
     });
   })();
   fileIn.addEventListener("change", () => pick(fileIn.files[0]));
@@ -3153,7 +3300,23 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       <h2>Record mode</h2>
       <p>Choose a 10-K or 10-Q PDF and press Start. ${canRecord ? "With “Record this window” on, Chrome asks you to share this tab, and the finished clip downloads at the end." : "Use your Mac's screen recorder (Shift-Command-5, Record Selected Portion) on this window."}</p>
       <div id="rec-file-slot"></div>
-      <label class="opt">Clip format <select id="rec-format"><option value="custom" selected>Continuous read (first-video movement)</option><option value="highlights">40-second highlights camera</option></select></label>
+      <fieldset class="clip-idea" id="clip-idea-box"><legend>Idea clip</legend>
+        <p>Paste an idea from your ideas panel (or type the hook and the numbers). The clip opens on your hook for 2 seconds, then the spider lands where those numbers are in the filing and reads at clip speed.</p>
+        <textarea id="clip-paste" rows="3" placeholder="Paste the idea line here"></textarea>
+        <label class="opt">Hook <input id="clip-hook" type="text" maxlength="90" placeholder="jpmorgan made $156 million a day in 2025"></label>
+        <label class="opt">Ticker <span><input id="clip-ticker" type="text" maxlength="10" placeholder="JPM"> <select id="clip-form"><option>10-K</option><option>10-Q</option></select></span></label>
+        <label class="opt">Numbers to find <input id="clip-find" type="text" placeholder="57,048, 58,471"></label>
+        <label class="opt">Intro big number <span><input id="clip-big" type="text" maxlength="14" placeholder="$156m"> <input id="clip-small" type="text" maxlength="40" placeholder="/ day · on average"></span></label>
+        <label class="opt">Intro picture (optional) <input id="clip-pic" type="file" accept="image/*"></label>
+        <label class="opt">Clip length <span><input id="clip-len" type="number" min="15" max="30" value="20"> s</span></label>
+        <p class="clip-st" id="clip-st" role="status"></p>
+      </fieldset>
+      <fieldset class="clip-idea clip-pics" id="clip-pics-box"><legend>Pictures on screen</legend>
+        <label class="pics-drop" id="pics-drop"><input type="file" id="pics-file" accept="image/*" multiple hidden><b>Drop pictures here or click to choose</b><span>They show on top of the video, where you place them.</span></label>
+        <ul class="pics-list" id="pics-list"></ul>
+        <button type="button" id="pics-place" hidden>Place pictures on the screen</button>
+      </fieldset>
+      <label class="opt">Clip format <select id="rec-format"><option value="custom" selected>Continuous read (first-video movement)</option><option value="highlights">40-second highlights camera</option><option value="idea">Idea clip · your hook, then the spider on your numbers</option></select></label>
       <label class="opt">Highlight pace <select id="rec-pace"><option value="1.6" selected>Fast · faster crawler, steady highlights</option><option value="1">Brisk · focus on statements</option></select></label>
       <p>Highlights: 2-second opening, 33 seconds through statement findings, 5-second ending. Continuous scrolling, with more time around real figures.</p>
       <label class="opt">Jump to the ending after <span><input type="number" id="rec-finish" min="5" max="600" value="115"> s</span></label>
@@ -3195,7 +3358,191 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         }
       };
       format.addEventListener("change", syncFormat); syncFormat();
+      ideaSetup(format);
     }
+    // ---- Idea clip: a pasted idea fills the hook, ticker, numbers and intro; Start loads the filing itself ----
+    const NAME_TICKERS = {"jpmorgan": "JPM", "jp morgan": "JPM", "chase": "JPM", "costco": "COST", "amazon": "AMZN", "apple": "AAPL", "microsoft": "MSFT",
+      "j&j": "JNJ", "johnson & johnson": "JNJ", "coinbase": "COIN", "oracle": "ORCL", "gatx": "GATX", "trinity": "TRN", "tesla": "TSLA", "nvidia": "NVDA",
+      "alphabet": "GOOGL", "google": "GOOGL", "meta": "META", "netflix": "NFLX", "walmart": "WMT", "prologis": "PLD", "nextera": "NEE", "amd": "AMD",
+      "micron": "MU", "nike": "NKE", "starbucks": "SBUX", "disney": "DIS", "mcdonald": "MCD", "coca-cola": "KO", "pepsico": "PEP", "visa": "V",
+      "mastercard": "MA", "bank of america": "BAC", "wells fargo": "WFC", "goldman": "GS", "morgan stanley": "MS", "target": "TGT", "home depot": "HD",
+      "robinhood": "HOOD", "palantir": "PLTR", "intel": "INTC", "boeing": "BA", "ford": "F", "general motors": "GM", "uber": "UBER", "airbnb": "ABNB"};
+    function parseIdea(txt){
+      const field = k => { const m = txt.match(new RegExp("\\*\\*" + k + ":\\*\\*\\s*([^|]*)", "i")); return m ? m[1].trim() : ""; };
+      const hook = (field("hook") || (txt.includes("|") ? "" : txt.split("\n")[0])).replace(/^[-*\s\[\]x]+/i, "").trim();
+      const nums = field("numbers") || txt;
+      const low = (txt.match(/\(([^)]*10-[KQ][^)]*)\)/i) || [, nums])[1].toLowerCase() + " " + hook.toLowerCase();
+      let ticker = (txt.match(/\b(?:ticker|nyse|nasdaq)\s*[:=]?\s*([A-Z]{1,5})\b/) || [])[1] || "";
+      if (!ticker){ for (const [n, tk] of Object.entries(NAME_TICKERS)) if (new RegExp("\\b" + n.replace(/[&]/g, "\\&") + "\\b").test(low)){ ticker = tk; break; } }
+      const form = /10-q/i.test(nums) ? "10-Q" : "10-K";
+      const find = [...new Set((nums.match(/\d{1,3}(?:,\d{3})+(?:\.\d+)?/g) || []))].slice(0, 6);
+      const big = (hook.match(/\$\s?[\d.,]+\s*(?:billion|million|thousand|[bmk])?/i) || [""])[0]
+        .replace(/\s*billion/i, "b").replace(/\s*million/i, "m").replace(/\s*thousand/i, "k").replace(/\s+/g, "");
+      const per = (hook.match(/\b(a day|a week|a month|a year|an hour|per day|per year)\b/i) || [""])[0].replace(/^(a|an|per)\s/i, "/ ");
+      return {hook, ticker, form, find, big, small: per ? per + (/day|hour|week|month/.test(per) ? " · on average" : "") : ""};
+    }
+    let clipPicUrl = "";
+    function ideaSetup(format){
+      const q = id => setup.querySelector("#" + id), st = q("clip-st");
+      const ready = () => {
+        const idea = format.value === "idea";
+        startBtn.disabled = idea ? !(q("clip-hook").value.trim() && (q("clip-ticker").value.trim() || fileIn.files[0])) : !fileIn.files[0];
+      };
+      q("clip-paste").addEventListener("input", () => {
+        const v = parseIdea(q("clip-paste").value);
+        for (const [id, val] of [["clip-hook", v.hook], ["clip-ticker", v.ticker], ["clip-find", v.find.join(", ")], ["clip-big", v.big], ["clip-small", v.small]]) if (val) q(id).value = val;
+        q("clip-form").value = v.form;
+        format.value = "idea"; format.dispatchEvent(new Event("change"));
+        st.classList.remove("err");
+        st.textContent = v.ticker ? `Filled in from the idea. Check the fields, then Start.` : "Filled in from the idea. Add the ticker.";
+        ready();
+      });
+      q("clip-pic").addEventListener("change", e => { const f = e.target.files[0]; if (clipPicUrl) URL.revokeObjectURL(clipPicUrl); clipPicUrl = f ? URL.createObjectURL(f) : ""; });
+      for (const id of ["clip-hook", "clip-ticker"]) q(id).addEventListener("input", ready);
+      format.addEventListener("change", ready);
+      fileIn.addEventListener("change", ready);
+    }
+    async function loadClipFiling(ticker, form){
+      const r = await fetch("/api/edgar/filings?ticker=" + encodeURIComponent(ticker), {cache: "no-store"});
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "SEC EDGAR lookup failed.");
+      const f = (j.filings || []).find(x => x.form === form) || (j.filings || []).find(x => /^10-[KQ]/.test(x.form));
+      if (!f) throw new Error(`${j.company || ticker} has no ${form} in its recent filings.`);
+      const q = new URLSearchParams({cik: j.cik, accession: f.accession, document: f.document});
+      const d = await fetch("/api/edgar/document?" + q, {cache: "no-store"});
+      if (!d.ok){ let m = "Download failed."; try { m = (await d.json()).error || m; } catch (x){} throw new Error(m); }
+      const ext = (f.document.match(/\.(\w+)$/) || ["", "htm"])[1];
+      pick(new File([await d.blob()], `${j.ticker} ${f.form.replace("/", "-")} ${f.period || f.filed} filed ${f.filed} ${f.accession}.${ext}`, {type: "text/html"}));
+      const tk = document.getElementById("read-ticker"); if (tk) tk.value = j.ticker;
+      return {company: j.company, form: f.form, period: f.period || f.filed};
+    }
+    // The words for the numbers to find: the place in the filing where most of them sit together.
+    const numKey = s => (s || "").replace(/[$()\s,]/g, "").replace(/[.;:]+$/, "");
+    function findClipTargets(values){
+      const want = values.map(numKey).filter(Boolean);
+      if (!want.length) return null;
+      const ws = [...docBody.getElementsByClassName("w")], keys = ws.map(w => numKey(w.textContent));
+      // the numbers usually appear more than once (highlights, MD&A, the statement): the best place has the most
+      // of them together, and a primary statement heading ("Consolidated statements of ...", "balance sheets") just above wins ties
+      const low = ws.map(w => w.textContent.trim().toLowerCase());
+      const underStatement = i => {
+        for (let j = i; j > Math.max(0, i - 260); j--){
+          if (low[j] !== "consolidated") continue;
+          const next = low.slice(j + 1, j + 4).join(" ");
+          if (/^(statements? of (income|operations|earnings|comprehensive|cash)|balance sheets?)/.test(next)) return true;
+        }
+        return false;
+      };
+      let best = null, bestScore = -1;
+      keys.forEach((k, i) => {
+        if (k !== want[0]) return;
+        const hits = [i];
+        for (const v of want.slice(1)){ for (let j = Math.max(0, i - 300); j < Math.min(ws.length, i + 300); j++) if (keys[j] === v){ hits.push(j); break; } }
+        const score = hits.length * 2 + (underStatement(i) ? 1 : 0);
+        if (score > bestScore){ best = hits; bestScore = score; }
+      });
+      if (!best){                                            // the first number is not there: take any of the others
+        for (const v of want.slice(1)){ const i = keys.indexOf(v); if (i >= 0){ best = [i]; break; } }
+      }
+      return best ? best.map(i => ws[i]) : null;
+    }
+    function clipIntro(hook, big, small, name){
+      const el = document.createElement("div");
+      el.id = "clip-intro";
+      const pic = clipPicUrl ? `<img src="${clipPicUrl}" alt="">` : `<div class="ci-chip"></div><div class="ci-nm">${esc((name || "").toLowerCase())}</div>`;
+      el.innerHTML = `<div class="ci-h">${esc(hook)}</div><div class="ci-row"><div class="ci-pic">${pic}</div>${big ? `<div><div class="ci-big">${esc(big)}</div><div class="ci-small">${esc(small)}</div></div>` : ""}</div>`;
+      B.appendChild(el);
+      return el;
+    }
+    // ---- Pictures on screen: dropped images sit on top of the video where they are placed ----
+    // Positions are fractions of the window, so the placement is the recording's framing. Kept in this
+    // browser (downscaled to 1200 px) so the same pictures come back next time.
+    const PICS_LS = "bmg-rec-pictures";
+    const picLayer = document.createElement("div"); picLayer.id = "rec-pics"; picLayer.hidden = true;
+    let pics = [];
+    try { pics = JSON.parse(localStorage.getItem(PICS_LS) || "[]").filter(x => x && x.src); } catch (e) { pics = []; }
+    const savePics = () => { try { localStorage.setItem(PICS_LS, JSON.stringify(pics)); } catch (e) { /* too big for storage: kept for this session only */ } };
+    function shrinkImage(file){
+      return new Promise((res, rej) => {
+        const url = URL.createObjectURL(file), img = new Image();
+        img.onload = () => {
+          const s = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight));
+          const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+          res({src: c.toDataURL(/png|gif|webp/.test(file.type) ? "image/png" : "image/jpeg", 0.92), ratio: c.height / c.width, name: file.name});
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("not an image")); };
+        img.src = url;
+      });
+    }
+    function drawPics(){
+      picLayer.innerHTML = "";
+      pics.forEach((pc, i) => {
+        const d = document.createElement("div"); d.className = "rp-pic"; d.dataset.i = i;
+        d.style.left = pc.x * 100 + "%"; d.style.top = pc.y * 100 + "%"; d.style.width = pc.w * 100 + "%";
+        d.innerHTML = `<img src="${pc.src}" alt=""><button type="button" class="rp-x" aria-label="Remove picture">&times;</button><span class="rp-size" aria-hidden="true"></span>`;
+        picLayer.appendChild(d);
+      });
+      const list = setup.querySelector("#pics-list");
+      if (list) list.innerHTML = pics.map((pc, i) => `<li><img src="${pc.src}" alt=""><span>${esc(pc.name || "picture " + (i + 1))}</span>
+        <label><input type="checkbox" data-intro="${i}"${pc.introOnly ? " checked" : ""}> intro only</label><button type="button" data-rm="${i}">Remove</button></li>`).join("");
+      const placeBtn = setup.querySelector("#pics-place"); if (placeBtn) placeBtn.hidden = !pics.length;
+    }
+    // drag to move, corner to resize, x to remove (only while placing)
+    picLayer.addEventListener("pointerdown", e => {
+      if (!B.classList.contains("pics-edit")) return;
+      const d = e.target.closest(".rp-pic"); if (!d) return;
+      const pc = pics[+d.dataset.i];
+      if (e.target.closest(".rp-x")){ pics.splice(+d.dataset.i, 1); savePics(); drawPics(); return; }
+      e.preventDefault(); d.setPointerCapture(e.pointerId);
+      const sizing = !!e.target.closest(".rp-size"), x0 = e.clientX, y0 = e.clientY, start = {...pc};
+      const move = ev => {
+        const dx = (ev.clientX - x0) / innerWidth, dy = (ev.clientY - y0) / innerHeight;
+        if (sizing) pc.w = Math.max(0.06, Math.min(1, start.w + dx));
+        else { pc.x = Math.max(-pc.w * 0.8, Math.min(0.95, start.x + dx)); pc.y = Math.max(-0.1, Math.min(0.97, start.y + dy)); }
+        d.style.left = pc.x * 100 + "%"; d.style.top = pc.y * 100 + "%"; d.style.width = pc.w * 100 + "%";
+      };
+      const up = () => { d.removeEventListener("pointermove", move); d.removeEventListener("pointerup", up); savePics(); };
+      d.addEventListener("pointermove", move); d.addEventListener("pointerup", up);
+    });
+    function picturesSetup(){
+      B.appendChild(picLayer);
+      const drop = setup.querySelector("#pics-drop"), input = setup.querySelector("#pics-file");
+      const add = async files => {
+        for (const f of files){
+          if (!/^image\//.test(f.type)) continue;
+          try { const im = await shrinkImage(f); const n = pics.length;
+            pics.push({...im, x: 0.08 + (n % 3) * 0.06, y: 0.12 + (n % 3) * 0.06, w: 0.4, introOnly: false}); } catch (e) {}
+        }
+        savePics(); drawPics();
+      };
+      input.addEventListener("change", () => { add([...input.files]); input.value = ""; });
+      for (const ev of ["dragenter", "dragover"]) drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); drop.classList.add("over"); });
+      drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+      drop.addEventListener("drop", e => { e.preventDefault(); e.stopPropagation(); drop.classList.remove("over"); add([...e.dataTransfer.files]); });
+      setup.querySelector("#pics-list").addEventListener("click", e => {
+        const rm = e.target.closest("button[data-rm]"); if (rm){ pics.splice(+rm.dataset.rm, 1); savePics(); drawPics(); }
+      });
+      setup.querySelector("#pics-list").addEventListener("change", e => {
+        const cb = e.target.closest("input[data-intro]"); if (cb){ pics[+cb.dataset.intro].introOnly = cb.checked; savePics(); }
+      });
+      // placing: the setup panel steps aside so the window shows the video frame (with the intro, when there is a hook)
+      setup.querySelector("#pics-place").addEventListener("click", () => {
+        const hook = setup.querySelector("#clip-hook").value.trim();
+        const preview = hook ? clipIntro(hook, setup.querySelector("#clip-big").value.trim(), setup.querySelector("#clip-small").value.trim().replace(/\s*·\s*/g, "\n"),
+          setup.querySelector("#clip-ticker").value.trim()) : null;
+        setup.style.display = "none"; picLayer.hidden = false; B.classList.add("pics-edit");
+        const bar = document.createElement("div"); bar.id = "pics-done";
+        bar.innerHTML = `<span>Drag to move · corner to resize · &times; to remove</span><button type="button">Done</button>`;
+        B.appendChild(bar);
+        bar.querySelector("button").addEventListener("click", () => {
+          bar.remove(); if (preview) preview.remove();
+          B.classList.remove("pics-edit"); picLayer.hidden = true; setup.style.display = ""; drawPics();
+        });
+      });
+      drawPics();
+    }
+    if (isRecord) picturesSetup();
     const palettePicker = setup.querySelector("#rec-palette");
     try { const saved = localStorage.getItem(PALETTE_LS); if (saved && palettes[saved]) palettePicker.value = saved; } catch (e) {}
     const previewEl = setup.querySelector("#rec-palette-preview");
@@ -3250,13 +3597,28 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // never fly: only what the spider actually zapped goes to the report.
     const zapQ = []; let zapBusy = false;
     function readerSourceVisible(el){
-      if (!el || !el.isConnected) return false;
-      const r = el.getBoundingClientRect();
-      const panel = document.querySelector(".read-side");
-      const p = panel && panel.getBoundingClientRect();
-      const covered = p && getComputedStyle(panel).position === "fixed" && r.right > p.left && r.left < p.right;
+      const r = screenRect(el);
+      if (!r) return false;
+      const {p, fixed} = sidePanel();
+      const covered = fixed && r.right > p.left && r.left < p.right;
       const bottom = covered && p.top > 0 ? Math.min(innerHeight, p.top) : innerHeight;
       return r.bottom >= 0 && r.top < bottom && r.right >= 0 && r.left < innerWidth;
+    }
+    // Where a word is on screen, from the cached word positions and the scroll: a live
+    // getBoundingClientRect after the page changed forced a full layout (and the panel lookup
+    // searched every word span) several times a frame.
+    function screenRect(el){
+      if (!el || !el.isConnected) return null;
+      if (!doc.contains(el)) return el.getBoundingClientRect();
+      const w = wordRect(el), g = docGeo(), top = g.absTop + w.y - state.sy, left = g.left + w.x;
+      return {left, top, right: left + w.w, bottom: top + w.h, width: w.w, height: w.h};
+    }
+    let panelGeo = null;
+    function sidePanel(){
+      if (panelGeo && panelGeo.ep === state.layoutEpoch && panelGeo.ih === innerHeight) return panelGeo;
+      const panel = document.querySelector(".read-side"), p = panel && panel.getBoundingClientRect();
+      panelGeo = {ep: state.layoutEpoch, ih: innerHeight, p, fixed: !!p && getComputedStyle(panel).position === "fixed"};
+      return panelGeo;
     }
     const FLY_MS = 650, ZAP_LAND = 130;
     function flyFrom(el, td, text, obs){
@@ -3270,7 +3632,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const w0 = chip.offsetWidth, t0 = performance.now();
       const step = (now) => {
         const k = Math.min(1, (now - t0) / FLY_MS), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-        const a = el.isConnected ? el.getBoundingClientRect() : s0, b = td.getBoundingClientRect();
+        const a = (el.isConnected && screenRect(el)) || s0, b = td.getBoundingClientRect();
         const x0 = a.left, y0 = a.top, x1 = b.left + b.width / 2 - w0 / 2, y1 = b.top + b.height / 2 - 8;
         const arc = Math.sin(k * Math.PI) * -40;
         chip.style.transform = `translate(${(x1 - x0) * e + (x0 - s0.left)}px, ${(y1 - y0) * e + (y0 - s0.top) + arc}px) scale(${1 + .25 * Math.sin(k * Math.PI)})`;
@@ -3463,9 +3825,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
       const tag = [co.ticker || co.ticker_hint, co.form].filter(Boolean).join(" ");
       hudTimer = setInterval(() => {
+        // scoped lookups: a whole-document query walks every word span (180,000 in JPMorgan's HTML 10-K)
         const figs = liveEl ? liveEl.querySelectorAll(".lr-c .lr-v").length : 0;
-        const obs = document.querySelectorAll("#lr-sigs li").length;
-        const pages = [...document.querySelectorAll(".pdfpage")];
+        const sigs = document.getElementById("lr-sigs"), obs = sigs ? sigs.children.length : 0;
+        const pages = pdfOpen ? pdfOpen.pages.map(pg => pg.box) : [];
         if (!isRecord){
           const bounds = doc.getBoundingClientRect(), side = document.querySelector(".read-side");
           const limit = side && getComputedStyle(side).position === "fixed" ? side.getBoundingClientRect().top : innerHeight;
@@ -3475,7 +3838,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         }
         const mid = innerHeight * (isRecord ? 0.3 : 0.5);
         const i = pages.findIndex(x => { const r = x.getBoundingClientRect(); return r.top <= mid && r.bottom >= mid; });
-        hud.innerHTML = `<b>${esc(tag || "BMG READER")}</b> <span>${figs} figure${figs === 1 ? "" : "s"}</span> <span>${obs} observation${obs === 1 ? "" : "s"}</span>${i >= 0 ? ` <span>p.${i + 1}</span>` : ""}`;
+        const html = `<b>${esc(tag || "BMG READER")}</b> <span>${figs} figure${figs === 1 ? "" : "s"}</span> <span>${obs} observation${obs === 1 ? "" : "s"}</span>${i >= 0 ? ` <span>p.${i + 1}</span>` : ""}`;
+        if (hud.dataset.html !== html){ hud.dataset.html = html; hud.innerHTML = html; }
       }, 200);
     }
 
@@ -3759,26 +4123,52 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       state.highlightPlan = {start,end,targets:routeTargets.length,duration:33,pace};
     }
     startBtn.addEventListener("click", async () => {
+      const idea = setup.querySelector("#rec-format").value === "idea";
+      const clip = idea ? {hook: setup.querySelector("#clip-hook").value.trim(), ticker: setup.querySelector("#clip-ticker").value.trim().toUpperCase(),
+        form: setup.querySelector("#clip-form").value, find: setup.querySelector("#clip-find").value.split(/,\s+|;|\s{2,}/).map(s => s.trim()).filter(Boolean),
+        big: setup.querySelector("#clip-big").value.trim(), small: setup.querySelector("#clip-small").value.trim().replace(/\s*·\s*/g, "\n"),
+        secs: Math.min(30, Math.max(15, +setup.querySelector("#clip-len").value || 20))} : null;
       const highlights = setup.querySelector("#rec-format").value === "highlights";
       const pace = +setup.querySelector("#rec-pace").value || 1.6;
       const previousTempo = state.speedMul || 1;
-      const finishAt = Math.max(5, +setup.querySelector("#rec-finish").value || 115);
+      const finishAt = clip ? clip.secs - 2 : Math.max(5, +setup.querySelector("#rec-finish").value || 115);
       const keySecs = Math.max(0, +setup.querySelector("#rec-keys").value || 0);
       const oneSecs = Math.max(0, +setup.querySelector("#rec-one").value || 0);
       state.recordRenderWidth = setup.querySelector("#rec-quality")?.value === "standard" ? 0 : 1080;
       state.captureQuality = null;
       const capture = setup.querySelector("#rec-capture");
+      if (clip && clip.ticker && !fileIn.files[0]){
+        // the filing is fetched before the screen-share prompt, so a bad ticker never starts a recording
+        const st = setup.querySelector("#clip-st");
+        st.classList.remove("err"); st.textContent = `Loading the latest ${clip.form} for ${clip.ticker} from SEC EDGAR...`; startBtn.disabled = true;
+        try { clip.filing = await loadClipFiling(clip.ticker, clip.form); }
+        catch (e){ st.classList.add("err"); st.textContent = e.message || "Could not load the filing."; startBtn.disabled = false; return; }
+        st.textContent = "";
+      }
       if (capture && capture.checked) await askCapture();          // asked first, while the click still counts as a user gesture
       setup.remove();
       const curtain = document.createElement("div");
       curtain.id = "rec-curtain";
       curtain.innerHTML = `<div style="width:84px;opacity:.9">${BMG_LINE}</div>`;
       B.appendChild(curtain);
+      if (clip) B.classList.add("clip-zoom");                     // before the filing is laid out, so the words are measured zoomed
       document.getElementById("read-run").click();
+      let clipWatch = 0;
       try {
         await wait(() => vis("read-skip"), 50);
         const jb = vis("read-jump");
-        if (jb){
+        const targets = clip ? findClipTargets(clip.find) : null;
+        if (targets){
+          // land a few lines above the first number so it is read, and zapped, a second or two after the intro
+          const top = targets[0].getBoundingClientRect().top;
+          const ws = [...docBody.getElementsByClassName("w")];
+          let anchor = targets[0];
+          for (let i = ws.indexOf(targets[0]); i >= 0; i--){ const r = ws[i].getBoundingClientRect(); if (r.height && top - r.top > innerHeight * 0.3){ anchor = ws[i]; break; } }
+          const y0 = scrollY;
+          await wait(() => window.crawlerJumpTo(anchor), 100, 30000);
+          await wait(() => Math.abs(scrollY - y0) > 40, 100, 15000).catch(() => {});
+          let last = scrollY; await wait(() => { const st = Math.abs(scrollY - last) < 20; last = scrollY; return st; }, 250, 5000).catch(() => {});
+        } else if (jb){
           // lift the curtain only once the view has actually moved to the statements, then settled
           const y0 = scrollY; jb.click();
           await wait(() => scrollY - y0 > innerHeight * 0.5, 100, 15000).catch(() => {});
@@ -3789,18 +4179,53 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         if (state.feet && state.feet.length){
           await settleSpiderPose();
         }
-        if (rec){ refreshCaptureDetails(); rec.start(500); }       // sample the settled window as recording starts
+        let intro = null;
+        if (clip){
+          // the opening: the hook over the paused page for 2 seconds, then the spider at clip speed
+          state.paused = true;
+          const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
+          intro = clipIntro(clip.hook, clip.big, clip.small, co.name || (clip.filing && clip.filing.company) || clip.ticker);
+          state.speedMul = 1.5;
+        }
+        if (rec){ refreshCaptureDetails(); rec.start(500); }       // the clip starts here; sample the settled window as recording starts
+        if (pics.length){ drawPics(); picLayer.hidden = false; }
         if (highlights){ await sleep(2000); startHighlights(pace); }
-        startOverlays();
         if (renderProfile){ renderProfile.frames = []; renderProfile.draws = []; renderProfile.last = 0; }
         curtain.classList.add("out"); setTimeout(() => curtain.remove(), 400);
+        if (intro){
+          await sleep(2000);
+          intro.classList.add("out"); setTimeout(() => intro.remove(), 300);
+          pics.forEach((pc, i) => { if (pc.introOnly){ const d = picLayer.querySelector(`.rp-pic[data-i="${i}"]`); if (d) d.remove(); } });
+          state.paused = false;
+          // the numbers asked for are lit as the spider reaches them (the zap only fires within its reach)
+          const pending = new Set(targets || []);
+          clipWatch = setInterval(() => {
+            for (const el of pending) if (zapTo(el, true, true)){ el.classList.add("found", "pink", "hl-zap"); pending.delete(el); }
+            if (!pending.size) clearInterval(clipWatch);
+          }, 100);
+        }
+        startOverlays();
         // count only time that is not paused
         let left = finishAt * 1000, last = Date.now();
         await wait(() => { const now = Date.now(); const paused = (document.getElementById("ctl-pause") || {}).textContent === "Resume";
                             if (!paused) left -= now - last; last = now; return left <= 0; }, 100);
+        state.recordCamera = null;
+        clearInterval(clipWatch);
+        if (clip){
+          // an idea clip ends on the crawl itself: no findings or summary screens
+          clearInterval(hudTimer);
+          state.paused = true;
+          const blob = await stopCapture();
+          const end = document.createElement("div"); end.id = "rec-end"; B.appendChild(end);
+          finalControls(end, blob);
+          return;
+        }
         await finishRecording(keySecs, oneSecs, highlights);
       } catch (e) {
+        console.error("record mode stopped early:", e);
         state.recordCamera = null;
+        clearInterval(clipWatch);
+        document.getElementById("clip-intro")?.remove();
         curtain.remove();
         const blob = await stopCapture();
         if (blob){ const end = document.createElement("div"); end.id = "rec-end"; B.appendChild(end); finalControls(end, blob); }
@@ -4471,6 +4896,20 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     };
     go();
   });
+
+  // Recording hook (scripts/local/video): land the running walk on an element the way Jump to statements
+  // lands on a page, for HTML filings that have no page boxes. Facts on pages before `page` are marked as
+  // read by the server, as the jump does. Returns false until the walk is running.
+  window.crawlerJumpTo = (el, page) => {
+    if (!el || !el.isConnected || state.walkSkipped || !state.walkState || state.walkState.done || state.scrollPos == null) return false;
+    if (state.live && page){
+      const offs = Object.entries(state.live.plan.fact_pages || {}).filter(([f, p]) => p >= page).map(([f]) => state.live.plan.fact_offsets[f]).filter(x => x != null);
+      if (offs.length) applyLive(state.live.markEarlier(Math.min(...offs)));
+    }
+    const y = el.getBoundingClientRect().top + window.scrollY - innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5 + 40;
+    if (y > state.scrollPos){ state.scrollPos = y; if (state.readerJumpSettled) state.readerJumpSettled(); }
+    return true;
+  };
 
   // Back after a reload: reattach to the last job if the server still has it.
   (async function resume(){
