@@ -806,7 +806,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       renderProfile.longFrame = list.getEntries().slice(-1).map(e => ({duration: e.duration,
         renderStart: e.renderStart, styleAndLayoutStart: e.styleAndLayoutStart,
         scripts: (e.scripts || []).map(s => ({duration: s.duration, forcedStyleAndLayoutDuration: s.forcedStyleAndLayoutDuration,
-          invoker: s.invoker, sourceURL: s.sourceURL, sourceFunctionName: s.sourceFunctionName}))}));
+          invoker: s.invoker, sourceURL: s.sourceURL, sourceFunctionName: s.sourceFunctionName, sourceCharPosition: s.sourceCharPosition}))}));
     }).observe({type: "long-animation-frame", buffered: true});
   }
   function profileFrame(now){
