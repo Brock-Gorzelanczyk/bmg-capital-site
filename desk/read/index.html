@@ -33,7 +33,7 @@
 .found.pink{background:rgba(255,43,214,.22);box-shadow:0 0 10px rgba(255,43,214,.5)}
 .found.org{background:rgba(255,159,28,.22);box-shadow:0 0 10px rgba(255,159,28,.5)}
 .found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
-svg.spider{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
+svg.spider{contain:strict;will-change:transform;position:absolute;left:0;top:0;width:100%;pointer-events:none;overflow:hidden;z-index:3}
 svg.spider .eye{fill:rgba(143,216,255,.55)}
 svg.spider .sight{stroke:#5fe6ff;stroke-width:1.4;stroke-linecap:round}
 svg.spider .body{fill:#05070c;stroke:#3b6cff;stroke-width:2}
@@ -64,7 +64,7 @@ svg.spider .knee{fill:#ff3d9a}
 .w.hl-out{background:transparent!important;color:inherit!important}
 .w.hl-ping{background:rgba(255,45,143,.32);box-shadow:0 0 0 1px #ff2d8f;border-radius:2px}
 .w.hl-bping{background:rgba(39,200,255,.32);box-shadow:0 0 0 1px #27c8ff;border-radius:2px}
-.fxlayer{position:absolute;inset:0;pointer-events:none;z-index:2;will-change:transform}
+.fxlayer{contain:layout style size;position:absolute;inset:0;pointer-events:none;z-index:2}
 .fx{position:absolute;white-space:nowrap;box-sizing:border-box;transform-origin:0 50%;border-radius:0}
 .fx-outline{border:1.5px solid}
 .fx-ink{background:var(--page,#fff);padding:0 2px;font-weight:600}
@@ -101,9 +101,9 @@ svg.spider .knee{fill:#ff3d9a}
 .stage .a{color:#0f5fc7;border-bottom-color:rgba(15,95,199,.4)}
 .stage .found{color:#141414}
 #docbody.orig{font:initial;line-height:normal}
-.pdfpage{position:relative;margin:0 auto 18px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.pdfpage{content-visibility:auto;contain:strict;position:relative;margin:0 auto 18px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .pdfpage canvas{position:absolute;inset:0;width:100%;height:100%}
-.pdftext{position:absolute;inset:0;overflow:hidden;line-height:1;will-change:transform}
+.pdftext{position:absolute;inset:0;overflow:hidden;line-height:1}
 .pdftext .tl{position:absolute;white-space:pre;color:transparent;transform-origin:0 0;font-family:sans-serif}
 .pdftext .w{color:transparent}
 .pdftext .w.hl-ping{background:rgba(255,45,143,.3);color:transparent}
@@ -162,6 +162,11 @@ svg.spider .knee{fill:#ff3d9a}
 #edgar-status{font-size:13px;color:#5d6862}#edgar-status.err{color:#b42318}
 #edgar-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 #edgar-list:empty{display:none}
+.re-watch{padding-top:8px;border-top:1px dashed #e3e3dc}
+#edgar-watch{height:40px;padding:0 16px;border-radius:8px;border:1px solid #0f7d47;background:#fff;color:#0f7d47;font-weight:600;cursor:pointer}
+#edgar-watch.on{background:#b42318;border-color:#b42318;color:#fff}
+.re-since{font-size:13px;color:#5d6862;display:flex;gap:6px;align-items:center}.re-since input{height:32px;border:1px solid #d6d6cf;border-radius:6px;padding:0 6px}
+#edgar-watch-st{font-size:13px;color:#5d6862}#edgar-watch-st.hit{color:#0f7d47;font-weight:600}
 #edgar-list li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border:1px solid #e6e8e4;border-radius:8px;background:#fff;font-size:14px}
 #edgar-list li.re-more{justify-content:center;border-style:dashed;background:transparent}
 #edgar-list li small{display:block;color:#6b6f76;font:12px 'IBM Plex Mono',monospace}
@@ -289,9 +294,74 @@ body.recmode[data-rec-palette] .sig-pop.s-observation,body.recmode[data-rec-pale
 body.recmode[data-rec-palette] .sig-pop .sev.s-observation{background:var(--crawler-main);color:#05070c}
 body.recmode[data-rec-palette] #rec-hud{color:var(--crawler-main);border-color:color-mix(in srgb,var(--crawler-main) 45%,transparent);box-shadow:0 0 14px color-mix(in srgb,var(--crawler-main) 25%,transparent)}
 body.recmode[data-rec-palette] #rec-end h3,body.recmode[data-rec-palette] .rk-one h2 span{color:var(--crawler-main)}
+.clip-idea{border:1px solid #cad2d8;border-radius:8px;padding:10px 12px;margin:10px 0;display:flex;flex-direction:column;gap:6px}
+.clip-idea legend{font-weight:700;padding:0 4px}.clip-idea p{margin:0;font-size:12px;opacity:.8}
+.clip-idea textarea,.clip-idea input[type=text]{width:100%;box-sizing:border-box;padding:7px;border:1px solid #cad2d8;border-radius:6px;font:inherit;color:#111;background:#fff}
+.clip-idea .opt span{display:flex;gap:6px}.clip-st{min-height:1em}.clip-st.err{color:#d93025;opacity:1}
+body.recmode.rec-dark .htmldoc{background:#000}
+body.recmode.rec-dark .htmldoc *:not(.w){background-color:transparent!important}
+body.recmode.rec-dark .htmldoc *{color:#e8e8e8!important;border-color:#5a5a5a!important}
+body.recmode.rec-dark .htmldoc .w:is(.found,.cyanfill,.fillbox,.salmon){color:#001a22!important}
+body.clip-zoom .doc{width:130vw!important;max-width:none!important;margin-left:-4vw!important}
+body.clip-zoom,body.clip-zoom main.read-page{overflow-x:hidden!important}
+.pics-drop{display:flex;flex-direction:column;gap:2px;padding:12px;border:2px dashed #9aa6b0;border-radius:8px;cursor:pointer;text-align:center}
+.pics-drop.over{border-color:var(--crawler-main,#27c8ff);background:rgba(39,200,255,.08)}.pics-drop span{font-size:12px;opacity:.75}
+.pics-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.pics-list li{display:flex;align-items:center;gap:8px;font-size:12px}.pics-list img{width:44px;height:44px;object-fit:cover;border-radius:4px}
+.pics-list li button{margin-left:auto}
+#rec-pics{position:fixed;inset:0;z-index:61;pointer-events:none}
+#rec-pics[hidden]{display:none}
+.rp-pic{position:absolute;touch-action:none}.rp-pic img{display:block;width:100%;height:auto;pointer-events:none;user-select:none}
+body.pics-edit #rec-pics{pointer-events:auto}
+body.pics-edit .rp-pic{outline:2px dashed var(--crawler-main,#6ff4ff);outline-offset:2px;cursor:move}
+.rp-pic .rp-x,.rp-pic .rp-size{display:none}
+body.pics-edit .rp-pic .rp-x{display:block;position:absolute;top:-14px;right:-14px;width:28px;height:28px;border-radius:50%;border:0;background:#ff3da6;color:#fff;font:700 16px/28px sans-serif;cursor:pointer;padding:0}
+body.pics-edit .rp-pic .rp-size{display:block;position:absolute;right:-10px;bottom:-10px;width:22px;height:22px;border-radius:4px;background:var(--crawler-main,#6ff4ff);cursor:nwse-resize}
+#pics-done{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:62;display:flex;gap:8px;align-items:center;background:rgba(0,0,0,.85);color:#fff;padding:10px 14px;border-radius:10px;font:13px sans-serif}
+#pics-done button{font:600 14px sans-serif;padding:8px 14px;border-radius:8px;border:0;cursor:pointer}
+#clip-intro{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.8);color:#fff;font-family:Inter,'IBM Plex Sans',sans-serif;pointer-events:none;transition:opacity .25s}
+#clip-intro.out{opacity:0}
+#clip-intro .ci-h{position:absolute;left:6.5vw;right:6.5vw;top:13vh;font-size:9.1vw;font-weight:900;line-height:1.04;letter-spacing:-.18vw}
+#clip-intro .ci-row{position:absolute;left:6.5vw;right:6.5vw;top:42.7vh;display:flex;gap:4vw;align-items:center}
+#clip-intro .ci-pic{width:43.5vw;height:27.4vw;border-radius:2.8vw;overflow:hidden;flex:none;position:relative;background:linear-gradient(135deg,#0d2a5c,#081631 70%);border:.2vw solid #3a5a96;box-shadow:0 2vw 5vw rgba(0,0,0,.6)}
+#clip-intro .ci-pic img{width:100%;height:100%;object-fit:cover;display:block}
+#clip-intro .ci-chip{position:absolute;left:4vw;top:8.9vw;width:7vw;height:5.4vw;border-radius:1vw;background:linear-gradient(135deg,#e9cf86,#b28f3a)}
+#clip-intro .ci-nm{position:absolute;left:4vw;bottom:3.7vw;font-size:3.1vw;font-weight:700;letter-spacing:.1vw;color:#dfe7f5}
+#clip-intro .ci-big{font-size:10.9vw;font-weight:900;color:var(--crawler-main,#6ff4ff);line-height:.95;letter-spacing:-.28vw}
+#clip-intro .ci-small{font-size:3.6vw;font-weight:700;margin-top:1vw;color:#d8d8d8;white-space:pre-line}
 #rec-palette,#rec-quality,#rec-format,#rec-pace{max-width:220px;padding:7px;border:1px solid #cad2d8;border-radius:6px;background:#fff;color:#111;font:inherit}
 .rec-palette-preview{display:flex;align-items:center;gap:8px;margin:8px 0 16px;font-size:12px;color:#9aa6b1}
+.rec-palette-preview{flex-direction:column;align-items:flex-start;--pm:#6ff4ff;--pa:#ff3da6;--pt:#9fb4ff;--pb:#6ff4ff}
+.rec-palette-preview .cp-swatches{display:flex;align-items:center;gap:8px}
 .rec-palette-preview i{display:inline-block;width:16px;height:16px;border-radius:50%;background:var(--swatch);box-shadow:0 0 9px var(--swatch)}
+.rec-palette-preview .cp-m{--swatch:var(--pm)}.rec-palette-preview .cp-a{--swatch:var(--pa)}.rec-palette-preview .cp-t{--swatch:var(--pt)}
+#new-version{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:#0b0d12;color:#e9eef4;border:1px solid #2fd27a;box-shadow:0 6px 24px rgba(0,0,0,.45);font:14px 'IBM Plex Sans',sans-serif;max-width:calc(100vw - 32px)}
+#new-version button{font:inherit;padding:5px 12px;border-radius:7px;border:0;background:#2fd27a;color:#05070c;cursor:pointer}#new-version .nv-later{background:transparent;color:#9aa6b1;border:1px solid #39434f}
+.cp-stage{position:relative;width:min(100%,460px);aspect-ratio:320/132;border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.08);contain:layout paint;isolation:isolate}
+.cp-layer,.cp-rig{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
+.cp-bg{fill:#0b0d12}.cp-word{fill:#232b36}.cp-num{font:600 11px 'IBM Plex Mono',ui-monospace,monospace;text-anchor:middle;fill:#e9eef4}
+.cp-light .cp-bg{fill:#fff}.cp-light .cp-word{fill:#dfe4e9}.cp-light .cp-num{fill:#111}.cp-light .cp-stage{box-shadow:0 0 0 1px #d7ddd9}
+.cp-hit-m .cp-box{fill:color-mix(in srgb,var(--pm) 38%,transparent);stroke:var(--pm);stroke-width:1.2}
+.cp-hit-a .cp-box{fill:color-mix(in srgb,var(--pa) 38%,transparent);stroke:var(--pa);stroke-width:1.2}
+.cp-boxglow{fill:none;stroke-width:5;opacity:.45}.cp-hit-m .cp-boxglow{stroke:var(--pm)}.cp-hit-a .cp-boxglow{stroke:var(--pa)}
+.cp-legline{fill:none;stroke:var(--pm);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.cp-joint{fill:var(--pa)}
+.cp-mesh{stroke:var(--pt);stroke-width:1.1;opacity:.75}.cp-silk{stroke:var(--pt);stroke-width:1;opacity:.6}
+.cp-body{fill:#05070c;stroke:var(--pb);stroke-width:2}.cp-head{fill:var(--pm)}
+.cp-zapline{stroke-width:1.8;stroke-linecap:round;stroke-dasharray:4 5}.cp-zapglow{stroke-width:5;stroke-linecap:round;opacity:.28}
+.cp-zm{stroke:var(--pm)}.cp-za{stroke:var(--pa)}
+/* Only transform and opacity move: composited, no repaint. Origin = the spider's body center. */
+.cp-rig,.cp-legs,.cp-zap,.cp-glow{will-change:transform,opacity}
+.cp-legs{transform-origin:50% 43.94%}
+.cp-live .cp-rig{animation:cp-bob 1.6s ease-in-out infinite}
+.cp-live .cp-legs-a{animation:cp-step .8s ease-in-out infinite}.cp-live .cp-legs-b{animation:cp-step .8s ease-in-out infinite reverse}
+.cp-live .cp-zap-m{animation:cp-zap 1.2s ease-in-out infinite}.cp-live .cp-zap-a{animation:cp-zap 1.2s ease-in-out -.6s infinite}
+.cp-live .cp-glow{animation:cp-glow 1.8s ease-in-out infinite}
+@keyframes cp-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.2%)}}
+@keyframes cp-step{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
+@keyframes cp-zap{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes cp-glow{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion:reduce){.cp-live :is(.cp-rig,.cp-legs,.cp-zap,.cp-glow){animation:none}}
 #rec-eye{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:25}
 #rec-hud{position:fixed;top:calc(100vh - var(--rec-h) - 40px);left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;white-space:nowrap;font:600 12px 'IBM Plex Mono',monospace;color:#6ff4ff;background:rgba(0,0,0,.72);border:1px solid rgba(111,244,255,.45);border-radius:20px;padding:5px 12px;box-shadow:0 0 14px rgba(111,244,255,.25)}
 #rec-hud b{color:#fff;margin-right:4px}#rec-hud span{margin-left:8px}
@@ -508,7 +578,7 @@ body.readerfx[data-rec-palette] #rec-end h3,body.readerfx[data-rec-palette] .rk-
 body.readerfx.rec-dark .stage,body.readerfx.rec-dark #doc,body.readerfx.rec-dark #docbody{background:#000!important}
 body.readerfx .sig-pop span:not(.sev),body.recmode .sig-pop span:not(.sev){color:#cbd5e1}
 #reader-appearance{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:12px 0 18px;padding:12px;border:1px solid #d7ddd9;border-radius:9px;font:14px 'IBM Plex Sans',sans-serif}
-#reader-appearance .opt{display:flex;align-items:center;gap:8px}#reader-appearance .rec-palette-preview{margin:0;color:#65716b}
+#reader-appearance .opt{display:flex;align-items:center;gap:8px}#reader-appearance .rec-palette-preview{margin:0;color:#65716b;order:3;flex-basis:100%}
 body.readerfx .lr-v{font-size:15px}body.readerfx .lr-t td{padding:3px 5px}
 @media(max-width:900px){body.readerfx .read-side{max-height:28vh!important;box-sizing:border-box}body.readerfx .read-side.collapsed{max-height:44px!important}body.readerfx .read-grid{padding-bottom:30vh}}
 
@@ -564,6 +634,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   <h2 id="edgar-h">Load from SEC EDGAR</h2>
   <div class="re-row"><input id="edgar-ticker" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="Ticker, e.g. AMZN" aria-label="Ticker to look up on SEC EDGAR"><button id="edgar-find" type="button">Find filings</button><span id="edgar-status" role="status"></span></div>
   <ol id="edgar-list"></ol>
+  <div class="re-row re-watch" id="edgar-watch-row" hidden>
+    <button id="edgar-watch" type="button">Watch for the next filing</button>
+    <label class="re-since">Also count filings since <input id="edgar-since" type="date"></label>
+    <span id="edgar-watch-st" role="status"></span>
+  </div>
 </section>
 <section class="read-library" id="read-library" hidden aria-labelledby="lib-h">
   <div class="rl-head"><h2 id="lib-h">My reads</h2><span id="lib-count"></span></div>
@@ -767,12 +842,61 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     factBuffer:{}, lastRenderedCount:0, pendingRenderDoc:null,
     currentHost:"", currentType:"", currentPub:"", loadToken:0, docQueue:[]};
 
+  // Opt-in timing evidence for local rendering investigations; no change to the walk.
+  const renderProfile = /[?&]profile=1(?:&|$)/.test(location.search)
+    ? {frames: [], draws: [], last: 0, updated: 0} : null;
+  if (renderProfile && typeof PerformanceObserver !== "undefined" && PerformanceObserver.supportedEntryTypes?.includes("long-animation-frame")){
+    new PerformanceObserver(list => {
+      renderProfile.longFrame = list.getEntries().slice(-1).map(e => ({duration: e.duration,
+        renderStart: e.renderStart, styleAndLayoutStart: e.styleAndLayoutStart,
+        scripts: (e.scripts || []).map(s => ({duration: s.duration, forcedStyleAndLayoutDuration: s.forcedStyleAndLayoutDuration,
+          invoker: s.invoker, sourceURL: s.sourceURL, sourceFunctionName: s.sourceFunctionName}))}));
+    }).observe({type: "long-animation-frame", buffered: true});
+  }
+  function profileFrame(now){
+    if (!renderProfile) return;
+    const p = renderProfile;
+    if (!walking() || state.paused || !state.feet.length || document.hidden || document.getElementById("rec-curtain") || document.getElementById("rec-end")){ p.last = 0; return; }
+    if (p.last) p.frames.push(now - p.last);
+    p.last = now;
+    if (p.frames.length > 600) p.frames.shift();
+    if (now - p.updated < 1000 || !p.frames.length) return;
+    p.updated = now;
+    let out = document.getElementById("crawler-performance");
+    if (!out){ out = document.createElement("output"); out.id = "crawler-performance"; out.hidden = true; document.body.appendChild(out); }
+    const values = p.frames.slice().sort((a,b) => a-b);
+    const mean = a => a.reduce((sum,x) => sum+x,0) / Math.max(1,a.length);
+    const canvases = [...docBody.querySelectorAll("canvas")];
+    out.textContent = JSON.stringify({samples: values.length, rafFps: +(1000/mean(values)).toFixed(1),
+      frameP50: +values[Math.floor((values.length-1)*.5)].toFixed(1),
+      frameP95: +values[Math.floor((values.length-1)*.95)].toFixed(1),
+      over50ms: values.filter(x => x>50).length, drawMeanMs: +mean(p.draws).toFixed(2),
+      phases: p.phases, longFrame: p.longFrame, svgHeight: spiderSvg.getAttribute("height"), words: docBody.querySelectorAll(".w").length,
+      canvasCount: canvases.length, canvasPixels: canvases.reduce((n,c)=>n+c.width*c.height,0)});
+  }
+
   function escapeHTML(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
   function fmtDate(iso){if(!iso) return "";const d=new Date(iso);return isNaN(d)?iso:d.toLocaleString("en-US",{timeZone:"America/Chicago",month:"short",day:"2-digit",hour:"2-digit",minute:"2-digit"});}
   async function fetchJSON(url){try{const r=await fetch(url,{cache:"no-store"});if(!r.ok) throw new Error(r.status);return await r.json();}catch(e){return {error:String(e)};}}
   function setStatus(s){statusEl.innerHTML = s;}
 
-  function sizeSvg(){const r=doc.getBoundingClientRect(); spiderSvg.setAttribute("viewBox",`0 0 ${r.width} ${r.height}`); spiderSvg.setAttribute("width",r.width); spiderSvg.setAttribute("height",r.height);}
+  function spiderWindow(width, height, scrollTop, viewportHeight){
+    const h = Math.min(height, viewportHeight + 256);
+    const top = Math.max(0, Math.min(height - h, Math.floor(scrollTop - 128)));
+    return {width, height: h, top};
+  }
+  function sizeSvg(){
+    // Clip the drawing surface to the viewport, keeping all gait coordinates
+    // in document space. A full 10-K otherwise repaints a huge SVG every frame.
+    const g = docGeo(), v = spiderWindow(g.width, g.height, state.sy - g.absTop, innerHeight);
+    const key = `${v.width} ${v.height} ${v.top}`;
+    if (state.svgWindow === key) return;
+    state.svgWindow = key;
+    spiderSvg.style.top = v.top + "px";
+    spiderSvg.style.height = v.height + "px";
+    spiderSvg.setAttribute("viewBox", `0 ${v.top} ${v.width} ${v.height}`);
+    spiderSvg.setAttribute("width", v.width); spiderSvg.setAttribute("height", v.height);
+  }
 
   function clearSpider(){
     spiderSvg.innerHTML = "";
@@ -843,8 +967,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     hd.setAttribute("cx", clampN(hx));
     hd.setAttribute("cy", clampN(hy));
     // Keep the body on top of legs and threads.
-    spiderSvg.appendChild(b);
-    spiderSvg.appendChild(hd);
+    if (spiderSvg.lastElementChild !== hd || hd.previousElementSibling !== b){
+      spiderSvg.appendChild(b); spiderSvg.appendChild(hd);
+    }
   }
 
   function finite(v){return typeof v === "number" && isFinite(v);}
@@ -1072,7 +1197,16 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
   // camera first: scrolling while the layout is still clean avoids a forced
   // re-layout of the whole document every frame
-  function drawSpider(){ state.drawnAt = performance.now(); camera(); drawSilk(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawZaps(); drawBody(); }
+  function drawSpider(){
+    const start = performance.now(); state.drawnAt = start;
+    if (renderProfile){
+      renderProfile.phases = {};
+      for (const fn of [camera, sizeSvg, drawSilk, drawLegs, redrawThreads, drawBeams, drawEye, drawZaps, drawBody]){
+        const at = performance.now(); fn(); renderProfile.phases[fn.name] = +(performance.now()-at).toFixed(2);
+      }
+    } else { camera(); sizeSvg(); drawSilk(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawZaps(); drawBody(); }
+    if (renderProfile){ renderProfile.draws.push(performance.now()-start); if (renderProfile.draws.length>600) renderProfile.draws.shift(); }
+  }
   // Keep the legs flexing and the eye scanning between steps too.
   // ---- crawl: body creeps continuously; legs step one or two at a time
   const CRAWL_BASE = 68;   // px/s per unit at 1x (~2 lines/s) across the screen; riding the scroll does the rest
@@ -1175,6 +1309,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
   (function crawl(now){
     requestAnimationFrame(crawl);
+    profileFrame(now);
     const dt = Math.min(0.05, (now - (state.lastCrawl || now)) / 1000);
     state.lastCrawl = now;
     if (state.paused || !state.feet || !state.feet.length) return;
@@ -1676,8 +1811,12 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // Only words on rendered lines near the body: scanning every span of
     // a long filing on every step would stall the animation.
     if (state.rows && state.rows.length){
-      const by = state.body.y, out = [];
-      for (const r of state.rows){ if (Math.abs(r.y - by) <= HI_REACH * 1.7 + 30) out.push(...r.els); }
+      // rows are sorted by y: binary search to the first row in reach, then take rows until out of reach
+      // (the same rows, in the same order, as checking every row of a 30,000-line filing)
+      const by = state.body.y, out = [], rows = state.rows, span = HI_REACH * 1.7 + 30;
+      let lo = 0, hi = rows.length;
+      while (lo < hi){ const mid = (lo + hi) >> 1; if (rows[mid].y < by - span) lo = mid + 1; else hi = mid; }
+      for (let i = lo; i < rows.length && rows[i].y <= by + span; i++) out.push(...rows[i].els);
       if (h1.textContent.trim()) out.unshift(h1);
       return out;
     }
@@ -1966,6 +2105,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // no mouse hit-testing over tens of thousands of word spans while the
     // page scrolls itself (restored when the walk ends)
     doc.style.pointerEvents = "none";
+    holdHtmlBlocks(docBody.querySelector(".htmldoc"));
     bumpLayout(); geo = null;      // the document is fully laid out now: measure it afresh
     clearTimeout(state.walkTimer);
     const rows = visualRows();
@@ -2115,7 +2255,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (!found) return;
     if (state.onFound) state.onFound(ev, found);
     found.classList.add("found", familyOf(ev.label));
-    bumpLayout();
+    // Original PDF/HTML fills inherit the filing font and never resize words.
+    if (!docBody.classList.contains("orig")) bumpLayout();
     // Move the body so the value sits TARGET_REACH px away (never under
     // the body), then plant a foot on it.
     const c = elCenter(found);
@@ -2239,6 +2380,52 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
 
 
 
+  // ---- crawler color preview: a small spider on a strip of page, drawn in the chosen colors ----
+  function crawlerPreviewSvg(){
+    // Stacked layers that only move with transform and opacity, so the GPU animates them
+    // without repainting and the preview never competes with the spider for frames.
+    // Everything is vector: sharp at any screen density, 4K included.
+    const W = 320, H = 132, bx = 160, by = 58;
+    const svg = (cls, body) => `<svg class="cp-layer ${cls}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${body}</svg>`;
+    const words = [];
+    [16, 34, 52, 70].forEach((y, row) => {
+      let x = 14 + (row % 2) * 9;
+      for (let k = 0; x < W - 20; k++){
+        const w = 14 + ((row * 7 + k * 13) % 5) * 7;
+        words.push(`<rect class="cp-word" x="${x}" y="${y - 5}" width="${Math.min(w, W - 14 - x)}" height="7" rx="2"/>`);
+        x += w + 7;
+      }
+    });
+    const ny = 104;
+    const hits = [{x: 26, w: 52, t: "12.4%", c: "a"}, {x: 226, w: 70, t: "$80.9B", c: "m"}];
+    const plain = [{x: 112, w: 30}, {x: 150, w: 44}];
+    const box = (n, cls) => `<rect class="${cls}" x="${n.x - 4}" y="${ny - 13}" width="${n.w + 8}" height="18" rx="3"/>`;
+    const page = `<rect class="cp-bg" x="0" y="0" width="${W}" height="${H}" rx="10"/>${words.join("")}`
+      + plain.map(n => `<rect class="cp-word" x="${n.x}" y="${ny - 8}" width="${n.w}" height="7" rx="2"/>`).join("")
+      + hits.map(n => `<g class="cp-hit-${n.c}">${box(n, "cp-box")}<text class="cp-num" x="${n.x + n.w / 2}" y="${ny}">${n.t}</text></g>`).join("");
+    const glow = hits.map(n => `<g class="cp-hit-${n.c}">${box(n, "cp-boxglow")}</g>`).join("");
+    const feet = [[204, 22], [220, 48], [214, 78], [196, 94], [116, 22], [100, 48], [106, 78], [124, 94]];
+    const leg = ([fx, fy]) => {
+      const mx = (bx + fx) / 2, my = (by + fy) / 2, dx = fx - bx, dy = fy - by, len = Math.hypot(dx, dy);
+      const kx = (mx + dx / len * 10).toFixed(1), ky = (my + dy / len * 10 - 12).toFixed(1);
+      return `<polyline class="cp-legline" points="${bx},${by} ${kx},${ky} ${fx},${fy}"/><circle class="cp-joint" cx="${kx}" cy="${ky}" r="2.6"/><circle class="cp-joint" cx="${fx}" cy="${fy}" r="3.2"/>`;
+    };
+    const legsA = feet.filter((_, i) => i % 2 === 0).map(leg).join(""), legsB = feet.filter((_, i) => i % 2).map(leg).join("");
+    const mesh = [[0, 1], [1, 2], [2, 3], [4, 5], [5, 6], [6, 7], [0, 4]].map(([a, b]) =>
+      `<line class="cp-mesh" x1="${feet[a][0]}" y1="${feet[a][1]}" x2="${feet[b][0]}" y2="${feet[b][1]}"/>`).join("");
+    const hx = bx, hy = by + 21;
+    const zap = (c, x2) => `<line class="cp-zapglow cp-z${c}" x1="${hx}" y1="${hy}" x2="${x2}" y2="${ny - 13}"/><line class="cp-zapline cp-z${c}" x1="${hx}" y1="${hy}" x2="${x2}" y2="${ny - 13}"/>`;
+    return `<div class="cp-stage" role="img" aria-label="Preview of the crawler in these colors">
+      ${svg("cp-page", page)}${svg("cp-glow", glow)}
+      <div class="cp-rig">
+        ${svg("cp-web", `<line class="cp-silk" x1="${bx}" y1="${by - 18}" x2="${bx}" y2="-20"/>${mesh}`)}
+        ${svg("cp-zap cp-zap-a", zap("a", 52))}${svg("cp-zap cp-zap-m", zap("m", 261))}
+        ${svg("cp-legs cp-legs-a", legsA)}${svg("cp-legs cp-legs-b", legsB)}
+        ${svg("cp-core", `<rect class="cp-body" x="${bx - 7}" y="${by - 17}" width="14" height="34" rx="3"/><circle class="cp-head" cx="${hx}" cy="${hy}" r="4.6"/>`)}
+      </div>
+    </div>`;
+  }
+
   // ---- original-format rendering --------------------------------------
   function wrapWords(text){
     return text.split(/(\s+)/).map(t => (!t || /^\s+$/.test(t)) ? escapeHTML(t) : `<span class="w">${escapeHTML(t)}</span>`).join("");
@@ -2263,6 +2450,12 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     o.pdf.destroy();
   }
 
+  function pdfPixelRatio(nativeRatio, captureWidth, viewportWidth){
+    // Raster detail follows actual display/capture pixels; CSS word geometry
+    // stays unchanged. Bound memory on very small recording windows.
+    return Math.min(4, Math.max(1, nativeRatio || 1, (captureWidth || 0) / Math.max(1, viewportWidth)));
+  }
+
   async function renderPdf(file, into){
     // Each page: a canvas drawn as the spider nears it, plus an invisible
     // word layer positioned exactly over the printed text. A page's canvas
@@ -2273,7 +2466,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const data = new Uint8Array(await file.arrayBuffer());
     const pdf = await pdfjs.getDocument({data, isEvalSupported: false}).promise;
     const width = Math.max(320, into.clientWidth || doc.clientWidth - 56);
-    const pages = [];
+    const pages = [], textRuns = [], fragment = document.createDocumentFragment();
     const maxPages = Math.min(pdf.numPages, 120);
     for (let n = 1; n <= maxPages; n++){
       const page = await pdf.getPage(n);
@@ -2284,7 +2477,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       box.style.width = vp.width + "px"; box.style.height = vp.height + "px";
       const layer = document.createElement("div"); layer.className = "pdftext";
       box.appendChild(layer);
-      into.appendChild(box);
+      fragment.appendChild(box);
       const tc = await page.getTextContent();
       const spans = [];
       for (const it of tc.items){
@@ -2298,22 +2491,27 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         layer.appendChild(sp);
         spans.push([sp, it.width * vp.scale]);
       }
-      // Batch: read every natural width, then stretch each run to the
-      // printed width so the word boxes sit on the real glyphs.
-      const ws = spans.map(([sp]) => sp.getBoundingClientRect().width);
-      spans.forEach(([sp, target], k) => { if (ws[k] > 0 && target > 0) sp.style.transform = `scaleX(${target / ws[k]})`; });
+      textRuns.push(...spans);
       pages.push({page, vp, box, drawn: false, canvas: null, task: null});
     }
+    // Insert once, measure all runs together, then apply glyph alignment.
+    // Measuring after every page repeatedly lays out the growing full filing.
+    into.appendChild(fragment);
+    const widths = textRuns.map(([sp]) => sp.getBoundingClientRect().width);
+    textRuns.forEach(([sp, target], k) => { if (widths[k] > 0 && target > 0) sp.style.transform = `scaleX(${target / widths[k]})`; });
     if (pdf.numPages > maxPages){
       const more = document.createElement("p"); more.className = "muted";
       more.textContent = `Showing the first ${maxPages} of ${pdf.numPages} pages.`;
       into.appendChild(more);
     }
+    const sourceTop = doc.getBoundingClientRect().top;
+    for (const pg of pages) pg.docY = pg.box.getBoundingClientRect().top - sourceTop;
     const draw = async (pg) => {
       if (pg.drawn) return; pg.drawn = true;
-      // draw at the screen's pixel density (CSS keeps the box size), so text stays sharp
-      // on retina screens and in 1.5x recordings instead of being upscaled from 1x
-      const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+      // Match native/capture pixels without moving the invisible word layer.
+      const captureWidth = document.body.classList.contains("recmode")
+        ? (state.captureQuality?.width || state.recordRenderWidth || 0) : 0;
+      const dpr = pdfPixelRatio(window.devicePixelRatio, captureWidth, innerWidth);
       const c = document.createElement("canvas");
       c.width = Math.floor(pg.vp.width * dpr); c.height = Math.floor(pg.vp.height * dpr);
       pg.box.insertBefore(c, pg.box.firstChild);
@@ -2337,8 +2535,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       sweepQueued = false;
       for (const pg of pages){
         if (!pg.drawn) continue;
-        const r = pg.box.getBoundingClientRect();
-        if (r.bottom < -4000 || r.top > innerHeight + 4000) drop(pg);
+        // Fixed PDF page boxes share the cached document origin. Reading
+        // their DOM rects after the spider writes would force another layout.
+        const top = docTop() + pg.docY;
+        if (top + pg.vp.height < -4000 || top > innerHeight + 4000) drop(pg);
       }
     };
     const onScroll = () => { if (!sweepQueued){ sweepQueued = true; requestAnimationFrame(sweep); } };
@@ -2376,6 +2576,46 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     into.appendChild(wrap);
     fitHtml(wrap);
   }
+  // HTML filings are one long page of word spans (180,000 in JPMorgan's 10-K), so every frame painted and
+  // layered all of it: 1.7 fps. Before the walk measures the words, each block box of the filing that keeps
+  // its exact layout under containment is set to content-visibility:auto with its measured height, so the
+  // browser skips the blocks off screen. A block whose words move under containment (a child margin that
+  // collapsed through its edge, overflow) is left alone. The walk then measures every word with the blocks
+  // in place, so cached word positions stay true whether a block is on screen or skipped.
+  function holdHtmlBlocks(wrap){
+    if (!wrap || !wrap.isConnected || wrap.dataset.held) return;
+    wrap.dataset.held = "1";
+    const z = parseFloat(wrap.style.zoom) || 1, MAXH = 1500, units = [];
+    (function walk(el){
+      for (const k of el.children){
+        const cs = getComputedStyle(k), h = k.getBoundingClientRect().height;
+        if (k.tagName === "DIV" && cs.display === "block" && cs.position === "static" && cs.float === "none" && h > 0 && h <= MAXH) units.push(k);
+        else if (k.children.length && h > 0) walk(k);
+      }
+    })(wrap);
+    const words = k => k.getElementsByClassName("w");
+    const read = k => {
+      const r = k.getBoundingClientRect(), ws = words(k), f = ws[0], l = ws[ws.length - 1];
+      return {h: r.height, f: f ? f.getBoundingClientRect().top - r.top : 0, l: l ? l.getBoundingClientRect().top - r.top : 0,
+        over: k.scrollHeight > k.clientHeight + 1 || k.scrollWidth > k.clientWidth + 1};
+    };
+    const before = units.map(read);
+    units.forEach((k, i) => { if (!before[i].over) k.style.contain = "layout paint"; });
+    const after = units.map(read);
+    units.forEach(k => { k.style.contain = ""; });
+    units.forEach((k, i) => {
+      const b = before[i], a = after[i];
+      if (b.over || a.over || Math.abs(a.h - b.h) > 0.01 || Math.abs(a.f - b.f) > 0.01 || Math.abs(a.l - b.l) > 0.01) return;
+      k.style.containIntrinsicSize = `auto none auto ${b.h / z}px`;
+      k.style.contentVisibility = "auto";
+      k.classList.add("cv-held");
+    });
+  }
+  function releaseHtmlBlocks(wrap){
+    if (!wrap || !wrap.dataset.held) return;
+    delete wrap.dataset.held;
+    for (const k of [...wrap.getElementsByClassName("cv-held")]){ k.style.contentVisibility = ""; k.style.containIntrinsicSize = ""; k.classList.remove("cv-held"); }
+  }
   // A filing's own layout can be wider than the reader (Amazon's June 2026 10-Q statements need 1,440 px).
   // Scale the whole filing down with CSS zoom so every column is visible. The words stay real text, laid out
   // at the smaller size, so the spider's footholds, scrolling and page height stay true. Runs before the
@@ -2388,12 +2628,18 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     wrap.style.zoom = z === 1 ? "" : z.toFixed(4);
     wrap.dataset.fit = z.toFixed(3);
   }
+  let rehold = 0;
   addEventListener("resize", () => {
     const w = document.querySelector("#doc .htmldoc");
     if (!w) return;
-    const before = w.dataset.fit;
+    const before = w.dataset.fit, held = !!w.dataset.held || !!rehold;
+    releaseHtmlBlocks(w);       // measure the filing's own width, then hold the blocks again once resizing stops
     fitHtml(w);
-    if (w.dataset.fit !== before){ bumpLayout(); geo = null; }
+    if (held){
+      clearTimeout(rehold);
+      rehold = setTimeout(() => { rehold = 0; if (w.isConnected){ holdHtmlBlocks(w); bumpLayout(); geo = null; } }, 400);
+    }
+    if (w.dataset.fit !== before || held){ bumpLayout(); geo = null; }
   });
 
   // ---- upload, Run, watch the spider, then a summary ----
@@ -2407,11 +2653,37 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   const runRead = document.getElementById("read-run");
   // The server says how big a file it takes (10 MB public, 50 MB on the owner's Mac).
   const READ_MAX = {bytes: 10 * 1024 * 1024, local: false, mb(){ return Math.round(this.bytes / 1048576); }};
+  // On the owner's Mac, start-reader.command pulls new versions from GitHub every 2 minutes.
+  // The page picks them up by itself: it reloads when nothing is being read, and otherwise
+  // offers a Reload button so a crawl or recording in progress is never cut off.
+  function watchForNewVersion(){
+    let tag = null, shown = false;
+    const busy = () => !!document.querySelector("svg.spider rect.body") || (document.body.classList.contains("recmode") && !document.getElementById("rec-setup")?.isConnected);
+    const check = async () => {
+      let t = null;
+      try { const r = await fetch(location.pathname, {method: "HEAD", cache: "no-store"}); t = r.ok && r.headers.get("etag"); } catch (e) { return; }
+      if (!t) return;
+      if (tag === null){ tag = t; return; }
+      if (t === tag) return;
+      if (!busy()){ location.reload(); return; }
+      if (shown) return;
+      shown = true;
+      const bar = document.createElement("div");
+      bar.id = "new-version";
+      bar.innerHTML = `New version of the Crawler is ready. <button type="button">Reload</button> <button type="button" class="nv-later">Later</button>`;
+      bar.querySelector("button").addEventListener("click", () => location.reload());
+      bar.querySelector(".nv-later").addEventListener("click", () => bar.remove());
+      document.body.appendChild(bar);
+    };
+    check(); setInterval(check, 20000);
+  }
+
   fetch("/api/read/limits", {cache: "no-store"}).then(r => r.ok ? r.json() : null).then(j => {
     if (!j || !j.max_bytes) return;
     READ_MAX.bytes = j.max_bytes; READ_MAX.local = !!j.local;
     const el = document.getElementById("read-max"); if (el) el.textContent = READ_MAX.mb();
     document.dispatchEvent(new CustomEvent("bmg-read-limits"));
+    if (READ_MAX.local) try { watchForNewVersion(); } catch (e) { /* a failed watcher must never stop the rest of setup */ }
     if (READ_MAX.local){
       const privacy = document.querySelector(".read-privacy");
       if (privacy) privacy.textContent = "On this Mac, the crawler saves each completed file and report in My reads so you can reopen them after a reload or server restart. Saved reads stay on this Mac; the app does not automatically delete them. Nothing is saved to the vault unless the owner presses Save with the owner key.";
@@ -2483,13 +2755,14 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       if (!t){ say("Enter a ticker, for example AMZN.", true); return; }
       find.disabled = true; list.innerHTML = ""; say("Looking up " + t + " on SEC EDGAR...");
       try {
-        const r = await fetch("/api/edgar/filings?ticker=" + encodeURIComponent(t), {cache: "no-store"});
+        const r = await fetch("/api/edgar/filings?earnings=1&ticker=" + encodeURIComponent(t), {cache: "no-store"});
         const j = await r.json();
         if (!r.ok){ say(j.error || "SEC EDGAR lookup failed.", true); return; }
         found = j;
         if (!j.filings.length){ say(`${j.company} has no 10-K or 10-Q in its recent filings.`, true); return; }
         say(`${j.company} · CIK ${j.cik}`);
-        list.innerHTML = j.filings.map((f, i) => `<li${i >= 6 ? " hidden" : ""}><span><b>${esc(f.form)}</b>${f.period ? " · period ended " + esc(f.period) : ""}<small>filed ${esc(f.filed)} · ${esc(f.accession)}</small></span><button type="button" data-i="${i}">Read</button></li>`).join("")
+        watchRow.hidden = false;
+        list.innerHTML = j.filings.map((f, i) => `<li${i >= 6 ? " hidden" : ""}><span><b>${esc(f.form)}</b>${f.period && !/^8-K/.test(f.form) ? " · period ended " + esc(f.period) : ""}<small>filed ${esc(f.filed)} · ${esc(f.accession)}</small></span><button type="button" data-i="${i}">Read</button></li>`).join("")
           + (j.filings.length > 6 ? `<li class="re-more"><button type="button" data-more="1">Show ${j.filings.length - 6} older</button></li>` : "");
       } catch (e){ say("Could not reach the local server.", true); }
       finally { find.disabled = false; }
@@ -2499,7 +2772,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     list.addEventListener("click", async e => {
       if (e.target.closest("button[data-more]")){ list.querySelectorAll("li[hidden]").forEach(li => { li.hidden = false; }); e.target.closest("li").remove(); return; }
       const b = e.target.closest("button[data-i]"); if (!b || !found) return;
-      const f = found.filings[+b.dataset.i];
+      readFiling(found.filings[+b.dataset.i]);
+    });
+    async function readFiling(f){
       list.querySelectorAll("button").forEach(x => { x.disabled = true; });
       say(`Downloading ${f.form} filed ${f.filed} from SEC EDGAR...`);
       try {
@@ -2517,6 +2792,54 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         runRead.click();
       } catch (x){ say("Could not reach the local server.", true); }
       finally { list.querySelectorAll("button").forEach(x => { x.disabled = false; }); }
+    }
+
+    // ---- earnings watch: check EDGAR every minute; the first new filing is loaded and read at once ----
+    const watchRow = document.getElementById("edgar-watch-row"), watchBtn = document.getElementById("edgar-watch");
+    const sinceIn = document.getElementById("edgar-since"), wst = document.getElementById("edgar-watch-st");
+    let watch = null;
+    const wsay = (t, hit) => { wst.textContent = t; wst.classList.toggle("hit", !!hit); };
+    function stopWatch(msg){
+      if (watch) clearInterval(watch.timer);
+      watch = null; watchBtn.classList.remove("on"); watchBtn.textContent = "Watch for the next filing";
+      if (msg) wsay(msg);
+    }
+    function alarm(text){
+      try { if (window.Notification && Notification.permission === "granted") new Notification("BMG Crawler: new filing", {body: text}); } catch (e) {}
+      try {
+        const ac = new (window.AudioContext || window.webkitAudioContext)();
+        [0, 0.25, 0.5].forEach(t0 => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 880; g.gain.value = 0.15;
+          o.connect(g); g.connect(ac.destination); o.start(ac.currentTime + t0); o.stop(ac.currentTime + t0 + 0.15); });
+      } catch (e) {}
+      const base = document.title; let n = 0;
+      const flash = setInterval(() => { document.title = (n++ % 2) ? base : "NEW FILING: " + text; if (n > 20){ clearInterval(flash); document.title = base; } }, 700);
+    }
+    async function poll(){
+      if (!watch) return;
+      try {
+        const r = await fetch(`/api/edgar/filings?fresh=1&earnings=1&ticker=${encodeURIComponent(watch.ticker)}`, {cache: "no-store"});
+        const j = await r.json();
+        if (!r.ok){ wsay(`Watching ${watch.ticker}: SEC EDGAR did not answer at ${new Date().toLocaleTimeString()}; trying again in a minute.`); return; }
+        const fresh = j.filings.filter(f => !watch.seen.has(f.accession) || (watch.since && f.filed >= watch.since));
+        if (!fresh.length){ wsay(`Watching ${watch.ticker} · checked ${new Date().toLocaleTimeString()} · nothing new yet (checks every minute; keep this tab open and the Mac awake)`); return; }
+        const f = fresh[0];
+        stopWatch();
+        wsay(`New: ${watch_t(j, f)}. Reading it now.`, true);
+        alarm(watch_t(j, f));
+        found = j;
+        readFiling(f);
+      } catch (e){ wsay(`Watching ${watch.ticker}: the local server did not answer at ${new Date().toLocaleTimeString()}; trying again in a minute.`); }
+    }
+    const watch_t = (j, f) => `${j.ticker} ${f.form} filed ${f.filed}`;
+    watchBtn.addEventListener("click", () => {
+      if (watch){ stopWatch("Stopped watching."); return; }
+      if (!found){ wsay("Find a ticker's filings first."); return; }
+      try { if (window.Notification && Notification.permission === "default") Notification.requestPermission(); } catch (e) {}
+      watch = {ticker: found.ticker, seen: new Set(found.filings.map(f => f.accession)), since: sinceIn.value || "",
+               timer: setInterval(poll, 60000)};
+      watchBtn.classList.add("on"); watchBtn.textContent = "Stop watching";
+      wsay(`Watching ${watch.ticker}...`);
+      poll();
     });
   })();
   fileIn.addEventListener("change", () => pick(fileIn.files[0]));
@@ -2917,8 +3240,19 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       gold: {name: "Gold rush", main: "#ffd23f", accent: "#3dc9ff", trail: "#fff1a8"},
       toxic: {name: "Toxic green", main: "#39ff6a", accent: "#b06bff", trail: "#a8ffbf"},
       tron: {name: "Grid teal + orange", main: "#00ffd5", accent: "#ff7a1a", trail: "#7dfff0"},
-      bubblegum: {name: "Bubblegum ice", main: "#ff8fd1", accent: "#8fe9ff", trail: "#ffd1ec"}
+      bubblegum: {name: "Bubblegum ice", main: "#ff8fd1", accent: "#8fe9ff", trail: "#ffd1ec"},
+      ticker: {name: "Ticker green + red", main: "#00e676", accent: "#ff3b5c", trail: "#b9f6ca"},
+      terminal: {name: "Terminal amber", main: "#ffa028", accent: "#fff3d6", trail: "#ff7a00"},
+      chrome: {name: "Chrome silver", main: "#e8eef5", accent: "#39d5ff", trail: "#8d9bab"},
+      coral: {name: "Coral reef", main: "#ff7f6a", accent: "#3fffe0", trail: "#ffc2b3"},
+      ultraviolet: {name: "Ultraviolet", main: "#8a6bff", accent: "#ff4fd8", trail: "#c3b5ff"},
+      synthwave: {name: "Synthwave", main: "#ff2e97", accent: "#ffd319", trail: "#8a5cff"},
+      icefire: {name: "Ice + fire", main: "#9be7ff", accent: "#ff5a2b", trail: "#e0f7ff"},
+      aurora: {name: "Aurora", main: "#4dffb8", accent: "#a66bff", trail: "#66d9ff"},
+      cobalt: {name: "Cobalt + amber", main: "#3d7bff", accent: "#ffb000", trail: "#9db8ff"},
+      rosegold: {name: "Rose gold", main: "#ffb59e", accent: "#ffe08a", trail: "#ff8fa3"}
     };
+    const PALETTE_LS = "bmg-crawler-palette";
     const canRecord = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.MediaRecorder);
     const setup = document.createElement("div");
     setup.id = "rec-setup";
@@ -2926,7 +3260,23 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       <h2>Record mode</h2>
       <p>Choose a 10-K or 10-Q PDF and press Start. ${canRecord ? "With “Record this window” on, Chrome asks you to share this tab, and the finished clip downloads at the end." : "Use your Mac's screen recorder (Shift-Command-5, Record Selected Portion) on this window."}</p>
       <div id="rec-file-slot"></div>
-      <label class="opt">Clip format <select id="rec-format"><option value="custom" selected>Continuous read (first-video movement)</option><option value="highlights">40-second highlights camera</option></select></label>
+      <fieldset class="clip-idea" id="clip-idea-box"><legend>Idea clip</legend>
+        <p>Paste an idea from your ideas panel (or type the hook and the numbers). The clip opens on your hook for 2 seconds, then the spider lands where those numbers are in the filing and reads at clip speed.</p>
+        <textarea id="clip-paste" rows="3" placeholder="Paste the idea line here"></textarea>
+        <label class="opt">Hook <input id="clip-hook" type="text" maxlength="90" placeholder="jpmorgan made $156 million a day in 2025"></label>
+        <label class="opt">Ticker <span><input id="clip-ticker" type="text" maxlength="10" placeholder="JPM"> <select id="clip-form"><option>10-K</option><option>10-Q</option></select></span></label>
+        <label class="opt">Numbers to find <input id="clip-find" type="text" placeholder="57,048, 58,471"></label>
+        <label class="opt">Intro big number <span><input id="clip-big" type="text" maxlength="14" placeholder="$156m"> <input id="clip-small" type="text" maxlength="40" placeholder="/ day · on average"></span></label>
+        <label class="opt">Intro picture (optional) <input id="clip-pic" type="file" accept="image/*"></label>
+        <label class="opt">Clip length <span><input id="clip-len" type="number" min="15" max="30" value="20"> s</span></label>
+        <p class="clip-st" id="clip-st" role="status"></p>
+      </fieldset>
+      <fieldset class="clip-idea clip-pics" id="clip-pics-box"><legend>Pictures on screen</legend>
+        <label class="pics-drop" id="pics-drop"><input type="file" id="pics-file" accept="image/*" multiple hidden><b>Drop pictures here or click to choose</b><span>They show on top of the video, where you place them.</span></label>
+        <ul class="pics-list" id="pics-list"></ul>
+        <button type="button" id="pics-place" hidden>Place pictures on the screen</button>
+      </fieldset>
+      <label class="opt">Clip format <select id="rec-format"><option value="custom" selected>Continuous read (first-video movement)</option><option value="highlights">40-second highlights camera</option><option value="idea">Idea clip · your hook, then the spider on your numbers</option></select></label>
       <label class="opt">Highlight pace <select id="rec-pace"><option value="1.6" selected>Fast · faster crawler, steady highlights</option><option value="1">Brisk · focus on statements</option></select></label>
       <p>Highlights: 2-second opening, 33 seconds through statement findings, 5-second ending. Continuous scrolling, with more time around real figures.</p>
       <label class="opt">Jump to the ending after <span><input type="number" id="rec-finish" min="5" max="600" value="115"> s</span></label>
@@ -2935,8 +3285,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       <label class="opt">Crawler colors <select id="rec-palette">${Object.entries(palettes).map(([id, p]) => `<option value="${id}">${p.name}</option>`).join("")}</select></label>
       <div class="rec-palette-preview" id="rec-palette-preview" aria-label="Crawler color preview"></div>
       <label class="opt">Dark page <input type="checkbox" id="rec-dark" checked></label>
-      ${canRecord ? `<label class="opt">Video quality <select id="rec-quality"><option value="high" selected>High Quality · 1080 × 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label><p>High Quality requests portrait Full HD at 24 Mbps. Chrome may supply a lower resolution or frame rate. Actual capture details appear with the download.</p>` : ""}
+      ${canRecord ? `<label class="opt">Video quality <select id="rec-quality"><option value="high" selected>High Quality · 1080 × 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label><p>High Quality requests portrait Full HD at 32 Mbps. Chrome may supply a lower resolution or frame rate. Actual capture details appear with the download.</p>` : ""}
       ${canRecord ? `<label class="opt">Record this window (downloads a video) <input type="checkbox" id="rec-capture" checked></label>` : ""}
+      ${canRecord && window.showSaveFilePicker ? `<label class="opt">Save to disk while recording (long takes use no extra memory) <input type="checkbox" id="rec-disk" checked></label>` : ""}
       <button id="rec-start" type="button" disabled>Start</button>
       <p>Space pauses. Esc leaves record mode. Highlight clips include a two-second logo opening. Custom clips start when the black screen lifts on the first financial statement.</p>`;
     const fileIn = document.getElementById("read-file"), startBtn = setup.querySelector("#rec-start");
@@ -2967,8 +3318,200 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         }
       };
       format.addEventListener("change", syncFormat); syncFormat();
+      ideaSetup(format);
     }
+    // ---- Idea clip: a pasted idea fills the hook, ticker, numbers and intro; Start loads the filing itself ----
+    const NAME_TICKERS = {"jpmorgan": "JPM", "jp morgan": "JPM", "chase": "JPM", "costco": "COST", "amazon": "AMZN", "apple": "AAPL", "microsoft": "MSFT",
+      "j&j": "JNJ", "johnson & johnson": "JNJ", "coinbase": "COIN", "oracle": "ORCL", "gatx": "GATX", "trinity": "TRN", "tesla": "TSLA", "nvidia": "NVDA",
+      "alphabet": "GOOGL", "google": "GOOGL", "meta": "META", "netflix": "NFLX", "walmart": "WMT", "prologis": "PLD", "nextera": "NEE", "amd": "AMD",
+      "micron": "MU", "nike": "NKE", "starbucks": "SBUX", "disney": "DIS", "mcdonald": "MCD", "coca-cola": "KO", "pepsico": "PEP", "visa": "V",
+      "mastercard": "MA", "bank of america": "BAC", "wells fargo": "WFC", "goldman": "GS", "morgan stanley": "MS", "target": "TGT", "home depot": "HD",
+      "robinhood": "HOOD", "palantir": "PLTR", "intel": "INTC", "boeing": "BA", "ford": "F", "general motors": "GM", "uber": "UBER", "airbnb": "ABNB"};
+    function parseIdea(txt){
+      const field = k => { const m = txt.match(new RegExp("\\*\\*" + k + ":\\*\\*\\s*([^|]*)", "i")); return m ? m[1].trim() : ""; };
+      const hook = (field("hook") || (txt.includes("|") ? "" : txt.split("\n")[0])).replace(/^[-*\s\[\]x]+/i, "").trim();
+      const nums = field("numbers") || txt;
+      const low = (txt.match(/\(([^)]*10-[KQ][^)]*)\)/i) || [, nums])[1].toLowerCase() + " " + hook.toLowerCase();
+      let ticker = (txt.match(/\b(?:ticker|nyse|nasdaq)\s*[:=]?\s*([A-Z]{1,5})\b/) || [])[1] || "";
+      if (!ticker){ for (const [n, tk] of Object.entries(NAME_TICKERS)) if (new RegExp("\\b" + n.replace(/[&]/g, "\\&") + "\\b").test(low)){ ticker = tk; break; } }
+      const form = /10-q/i.test(nums) ? "10-Q" : "10-K";
+      const find = [...new Set((nums.match(/\d{1,3}(?:,\d{3})+(?:\.\d+)?/g) || []))].slice(0, 6);
+      const big = (hook.match(/\$\s?[\d.,]+\s*(?:billion|million|thousand|[bmk])?/i) || [""])[0]
+        .replace(/\s*billion/i, "b").replace(/\s*million/i, "m").replace(/\s*thousand/i, "k").replace(/\s+/g, "");
+      const per = (hook.match(/\b(a day|a week|a month|a year|an hour|per day|per year)\b/i) || [""])[0].replace(/^(a|an|per)\s/i, "/ ");
+      return {hook, ticker, form, find, big, small: per ? per + (/day|hour|week|month/.test(per) ? " · on average" : "") : ""};
+    }
+    let clipPicUrl = "";
+    function ideaSetup(format){
+      const q = id => setup.querySelector("#" + id), st = q("clip-st");
+      const ready = () => {
+        const idea = format.value === "idea";
+        startBtn.disabled = idea ? !(q("clip-hook").value.trim() && (q("clip-ticker").value.trim() || fileIn.files[0])) : !fileIn.files[0];
+      };
+      q("clip-paste").addEventListener("input", () => {
+        const v = parseIdea(q("clip-paste").value);
+        for (const [id, val] of [["clip-hook", v.hook], ["clip-ticker", v.ticker], ["clip-find", v.find.join(", ")], ["clip-big", v.big], ["clip-small", v.small]]) if (val) q(id).value = val;
+        q("clip-form").value = v.form;
+        format.value = "idea"; format.dispatchEvent(new Event("change"));
+        st.classList.remove("err");
+        st.textContent = v.ticker ? `Filled in from the idea. Check the fields, then Start.` : "Filled in from the idea. Add the ticker.";
+        ready();
+      });
+      q("clip-pic").addEventListener("change", e => { const f = e.target.files[0]; if (clipPicUrl) URL.revokeObjectURL(clipPicUrl); clipPicUrl = f ? URL.createObjectURL(f) : ""; });
+      for (const id of ["clip-hook", "clip-ticker"]) q(id).addEventListener("input", ready);
+      format.addEventListener("change", ready);
+      fileIn.addEventListener("change", ready);
+    }
+    async function loadClipFiling(ticker, form){
+      const r = await fetch("/api/edgar/filings?ticker=" + encodeURIComponent(ticker), {cache: "no-store"});
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "SEC EDGAR lookup failed.");
+      const f = (j.filings || []).find(x => x.form === form) || (j.filings || []).find(x => /^10-[KQ]/.test(x.form));
+      if (!f) throw new Error(`${j.company || ticker} has no ${form} in its recent filings.`);
+      const q = new URLSearchParams({cik: j.cik, accession: f.accession, document: f.document});
+      const d = await fetch("/api/edgar/document?" + q, {cache: "no-store"});
+      if (!d.ok){ let m = "Download failed."; try { m = (await d.json()).error || m; } catch (x){} throw new Error(m); }
+      const ext = (f.document.match(/\.(\w+)$/) || ["", "htm"])[1];
+      pick(new File([await d.blob()], `${j.ticker} ${f.form.replace("/", "-")} ${f.period || f.filed} filed ${f.filed} ${f.accession}.${ext}`, {type: "text/html"}));
+      const tk = document.getElementById("read-ticker"); if (tk) tk.value = j.ticker;
+      return {company: j.company, form: f.form, period: f.period || f.filed};
+    }
+    // The words for the numbers to find: the place in the filing where most of them sit together.
+    const numKey = s => (s || "").replace(/[$()\s,]/g, "").replace(/[.;:]+$/, "");
+    function findClipTargets(values){
+      const want = values.map(numKey).filter(Boolean);
+      if (!want.length) return null;
+      const ws = [...docBody.getElementsByClassName("w")], keys = ws.map(w => numKey(w.textContent));
+      // the numbers usually appear more than once (highlights, MD&A, the statement): the best place has the most
+      // of them together, and a primary statement heading ("Consolidated statements of ...", "balance sheets") just above wins ties
+      const low = ws.map(w => w.textContent.trim().toLowerCase());
+      const underStatement = i => {
+        for (let j = i; j > Math.max(0, i - 260); j--){
+          if (low[j] !== "consolidated") continue;
+          const next = low.slice(j + 1, j + 4).join(" ");
+          if (/^(statements? of (income|operations|earnings|comprehensive|cash)|balance sheets?)/.test(next)) return true;
+        }
+        return false;
+      };
+      let best = null, bestScore = -1;
+      keys.forEach((k, i) => {
+        if (k !== want[0]) return;
+        const hits = [i];
+        for (const v of want.slice(1)){ for (let j = Math.max(0, i - 300); j < Math.min(ws.length, i + 300); j++) if (keys[j] === v){ hits.push(j); break; } }
+        const score = hits.length * 2 + (underStatement(i) ? 1 : 0);
+        if (score > bestScore){ best = hits; bestScore = score; }
+      });
+      if (!best){                                            // the first number is not there: take any of the others
+        for (const v of want.slice(1)){ const i = keys.indexOf(v); if (i >= 0){ best = [i]; break; } }
+      }
+      return best ? best.map(i => ws[i]) : null;
+    }
+    function clipIntro(hook, big, small, name){
+      const el = document.createElement("div");
+      el.id = "clip-intro";
+      const pic = clipPicUrl ? `<img src="${clipPicUrl}" alt="">` : `<div class="ci-chip"></div><div class="ci-nm">${esc((name || "").toLowerCase())}</div>`;
+      el.innerHTML = `<div class="ci-h">${esc(hook)}</div><div class="ci-row"><div class="ci-pic">${pic}</div>${big ? `<div><div class="ci-big">${esc(big)}</div><div class="ci-small">${esc(small)}</div></div>` : ""}</div>`;
+      B.appendChild(el);
+      return el;
+    }
+    // ---- Pictures on screen: dropped images sit on top of the video where they are placed ----
+    // Positions are fractions of the window, so the placement is the recording's framing. Kept in this
+    // browser (downscaled to 1200 px) so the same pictures come back next time.
+    const PICS_LS = "bmg-rec-pictures";
+    const picLayer = document.createElement("div"); picLayer.id = "rec-pics"; picLayer.hidden = true;
+    let pics = [];
+    try { pics = JSON.parse(localStorage.getItem(PICS_LS) || "[]").filter(x => x && x.src); } catch (e) { pics = []; }
+    const savePics = () => { try { localStorage.setItem(PICS_LS, JSON.stringify(pics)); } catch (e) { /* too big for storage: kept for this session only */ } };
+    function shrinkImage(file){
+      return new Promise((res, rej) => {
+        const url = URL.createObjectURL(file), img = new Image();
+        img.onload = () => {
+          const s = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight));
+          const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+          res({src: c.toDataURL(/png|gif|webp/.test(file.type) ? "image/png" : "image/jpeg", 0.92), ratio: c.height / c.width, name: file.name});
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("not an image")); };
+        img.src = url;
+      });
+    }
+    function drawPics(){
+      picLayer.innerHTML = "";
+      pics.forEach((pc, i) => {
+        const d = document.createElement("div"); d.className = "rp-pic"; d.dataset.i = i;
+        d.style.left = pc.x * 100 + "%"; d.style.top = pc.y * 100 + "%"; d.style.width = pc.w * 100 + "%";
+        d.innerHTML = `<img src="${pc.src}" alt=""><button type="button" class="rp-x" aria-label="Remove picture">&times;</button><span class="rp-size" aria-hidden="true"></span>`;
+        picLayer.appendChild(d);
+      });
+      const list = setup.querySelector("#pics-list");
+      if (list) list.innerHTML = pics.map((pc, i) => `<li><img src="${pc.src}" alt=""><span>${esc(pc.name || "picture " + (i + 1))}</span>
+        <label><input type="checkbox" data-intro="${i}"${pc.introOnly ? " checked" : ""}> intro only</label><button type="button" data-rm="${i}">Remove</button></li>`).join("");
+      const placeBtn = setup.querySelector("#pics-place"); if (placeBtn) placeBtn.hidden = !pics.length;
+    }
+    // drag to move, corner to resize, x to remove (only while placing)
+    picLayer.addEventListener("pointerdown", e => {
+      if (!B.classList.contains("pics-edit")) return;
+      const d = e.target.closest(".rp-pic"); if (!d) return;
+      const pc = pics[+d.dataset.i];
+      if (e.target.closest(".rp-x")){ pics.splice(+d.dataset.i, 1); savePics(); drawPics(); return; }
+      e.preventDefault(); d.setPointerCapture(e.pointerId);
+      const sizing = !!e.target.closest(".rp-size"), x0 = e.clientX, y0 = e.clientY, start = {...pc};
+      const move = ev => {
+        const dx = (ev.clientX - x0) / innerWidth, dy = (ev.clientY - y0) / innerHeight;
+        if (sizing) pc.w = Math.max(0.06, Math.min(1, start.w + dx));
+        else { pc.x = Math.max(-pc.w * 0.8, Math.min(0.95, start.x + dx)); pc.y = Math.max(-0.1, Math.min(0.97, start.y + dy)); }
+        d.style.left = pc.x * 100 + "%"; d.style.top = pc.y * 100 + "%"; d.style.width = pc.w * 100 + "%";
+      };
+      const up = () => { d.removeEventListener("pointermove", move); d.removeEventListener("pointerup", up); savePics(); };
+      d.addEventListener("pointermove", move); d.addEventListener("pointerup", up);
+    });
+    function picturesSetup(){
+      B.appendChild(picLayer);
+      const drop = setup.querySelector("#pics-drop"), input = setup.querySelector("#pics-file");
+      const add = async files => {
+        for (const f of files){
+          if (!/^image\//.test(f.type)) continue;
+          try { const im = await shrinkImage(f); const n = pics.length;
+            pics.push({...im, x: 0.08 + (n % 3) * 0.06, y: 0.12 + (n % 3) * 0.06, w: 0.4, introOnly: false}); } catch (e) {}
+        }
+        savePics(); drawPics();
+      };
+      input.addEventListener("change", () => { add([...input.files]); input.value = ""; });
+      for (const ev of ["dragenter", "dragover"]) drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); drop.classList.add("over"); });
+      drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+      drop.addEventListener("drop", e => { e.preventDefault(); e.stopPropagation(); drop.classList.remove("over"); add([...e.dataTransfer.files]); });
+      setup.querySelector("#pics-list").addEventListener("click", e => {
+        const rm = e.target.closest("button[data-rm]"); if (rm){ pics.splice(+rm.dataset.rm, 1); savePics(); drawPics(); }
+      });
+      setup.querySelector("#pics-list").addEventListener("change", e => {
+        const cb = e.target.closest("input[data-intro]"); if (cb){ pics[+cb.dataset.intro].introOnly = cb.checked; savePics(); }
+      });
+      // placing: the setup panel steps aside so the window shows the video frame (with the intro, when there is a hook)
+      setup.querySelector("#pics-place").addEventListener("click", () => {
+        const hook = setup.querySelector("#clip-hook").value.trim();
+        const preview = hook ? clipIntro(hook, setup.querySelector("#clip-big").value.trim(), setup.querySelector("#clip-small").value.trim().replace(/\s*·\s*/g, "\n"),
+          setup.querySelector("#clip-ticker").value.trim()) : null;
+        setup.style.display = "none"; picLayer.hidden = false; B.classList.add("pics-edit");
+        const bar = document.createElement("div"); bar.id = "pics-done";
+        bar.innerHTML = `<span>Drag to move · corner to resize · &times; to remove</span><button type="button">Done</button>`;
+        B.appendChild(bar);
+        bar.querySelector("button").addEventListener("click", () => {
+          bar.remove(); if (preview) preview.remove();
+          B.classList.remove("pics-edit"); picLayer.hidden = true; setup.style.display = ""; drawPics();
+        });
+      });
+      drawPics();
+    }
+    if (isRecord) picturesSetup();
     const palettePicker = setup.querySelector("#rec-palette");
+    try { const saved = localStorage.getItem(PALETTE_LS); if (saved && palettes[saved]) palettePicker.value = saved; } catch (e) {}
+    const previewEl = setup.querySelector("#rec-palette-preview");
+    previewEl.innerHTML = `<div class="cp-swatches"><i class="cp-m"></i><i class="cp-a"></i><i class="cp-t"></i><span>Body + legs · joints · trails</span></div>${crawlerPreviewSvg()}`;
+    // Animate only while the preview is on screen and the spider is not crawling.
+    let cpVisible = true;
+    const cpLive = () => previewEl.classList.toggle("cp-live", cpVisible && !document.querySelector("svg.spider rect.body"));
+    if ("IntersectionObserver" in window) new IntersectionObserver(es => { cpVisible = es[es.length - 1].isIntersecting; cpLive(); }).observe(previewEl);
+    setInterval(cpLive, 1000);
     const applyPalette = () => {
       const p = palettes[palettePicker.value] || palettes.default;
       if (palettePicker.value === "default") delete B.dataset.recPalette;
@@ -2976,12 +3519,16 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       for (const [key, value] of Object.entries({main: p.main, accent: p.accent, trail: p.trail})){
         B.style.setProperty(`--crawler-${key}`, value);
       }
-      setup.querySelector("#rec-palette-preview").innerHTML =
-        `<i style="--swatch:${p.main}"></i><i style="--swatch:${p.accent}"></i><i style="--swatch:${p.trail}"></i><span>Body + legs · joints · trails</span>`;
+      // The light page's default spider has a blue body outline; every other case uses the main color.
+      const dark = setup.querySelector("#rec-dark").checked;
+      previewEl.style.setProperty("--pm", p.main); previewEl.style.setProperty("--pa", p.accent); previewEl.style.setProperty("--pt", p.trail);
+      previewEl.style.setProperty("--pb", palettePicker.value === "default" && !dark ? "#3b6cff" : p.main);
+      previewEl.classList.toggle("cp-light", !dark);
+      try { localStorage.setItem(PALETTE_LS, palettePicker.value); } catch (e) {}
     };
     palettePicker.addEventListener("change", applyPalette);
     applyPalette();
-    setup.querySelector("#rec-dark").addEventListener("change", e => B.classList.toggle("rec-dark", e.target.checked));
+    setup.querySelector("#rec-dark").addEventListener("change", e => { B.classList.toggle("rec-dark", e.target.checked); applyPalette(); });
     if (isRecord) addEventListener("keydown", e => {
       if (e.key === "Escape") leave();
       if (e.key === " " && !setup.isConnected){ e.preventDefault(); const p = document.getElementById("ctl-pause"); if (p) p.click(); }
@@ -3010,13 +3557,28 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // never fly: only what the spider actually zapped goes to the report.
     const zapQ = []; let zapBusy = false;
     function readerSourceVisible(el){
-      if (!el || !el.isConnected) return false;
-      const r = el.getBoundingClientRect();
-      const panel = document.querySelector(".read-side");
-      const p = panel && panel.getBoundingClientRect();
-      const covered = p && getComputedStyle(panel).position === "fixed" && r.right > p.left && r.left < p.right;
+      const r = screenRect(el);
+      if (!r) return false;
+      const {p, fixed} = sidePanel();
+      const covered = fixed && r.right > p.left && r.left < p.right;
       const bottom = covered && p.top > 0 ? Math.min(innerHeight, p.top) : innerHeight;
       return r.bottom >= 0 && r.top < bottom && r.right >= 0 && r.left < innerWidth;
+    }
+    // Where a word is on screen, from the cached word positions and the scroll: a live
+    // getBoundingClientRect after the page changed forced a full layout (and the panel lookup
+    // searched every word span) several times a frame.
+    function screenRect(el){
+      if (!el || !el.isConnected) return null;
+      if (!doc.contains(el)) return el.getBoundingClientRect();
+      const w = wordRect(el), g = docGeo(), top = g.absTop + w.y - state.sy, left = g.left + w.x;
+      return {left, top, right: left + w.w, bottom: top + w.h, width: w.w, height: w.h};
+    }
+    let panelGeo = null;
+    function sidePanel(){
+      if (panelGeo && panelGeo.ep === state.layoutEpoch && panelGeo.ih === innerHeight) return panelGeo;
+      const panel = document.querySelector(".read-side"), p = panel && panel.getBoundingClientRect();
+      panelGeo = {ep: state.layoutEpoch, ih: innerHeight, p, fixed: !!p && getComputedStyle(panel).position === "fixed"};
+      return panelGeo;
     }
     const FLY_MS = 650, ZAP_LAND = 130;
     function flyFrom(el, td, text, obs){
@@ -3030,7 +3592,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const w0 = chip.offsetWidth, t0 = performance.now();
       const step = (now) => {
         const k = Math.min(1, (now - t0) / FLY_MS), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-        const a = el.isConnected ? el.getBoundingClientRect() : s0, b = td.getBoundingClientRect();
+        const a = (el.isConnected && screenRect(el)) || s0, b = td.getBoundingClientRect();
         const x0 = a.left, y0 = a.top, x1 = b.left + b.width / 2 - w0 / 2, y1 = b.top + b.height / 2 - 8;
         const arc = Math.sin(k * Math.PI) * -40;
         chip.style.transform = `translate(${(x1 - x0) * e + (x0 - s0.left)}px, ${(y1 - y0) * e + (y0 - s0.top) + arc}px) scale(${1 + .25 * Math.sin(k * Math.PI)})`;
@@ -3211,9 +3773,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
       const tag = [co.ticker || co.ticker_hint, co.form].filter(Boolean).join(" ");
       hudTimer = setInterval(() => {
+        // scoped lookups: a whole-document query walks every word span (180,000 in JPMorgan's HTML 10-K)
         const figs = liveEl ? liveEl.querySelectorAll(".lr-c .lr-v").length : 0;
-        const obs = document.querySelectorAll("#lr-sigs li").length;
-        const pages = [...document.querySelectorAll(".pdfpage")];
+        const sigs = document.getElementById("lr-sigs"), obs = sigs ? sigs.children.length : 0;
+        const pages = pdfOpen ? pdfOpen.pages.map(pg => pg.box) : [];
         if (!isRecord){
           const bounds = doc.getBoundingClientRect(), side = document.querySelector(".read-side");
           const limit = side && getComputedStyle(side).position === "fixed" ? side.getBoundingClientRect().top : innerHeight;
@@ -3223,21 +3786,40 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         }
         const mid = innerHeight * (isRecord ? 0.3 : 0.5);
         const i = pages.findIndex(x => { const r = x.getBoundingClientRect(); return r.top <= mid && r.bottom >= mid; });
-        hud.innerHTML = `<b>${esc(tag || "BMG READER")}</b> <span>${figs} figure${figs === 1 ? "" : "s"}</span> <span>${obs} observation${obs === 1 ? "" : "s"}</span>${i >= 0 ? ` <span>p.${i + 1}</span>` : ""}`;
+        const html = `<b>${esc(tag || "BMG READER")}</b> <span>${figs} figure${figs === 1 ? "" : "s"}</span> <span>${obs} observation${obs === 1 ? "" : "s"}</span>${i >= 0 ? ` <span>p.${i + 1}</span>` : ""}`;
+        if (hud.dataset.html !== html){ hud.dataset.html = html; hud.innerHTML = html; }
       }, 200);
     }
 
     // -- recording this tab (optional)
     let rec = null, chunks = [], recType = "", stream = null, captureDetails = "";
+    // Save to disk while recording (Chrome's file system access): each half-second of video is written to the file
+    // as it arrives, so memory stays flat however long the take. No picker, or picker cancelled: kept in memory as before.
+    let diskFile = null, diskWriter = null, diskChain = Promise.resolve(), diskBytes = 0, diskError = null;
+    async function askDiskFile(ext){
+      diskFile = diskWriter = null; diskBytes = 0; diskError = null; diskChain = Promise.resolve();
+      if (!window.showSaveFilePicker || !setup.querySelector("#rec-disk")?.checked) return;
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+      try {
+        diskFile = await window.showSaveFilePicker({suggestedName: `BMG-crawler-${stamp}.${ext}`,
+          types: [{description: "Video", accept: {[ext === "mp4" ? "video/mp4" : "video/webm"]: ["." + ext]}}]});
+        diskWriter = await diskFile.createWritable();
+      } catch (e) { diskFile = diskWriter = null; }
+    }
     async function askCapture(){
       const high = setup.querySelector("#rec-quality")?.value === "high";
       const video = high ? {width: {ideal: 1080}, height: {ideal: 1920}, frameRate: {ideal: 60, max: 60}} : {frameRate: 30};
+      recType = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
+      await askDiskFile(/mp4/.test(recType) ? "mp4" : "webm");     // first, while the click still counts as a user gesture
       try {
         stream = await navigator.mediaDevices.getDisplayMedia({video, audio: false, preferCurrentTab: true, selfBrowserSurface: "include"});
-      } catch (e) { stream = null; return false; }
+      } catch (e) {
+        stream = null;
+        if (diskWriter){ try { await diskWriter.abort(); } catch (_) {} diskWriter = diskFile = null; }
+        return false;
+      }
       chunks = [];
-      recType = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
-      const bitrate = high ? 24e6 : 12e6;
+      const bitrate = high ? 32e6 : 12e6;
       try {
         rec = new MediaRecorder(stream, recType ? {mimeType: recType, videoBitsPerSecond: bitrate} : {videoBitsPerSecond: bitrate});
       } catch (e) {
@@ -3251,13 +3833,29 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const rate = rec.videoBitsPerSecond ? `${Math.round(rec.videoBitsPerSecond / 1e6)} Mbps encoder target` : "encoder bitrate unavailable";
       captureDetails = `${high ? "High Quality" : "Standard"}: ${size} · ${fps} · ${rate}`;
       state.captureQuality = {...actual, requestedQuality: high ? "high" : "standard", encoderBitsPerSecond: rec.videoBitsPerSecond || null};
-      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      if (diskWriter && rec.mimeType && /mp4/.test(rec.mimeType) !== /mp4/.test(recType)) recType = rec.mimeType;
+      rec.ondataavailable = e => {
+        if (!e.data || !e.data.size) return;
+        if (diskWriter && !diskError){
+          const part = e.data;
+          diskChain = diskChain.then(() => diskWriter.write(part)).then(() => { diskBytes += part.size; })
+            .catch(err => { diskError = err; chunks.push(part); });
+        } else chunks.push(e.data);
+      };
       return true;
     }
     function stopCapture(){
       return new Promise(res => {
         if (!rec || rec.state === "inactive"){ res(null); return; }
-        rec.onstop = () => { stream.getTracks().forEach(t => t.stop()); res(new Blob(chunks, {type: recType || "video/webm"})); };
+        rec.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          if (diskWriter){
+            await diskChain;
+            try { await diskWriter.close(); } catch (e) { diskError = diskError || e; }
+            if (!diskError){ res({disk: true, name: diskFile.name, size: diskBytes, type: recType || "video/webm"}); return; }
+          }
+          res(new Blob(chunks, {type: recType || "video/webm"}));
+        };
         rec.stop();
       });
     }
@@ -3305,7 +3903,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const ext = blob && /mp4/.test(blob.type) ? "mp4" : "webm";
       const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
       const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
-      bar.innerHTML = `${blob ? `<a class="rf-dl" download="BMG-${esc((co.ticker || "reader").replace(/[^A-Za-z0-9]/g, ""))}-${stamp}.${ext}" href="${URL.createObjectURL(blob)}">Download recording (${ext.toUpperCase()}, ${(blob.size / 1e6).toFixed(1)} MB)</a>` : `<span>Not recorded in the browser (screen sharing was off or declined).</span>`}
+      const onDisk = blob && blob.disk;
+      bar.innerHTML = `${onDisk ? `<span class="rf-dl">Saved to ${esc(blob.name)} (${(blob.size / 1e6).toFixed(1)} MB), written while recording</span>` : blob ? `<a class="rf-dl" download="BMG-${esc((co.ticker || "reader").replace(/[^A-Za-z0-9]/g, ""))}-${stamp}.${ext}" href="${URL.createObjectURL(blob)}">Download recording (${ext.toUpperCase()}, ${(blob.size / 1e6).toFixed(1)} MB)</a>` : `<span>Not recorded in the browser (screen sharing was off or declined).</span>`}
         <button type="button" id="rf-again">Record again</button><button type="button" id="rf-back">&larr; Back to reader</button>`;
       if (blob && captureDetails){
         const details = document.createElement("small"); details.id = "rec-capture-details";
@@ -3435,24 +4034,52 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       state.highlightPlan = {start,end,targets:routeTargets.length,duration:33,pace};
     }
     startBtn.addEventListener("click", async () => {
+      const idea = setup.querySelector("#rec-format").value === "idea";
+      const clip = idea ? {hook: setup.querySelector("#clip-hook").value.trim(), ticker: setup.querySelector("#clip-ticker").value.trim().toUpperCase(),
+        form: setup.querySelector("#clip-form").value, find: setup.querySelector("#clip-find").value.split(/,\s+|;|\s{2,}/).map(s => s.trim()).filter(Boolean),
+        big: setup.querySelector("#clip-big").value.trim(), small: setup.querySelector("#clip-small").value.trim().replace(/\s*·\s*/g, "\n"),
+        secs: Math.min(30, Math.max(15, +setup.querySelector("#clip-len").value || 20))} : null;
       const highlights = setup.querySelector("#rec-format").value === "highlights";
       const pace = +setup.querySelector("#rec-pace").value || 1.6;
       const previousTempo = state.speedMul || 1;
-      const finishAt = Math.max(5, +setup.querySelector("#rec-finish").value || 115);
+      const finishAt = clip ? clip.secs - 2 : Math.max(5, +setup.querySelector("#rec-finish").value || 115);
       const keySecs = Math.max(0, +setup.querySelector("#rec-keys").value || 0);
       const oneSecs = Math.max(0, +setup.querySelector("#rec-one").value || 0);
+      state.recordRenderWidth = setup.querySelector("#rec-quality")?.value === "standard" ? 0 : 1080;
+      state.captureQuality = null;
       const capture = setup.querySelector("#rec-capture");
+      if (clip && clip.ticker && !fileIn.files[0]){
+        // the filing is fetched before the screen-share prompt, so a bad ticker never starts a recording
+        const st = setup.querySelector("#clip-st");
+        st.classList.remove("err"); st.textContent = `Loading the latest ${clip.form} for ${clip.ticker} from SEC EDGAR...`; startBtn.disabled = true;
+        try { clip.filing = await loadClipFiling(clip.ticker, clip.form); }
+        catch (e){ st.classList.add("err"); st.textContent = e.message || "Could not load the filing."; startBtn.disabled = false; return; }
+        st.textContent = "";
+      }
       if (capture && capture.checked) await askCapture();          // asked first, while the click still counts as a user gesture
       setup.remove();
       const curtain = document.createElement("div");
       curtain.id = "rec-curtain";
       curtain.innerHTML = `<div style="width:84px;opacity:.9">${BMG_LINE}</div>`;
       B.appendChild(curtain);
+      if (clip) B.classList.add("clip-zoom");                     // before the filing is laid out, so the words are measured zoomed
       document.getElementById("read-run").click();
+      let clipWatch = 0;
       try {
         await wait(() => vis("read-skip"), 50);
         const jb = vis("read-jump");
-        if (jb){
+        const targets = clip ? findClipTargets(clip.find) : null;
+        if (targets){
+          // land a few lines above the first number so it is read, and zapped, a second or two after the intro
+          const top = targets[0].getBoundingClientRect().top;
+          const ws = [...docBody.getElementsByClassName("w")];
+          let anchor = targets[0];
+          for (let i = ws.indexOf(targets[0]); i >= 0; i--){ const r = ws[i].getBoundingClientRect(); if (r.height && top - r.top > innerHeight * 0.3){ anchor = ws[i]; break; } }
+          const y0 = scrollY;
+          await wait(() => window.crawlerJumpTo(anchor), 100, 30000);
+          await wait(() => Math.abs(scrollY - y0) > 40, 100, 15000).catch(() => {});
+          let last = scrollY; await wait(() => { const st = Math.abs(scrollY - last) < 20; last = scrollY; return st; }, 250, 5000).catch(() => {});
+        } else if (jb){
           // lift the curtain only once the view has actually moved to the statements, then settled
           const y0 = scrollY; jb.click();
           await wait(() => scrollY - y0 > innerHeight * 0.5, 100, 15000).catch(() => {});
@@ -3463,15 +4090,47 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         if (state.feet && state.feet.length){
           await settleSpiderPose();
         }
+        let intro = null;
+        if (clip){
+          // the opening: the hook over the paused page for 2 seconds, then the spider at clip speed
+          state.paused = true;
+          const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
+          intro = clipIntro(clip.hook, clip.big, clip.small, co.name || (clip.filing && clip.filing.company) || clip.ticker);
+          state.speedMul = 1.5;
+        }
         if (rec) rec.start(500);                                   // the clip starts here, on the statements
+        if (pics.length){ drawPics(); picLayer.hidden = false; }
         if (highlights){ await sleep(2000); startHighlights(pace); }
-        startOverlays();
+        if (renderProfile){ renderProfile.frames = []; renderProfile.draws = []; renderProfile.last = 0; }
         curtain.classList.add("out"); setTimeout(() => curtain.remove(), 400);
+        if (intro){
+          await sleep(2000);
+          intro.classList.add("out"); setTimeout(() => intro.remove(), 300);
+          pics.forEach((pc, i) => { if (pc.introOnly){ const d = picLayer.querySelector(`.rp-pic[data-i="${i}"]`); if (d) d.remove(); } });
+          state.paused = false;
+          // the numbers asked for are lit as the spider reaches them (the zap only fires within its reach)
+          const pending = new Set(targets || []);
+          clipWatch = setInterval(() => {
+            for (const el of pending) if (zapTo(el, true, true)){ el.classList.add("found", "pink", "hl-zap"); pending.delete(el); }
+            if (!pending.size) clearInterval(clipWatch);
+          }, 100);
+        }
+        startOverlays();
         // count only time that is not paused
         let left = finishAt * 1000, last = Date.now();
         await wait(() => { const now = Date.now(); const paused = (document.getElementById("ctl-pause") || {}).textContent === "Resume";
                             if (!paused) left -= now - last; last = now; return left <= 0; }, 100);
         state.recordCamera = null;
+        clearInterval(clipWatch);
+        if (clip){
+          // an idea clip ends on the crawl itself: no findings or summary screens
+          clearInterval(hudTimer);
+          state.paused = true;
+          const blob = await stopCapture();
+          const end = document.createElement("div"); end.id = "rec-end"; B.appendChild(end);
+          finalControls(end, blob);
+          return;
+        }
         const sk = vis("read-skip"); if (sk) sk.click();
         clearInterval(hudTimer);
         await wait(() => state.readRes && state.readRes.report, 100, 30000);
@@ -3479,7 +4138,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         const blob = await stopCapture();
         finalControls(end, blob);
       } catch (e) {
+        console.error("record mode stopped early:", e);
         state.recordCamera = null;
+        clearInterval(clipWatch);
+        document.getElementById("clip-intro")?.remove();
         curtain.remove();
         const blob = await stopCapture();
         if (blob){ const end = document.createElement("div"); end.id = "rec-end"; B.appendChild(end); finalControls(end, blob); }
@@ -4144,6 +4806,20 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     };
     go();
   });
+
+  // Recording hook (scripts/local/video): land the running walk on an element the way Jump to statements
+  // lands on a page, for HTML filings that have no page boxes. Facts on pages before `page` are marked as
+  // read by the server, as the jump does. Returns false until the walk is running.
+  window.crawlerJumpTo = (el, page) => {
+    if (!el || !el.isConnected || state.walkSkipped || !state.walkState || state.walkState.done || state.scrollPos == null) return false;
+    if (state.live && page){
+      const offs = Object.entries(state.live.plan.fact_pages || {}).filter(([f, p]) => p >= page).map(([f]) => state.live.plan.fact_offsets[f]).filter(x => x != null);
+      if (offs.length) applyLive(state.live.markEarlier(Math.min(...offs)));
+    }
+    const y = el.getBoundingClientRect().top + window.scrollY - innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5 + 40;
+    if (y > state.scrollPos){ state.scrollPos = y; if (state.readerJumpSettled) state.readerJumpSettled(); }
+    return true;
+  };
 
   // Back after a reload: reattach to the last job if the server still has it.
   (async function resume(){

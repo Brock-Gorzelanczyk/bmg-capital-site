@@ -2009,9 +2009,24 @@ def _edgar_denied() -> Optional[JSONResponse]:
     return None
 
 
+TTL_SUBMISSIONS_WATCH = 60    # earnings watch: the filing list is at most a minute old
+TTL_FILING_INDEX = 30 * 86400 # a filing's file list never changes once filed
+EX99_1 = re.compile(r"ex[-_]?99[-_.]?0?1\b|ex[-_]?991|ex99[-_]?1", re.I)
+
+
+async def _earnings_exhibit(client, cik: int, acc: str, primary: str) -> str:
+    """The press release (exhibit 99.1) of an earnings 8-K; the 8-K itself if none is found."""
+    idx = await _sec_fetch_json(f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/index.json", TTL_FILING_INDEX, client)
+    names = [i.get("name", "") for i in (((idx or {}).get("directory") or {}).get("item") or [])]
+    hits = [n for n in names if re.search(r"\.html?$", n, re.I) and EX99_1.search(n)]
+    return hits[0] if hits else primary
+
+
 @app.get("/api/edgar/filings")
-async def edgar_filings(ticker: str = Query(..., max_length=12)):
-    """Recent 10-K and 10-Q filings for a ticker, newest first, from the SEC's submissions feed."""
+async def edgar_filings(ticker: str = Query(..., max_length=12), fresh: bool = False, earnings: bool = False):
+    """Recent 10-K and 10-Q filings for a ticker, newest first, from the SEC's submissions feed.
+    earnings=1 adds earnings releases (8-K item 2.02, the exhibit 99.1 press release); fresh=1 is the earnings
+    watch, which checks the list at most once a minute instead of using the six-hour cache."""
     denied = _edgar_denied()
     if denied:
         return denied
@@ -2025,21 +2040,28 @@ async def edgar_filings(ticker: str = Query(..., max_length=12)):
         if not row:
             return JSONResponse(status_code=404, content={"error": f"No SEC filer has the ticker {t}."})
         cik = int(row["cik_str"])
-        sub = await _sec_fetch_json(f"https://data.sec.gov/submissions/CIK{cik:010d}.json", TTL_SUBMISSIONS, client)
+        sub = await _sec_fetch_json(f"https://data.sec.gov/submissions/CIK{cik:010d}.json",
+                                    TTL_SUBMISSIONS_WATCH if fresh else TTL_SUBMISSIONS, client)
+        recent = ((sub or {}).get("filings") or {}).get("recent") or {}
+        items = recent.get("items") or [""] * len(recent.get("form", []))
+        out = []
+        for i, form in enumerate(recent.get("form", [])):
+            acc, doc = recent["accessionNumber"][i], recent["primaryDocument"][i]
+            if form in EDGAR_FORMS:
+                label = form
+            elif earnings and form == "8-K" and "2.02" in (items[i] or ""):
+                label, doc = "8-K earnings release", await _earnings_exhibit(client, cik, acc, doc)
+            else:
+                continue
+            out.append({"form": label, "filed": recent["filingDate"][i], "period": (recent.get("reportDate") or [""] * (i + 1))[i],
+                        "accession": acc, "document": doc,
+                        "url": f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/{doc}"})
+            if len(out) >= 12:
+                break
     except httpx.HTTPError as e:
         return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not answer ({type(e).__name__}). Try again in a minute."})
-    recent = ((sub or {}).get("filings") or {}).get("recent") or {}
-    out = []
-    for i, form in enumerate(recent.get("form", [])):
-        if form not in EDGAR_FORMS:
-            continue
-        acc, doc = recent["accessionNumber"][i], recent["primaryDocument"][i]
-        out.append({"form": form, "filed": recent["filingDate"][i], "period": (recent.get("reportDate") or [""] * (i + 1))[i],
-                    "accession": acc, "document": doc,
-                    "url": f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/{doc}"})
-        if len(out) >= 12:
-            break
-    return {"ticker": t, "cik": cik, "company": (sub or {}).get("name") or row.get("title"), "filings": out}
+    return {"ticker": t, "cik": cik, "company": (sub or {}).get("name") or row.get("title"), "filings": out,
+            "checked": time.strftime("%Y-%m-%d %H:%M:%S")}
 
 
 @app.get("/api/edgar/document")

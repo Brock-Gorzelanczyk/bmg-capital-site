@@ -38,23 +38,37 @@ HAS_GIT=0
 
 clean() { [ -z "$(git status --porcelain --untracked-files=no)" ]; }
 
+ULOG=".local-data/update.log"   # one line per check, so a stalled update always shows its reason
+ulog() { mkdir -p .local-data; echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$ULOG"; }
+say_once() {   # print a problem once per kind, log it every time
+  ulog "$2"
+  case " $SAID " in *" $1 "*) ;; *) echo "  $2"; SAID="$SAID $1";; esac
+}
+
 update() {   # returns 0 and sets CHANGED when new commits were pulled
   [ "$HAS_GIT" = 1 ] || return 1
-  git fetch -q origin "$FOLLOW" 2>/dev/null || return 1
-  local before after b
-  before="$(git rev-parse HEAD)"
-  [ "$before" = "$(git rev-parse "origin/$FOLLOW")" ] && return 1
-  if ! clean; then
-    [ -z "$WARNED" ] && echo "  Updates are waiting: this copy has uncommitted edits (git status shows them)." && WARNED=1
+  local before after b remote
+  # FETCH_HEAD is what GitHub just sent, whatever this clone's remote settings track
+  if ! git fetch -q origin "$FOLLOW" 2>>"$ULOG"; then
+    say_once fetch "Could not reach GitHub for $FOLLOW; will keep trying every 2 minutes."
     return 1
   fi
-  if git merge-base --is-ancestor HEAD "origin/$FOLLOW"; then
-    git merge --ff-only -q "origin/$FOLLOW" || return 1
+  remote="$(git rev-parse FETCH_HEAD)"
+  before="$(git rev-parse HEAD)"
+  if [ "$before" = "$remote" ]; then ulog "up to date ${before:0:7}"; return 1; fi
+  if ! clean; then
+    say_once dirty "Updates are waiting: these files were edited on this Mac: $(git status --porcelain --untracked-files=no | awk '{print $2}' | tr '\n' ' ')(run: git stash)"
+    return 1
+  fi
+  if git merge-base --is-ancestor HEAD "$remote"; then
+    git merge --ff-only -q "$remote" 2>>"$ULOG" || { say_once merge "Could not fast-forward to ${remote:0:7}; see $ULOG"; return 1; }
   else
     b="reader-backup-$(date '+%Y%m%d-%H%M%S')"
-    git branch "$b" HEAD && git reset -q --hard "origin/$FOLLOW" || return 1
+    git branch "$b" HEAD && git reset -q --hard "$remote" || return 1
     echo "  This copy had commits GitHub does not; they are kept on branch $b."
   fi
+  SAID=""
+  ulog "updated ${before:0:7} -> ${remote:0:7}"
   after="$(git rev-parse HEAD)"
   [ "$before" != "$after" ] || return 1
   CHANGED="$(git diff --name-only "$before" "$after")"
@@ -151,7 +165,7 @@ while kill -0 "$SERVER" 2>/dev/null; do
       kill "$SERVER" 2>/dev/null; wait "$SERVER" 2>/dev/null
       start_server
     else
-      echo "  Page changed: refresh your browser (Cmd+Shift+R)."
+      echo "  Page changed: the open Crawler page reloads by itself (or shows a Reload button mid-read)."
     fi
   fi
 done
