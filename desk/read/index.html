@@ -2587,7 +2587,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     READ_MAX.bytes = j.max_bytes; READ_MAX.local = !!j.local;
     const el = document.getElementById("read-max"); if (el) el.textContent = READ_MAX.mb();
     document.dispatchEvent(new CustomEvent("bmg-read-limits"));
-    if (READ_MAX.local) watchForNewVersion();
+    if (READ_MAX.local) try { watchForNewVersion(); } catch (e) { /* a failed watcher must never stop the rest of setup */ }
     if (READ_MAX.local){
       const privacy = document.querySelector(".read-privacy");
       if (privacy) privacy.textContent = "On this Mac, the crawler saves each completed file and report in My reads so you can reopen them after a reload or server restart. Saved reads stay on this Mac; the app does not automatically delete them. Nothing is saved to the vault unless the owner presses Save with the owner key.";
@@ -3124,6 +3124,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       <label class="opt">Dark page <input type="checkbox" id="rec-dark" checked></label>
       ${canRecord ? `<label class="opt">Video quality <select id="rec-quality"><option value="high" selected>High Quality · 1080 × 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label><p>High Quality requests portrait Full HD at 32 Mbps. Chrome may supply a lower resolution or frame rate. Actual capture details appear with the download.</p>` : ""}
       ${canRecord ? `<label class="opt">Record this window (downloads a video) <input type="checkbox" id="rec-capture" checked></label>` : ""}
+      ${canRecord && window.showSaveFilePicker ? `<label class="opt">Save to disk while recording (long takes use no extra memory) <input type="checkbox" id="rec-disk" checked></label>` : ""}
       <button id="rec-start" type="button" disabled>Start</button>
       <p>Space pauses. Esc leaves record mode. Highlight clips include a two-second logo opening. Custom clips start when the black screen lifts on the first financial statement.</p>`;
     const fileIn = document.getElementById("read-file"), startBtn = setup.querySelector("#rec-start");
@@ -3428,14 +3429,32 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
 
     // -- recording this tab (optional)
     let rec = null, chunks = [], recType = "", stream = null, captureDetails = "";
+    // Save to disk while recording (Chrome's file system access): each half-second of video is written to the file
+    // as it arrives, so memory stays flat however long the take. No picker, or picker cancelled: kept in memory as before.
+    let diskFile = null, diskWriter = null, diskChain = Promise.resolve(), diskBytes = 0, diskError = null;
+    async function askDiskFile(ext){
+      diskFile = diskWriter = null; diskBytes = 0; diskError = null; diskChain = Promise.resolve();
+      if (!window.showSaveFilePicker || !setup.querySelector("#rec-disk")?.checked) return;
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+      try {
+        diskFile = await window.showSaveFilePicker({suggestedName: `BMG-crawler-${stamp}.${ext}`,
+          types: [{description: "Video", accept: {[ext === "mp4" ? "video/mp4" : "video/webm"]: ["." + ext]}}]});
+        diskWriter = await diskFile.createWritable();
+      } catch (e) { diskFile = diskWriter = null; }
+    }
     async function askCapture(){
       const high = setup.querySelector("#rec-quality")?.value === "high";
       const video = high ? {width: {ideal: 1080}, height: {ideal: 1920}, frameRate: {ideal: 60, max: 60}} : {frameRate: 30};
+      recType = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
+      await askDiskFile(/mp4/.test(recType) ? "mp4" : "webm");     // first, while the click still counts as a user gesture
       try {
         stream = await navigator.mediaDevices.getDisplayMedia({video, audio: false, preferCurrentTab: true, selfBrowserSurface: "include"});
-      } catch (e) { stream = null; return false; }
+      } catch (e) {
+        stream = null;
+        if (diskWriter){ try { await diskWriter.abort(); } catch (_) {} diskWriter = diskFile = null; }
+        return false;
+      }
       chunks = [];
-      recType = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
       const bitrate = high ? 32e6 : 12e6;
       try {
         rec = new MediaRecorder(stream, recType ? {mimeType: recType, videoBitsPerSecond: bitrate} : {videoBitsPerSecond: bitrate});
@@ -3450,13 +3469,29 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const rate = rec.videoBitsPerSecond ? `${Math.round(rec.videoBitsPerSecond / 1e6)} Mbps encoder target` : "encoder bitrate unavailable";
       captureDetails = `${high ? "High Quality" : "Standard"}: ${size} · ${fps} · ${rate}`;
       state.captureQuality = {...actual, requestedQuality: high ? "high" : "standard", encoderBitsPerSecond: rec.videoBitsPerSecond || null};
-      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      if (diskWriter && rec.mimeType && /mp4/.test(rec.mimeType) !== /mp4/.test(recType)) recType = rec.mimeType;
+      rec.ondataavailable = e => {
+        if (!e.data || !e.data.size) return;
+        if (diskWriter && !diskError){
+          const part = e.data;
+          diskChain = diskChain.then(() => diskWriter.write(part)).then(() => { diskBytes += part.size; })
+            .catch(err => { diskError = err; chunks.push(part); });
+        } else chunks.push(e.data);
+      };
       return true;
     }
     function stopCapture(){
       return new Promise(res => {
         if (!rec || rec.state === "inactive"){ res(null); return; }
-        rec.onstop = () => { stream.getTracks().forEach(t => t.stop()); res(new Blob(chunks, {type: recType || "video/webm"})); };
+        rec.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          if (diskWriter){
+            await diskChain;
+            try { await diskWriter.close(); } catch (e) { diskError = diskError || e; }
+            if (!diskError){ res({disk: true, name: diskFile.name, size: diskBytes, type: recType || "video/webm"}); return; }
+          }
+          res(new Blob(chunks, {type: recType || "video/webm"}));
+        };
         rec.stop();
       });
     }
@@ -3504,7 +3539,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const ext = blob && /mp4/.test(blob.type) ? "mp4" : "webm";
       const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
       const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
-      bar.innerHTML = `${blob ? `<a class="rf-dl" download="BMG-${esc((co.ticker || "reader").replace(/[^A-Za-z0-9]/g, ""))}-${stamp}.${ext}" href="${URL.createObjectURL(blob)}">Download recording (${ext.toUpperCase()}, ${(blob.size / 1e6).toFixed(1)} MB)</a>` : `<span>Not recorded in the browser (screen sharing was off or declined).</span>`}
+      const onDisk = blob && blob.disk;
+      bar.innerHTML = `${onDisk ? `<span class="rf-dl">Saved to ${esc(blob.name)} (${(blob.size / 1e6).toFixed(1)} MB), written while recording</span>` : blob ? `<a class="rf-dl" download="BMG-${esc((co.ticker || "reader").replace(/[^A-Za-z0-9]/g, ""))}-${stamp}.${ext}" href="${URL.createObjectURL(blob)}">Download recording (${ext.toUpperCase()}, ${(blob.size / 1e6).toFixed(1)} MB)</a>` : `<span>Not recorded in the browser (screen sharing was off or declined).</span>`}
         <button type="button" id="rf-again">Record again</button><button type="button" id="rf-back">&larr; Back to reader</button>`;
       if (blob && captureDetails){
         const details = document.createElement("small"); details.id = "rec-capture-details";
