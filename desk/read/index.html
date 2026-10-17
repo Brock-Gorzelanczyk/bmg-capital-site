@@ -33,7 +33,7 @@
 .found.pink{background:rgba(255,43,214,.22);box-shadow:0 0 10px rgba(255,43,214,.5)}
 .found.org{background:rgba(255,159,28,.22);box-shadow:0 0 10px rgba(255,159,28,.5)}
 .found.blue{background:rgba(79,123,255,.22);box-shadow:0 0 10px rgba(79,123,255,.5)}
-svg.spider{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:3}
+svg.spider{contain:strict;position:absolute;left:0;top:0;width:100%;pointer-events:none;overflow:hidden;z-index:3}
 svg.spider .eye{fill:rgba(143,216,255,.55)}
 svg.spider .sight{stroke:#5fe6ff;stroke-width:1.4;stroke-linecap:round}
 svg.spider .body{fill:#05070c;stroke:#3b6cff;stroke-width:2}
@@ -64,7 +64,7 @@ svg.spider .knee{fill:#ff3d9a}
 .w.hl-out{background:transparent!important;color:inherit!important}
 .w.hl-ping{background:rgba(255,45,143,.32);box-shadow:0 0 0 1px #ff2d8f;border-radius:2px}
 .w.hl-bping{background:rgba(39,200,255,.32);box-shadow:0 0 0 1px #27c8ff;border-radius:2px}
-.fxlayer{position:absolute;inset:0;pointer-events:none;z-index:2;will-change:transform}
+.fxlayer{contain:layout style size;position:absolute;inset:0;pointer-events:none;z-index:2}
 .fx{position:absolute;white-space:nowrap;box-sizing:border-box;transform-origin:0 50%;border-radius:0}
 .fx-outline{border:1.5px solid}
 .fx-ink{background:var(--page,#fff);padding:0 2px;font-weight:600}
@@ -101,9 +101,9 @@ svg.spider .knee{fill:#ff3d9a}
 .stage .a{color:#0f5fc7;border-bottom-color:rgba(15,95,199,.4)}
 .stage .found{color:#141414}
 #docbody.orig{font:initial;line-height:normal}
-.pdfpage{position:relative;margin:0 auto 18px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.pdfpage{content-visibility:auto;contain:strict;position:relative;margin:0 auto 18px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .pdfpage canvas{position:absolute;inset:0;width:100%;height:100%}
-.pdftext{position:absolute;inset:0;overflow:hidden;line-height:1;will-change:transform}
+.pdftext{position:absolute;inset:0;overflow:hidden;line-height:1}
 .pdftext .tl{position:absolute;white-space:pre;color:transparent;transform-origin:0 0;font-family:sans-serif}
 .pdftext .w{color:transparent}
 .pdftext .w.hl-ping{background:rgba(255,45,143,.3);color:transparent}
@@ -807,12 +807,61 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     factBuffer:{}, lastRenderedCount:0, pendingRenderDoc:null,
     currentHost:"", currentType:"", currentPub:"", loadToken:0, docQueue:[]};
 
+  // Opt-in timing evidence for local rendering investigations; no change to the walk.
+  const renderProfile = /[?&]profile=1(?:&|$)/.test(location.search)
+    ? {frames: [], draws: [], last: 0, updated: 0} : null;
+  if (renderProfile && typeof PerformanceObserver !== "undefined" && PerformanceObserver.supportedEntryTypes?.includes("long-animation-frame")){
+    new PerformanceObserver(list => {
+      renderProfile.longFrame = list.getEntries().slice(-1).map(e => ({duration: e.duration,
+        renderStart: e.renderStart, styleAndLayoutStart: e.styleAndLayoutStart,
+        scripts: (e.scripts || []).map(s => ({duration: s.duration, forcedStyleAndLayoutDuration: s.forcedStyleAndLayoutDuration,
+          invoker: s.invoker, sourceURL: s.sourceURL, sourceFunctionName: s.sourceFunctionName}))}));
+    }).observe({type: "long-animation-frame", buffered: true});
+  }
+  function profileFrame(now){
+    if (!renderProfile) return;
+    const p = renderProfile;
+    if (!walking() || state.paused || !state.feet.length || document.hidden || document.getElementById("rec-curtain") || document.getElementById("rec-end")){ p.last = 0; return; }
+    if (p.last) p.frames.push(now - p.last);
+    p.last = now;
+    if (p.frames.length > 600) p.frames.shift();
+    if (now - p.updated < 1000 || !p.frames.length) return;
+    p.updated = now;
+    let out = document.getElementById("crawler-performance");
+    if (!out){ out = document.createElement("output"); out.id = "crawler-performance"; out.hidden = true; document.body.appendChild(out); }
+    const values = p.frames.slice().sort((a,b) => a-b);
+    const mean = a => a.reduce((sum,x) => sum+x,0) / Math.max(1,a.length);
+    const canvases = [...docBody.querySelectorAll("canvas")];
+    out.textContent = JSON.stringify({samples: values.length, rafFps: +(1000/mean(values)).toFixed(1),
+      frameP50: +values[Math.floor((values.length-1)*.5)].toFixed(1),
+      frameP95: +values[Math.floor((values.length-1)*.95)].toFixed(1),
+      over50ms: values.filter(x => x>50).length, drawMeanMs: +mean(p.draws).toFixed(2),
+      phases: p.phases, longFrame: p.longFrame, svgHeight: spiderSvg.getAttribute("height"), words: docBody.querySelectorAll(".w").length,
+      canvasCount: canvases.length, canvasPixels: canvases.reduce((n,c)=>n+c.width*c.height,0)});
+  }
+
   function escapeHTML(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
   function fmtDate(iso){if(!iso) return "";const d=new Date(iso);return isNaN(d)?iso:d.toLocaleString("en-US",{timeZone:"America/Chicago",month:"short",day:"2-digit",hour:"2-digit",minute:"2-digit"});}
   async function fetchJSON(url){try{const r=await fetch(url,{cache:"no-store"});if(!r.ok) throw new Error(r.status);return await r.json();}catch(e){return {error:String(e)};}}
   function setStatus(s){statusEl.innerHTML = s;}
 
-  function sizeSvg(){const r=doc.getBoundingClientRect(); spiderSvg.setAttribute("viewBox",`0 0 ${r.width} ${r.height}`); spiderSvg.setAttribute("width",r.width); spiderSvg.setAttribute("height",r.height);}
+  function spiderWindow(width, height, scrollTop, viewportHeight){
+    const h = Math.min(height, viewportHeight + 256);
+    const top = Math.max(0, Math.min(height - h, Math.floor(scrollTop - 128)));
+    return {width, height: h, top};
+  }
+  function sizeSvg(){
+    // Clip the drawing surface to the viewport, keeping all gait coordinates
+    // in document space. A full 10-K otherwise repaints a huge SVG every frame.
+    const g = docGeo(), v = spiderWindow(g.width, g.height, state.sy - g.absTop, innerHeight);
+    const key = `${v.width} ${v.height} ${v.top}`;
+    if (state.svgWindow === key) return;
+    state.svgWindow = key;
+    spiderSvg.style.top = v.top + "px";
+    spiderSvg.style.height = v.height + "px";
+    spiderSvg.setAttribute("viewBox", `0 ${v.top} ${v.width} ${v.height}`);
+    spiderSvg.setAttribute("width", v.width); spiderSvg.setAttribute("height", v.height);
+  }
 
   function clearSpider(){
     spiderSvg.innerHTML = "";
@@ -883,8 +932,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     hd.setAttribute("cx", clampN(hx));
     hd.setAttribute("cy", clampN(hy));
     // Keep the body on top of legs and threads.
-    spiderSvg.appendChild(b);
-    spiderSvg.appendChild(hd);
+    if (spiderSvg.lastElementChild !== hd || hd.previousElementSibling !== b){
+      spiderSvg.appendChild(b); spiderSvg.appendChild(hd);
+    }
   }
 
   function finite(v){return typeof v === "number" && isFinite(v);}
@@ -1112,7 +1162,16 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
   // camera first: scrolling while the layout is still clean avoids a forced
   // re-layout of the whole document every frame
-  function drawSpider(){ state.drawnAt = performance.now(); camera(); drawSilk(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawZaps(); drawBody(); }
+  function drawSpider(){
+    const start = performance.now(); state.drawnAt = start;
+    if (renderProfile){
+      renderProfile.phases = {};
+      for (const fn of [camera, sizeSvg, drawSilk, drawLegs, redrawThreads, drawBeams, drawEye, drawZaps, drawBody]){
+        const at = performance.now(); fn(); renderProfile.phases[fn.name] = +(performance.now()-at).toFixed(2);
+      }
+    } else { camera(); sizeSvg(); drawSilk(); drawLegs(); redrawThreads(); drawBeams(); drawEye(); drawZaps(); drawBody(); }
+    if (renderProfile){ renderProfile.draws.push(performance.now()-start); if (renderProfile.draws.length>600) renderProfile.draws.shift(); }
+  }
   // Keep the legs flexing and the eye scanning between steps too.
   // ---- crawl: body creeps continuously; legs step one or two at a time
   const CRAWL_BASE = 68;   // px/s per unit at 1x (~2 lines/s) across the screen; riding the scroll does the rest
@@ -1215,6 +1274,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
   (function crawl(now){
     requestAnimationFrame(crawl);
+    profileFrame(now);
     const dt = Math.min(0.05, (now - (state.lastCrawl || now)) / 1000);
     state.lastCrawl = now;
     if (state.paused || !state.feet || !state.feet.length) return;
@@ -2155,7 +2215,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (!found) return;
     if (state.onFound) state.onFound(ev, found);
     found.classList.add("found", familyOf(ev.label));
-    bumpLayout();
+    // Original PDF/HTML fills inherit the filing font and never resize words.
+    if (!docBody.classList.contains("orig")) bumpLayout();
     // Move the body so the value sits TARGET_REACH px away (never under
     // the body), then plant a foot on it.
     const c = elCenter(found);
@@ -2349,6 +2410,12 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     o.pdf.destroy();
   }
 
+  function pdfPixelRatio(nativeRatio, captureWidth, viewportWidth){
+    // Raster detail follows actual display/capture pixels; CSS word geometry
+    // stays unchanged. Bound memory on very small recording windows.
+    return Math.min(4, Math.max(1, nativeRatio || 1, (captureWidth || 0) / Math.max(1, viewportWidth)));
+  }
+
   async function renderPdf(file, into){
     // Each page: a canvas drawn as the spider nears it, plus an invisible
     // word layer positioned exactly over the printed text. A page's canvas
@@ -2359,7 +2426,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const data = new Uint8Array(await file.arrayBuffer());
     const pdf = await pdfjs.getDocument({data, isEvalSupported: false}).promise;
     const width = Math.max(320, into.clientWidth || doc.clientWidth - 56);
-    const pages = [];
+    const pages = [], textRuns = [], fragment = document.createDocumentFragment();
     const maxPages = Math.min(pdf.numPages, 120);
     for (let n = 1; n <= maxPages; n++){
       const page = await pdf.getPage(n);
@@ -2370,7 +2437,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       box.style.width = vp.width + "px"; box.style.height = vp.height + "px";
       const layer = document.createElement("div"); layer.className = "pdftext";
       box.appendChild(layer);
-      into.appendChild(box);
+      fragment.appendChild(box);
       const tc = await page.getTextContent();
       const spans = [];
       for (const it of tc.items){
@@ -2384,22 +2451,27 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         layer.appendChild(sp);
         spans.push([sp, it.width * vp.scale]);
       }
-      // Batch: read every natural width, then stretch each run to the
-      // printed width so the word boxes sit on the real glyphs.
-      const ws = spans.map(([sp]) => sp.getBoundingClientRect().width);
-      spans.forEach(([sp, target], k) => { if (ws[k] > 0 && target > 0) sp.style.transform = `scaleX(${target / ws[k]})`; });
+      textRuns.push(...spans);
       pages.push({page, vp, box, drawn: false, canvas: null, task: null});
     }
+    // Insert once, measure all runs together, then apply glyph alignment.
+    // Measuring after every page repeatedly lays out the growing full filing.
+    into.appendChild(fragment);
+    const widths = textRuns.map(([sp]) => sp.getBoundingClientRect().width);
+    textRuns.forEach(([sp, target], k) => { if (widths[k] > 0 && target > 0) sp.style.transform = `scaleX(${target / widths[k]})`; });
     if (pdf.numPages > maxPages){
       const more = document.createElement("p"); more.className = "muted";
       more.textContent = `Showing the first ${maxPages} of ${pdf.numPages} pages.`;
       into.appendChild(more);
     }
+    const sourceTop = doc.getBoundingClientRect().top;
+    for (const pg of pages) pg.docY = pg.box.getBoundingClientRect().top - sourceTop;
     const draw = async (pg) => {
       if (pg.drawn) return; pg.drawn = true;
-      // draw at the screen's pixel density (CSS keeps the box size), so text stays sharp
-      // on retina screens and in 1.5x recordings instead of being upscaled from 1x
-      const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+      // Match native/capture pixels without moving the invisible word layer.
+      const captureWidth = document.body.classList.contains("recmode")
+        ? (state.captureQuality?.width || state.recordRenderWidth || 0) : 0;
+      const dpr = pdfPixelRatio(window.devicePixelRatio, captureWidth, innerWidth);
       const c = document.createElement("canvas");
       c.width = Math.floor(pg.vp.width * dpr); c.height = Math.floor(pg.vp.height * dpr);
       pg.box.insertBefore(c, pg.box.firstChild);
@@ -2423,8 +2495,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       sweepQueued = false;
       for (const pg of pages){
         if (!pg.drawn) continue;
-        const r = pg.box.getBoundingClientRect();
-        if (r.bottom < -4000 || r.top > innerHeight + 4000) drop(pg);
+        // Fixed PDF page boxes share the cached document origin. Reading
+        // their DOM rects after the spider writes would force another layout.
+        const top = docTop() + pg.docY;
+        if (top + pg.vp.height < -4000 || top > innerHeight + 4000) drop(pg);
       }
     };
     const onScroll = () => { if (!sweepQueued){ sweepQueued = true; requestAnimationFrame(sweep); } };
@@ -3109,7 +3183,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       <label class="opt">Crawler colors <select id="rec-palette">${Object.entries(palettes).map(([id, p]) => `<option value="${id}">${p.name}</option>`).join("")}</select></label>
       <div class="rec-palette-preview" id="rec-palette-preview" aria-label="Crawler color preview"></div>
       <label class="opt">Dark page <input type="checkbox" id="rec-dark" checked></label>
-      ${canRecord ? `<label class="opt">Video quality <select id="rec-quality"><option value="high" selected>High Quality · 1080 × 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label><p>High Quality requests portrait Full HD at 24 Mbps. Chrome may supply a lower resolution or frame rate. Actual capture details appear with the download.</p>` : ""}
+      ${canRecord ? `<label class="opt">Video quality <select id="rec-quality"><option value="high" selected>High Quality · 1080 × 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label><p>High Quality requests portrait Full HD at 32 Mbps. Chrome may supply a lower resolution or frame rate. Actual capture details appear with the download.</p>` : ""}
       ${canRecord ? `<label class="opt">Record this window (downloads a video) <input type="checkbox" id="rec-capture" checked></label>` : ""}
       ${canRecord && window.showSaveFilePicker ? `<label class="opt">Save to disk while recording (long takes use no extra memory) <input type="checkbox" id="rec-disk" checked></label>` : ""}
       <button id="rec-start" type="button" disabled>Start</button>
@@ -3442,7 +3516,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         return false;
       }
       chunks = [];
-      const bitrate = high ? 24e6 : 12e6;
+      const bitrate = high ? 32e6 : 12e6;
       try {
         rec = new MediaRecorder(stream, recType ? {mimeType: recType, videoBitsPerSecond: bitrate} : {videoBitsPerSecond: bitrate});
       } catch (e) {
@@ -3663,6 +3737,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const finishAt = Math.max(5, +setup.querySelector("#rec-finish").value || 115);
       const keySecs = Math.max(0, +setup.querySelector("#rec-keys").value || 0);
       const oneSecs = Math.max(0, +setup.querySelector("#rec-one").value || 0);
+      state.recordRenderWidth = setup.querySelector("#rec-quality")?.value === "standard" ? 0 : 1080;
+      state.captureQuality = null;
       const capture = setup.querySelector("#rec-capture");
       if (capture && capture.checked) await askCapture();          // asked first, while the click still counts as a user gesture
       setup.remove();
@@ -3688,6 +3764,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         if (rec) rec.start(500);                                   // the clip starts here, on the statements
         if (highlights){ await sleep(2000); startHighlights(pace); }
         startOverlays();
+        if (renderProfile){ renderProfile.frames = []; renderProfile.draws = []; renderProfile.last = 0; }
         curtain.classList.add("out"); setTimeout(() => curtain.remove(), 400);
         // count only time that is not paused
         let left = finishAt * 1000, last = Date.now();
