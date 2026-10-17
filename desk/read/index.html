@@ -2932,6 +2932,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
   function applyLive(changes){
     if (!state.live || !changes || !changes.length || !liveEl) return;
+    let follow = null;
     for (const ch of changes){
       if (ch.kind === "signal" && ch.op === "show"){
         const sg = (state.live.plan.signals || []).find(x => x.id === ch.id);
@@ -2945,7 +2946,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         ol.appendChild(li);
         const ph = document.getElementById("lr-sigs-ph");
         if (ph){ const left = state.live.plan.signals.length - ol.children.length; ph.textContent = left > 0 ? `${left} pending` : ""; ph.hidden = !left; }
-        liveFollow(li);      // keep the last line fully in view
+        follow = li;      // follow once after this group of updates
         setTimeout(() => li.classList.remove("flash"), 1400);
         continue;
       }
@@ -2957,10 +2958,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         row.dataset.arrived = "1"; row.classList.add("lr-row-enter");
         setTimeout(() => row.classList.remove("lr-row-enter"), 450);
       }
-      liveFollow(td);
+      follow = td;
       td.classList.toggle("is-w", ch.state === "withdrawn");
       td.classList.add("flash"); setTimeout(() => td.classList.remove("flash"), 1400);
     }
+    if (follow) liveFollow(follow);
     liveProgress();
   }
   // A figure the spider read that is not a report cell (segment, share and other
@@ -3969,12 +3971,18 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // what the walk did not reach comes from the completed analysis, and says so
     if (state.live) applyLive(state.live.finish());
     // Whatever the walk did not reach is still listed, linked to its page.
+    const pages = [...docBody.querySelectorAll(".pdfpage")], pageWords = new Map(), used = new Set();
     (state.pendingFindings || []).splice(0).forEach(p => {
       let el = null;
-      const pg = p.page ? docBody.querySelectorAll(".pdfpage")[p.page - 1] : null;
-      if (pg) el = [...pg.querySelectorAll(".w")].find(w => !w.classList.contains("found") && holds(w, p.value)) || null;
-      if (el) markFactInDoc({doc_id: state.currentDocId, label: p._f.label, value: p.value, _el: el, _f: p._f});
-      else { addFinding(p._f, null); onFindingSignals(p._f, null); }
+      const pg = p.page ? pages[p.page - 1] : null;
+      if (pg){
+        if (!pageWords.has(pg)) pageWords.set(pg, [...pg.querySelectorAll(".w")]);
+        el = pageWords.get(pg).find(w => !used.has(w) && !w.classList.contains("found") && holds(w, p.value)) || null;
+      }
+      // Unreached findings belong to the completed analysis, so retain their
+      // source links without launching another walk or measuring offscreen words.
+      addFinding(p._f, null); onFindingSignals(p._f, null);
+      if (el){ used.add(el); p._f._el = el; }
     });
     // signals with no anchor in the document still belong in the list
     Object.values(state.sigById || {}).forEach(sg => { if (!sg._shown){ sg._shown = true; addSignalCard(sg); } });
