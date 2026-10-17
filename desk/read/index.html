@@ -1101,8 +1101,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (!walking() || state.paused || !state.rows) { state.scrollPos = null; return; }
     if (state.scrollPos == null) state.scrollPos = state.sy;
     const before = state.sy;
-    // Ease the boost in and out (~0.4 s) so speed changes are smooth.
-    state.boost = (state.boost || 1) + ((state.boostTarget || 1) - (state.boost || 1)) * Math.min(1, dt * 1.6);
+    // Ease the boost in and out so speed changes are smooth: into blank space twice as quickly as before, back
+    // down to reading speed as gently as before, so text never arrives with a jolt.
+    const rising = (state.boostTarget || 1) > (state.boost || 1);
+    state.boost = (state.boost || 1) + ((state.boostTarget || 1) - (state.boost || 1)) * Math.min(1, dt * (rising ? 3.2 : 1.6));
     if (state.recordCamera) state.scrollPos = state.recordCamera(dt);
     else state.scrollPos += SCROLL_SPEED * U * (state.speedMul || 1) * state.boost * dt;
     let maxS = Math.max(0, docGeo().sh - innerHeight);
