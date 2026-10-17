@@ -2625,14 +2625,20 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   // browser skips the blocks off screen. A block whose words move under containment (a child margin that
   // collapsed through its edge, overflow) is left alone. The walk then measures every word with the blocks
   // in place, so cached word positions stay true whether a block is on screen or skipped.
+  //
+  // Neighbouring blocks are first grouped into plain wrapper divs of up to GROUP_H px: the browser's work on
+  // every frame (deciding which skipped boxes are near the screen, hit testing, layering) grows with the number
+  // of boxes, and JPMorgan's 10-K had 1,921 of them (about 12 ms a frame). A wrapper adds no margin, padding or
+  // border, so the page lays out as before; a group that does not pass the same test is unwrapped and its
+  // blocks are tested one by one. Wrappers stay for the life of the page; releasing only stops the skipping.
   function holdHtmlBlocks(wrap){
     if (!wrap || !wrap.isConnected || wrap.dataset.held) return;
     wrap.dataset.held = "1";
-    const z = parseFloat(wrap.style.zoom) || 1, MAXH = 1500, units = [];
+    const z = parseFloat(wrap.style.zoom) || 1, MAXH = 1500, GROUP_H = 2000, units = [], height = new Map();
     (function walk(el){
       for (const k of el.children){
         const cs = getComputedStyle(k), h = k.getBoundingClientRect().height;
-        if (k.tagName === "DIV" && cs.display === "block" && cs.position === "static" && cs.float === "none" && h > 0 && h <= MAXH) units.push(k);
+        if (k.classList.contains("cv-group") || (k.tagName === "DIV" && cs.display === "block" && cs.position === "static" && cs.float === "none" && h > 0 && h <= MAXH)){ units.push(k); height.set(k, h); }
         else if (k.children.length && h > 0) walk(k);
       }
     })(wrap);
@@ -2642,17 +2648,53 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       return {h: r.height, f: f ? f.getBoundingClientRect().top - r.top : 0, l: l ? l.getBoundingClientRect().top - r.top : 0,
         over: k.scrollHeight > k.clientHeight + 1 || k.scrollWidth > k.clientWidth + 1};
     };
-    const before = units.map(read);
-    units.forEach((k, i) => { if (!before[i].over) k.style.contain = "layout paint"; });
-    const after = units.map(read);
-    units.forEach(k => { k.style.contain = ""; });
-    units.forEach((k, i) => {
-      const b = before[i], a = after[i];
-      if (b.over || a.over || Math.abs(a.h - b.h) > 0.01 || Math.abs(a.f - b.f) > 0.01 || Math.abs(a.l - b.l) > 0.01) return;
-      k.style.containIntrinsicSize = `auto none auto ${b.h / z}px`;
+    // boxes that keep their layout under containment (the same test for a group and for a single block)
+    const keep = list => {
+      const before = list.map(read);
+      list.forEach((k, i) => { if (!before[i].over) k.style.contain = "layout paint"; });
+      const after = list.map(read);
+      list.forEach(k => { k.style.contain = ""; });
+      return list.map((k, i) => {
+        const b = before[i], a = after[i];
+        return !(b.over || a.over || Math.abs(a.h - b.h) > 0.01 || Math.abs(a.f - b.f) > 0.01 || Math.abs(a.l - b.l) > 0.01) && b;
+      });
+    };
+    let runs = []; let run = null;
+    for (const k of units){
+      const h = height.get(k), prev = run && run.els[run.els.length - 1];
+      if (prev && prev.nextElementSibling === k && !prev.classList.contains("cv-group") && !k.classList.contains("cv-group") && run.h + h <= GROUP_H){ run.els.push(k); run.h += h; }
+      else { run = {els: [k], h}; runs.push(run); }
+    }
+    const firstTop = k => { const w = words(k)[0]; return w ? w.getBoundingClientRect().top : 0; };
+    const unwrap = r => { for (const n of [...r.box.childNodes]) r.box.parentNode.insertBefore(n, r.box); r.box.remove(); r.box = null; };
+    const pre = units.map(firstTop);
+    for (const r of runs){
+      if (r.els.length < 2) continue;
+      const box = document.createElement("div"); box.className = "cv-group";
+      const first = r.els[0], last = r.els[r.els.length - 1];
+      first.parentNode.insertBefore(box, first);
+      for (let n = first; n;){ const next = n.nextSibling; box.appendChild(n); if (n === last) break; n = next; }
+      r.box = box;
+    }
+    // a wrapper must not move a single word; if one did, every group is undone and each block stands alone
+    if (units.map(firstTop).some((t, i) => Math.abs(t - pre[i]) > 0.01)){
+      runs.forEach(r => { if (r.box) unwrap(r); });
+      runs = units.map(k => ({els: [k], h: height.get(k)}));
+    }
+    const boxes = runs.map(r => r.box || r.els[0]);
+    const ok = keep(boxes), held = [];
+    runs.forEach((r, i) => {
+      if (ok[i]){ held.push([boxes[i], ok[i].h]); return; }
+      if (!r.box) return;
+      // the group does not keep its layout: put its blocks back and test them one by one
+      unwrap(r);
+      keep(r.els).forEach((b, j) => { if (b) held.push([r.els[j], b.h]); });
+    });
+    for (const [k, h] of held){
+      k.style.containIntrinsicSize = `auto none auto ${h / z}px`;
       k.style.contentVisibility = "auto";
       k.classList.add("cv-held");
-    });
+    }
   }
   function releaseHtmlBlocks(wrap){
     if (!wrap || !wrap.dataset.held) return;
