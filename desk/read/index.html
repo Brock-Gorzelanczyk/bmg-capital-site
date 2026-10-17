@@ -2674,16 +2674,17 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         over: k.scrollHeight > k.clientHeight + 1 || k.scrollWidth > k.clientWidth + 1};
     };
     // boxes that keep their layout under containment (the same test for a group and for a single block)
-    const keep = list => {
+    const test = list => {
       const before = list.map(read);
       list.forEach((k, i) => { if (!before[i].over) k.style.contain = "layout paint"; });
       const after = list.map(read);
       list.forEach(k => { k.style.contain = ""; });
       return list.map((k, i) => {
         const b = before[i], a = after[i];
-        return !(b.over || a.over || Math.abs(a.h - b.h) > 0.01 || Math.abs(a.f - b.f) > 0.01 || Math.abs(a.l - b.l) > 0.01) && b;
+        return {b, a, pass: !(b.over || a.over || Math.abs(a.h - b.h) > 0.01 || Math.abs(a.f - b.f) > 0.01 || Math.abs(a.l - b.l) > 0.01)};
       });
     };
+    const keep = list => test(list).map(x => x.pass && x.b);
     const unwrap = r => { for (const n of [...r.box.childNodes]) r.box.parentNode.insertBefore(n, r.box); r.box.remove(); r.box = null; };
     const firstTops = () => runs.map(r => r.els.map(e => { const w = words(e)[0]; return w ? w.getBoundingClientRect().top : 0; }));
     const pre = firstTops();
@@ -2703,17 +2704,35 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const blocks = blocksIn(wrap);
       keep(blocks).forEach((b, j) => { if (b) held.push([blocks[j], b.h]); });
     } else {
-      const boxes = runs.map(r => r.box || r.els[0]);
-      const ok = keep(boxes);
-      runs.forEach((r, i) => {
-        if (ok[i]){ held.push([boxes[i], ok[i].h]); return; }
-        if (!r.box) return;
-        // the group does not keep its layout: put its content back and test the blocks inside one by one
-        const els = [...r.box.children];
-        unwrap(r);
-        const blocks = els.flatMap(e => { const cs = getComputedStyle(e), h = e.getBoundingClientRect().height; return isBlock(e, cs, h) ? [e] : blocksIn(e); });
-        keep(blocks).forEach((b, j) => { if (b) held.push([blocks[j], b.h]); });
-      });
+      // A group usually fails because a margin at its top or bottom edge collapsed through the wrapper. The edge
+      // element that moved is taken out of the group (tested on its own later) and the group is tested again,
+      // all groups together, for up to four rounds; a group still failing is unwrapped.
+      const alone = [];
+      const isGroup = r => r.box && r.box.classList.contains("cv-group");
+      let live = runs;
+      for (let round = 0; round < 4 && live.length; round++){
+        const res = test(live.map(r => r.box || r.els[0])), next = [];
+        live.forEach((r, i) => {
+          const {b, a, pass} = res[i], box = r.box || r.els[0];
+          if (pass){ held.push([box, b.h]); return; }
+          if (!isGroup(r)) return;                                      // a single block that fails stays as it is
+          const kids = [...r.box.children];
+          if (b.over || a.over || kids.length < 2 || round === 3){ alone.push(...kids); unwrap(r); return; }
+          if (Math.abs(a.f - b.f) > 0.01){                              // top edge: the first element leaves the group
+            const first = kids[0];
+            while (r.box.firstChild !== first) r.box.parentNode.insertBefore(r.box.firstChild, r.box);
+            r.box.parentNode.insertBefore(first, r.box); alone.push(first);
+          } else {                                                      // bottom edge: the last element leaves
+            const last = kids[kids.length - 1];
+            while (r.box.lastChild !== last) r.box.parentNode.insertBefore(r.box.lastChild, r.box.nextSibling);
+            r.box.parentNode.insertBefore(last, r.box.nextSibling); alone.push(last);
+          }
+          next.push(r);
+        });
+        live = next;
+      }
+      const blocks = alone.flatMap(e => { const cs = getComputedStyle(e), h = e.getBoundingClientRect().height; return isBlock(e, cs, h) ? [e] : blocksIn(e); });
+      keep(blocks).forEach((b, j) => { if (b) held.push([blocks[j], b.h]); });
     }
     for (const [k, h] of held){
       k.style.containIntrinsicSize = `auto none auto ${h / z}px`;
