@@ -1265,7 +1265,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
   (function crawl(now){
     requestAnimationFrame(crawl);
-    if (state.renderFlights) state.renderFlights(now);
+    const paintFlights = state.prepareFlights ? state.prepareFlights(now) : null;
+    try {
     profileFrame(now);
     const dt = Math.min(0.05, (now - (state.lastCrawl || now)) / 1000);
     state.lastCrawl = now;
@@ -1311,6 +1312,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     }
     advanceLegs(now);
     if (now - (state.drawnAt || 0) > 12) drawSpider();
+    } finally { if (paintFlights) paintFlights(); }
   })(performance.now());
 
   // Element centers in .doc space are scroll-invariant, so they are cached
@@ -3238,10 +3240,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const flyingChips = [];
     // Read all moving destinations before the crawler or any chip writes styles.
     // The source words already have measured, scroll-invariant page coordinates.
-    state.renderFlights = now => {
-      const frames = flyingChips.map(f => ({f, a: f.el.isConnected ? sourceViewportRect(f.el) : f.s0,
-        b: f.td.getBoundingClientRect()}));
-      for (const {f, a, b} of frames){
+    state.prepareFlights = now => {
+      const frames = flyingChips.map(f => ({f, b: f.td.getBoundingClientRect()}));
+      return () => {
+      for (const {f, b} of frames){
+        const a = f.el.isConnected ? sourceViewportRect(f.el) : f.s0;
         const {chip, s0, w0, t0} = f;
         const k = Math.min(1, (now - t0) / FLY_MS), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
         const x0 = a.left, y0 = a.top, x1 = b.left + b.width / 2 - w0 / 2, y1 = b.top + b.height / 2 - 8;
@@ -3250,6 +3253,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         chip.style.opacity = k > .85 ? (1 - (k - .85) / .15).toFixed(2) : "1";
         if (k >= 1){ chip.remove(); flyingChips.splice(flyingChips.indexOf(f), 1); state.chipsInFlight = Math.max(0, state.chipsInFlight - 1); }
       }
+      };
     };
     function flyFrom(el, td, text, obs){
       const s0 = sourceViewportRect(el);
