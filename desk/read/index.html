@@ -2634,14 +2634,26 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   function holdHtmlBlocks(wrap){
     if (!wrap || !wrap.isConnected || wrap.dataset.held) return;
     wrap.dataset.held = "1";
-    const z = parseFloat(wrap.style.zoom) || 1, MAXH = 1500, GROUP_H = 2000, units = [], height = new Map();
+    const z = parseFloat(wrap.style.zoom) || 1, MAXH = 1500, GROUP_H = 2000, units = [], height = new Map(), opened = new Set();
     (function walk(el){
       for (const k of el.children){
         const cs = getComputedStyle(k), h = k.getBoundingClientRect().height;
-        if (k.classList.contains("cv-group") || (k.tagName === "DIV" && cs.display === "block" && cs.position === "static" && cs.float === "none" && h > 0 && h <= MAXH)){ units.push(k); height.set(k, h); }
-        else if (k.children.length && h > 0) walk(k);
+        height.set(k, h);
+        if (k.classList.contains("cv-group") || (k.tagName === "DIV" && cs.display === "block" && cs.position === "static" && cs.float === "none" && h > 0 && h <= MAXH)) units.push(k);
+        else if (k.children.length && h > 0){ opened.add(k); walk(k); }
       }
     })(wrap);
+    // Elements between two blocks (page-break rules, spacers) may join their group when nothing inside them
+    // is a block of its own: extra height, or -1 when the two blocks cannot share a group.
+    const isUnit = new Set(units);
+    const between = (prev, k) => {
+      let extra = 0;
+      for (let n = prev.nextElementSibling; n && n !== k; n = n.nextElementSibling){
+        if (isUnit.has(n) || opened.has(n) || n.classList.contains("cv-group")) return -1;
+        extra += height.get(n) || 0;
+      }
+      return extra;
+    };
     const words = k => k.getElementsByClassName("w");
     const read = k => {
       const r = k.getBoundingClientRect(), ws = words(k), f = ws[0], l = ws[ws.length - 1];
@@ -2662,7 +2674,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     let runs = []; let run = null;
     for (const k of units){
       const h = height.get(k), prev = run && run.els[run.els.length - 1];
-      if (prev && prev.nextElementSibling === k && !prev.classList.contains("cv-group") && !k.classList.contains("cv-group") && run.h + h <= GROUP_H){ run.els.push(k); run.h += h; }
+      const gap = prev && prev.parentNode === k.parentNode && !prev.classList.contains("cv-group") && !k.classList.contains("cv-group") ? between(prev, k) : -1;
+      if (gap >= 0 && run.h + gap + h <= GROUP_H){ run.els.push(k); run.h += gap + h; }
       else { run = {els: [k], h}; runs.push(run); }
     }
     const firstTop = k => { const w = words(k)[0]; return w ? w.getBoundingClientRect().top : 0; };
