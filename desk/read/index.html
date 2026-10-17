@@ -2652,14 +2652,28 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       })(el);
       return out;
     };
-    const runs = [];
+    // Only block-level children are grouped (an inline XBRL tag counts when it holds blocks). Tables are never
+    // opened: wrapping table rows in a div would rebuild the table. A tall table, or anything else that cannot be
+    // grouped inside, keeps the single blocks found in it, as before grouping.
+    const BLOCKISH = /^(block|flow-root|list-item|table|flex|grid)$/;
+    const holdsBlocks = k => !!k.querySelector(":scope > div, :scope > table, :scope > p, :scope > ul, :scope > ol, :scope > hr");
+    const runs = [], loose = [];
     (function level(el){
       let run = null;
       const flush = () => { if (run && run.h > 0) runs.push(run); run = null; };
       for (const k of [...el.children]){
         const cs = getComputedStyle(k), h = k.getBoundingClientRect().height;
         if (k.classList.contains("cv-group")){ flush(); runs.push({els: [k], h, box: k}); continue; }
-        if (h > GROUP_H || cs.position === "absolute" || cs.position === "fixed"){ flush(); if (k.children.length && h > 0) level(k); continue; }
+        const groupable = cs.position !== "absolute" && cs.position !== "fixed" && cs.float === "none" &&
+          (BLOCKISH.test(cs.display) || (cs.display === "inline" && holdsBlocks(k)));
+        if (!groupable || h > GROUP_H){
+          flush();
+          if (k.children.length && h > 0){
+            if (groupable && !/^table/.test(cs.display)) level(k);
+            else loose.push(...(isBlock(k, cs, h) ? [k] : blocksIn(k)));
+          }
+          continue;
+        }
         if (run && run.h + h > GROUP_H) flush();
         if (!run) run = {els: [], h: 0, block: false};
         run.els.push(k); run.h += h;
@@ -2731,7 +2745,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         });
         live = next;
       }
-      const blocks = alone.flatMap(e => { const cs = getComputedStyle(e), h = e.getBoundingClientRect().height; return isBlock(e, cs, h) ? [e] : blocksIn(e); });
+      const blocks = loose.concat(alone.flatMap(e => { const cs = getComputedStyle(e), h = e.getBoundingClientRect().height; return isBlock(e, cs, h) ? [e] : blocksIn(e); }));
       keep(blocks).forEach((b, j) => { if (b) held.push([blocks[j], b.h]); });
     }
     for (const [k, h] of held){
