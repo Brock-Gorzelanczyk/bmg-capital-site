@@ -809,28 +809,6 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
 </script>
 <script>
 (() => {
-  const recordingUrl = new URL(location.href);
-  if (recordingUrl.searchParams.get("mode") === "rec" && recordingUrl.searchParams.get("recording_frame") !== "1"){
-    // Keep the recording's animation tree separate from scripts on the outer page.
-    const frame = document.createElement("iframe");
-    recordingUrl.searchParams.set("recording_frame", "1");
-    frame.id = "recording-surface"; frame.title = "Crawler recording";
-    frame.src = recordingUrl.href; frame.allow = "display-capture";
-    frame.style.cssText = "position:fixed;inset:0;width:100%;height:100%;border:0;background:#000;filter:none";
-    document.documentElement.style.cssText += ";filter:none;background:#000;overflow:hidden";
-    document.body.style.cssText = "margin:0;background:#000;overflow:hidden";
-    document.body.classList.add("recording-shell");
-    const shellStyle = document.createElement("style");
-    shellStyle.textContent = "body.recording-shell > :not(#recording-surface){display:none!important}";
-    document.head.appendChild(shellStyle);
-    document.body.replaceChildren(frame);
-    addEventListener("message", e => {
-      if (e.source !== frame.contentWindow || e.origin !== location.origin || e.data?.type !== "bmg-record-exit") return;
-      if (window.opener && !window.opener.closed){ window.close(); return; }
-      location.href = "/desk/read/";
-    });
-    return;
-  }
   const SVG_NS = "http://www.w3.org/2000/svg";
   const doc = document.getElementById("doc");
   const spiderSvg = document.getElementById("spider");
@@ -3389,9 +3367,6 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     else B.classList.add("readerfx", "rec-dark");
     if (isRecord) window.READER_VIEW_FRAC = 0.6;                    // the bottom 40% is the live report panel
     const leave = () => {
-      if (window.frameElement?.id === "recording-surface"){
-        parent.postMessage({type: "bmg-record-exit"}, location.origin); return;
-      }
       if (window.opener && !window.opener.closed){ window.close(); return; }
       location.href = "/desk/read/";
     };
