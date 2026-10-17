@@ -2609,7 +2609,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   //
   // Neighbouring content is first grouped into plain wrapper divs of up to GROUP_H px: the browser's work on
   // every frame (deciding which skipped boxes are near the screen, hit testing, layering) grows with the number
-  // of boxes, and JPMorgan's 10-K had 1,921 of them (about 12 ms a frame). Grouping runs level by level: the
+  // of boxes, and JPMorgan's 10-K had 1,921 of them (about 15 ms a frame). Grouping runs level by level: the
   // children of an element are wrapped in runs up to GROUP_H tall (inline XBRL tags included), and only a child
   // taller than that is opened and grouped inside. A wrapper adds no margin, padding or border, so the page lays
   // out as before; if wrapping moved any word, every group is undone. A group that does not keep its layout
