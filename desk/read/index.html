@@ -771,9 +771,13 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     recordingUrl.searchParams.set("recording_frame", "1");
     frame.id = "recording-surface"; frame.title = "Crawler recording";
     frame.src = recordingUrl.href; frame.allow = "display-capture";
-    frame.style.cssText = "position:fixed;inset:0;width:100%;height:100%;border:0;background:#000";
+    frame.style.cssText = "position:fixed;inset:0;width:100%;height:100%;border:0;background:#000;filter:none";
     document.documentElement.style.cssText += ";filter:none;background:#000;overflow:hidden";
     document.body.style.cssText = "margin:0;background:#000;overflow:hidden";
+    document.body.classList.add("recording-shell");
+    const shellStyle = document.createElement("style");
+    shellStyle.textContent = "body.recording-shell > :not(#recording-surface){display:none!important}";
+    document.head.appendChild(shellStyle);
     document.body.replaceChildren(frame);
     addEventListener("message", e => {
       if (e.source !== frame.contentWindow || e.origin !== location.origin || e.data?.type !== "bmg-record-exit") return;
