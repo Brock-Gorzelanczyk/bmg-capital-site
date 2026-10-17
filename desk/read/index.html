@@ -103,7 +103,6 @@ svg.spider .knee{fill:#ff3d9a}
 #docbody.orig{font:initial;line-height:normal}
 .pdfpage{content-visibility:auto;contain:strict;position:relative;margin:0 auto 18px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .pdfpage canvas{position:absolute;inset:0;width:100%;height:100%}
-.pdf-readable{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:pre}
 .pdftext{position:absolute;inset:0;overflow:hidden;line-height:1}
 .pdftext .tl{position:absolute;white-space:pre;color:transparent;transform-origin:0 0;font-family:sans-serif}
 .pdftext .w{color:transparent}
@@ -616,7 +615,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   <div class="stage">
     <div class="strip"><button class="btn" id="ctl-pause" type="button">Pause</button><select id="ctl-speed" aria-label="Speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option></select><button class="btn" id="read-jump" type="button" hidden>Jump to statements</button><button class="btn" id="read-skip" type="button" hidden>Skip to results</button><span class="status" id="status" role="status">idle</span></div>
     <div class="doc" id="doc">
-      <svg class="spider" id="spider" aria-hidden="true" focusable="false"></svg>
+      <svg class="spider" id="spider"></svg>
       <h1 id="doc-h1"></h1>
       <div id="docbody"></div>
     </div>
@@ -806,7 +805,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       renderProfile.longFrame = list.getEntries().slice(-1).map(e => ({duration: e.duration,
         renderStart: e.renderStart, styleAndLayoutStart: e.styleAndLayoutStart,
         scripts: (e.scripts || []).map(s => ({duration: s.duration, forcedStyleAndLayoutDuration: s.forcedStyleAndLayoutDuration,
-          invoker: s.invoker, sourceURL: s.sourceURL, sourceFunctionName: s.sourceFunctionName, sourceCharPosition: s.sourceCharPosition}))}));
+          invoker: s.invoker, sourceURL: s.sourceURL, sourceFunctionName: s.sourceFunctionName}))}));
     }).observe({type: "long-animation-frame", buffered: true});
   }
   function profileFrame(now){
@@ -1199,7 +1198,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   function restPoint(i, lead){
     const h = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
     const a = h + LEG_ANG[i];
-    const w = docGeo().cw || 800;
+    const w = doc.clientWidth || 800;
     return {x: Math.min(w - 6, Math.max(6, state.body.x + Math.cos(a) * (LEG_R0[i] * U) + Math.cos(h) * lead)),
             y: state.body.y + Math.sin(a) * (LEG_R0[i] * U) + Math.sin(h) * lead};
   }
@@ -1265,12 +1264,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
   (function crawl(now){
     requestAnimationFrame(crawl);
-    const paintFlights = state.prepareFlights ? state.prepareFlights(now) : null;
-    try {
     profileFrame(now);
     const dt = Math.min(0.05, (now - (state.lastCrawl || now)) / 1000);
     state.lastCrawl = now;
-    if (state.paused || !state.feet || !state.feet.length || !walking()) return;
+    if (state.paused || !state.feet || !state.feet.length) return;
     const t = state.crawlTarget;
     if (t && walking()){
       // Body: damped spring toward the goal with a capped speed, so it
@@ -1312,7 +1309,6 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     }
     advanceLegs(now);
     if (now - (state.drawnAt || 0) > 12) drawSpider();
-    } finally { if (paintFlights) paintFlights(); }
   })(performance.now());
 
   // Element centers in .doc space are scroll-invariant, so they are cached
@@ -1484,7 +1480,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   function fxHash(str){ let h = 7; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0; return h; }
   function fxLayer(){
     let L = state.fxLayer;
-    if (!L || !L.isConnected){ L = state.fxLayer = document.createElement("div"); L.className = "fxlayer"; L.setAttribute("aria-hidden", "true"); doc.appendChild(L); }
+    if (!L || !L.isConnected){ L = state.fxLayer = document.createElement("div"); L.className = "fxlayer"; doc.appendChild(L); }
     return L;
   }
   function rowCands(row){
@@ -2410,10 +2406,6 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     return Math.min(4, Math.max(1, nativeRatio || 1, (captureWidth || 0) / Math.max(1, viewportWidth)));
   }
 
-  function pdfPageText(items){
-    return items.filter(it => typeof it.str === "string").map(it => it.str + (it.hasEOL ? "\n" : " ")).join("");
-  }
-
   async function renderPdf(file, into){
     // Each page: a canvas drawn as the spider nears it, plus an invisible
     // word layer positioned exactly over the printed text. A page's canvas
@@ -2434,15 +2426,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       box.className = "pdfpage";
       box.style.width = vp.width + "px"; box.style.height = vp.height + "px";
       const layer = document.createElement("div"); layer.className = "pdftext";
-      // The word-by-word transparent footholds are visual scaffolding. A single
-      // plain-text copy below preserves the full page for assistive reading.
-      layer.setAttribute("aria-hidden", "true");
       box.appendChild(layer);
       fragment.appendChild(box);
       const tc = await page.getTextContent();
-      const readable = document.createElement("div"); readable.className = "pdf-readable";
-      readable.setAttribute("role", "region"); readable.setAttribute("aria-label", "PDF page " + n);
-      readable.textContent = pdfPageText(tc.items); box.appendChild(readable);
       const spans = [];
       for (const it of tc.items){
         if (!it.str || !it.str.trim()) continue;
@@ -2932,7 +2918,6 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
   function applyLive(changes){
     if (!state.live || !changes || !changes.length || !liveEl) return;
-    let follow = null;
     for (const ch of changes){
       if (ch.kind === "signal" && ch.op === "show"){
         const sg = (state.live.plan.signals || []).find(x => x.id === ch.id);
@@ -2946,7 +2931,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         ol.appendChild(li);
         const ph = document.getElementById("lr-sigs-ph");
         if (ph){ const left = state.live.plan.signals.length - ol.children.length; ph.textContent = left > 0 ? `${left} pending` : ""; ph.hidden = !left; }
-        follow = li;      // follow once after this group of updates
+        liveFollow(li);      // keep the last line fully in view
         setTimeout(() => li.classList.remove("flash"), 1400);
         continue;
       }
@@ -2958,11 +2943,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         row.dataset.arrived = "1"; row.classList.add("lr-row-enter");
         setTimeout(() => row.classList.remove("lr-row-enter"), 450);
       }
-      follow = td;
+      liveFollow(td);
       td.classList.toggle("is-w", ch.state === "withdrawn");
       td.classList.add("flash"); setTimeout(() => td.classList.remove("flash"), 1400);
     }
-    if (follow) liveFollow(follow);
     liveProgress();
   }
   // A figure the spider read that is not a report cell (segment, share and other
@@ -3227,7 +3211,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const zapQ = []; let zapBusy = false;
     function readerSourceVisible(el){
       if (!el || !el.isConnected) return false;
-      const r = sourceViewportRect(el);
+      const r = el.getBoundingClientRect();
       const panel = document.querySelector(".read-side");
       const p = panel && panel.getBoundingClientRect();
       const covered = p && getComputedStyle(panel).position === "fixed" && r.right > p.left && r.left < p.right;
@@ -3235,39 +3219,25 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       return r.bottom >= 0 && r.top < bottom && r.right >= 0 && r.left < innerWidth;
     }
     const FLY_MS = 650, ZAP_LAND = 130;
-    function sourceViewportRect(el){
-      const r = wordRect(el), g = docGeo(), top = docTop() + r.y, left = g.left + r.x;
-      return {left, top, width: r.w, height: r.h, right: left + r.w, bottom: top + r.h};
-    }
-    const flyingChips = [];
-    // Read all moving destinations before the crawler or any chip writes styles.
-    // The source words already have measured, scroll-invariant page coordinates.
-    state.prepareFlights = now => {
-      const frames = flyingChips.map(f => ({f, b: f.td.getBoundingClientRect()}));
-      return () => {
-      for (const {f, b} of frames){
-        const a = f.el.isConnected ? sourceViewportRect(f.el) : f.s0;
-        const {chip, s0, t0} = f;
-        const k = Math.min(1, (now - t0) / FLY_MS), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-        const x0 = a.left, y0 = a.top, x1 = b.left + b.width / 2, y1 = b.top + b.height / 2 - 8;
-        const arc = Math.sin(k * Math.PI) * -40;
-        chip.style.transform = `translate(${(x1 - x0) * e + (x0 - s0.left)}px, ${(y1 - y0) * e + (y0 - s0.top) + arc}px) translateX(${-50 * e}%) scale(${1 + .25 * Math.sin(k * Math.PI)})`;
-        chip.style.opacity = k > .85 ? (1 - (k - .85) / .15).toFixed(2) : "1";
-        if (k >= 1){ chip.remove(); flyingChips.splice(flyingChips.indexOf(f), 1); state.chipsInFlight = Math.max(0, state.chipsInFlight - 1); }
-      }
-      };
-    };
     function flyFrom(el, td, text, obs){
-      const s0 = sourceViewportRect(el);
+      const s0 = el.getBoundingClientRect();
       const chip = document.createElement("div"); chip.className = "rec-fly" + (obs ? " obs" : "");
       chip.textContent = text;
-      chip.setAttribute("aria-hidden", "true");
       chip.style.left = s0.left + "px"; chip.style.top = s0.top + "px";
       chip.style.transition = "none";
       B.appendChild(chip);
       state.chipsInFlight = (state.chipsInFlight || 0) + 1;
-      const t0 = performance.now();
-      flyingChips.push({el, td, chip, s0, t0});
+      const w0 = chip.offsetWidth, t0 = performance.now();
+      const step = (now) => {
+        const k = Math.min(1, (now - t0) / FLY_MS), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+        const a = el.isConnected ? el.getBoundingClientRect() : s0, b = td.getBoundingClientRect();
+        const x0 = a.left, y0 = a.top, x1 = b.left + b.width / 2 - w0 / 2, y1 = b.top + b.height / 2 - 8;
+        const arc = Math.sin(k * Math.PI) * -40;
+        chip.style.transform = `translate(${(x1 - x0) * e + (x0 - s0.left)}px, ${(y1 - y0) * e + (y0 - s0.top) + arc}px) scale(${1 + .25 * Math.sin(k * Math.PI)})`;
+        chip.style.opacity = k > .85 ? (1 - (k - .85) / .15).toFixed(2) : "1";
+        if (k < 1) requestAnimationFrame(step); else { chip.remove(); state.chipsInFlight = Math.max(0, state.chipsInFlight - 1); }
+      };
+      requestAnimationFrame(step);
     }
     function pumpZaps(){
       if (zapBusy || !zapQ.length) return;
@@ -3440,11 +3410,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       B.append(hud);
       const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
       const tag = [co.ticker || co.ticker_hint, co.form].filter(Boolean).join(" ");
-      let lastHud = "";
       hudTimer = setInterval(() => {
         const figs = liveEl ? liveEl.querySelectorAll(".lr-c .lr-v").length : 0;
         const obs = document.querySelectorAll("#lr-sigs li").length;
-        const pages = pdfOpen ? pdfOpen.pages : [];
+        const pages = [...document.querySelectorAll(".pdfpage")];
         if (!isRecord){
           const bounds = doc.getBoundingClientRect(), side = document.querySelector(".read-side");
           const limit = side && getComputedStyle(side).position === "fixed" ? side.getBoundingClientRect().top : innerHeight;
@@ -3453,9 +3422,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
           hud.hidden = bounds.bottom < 0 || bounds.top > innerHeight;
         }
         const mid = innerHeight * (isRecord ? 0.3 : 0.5);
-        const top = docTop(), i = pages.findIndex(pg => top + pg.docY <= mid && top + pg.docY + pg.vp.height >= mid);
-        const html = `<b>${esc(tag || "BMG READER")}</b> <span>${figs} figure${figs === 1 ? "" : "s"}</span> <span>${obs} observation${obs === 1 ? "" : "s"}</span>${i >= 0 ? ` <span>p.${i + 1}</span>` : ""}`;
-        if (html !== lastHud){ hud.innerHTML = html; lastHud = html; }
+        const i = pages.findIndex(x => { const r = x.getBoundingClientRect(); return r.top <= mid && r.bottom >= mid; });
+        hud.innerHTML = `<b>${esc(tag || "BMG READER")}</b> <span>${figs} figure${figs === 1 ? "" : "s"}</span> <span>${obs} observation${obs === 1 ? "" : "s"}</span>${i >= 0 ? ` <span>p.${i + 1}</span>` : ""}`;
       }, 200);
     }
 
@@ -3495,29 +3463,19 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         try { rec = new MediaRecorder(stream, {videoBitsPerSecond: 12e6}); recType = rec.mimeType || ""; }
         catch (fallbackError) { stream.getTracks().forEach(t => t.stop()); stream = null; rec = null; return false; }
       }
-      const chosenType = rec.mimeType || recType || "video/webm";
-      if (diskWriter && /mp4/.test(chosenType) !== /\.mp4$/i.test(diskFile.name)){
-        // A fallback encoder may change containers after the save picker.
-        // Keep the complete stream in memory rather than mislabel the file.
-        try { await diskWriter.abort(); } catch (_) {}
-        diskWriter = diskFile = null;
-      }
-      recType = chosenType;
       const actual = stream.getVideoTracks()[0]?.getSettings() || {};
       const size = actual.width && actual.height ? `${actual.width} × ${actual.height}` : "resolution unavailable";
       const fps = actual.frameRate ? `${Math.round(actual.frameRate * 10) / 10} fps` : "frame rate unavailable";
       const rate = rec.videoBitsPerSecond ? `${Math.round(rec.videoBitsPerSecond / 1e6)} Mbps encoder target` : "encoder bitrate unavailable";
       captureDetails = `${high ? "High Quality" : "Standard"}: ${size} · ${fps} · ${rate}`;
       state.captureQuality = {...actual, requestedQuality: high ? "high" : "standard", encoderBitsPerSecond: rec.videoBitsPerSecond || null};
+      if (diskWriter && rec.mimeType && /mp4/.test(rec.mimeType) !== /mp4/.test(recType)) recType = rec.mimeType;
       rec.ondataavailable = e => {
         if (!e.data || !e.data.size) return;
-        if (diskWriter){
+        if (diskWriter && !diskError){
           const part = e.data;
-          diskChain = diskChain.then(async () => {
-            if (diskError) return;
-            try { await diskWriter.write(part); diskBytes += part.size; }
-            catch (err) { diskError = err; }
-          });
+          diskChain = diskChain.then(() => diskWriter.write(part)).then(() => { diskBytes += part.size; })
+            .catch(err => { diskError = err; chunks.push(part); });
         } else chunks.push(e.data);
       };
       return true;
@@ -3530,8 +3488,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
           if (diskWriter){
             await diskChain;
             try { await diskWriter.close(); } catch (e) { diskError = diskError || e; }
-            if (diskError){ res({diskError: true, name: diskFile.name}); return; }
-            res({disk: true, name: diskFile.name, size: diskBytes, type: recType || "video/webm"}); return;
+            if (!diskError){ res({disk: true, name: diskFile.name, size: diskBytes, type: recType || "video/webm"}); return; }
           }
           res(new Blob(chunks, {type: recType || "video/webm"}));
         };
@@ -3582,8 +3539,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const ext = blob && /mp4/.test(blob.type) ? "mp4" : "webm";
       const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
       const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
-      const onDisk = blob && blob.disk, saveFailed = blob && blob.diskError;
-      bar.innerHTML = `${saveFailed ? `<span role="alert">Recording could not be saved to ${esc(blob.name)}. Choose another location and record again.</span>` : onDisk ? `<span class="rf-dl">Saved to ${esc(blob.name)} (${(blob.size / 1e6).toFixed(1)} MB), written while recording</span>` : blob ? `<a class="rf-dl" download="BMG-${esc((co.ticker || "reader").replace(/[^A-Za-z0-9]/g, ""))}-${stamp}.${ext}" href="${URL.createObjectURL(blob)}">Download recording (${ext.toUpperCase()}, ${(blob.size / 1e6).toFixed(1)} MB)</a>` : `<span>Not recorded in the browser (screen sharing was off or declined).</span>`}
+      const onDisk = blob && blob.disk;
+      bar.innerHTML = `${onDisk ? `<span class="rf-dl">Saved to ${esc(blob.name)} (${(blob.size / 1e6).toFixed(1)} MB), written while recording</span>` : blob ? `<a class="rf-dl" download="BMG-${esc((co.ticker || "reader").replace(/[^A-Za-z0-9]/g, ""))}-${stamp}.${ext}" href="${URL.createObjectURL(blob)}">Download recording (${ext.toUpperCase()}, ${(blob.size / 1e6).toFixed(1)} MB)</a>` : `<span>Not recorded in the browser (screen sharing was off or declined).</span>`}
         <button type="button" id="rf-again">Record again</button><button type="button" id="rf-back">&larr; Back to reader</button>`;
       if (blob && captureDetails){
         const details = document.createElement("small"); details.id = "rec-capture-details";
@@ -3595,19 +3552,6 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       bar.querySelector("#rf-back").onclick = leave;
     }
 
-    async function finishRecording(keySecs, oneSecs, highlights){
-      state.recordCamera = null;
-      stopWalk();
-      clearInterval(hudTimer);
-      await wait(() => state.readRes && state.readRes.report, 100, 30000);
-      // The ending reads the completed server report. Filling every underlying
-      // report row first can freeze the last crawler frame inside the video.
-      const end = await ending(keySecs, oneSecs, highlights);
-      const blob = await stopCapture();
-      finalControls(end, blob);
-      const skip = vis("read-skip");
-      if (skip) setTimeout(() => skip.click(), 0);
-    }
     const settleSpiderPose = async () => {
       if (!state.feet || !state.feet.length) return;
           state.legAnim = {}; state.legJ = []; state.legLast = [];
@@ -3765,7 +3709,13 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         let left = finishAt * 1000, last = Date.now();
         await wait(() => { const now = Date.now(); const paused = (document.getElementById("ctl-pause") || {}).textContent === "Resume";
                             if (!paused) left -= now - last; last = now; return left <= 0; }, 100);
-        await finishRecording(keySecs, oneSecs, highlights);
+        state.recordCamera = null;
+        const sk = vis("read-skip"); if (sk) sk.click();
+        clearInterval(hudTimer);
+        await wait(() => state.readRes && state.readRes.report, 100, 30000);
+        const end = await ending(keySecs, oneSecs, highlights);
+        const blob = await stopCapture();
+        finalControls(end, blob);
       } catch (e) {
         state.recordCamera = null;
         curtain.remove();
@@ -3971,18 +3921,12 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // what the walk did not reach comes from the completed analysis, and says so
     if (state.live) applyLive(state.live.finish());
     // Whatever the walk did not reach is still listed, linked to its page.
-    const pages = [...docBody.querySelectorAll(".pdfpage")], pageWords = new Map(), used = new Set();
     (state.pendingFindings || []).splice(0).forEach(p => {
       let el = null;
-      const pg = p.page ? pages[p.page - 1] : null;
-      if (pg){
-        if (!pageWords.has(pg)) pageWords.set(pg, [...pg.querySelectorAll(".w")]);
-        el = pageWords.get(pg).find(w => !used.has(w) && !w.classList.contains("found") && holds(w, p.value)) || null;
-      }
-      // Unreached findings belong to the completed analysis, so retain their
-      // source links without launching another walk or measuring offscreen words.
-      addFinding(p._f, null); onFindingSignals(p._f, null);
-      if (el){ used.add(el); p._f._el = el; }
+      const pg = p.page ? docBody.querySelectorAll(".pdfpage")[p.page - 1] : null;
+      if (pg) el = [...pg.querySelectorAll(".w")].find(w => !w.classList.contains("found") && holds(w, p.value)) || null;
+      if (el) markFactInDoc({doc_id: state.currentDocId, label: p._f.label, value: p.value, _el: el, _f: p._f});
+      else { addFinding(p._f, null); onFindingSignals(p._f, null); }
     });
     // signals with no anchor in the document still belong in the list
     Object.values(state.sigById || {}).forEach(sg => { if (!sg._shown){ sg._shown = true; addSignalCard(sg); } });
