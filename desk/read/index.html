@@ -2513,7 +2513,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     READ_MAX.bytes = j.max_bytes; READ_MAX.local = !!j.local;
     const el = document.getElementById("read-max"); if (el) el.textContent = READ_MAX.mb();
     document.dispatchEvent(new CustomEvent("bmg-read-limits"));
-    if (READ_MAX.local) watchForNewVersion();
+    if (READ_MAX.local) try { watchForNewVersion(); } catch (e) { /* a failed watcher must never stop the rest of setup */ }
     if (READ_MAX.local){
       const privacy = document.querySelector(".read-privacy");
       if (privacy) privacy.textContent = "On this Mac, the crawler saves each completed file and report in My reads so you can reopen them after a reload or server restart. Saved reads stay on this Mac; the app does not automatically delete them. Nothing is saved to the vault unless the owner presses Save with the owner key.";
