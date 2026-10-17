@@ -3396,6 +3396,12 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // -- eye scanner: a narrow cone sweeps smoothly in front of the eyes.
     // Drawn over the spider every frame from where its eyes are; the spider itself is untouched.
     let eyeRaf = 0;
+    function scannerEyePoint(head, left, top){
+      if (!head) return null;
+      const cx = head.getAttribute("cx"), cy = head.getAttribute("cy");
+      if (cx == null || cy == null || !Number.isFinite(+cx) || !Number.isFinite(+cy)) return null;
+      return {x: left + +cx, y: top + +cy};
+    }
     function startEyeScanner(){
       const NS = "http://www.w3.org/2000/svg";
       const svg = document.createElementNS(NS, "svg"); svg.id = "rec-eye";
@@ -3411,15 +3417,21 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       let heading = null, previous = null;
       const frame = (now = performance.now()) => {
         eyeRaf = requestAnimationFrame(frame);
-        const eyes = [...document.querySelectorAll("#spider .eye, #spider .head")].map(e => e.getBoundingClientRect()).filter(r => r.width > 0);
-        if (!eyes.length || document.getElementById("rec-end")){ svg.style.display = "none"; previous = null; return; }
+        if (state.paused || !walking() || document.getElementById("rec-end")){
+          if (svg.style.display !== "none") svg.style.display = "none";
+          previous = null; return;
+        }
+        const g0 = docGeo(), top = docTop();
+        // The head's SVG coordinates already describe the rendered eye. Reading
+        // its screen rectangle after drawing forces layout of the filing again.
+        const eye = scannerEyePoint(spiderSvg.querySelector(".head"), g0.left, top);
+        if (!eye){ svg.style.display = "none"; previous = null; return; }
         svg.style.display = "";
         if (!isRecord){
-          const bounds = doc.getBoundingClientRect();
+          const bounds = {top, left:g0.left, right:g0.left+g0.width, bottom:top+g0.height};
           svg.style.clipPath = `inset(${Math.max(0,bounds.top)}px ${Math.max(0,innerWidth-bounds.right)}px ${Math.max(0,innerHeight-bounds.bottom)}px ${Math.max(0,bounds.left)}px)`;
         }
-        const ex = eyes.reduce((t, r) => t + r.left + r.width / 2, 0) / eyes.length;
-        const ey = eyes.reduce((t, r) => t + r.top + r.height / 2, 0) / eyes.length;
+        const ex = eye.x, ey = eye.y;
         // Follow the existing head direction without changing the spider's motion.
         // Shortest-angle easing avoids a snap when headings wrap between -PI and PI.
         const want = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
@@ -3619,6 +3631,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       state.recordCamera = null;
       stopWalk();
       clearInterval(hudTimer);
+      cancelAnimationFrame(eyeRaf);
       await wait(() => state.readRes && state.readRes.report, 100, 30000);
       // The ending reads the completed server report. Filling every underlying
       // report row first can freeze the last crawler frame inside the video.
