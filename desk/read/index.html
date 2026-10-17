@@ -1269,7 +1269,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     profileFrame(now);
     const dt = Math.min(0.05, (now - (state.lastCrawl || now)) / 1000);
     state.lastCrawl = now;
-    if (state.paused || !state.feet || !state.feet.length) return;
+    if (state.paused || !state.feet || !state.feet.length || !walking()) return;
     const t = state.crawlTarget;
     if (t && walking()){
       // Body: damped spring toward the goal with a capped speed, so it
