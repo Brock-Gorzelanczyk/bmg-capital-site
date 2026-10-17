@@ -304,6 +304,21 @@ body.recmode.rec-dark .htmldoc *{color:#e8e8e8!important;border-color:#5a5a5a!im
 body.recmode.rec-dark .htmldoc .w:is(.found,.cyanfill,.fillbox,.salmon){color:#001a22!important}
 body.clip-zoom .doc{width:130vw!important;max-width:none!important;margin-left:-4vw!important}
 body.clip-zoom,body.clip-zoom main.read-page{overflow-x:hidden!important}
+.pics-drop{display:flex;flex-direction:column;gap:2px;padding:12px;border:2px dashed #9aa6b0;border-radius:8px;cursor:pointer;text-align:center}
+.pics-drop.over{border-color:var(--crawler-main,#27c8ff);background:rgba(39,200,255,.08)}.pics-drop span{font-size:12px;opacity:.75}
+.pics-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.pics-list li{display:flex;align-items:center;gap:8px;font-size:12px}.pics-list img{width:44px;height:44px;object-fit:cover;border-radius:4px}
+.pics-list li button{margin-left:auto}
+#rec-pics{position:fixed;inset:0;z-index:61;pointer-events:none}
+#rec-pics[hidden]{display:none}
+.rp-pic{position:absolute;touch-action:none}.rp-pic img{display:block;width:100%;height:auto;pointer-events:none;user-select:none}
+body.pics-edit #rec-pics{pointer-events:auto}
+body.pics-edit .rp-pic{outline:2px dashed var(--crawler-main,#6ff4ff);outline-offset:2px;cursor:move}
+.rp-pic .rp-x,.rp-pic .rp-size{display:none}
+body.pics-edit .rp-pic .rp-x{display:block;position:absolute;top:-14px;right:-14px;width:28px;height:28px;border-radius:50%;border:0;background:#ff3da6;color:#fff;font:700 16px/28px sans-serif;cursor:pointer;padding:0}
+body.pics-edit .rp-pic .rp-size{display:block;position:absolute;right:-10px;bottom:-10px;width:22px;height:22px;border-radius:4px;background:var(--crawler-main,#6ff4ff);cursor:nwse-resize}
+#pics-done{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:62;display:flex;gap:8px;align-items:center;background:rgba(0,0,0,.85);color:#fff;padding:10px 14px;border-radius:10px;font:13px sans-serif}
+#pics-done button{font:600 14px sans-serif;padding:8px 14px;border-radius:8px;border:0;cursor:pointer}
 #clip-intro{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.8);color:#fff;font-family:Inter,'IBM Plex Sans',sans-serif;pointer-events:none;transition:opacity .25s}
 #clip-intro.out{opacity:0}
 #clip-intro .ci-h{position:absolute;left:6.5vw;right:6.5vw;top:13vh;font-size:9.1vw;font-weight:900;line-height:1.04;letter-spacing:-.18vw}
@@ -3252,6 +3267,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         <label class="opt">Clip length <span><input id="clip-len" type="number" min="15" max="30" value="20"> s</span></label>
         <p class="clip-st" id="clip-st" role="status"></p>
       </fieldset>
+      <fieldset class="clip-idea clip-pics" id="clip-pics-box"><legend>Pictures on screen</legend>
+        <label class="pics-drop" id="pics-drop"><input type="file" id="pics-file" accept="image/*" multiple hidden><b>Drop pictures here or click to choose</b><span>They show on top of the video, where you place them.</span></label>
+        <ul class="pics-list" id="pics-list"></ul>
+        <button type="button" id="pics-place" hidden>Place pictures on the screen</button>
+      </fieldset>
       <label class="opt">Clip format <select id="rec-format"><option value="custom" selected>Continuous read (first-video movement)</option><option value="highlights">40-second highlights camera</option><option value="idea">Idea clip · your hook, then the spider on your numbers</option></select></label>
       <label class="opt">Highlight pace <select id="rec-pace"><option value="1.6" selected>Fast · faster crawler, steady highlights</option><option value="1">Brisk · focus on statements</option></select></label>
       <p>Highlights: 2-second opening, 33 seconds through statement findings, 5-second ending. Continuous scrolling, with more time around real figures.</p>
@@ -3295,6 +3315,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       };
       format.addEventListener("change", syncFormat); syncFormat();
       ideaSetup(format);
+      picturesSetup();
     }
     // ---- Idea clip: a pasted idea fills the hook, ticker, numbers and intro; Start loads the filing itself ----
     const NAME_TICKERS = {"jpmorgan": "JPM", "jp morgan": "JPM", "chase": "JPM", "costco": "COST", "amazon": "AMZN", "apple": "AAPL", "microsoft": "MSFT",
@@ -3389,6 +3410,94 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       el.innerHTML = `<div class="ci-h">${esc(hook)}</div><div class="ci-row"><div class="ci-pic">${pic}</div>${big ? `<div><div class="ci-big">${esc(big)}</div><div class="ci-small">${esc(small)}</div></div>` : ""}</div>`;
       B.appendChild(el);
       return el;
+    }
+    // ---- Pictures on screen: dropped images sit on top of the video where they are placed ----
+    // Positions are fractions of the window, so the placement is the recording's framing. Kept in this
+    // browser (downscaled to 1200 px) so the same pictures come back next time.
+    const PICS_LS = "bmg-rec-pictures";
+    const picLayer = document.createElement("div"); picLayer.id = "rec-pics"; picLayer.hidden = true;
+    let pics = [];
+    try { pics = JSON.parse(localStorage.getItem(PICS_LS) || "[]").filter(x => x && x.src); } catch (e) { pics = []; }
+    const savePics = () => { try { localStorage.setItem(PICS_LS, JSON.stringify(pics)); } catch (e) { /* too big for storage: kept for this session only */ } };
+    function shrinkImage(file){
+      return new Promise((res, rej) => {
+        const url = URL.createObjectURL(file), img = new Image();
+        img.onload = () => {
+          const s = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight));
+          const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+          res({src: c.toDataURL(/png|gif|webp/.test(file.type) ? "image/png" : "image/jpeg", 0.92), ratio: c.height / c.width, name: file.name});
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("not an image")); };
+        img.src = url;
+      });
+    }
+    function drawPics(){
+      picLayer.innerHTML = "";
+      pics.forEach((pc, i) => {
+        const d = document.createElement("div"); d.className = "rp-pic"; d.dataset.i = i;
+        d.style.left = pc.x * 100 + "%"; d.style.top = pc.y * 100 + "%"; d.style.width = pc.w * 100 + "%";
+        d.innerHTML = `<img src="${pc.src}" alt=""><button type="button" class="rp-x" aria-label="Remove picture">&times;</button><span class="rp-size" aria-hidden="true"></span>`;
+        picLayer.appendChild(d);
+      });
+      const list = setup.querySelector("#pics-list");
+      if (list) list.innerHTML = pics.map((pc, i) => `<li><img src="${pc.src}" alt=""><span>${esc(pc.name || "picture " + (i + 1))}</span>
+        <label><input type="checkbox" data-intro="${i}"${pc.introOnly ? " checked" : ""}> intro only</label><button type="button" data-rm="${i}">Remove</button></li>`).join("");
+      const placeBtn = setup.querySelector("#pics-place"); if (placeBtn) placeBtn.hidden = !pics.length;
+    }
+    // drag to move, corner to resize, x to remove (only while placing)
+    picLayer.addEventListener("pointerdown", e => {
+      if (!B.classList.contains("pics-edit")) return;
+      const d = e.target.closest(".rp-pic"); if (!d) return;
+      const pc = pics[+d.dataset.i];
+      if (e.target.closest(".rp-x")){ pics.splice(+d.dataset.i, 1); savePics(); drawPics(); return; }
+      e.preventDefault(); d.setPointerCapture(e.pointerId);
+      const sizing = !!e.target.closest(".rp-size"), x0 = e.clientX, y0 = e.clientY, start = {...pc};
+      const move = ev => {
+        const dx = (ev.clientX - x0) / innerWidth, dy = (ev.clientY - y0) / innerHeight;
+        if (sizing) pc.w = Math.max(0.06, Math.min(1, start.w + dx));
+        else { pc.x = Math.max(-pc.w * 0.8, Math.min(0.95, start.x + dx)); pc.y = Math.max(-0.1, Math.min(0.97, start.y + dy)); }
+        d.style.left = pc.x * 100 + "%"; d.style.top = pc.y * 100 + "%"; d.style.width = pc.w * 100 + "%";
+      };
+      const up = () => { d.removeEventListener("pointermove", move); d.removeEventListener("pointerup", up); savePics(); };
+      d.addEventListener("pointermove", move); d.addEventListener("pointerup", up);
+    });
+    function picturesSetup(){
+      B.appendChild(picLayer);
+      const drop = setup.querySelector("#pics-drop"), input = setup.querySelector("#pics-file");
+      const add = async files => {
+        for (const f of files){
+          if (!/^image\//.test(f.type)) continue;
+          try { const im = await shrinkImage(f); const n = pics.length;
+            pics.push({...im, x: 0.08 + (n % 3) * 0.06, y: 0.12 + (n % 3) * 0.06, w: 0.4, introOnly: false}); } catch (e) {}
+        }
+        savePics(); drawPics();
+      };
+      input.addEventListener("change", () => { add([...input.files]); input.value = ""; });
+      for (const ev of ["dragenter", "dragover"]) drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); drop.classList.add("over"); });
+      drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+      drop.addEventListener("drop", e => { e.preventDefault(); e.stopPropagation(); drop.classList.remove("over"); add([...e.dataTransfer.files]); });
+      setup.querySelector("#pics-list").addEventListener("click", e => {
+        const rm = e.target.closest("button[data-rm]"); if (rm){ pics.splice(+rm.dataset.rm, 1); savePics(); drawPics(); }
+      });
+      setup.querySelector("#pics-list").addEventListener("change", e => {
+        const cb = e.target.closest("input[data-intro]"); if (cb){ pics[+cb.dataset.intro].introOnly = cb.checked; savePics(); }
+      });
+      // placing: the setup panel steps aside so the window shows the video frame (with the intro, when there is a hook)
+      setup.querySelector("#pics-place").addEventListener("click", () => {
+        const hook = setup.querySelector("#clip-hook").value.trim();
+        const preview = hook ? clipIntro(hook, setup.querySelector("#clip-big").value.trim(), setup.querySelector("#clip-small").value.trim().replace(/\s*·\s*/g, "\n"),
+          setup.querySelector("#clip-ticker").value.trim()) : null;
+        setup.hidden = true; picLayer.hidden = false; B.classList.add("pics-edit");
+        const bar = document.createElement("div"); bar.id = "pics-done";
+        bar.innerHTML = `<span>Drag to move · corner to resize · &times; to remove</span><button type="button">Done</button>`;
+        B.appendChild(bar);
+        bar.querySelector("button").addEventListener("click", () => {
+          bar.remove(); if (preview) preview.remove();
+          B.classList.remove("pics-edit"); picLayer.hidden = true; setup.hidden = false; drawPics();
+        });
+      });
+      drawPics();
     }
     const palettePicker = setup.querySelector("#rec-palette");
     try { const saved = localStorage.getItem(PALETTE_LS); if (saved && palettes[saved]) palettePicker.value = saved; } catch (e) {}
@@ -3971,12 +4080,14 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
           state.speedMul = 1.5;
         }
         if (rec) rec.start(500);                                   // the clip starts here, on the statements
+        if (pics.length){ drawPics(); picLayer.hidden = false; }
         if (highlights){ await sleep(2000); startHighlights(pace); }
         if (renderProfile){ renderProfile.frames = []; renderProfile.draws = []; renderProfile.last = 0; }
         curtain.classList.add("out"); setTimeout(() => curtain.remove(), 400);
         if (intro){
           await sleep(2000);
           intro.classList.add("out"); setTimeout(() => intro.remove(), 300);
+          pics.forEach((pc, i) => { if (pc.introOnly){ const d = picLayer.querySelector(`.rp-pic[data-i="${i}"]`); if (d) d.remove(); } });
           state.paused = false;
           // the numbers asked for are lit as the spider reaches them (the zap only fires within its reach)
           const pending = new Set(targets || []);
