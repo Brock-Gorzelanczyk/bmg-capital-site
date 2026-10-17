@@ -162,6 +162,11 @@ svg.spider .knee{fill:#ff3d9a}
 #edgar-status{font-size:13px;color:#5d6862}#edgar-status.err{color:#b42318}
 #edgar-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 #edgar-list:empty{display:none}
+.re-watch{padding-top:8px;border-top:1px dashed #e3e3dc}
+#edgar-watch{height:40px;padding:0 16px;border-radius:8px;border:1px solid #0f7d47;background:#fff;color:#0f7d47;font-weight:600;cursor:pointer}
+#edgar-watch.on{background:#b42318;border-color:#b42318;color:#fff}
+.re-since{font-size:13px;color:#5d6862;display:flex;gap:6px;align-items:center}.re-since input{height:32px;border:1px solid #d6d6cf;border-radius:6px;padding:0 6px}
+#edgar-watch-st{font-size:13px;color:#5d6862}#edgar-watch-st.hit{color:#0f7d47;font-weight:600}
 #edgar-list li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border:1px solid #e6e8e4;border-radius:8px;background:#fff;font-size:14px}
 #edgar-list li.re-more{justify-content:center;border-style:dashed;background:transparent}
 #edgar-list li small{display:block;color:#6b6f76;font:12px 'IBM Plex Mono',monospace}
@@ -594,6 +599,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   <h2 id="edgar-h">Load from SEC EDGAR</h2>
   <div class="re-row"><input id="edgar-ticker" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="Ticker, e.g. AMZN" aria-label="Ticker to look up on SEC EDGAR"><button id="edgar-find" type="button">Find filings</button><span id="edgar-status" role="status"></span></div>
   <ol id="edgar-list"></ol>
+  <div class="re-row re-watch" id="edgar-watch-row" hidden>
+    <button id="edgar-watch" type="button">Watch for the next filing</button>
+    <label class="re-since">Also count filings since <input id="edgar-since" type="date"></label>
+    <span id="edgar-watch-st" role="status"></span>
+  </div>
 </section>
 <section class="read-library" id="read-library" hidden aria-labelledby="lib-h">
   <div class="rl-head"><h2 id="lib-h">My reads</h2><span id="lib-count"></span></div>
@@ -2585,12 +2595,13 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       if (!t){ say("Enter a ticker, for example AMZN.", true); return; }
       find.disabled = true; list.innerHTML = ""; say("Looking up " + t + " on SEC EDGAR...");
       try {
-        const r = await fetch("/api/edgar/filings?ticker=" + encodeURIComponent(t), {cache: "no-store"});
+        const r = await fetch("/api/edgar/filings?earnings=1&ticker=" + encodeURIComponent(t), {cache: "no-store"});
         const j = await r.json();
         if (!r.ok){ say(j.error || "SEC EDGAR lookup failed.", true); return; }
         found = j;
         if (!j.filings.length){ say(`${j.company} has no 10-K or 10-Q in its recent filings.`, true); return; }
         say(`${j.company} · CIK ${j.cik}`);
+        watchRow.hidden = false;
         list.innerHTML = j.filings.map((f, i) => `<li${i >= 6 ? " hidden" : ""}><span><b>${esc(f.form)}</b>${f.period ? " · period ended " + esc(f.period) : ""}<small>filed ${esc(f.filed)} · ${esc(f.accession)}</small></span><button type="button" data-i="${i}">Read</button></li>`).join("")
           + (j.filings.length > 6 ? `<li class="re-more"><button type="button" data-more="1">Show ${j.filings.length - 6} older</button></li>` : "");
       } catch (e){ say("Could not reach the local server.", true); }
@@ -2601,7 +2612,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     list.addEventListener("click", async e => {
       if (e.target.closest("button[data-more]")){ list.querySelectorAll("li[hidden]").forEach(li => { li.hidden = false; }); e.target.closest("li").remove(); return; }
       const b = e.target.closest("button[data-i]"); if (!b || !found) return;
-      const f = found.filings[+b.dataset.i];
+      readFiling(found.filings[+b.dataset.i]);
+    });
+    async function readFiling(f){
       list.querySelectorAll("button").forEach(x => { x.disabled = true; });
       say(`Downloading ${f.form} filed ${f.filed} from SEC EDGAR...`);
       try {
@@ -2619,6 +2632,54 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         runRead.click();
       } catch (x){ say("Could not reach the local server.", true); }
       finally { list.querySelectorAll("button").forEach(x => { x.disabled = false; }); }
+    }
+
+    // ---- earnings watch: check EDGAR every minute; the first new filing is loaded and read at once ----
+    const watchRow = document.getElementById("edgar-watch-row"), watchBtn = document.getElementById("edgar-watch");
+    const sinceIn = document.getElementById("edgar-since"), wst = document.getElementById("edgar-watch-st");
+    let watch = null;
+    const wsay = (t, hit) => { wst.textContent = t; wst.classList.toggle("hit", !!hit); };
+    function stopWatch(msg){
+      if (watch) clearInterval(watch.timer);
+      watch = null; watchBtn.classList.remove("on"); watchBtn.textContent = "Watch for the next filing";
+      if (msg) wsay(msg);
+    }
+    function alarm(text){
+      try { if (window.Notification && Notification.permission === "granted") new Notification("BMG Crawler: new filing", {body: text}); } catch (e) {}
+      try {
+        const ac = new (window.AudioContext || window.webkitAudioContext)();
+        [0, 0.25, 0.5].forEach(t0 => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 880; g.gain.value = 0.15;
+          o.connect(g); g.connect(ac.destination); o.start(ac.currentTime + t0); o.stop(ac.currentTime + t0 + 0.15); });
+      } catch (e) {}
+      const base = document.title; let n = 0;
+      const flash = setInterval(() => { document.title = (n++ % 2) ? base : "NEW FILING: " + text; if (n > 20){ clearInterval(flash); document.title = base; } }, 700);
+    }
+    async function poll(){
+      if (!watch) return;
+      try {
+        const r = await fetch(`/api/edgar/filings?fresh=1&earnings=1&ticker=${encodeURIComponent(watch.ticker)}`, {cache: "no-store"});
+        const j = await r.json();
+        if (!r.ok){ wsay(`Watching ${watch.ticker}: SEC EDGAR did not answer at ${new Date().toLocaleTimeString()}; trying again in a minute.`); return; }
+        const fresh = j.filings.filter(f => !watch.seen.has(f.accession) || (watch.since && f.filed >= watch.since));
+        if (!fresh.length){ wsay(`Watching ${watch.ticker} · checked ${new Date().toLocaleTimeString()} · nothing new yet (checks every minute; keep this tab open and the Mac awake)`); return; }
+        const f = fresh[0];
+        stopWatch();
+        wsay(`New: ${watch_t(j, f)}. Reading it now.`, true);
+        alarm(watch_t(j, f));
+        found = j;
+        readFiling(f);
+      } catch (e){ wsay(`Watching ${watch.ticker}: the local server did not answer at ${new Date().toLocaleTimeString()}; trying again in a minute.`); }
+    }
+    const watch_t = (j, f) => `${j.ticker} ${f.form} filed ${f.filed}`;
+    watchBtn.addEventListener("click", () => {
+      if (watch){ stopWatch("Stopped watching."); return; }
+      if (!found){ wsay("Find a ticker's filings first."); return; }
+      try { if (window.Notification && Notification.permission === "default") Notification.requestPermission(); } catch (e) {}
+      watch = {ticker: found.ticker, seen: new Set(found.filings.map(f => f.accession)), since: sinceIn.value || "",
+               timer: setInterval(poll, 60000)};
+      watchBtn.classList.add("on"); watchBtn.textContent = "Stop watching";
+      wsay(`Watching ${watch.ticker}...`);
+      poll();
     });
   })();
   fileIn.addEventListener("change", () => pick(fileIn.files[0]));
