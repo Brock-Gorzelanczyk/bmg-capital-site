@@ -2995,8 +2995,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const wp = pageOf(w);
       const wy = docSpaceCenter(w).y / H;
       let k = -1, best = 1e9;
+      // holds(w, f.value), with each word's and each figure's number parsed once instead of on every comparison
+      const wn = w._num !== undefined ? w._num : (w._num = numOf(w.textContent));
       pend.forEach((f, j) => {
-        if (!holds(w, f.value)) return;
+        const fv = f._num !== undefined ? f._num : (f._num = numOf(f.value));
+        if (!(fv !== null && wn !== null ? wn === fv && w.textContent.replace(/[\d,.$()%\-\s]/g, "").length <= 3 : w.textContent.includes(f.value))) return;
         let d;
         if (wp && f.page) d = Math.abs(f.page - wp) <= 1 ? Math.abs(f.page - wp) : 1e9;
         else { const fy = total && f.char_offset >= 0 ? f.char_offset / total : wy; d = Math.abs(fy - wy) < 0.15 ? Math.abs(fy - wy) : 1e9; }
@@ -3849,16 +3852,18 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         // scoped lookups: a whole-document query walks every word span (180,000 in JPMorgan's HTML 10-K)
         const figs = liveEl ? liveEl.querySelectorAll(".lr-c .lr-v").length : 0;
         const sigs = document.getElementById("lr-sigs"), obs = sigs ? sigs.children.length : 0;
-        const pages = pdfOpen ? pdfOpen.pages.map(pg => pg.box) : [];
+        // Positions come from the cached document geometry and page offsets: reading live rectangles
+        // here forced a layout of the filing five times a second, and the panel lookup walked every word span.
+        const g = docGeo(), top = docTop();
         if (!isRecord){
-          const bounds = doc.getBoundingClientRect(), side = document.querySelector(".read-side");
-          const limit = side && getComputedStyle(side).position === "fixed" ? side.getBoundingClientRect().top : innerHeight;
-          hud.style.top = Math.max(8, Math.min(limit - 40, bounds.bottom - 40)) + "px";
-          hud.style.left = (bounds.left + bounds.width / 2) + "px";
-          hud.hidden = bounds.bottom < 0 || bounds.top > innerHeight;
+          const {p: side, fixed} = sidePanel();
+          const limit = fixed ? side.top : innerHeight, bottom = top + g.height;
+          hud.style.top = Math.max(8, Math.min(limit - 40, bottom - 40)) + "px";
+          hud.style.left = (g.left + g.width / 2) + "px";
+          hud.hidden = bottom < 0 || top > innerHeight;
         }
         const mid = innerHeight * (isRecord ? 0.3 : 0.5);
-        const i = pages.findIndex(x => { const r = x.getBoundingClientRect(); return r.top <= mid && r.bottom >= mid; });
+        const i = pdfOpen ? pdfOpen.pages.findIndex(pg => top + pg.docY <= mid && top + pg.docY + pg.vp.height >= mid) : -1;
         const html = `<b>${esc(tag || "BMG READER")}</b> <span>${figs} figure${figs === 1 ? "" : "s"}</span> <span>${obs} observation${obs === 1 ? "" : "s"}</span>${i >= 0 ? ` <span>p.${i + 1}</span>` : ""}`;
         if (hud.dataset.html !== html){ hud.dataset.html = html; hud.innerHTML = html; }
       }, 200);
