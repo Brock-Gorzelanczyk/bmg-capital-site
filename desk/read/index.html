@@ -3556,6 +3556,14 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // as it arrives. Calculated cells and figures from the completed analysis
     // never fly: only what the spider actually zapped goes to the report.
     const zapQ = []; let zapBusy = false;
+    function readerSourceVisible(el){
+      const r = screenRect(el);
+      if (!r) return false;
+      const {p, fixed} = sidePanel();
+      const covered = fixed && r.right > p.left && r.left < p.right;
+      const bottom = covered && p.top > 0 ? Math.min(innerHeight, p.top) : innerHeight;
+      return r.bottom >= 0 && r.top < bottom && r.right >= 0 && r.left < innerWidth;
+    }
     // Where a word is on screen, from the cached word positions and the scroll: a live
     // getBoundingClientRect after the page changed forced a full layout (and the panel lookup
     // searched every word span) several times a frame.
@@ -3571,14 +3579,6 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const panel = document.querySelector(".read-side"), p = panel && panel.getBoundingClientRect();
       panelGeo = {ep: state.layoutEpoch, ih: innerHeight, p, fixed: !!p && getComputedStyle(panel).position === "fixed"};
       return panelGeo;
-    }
-    function readerSourceVisible(el){
-      const r = screenRect(el);
-      if (!r) return false;
-      const {p, fixed} = sidePanel();
-      const covered = fixed && r.right > p.left && r.left < p.right;
-      const bottom = covered && p.top > 0 ? Math.min(innerHeight, p.top) : innerHeight;
-      return r.bottom >= 0 && r.top < bottom && r.right >= 0 && r.left < innerWidth;
     }
     const FLY_MS = 650, ZAP_LAND = 130;
     function flyFrom(el, td, text, obs){
