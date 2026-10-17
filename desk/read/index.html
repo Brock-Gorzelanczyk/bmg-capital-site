@@ -3923,11 +3923,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         const jb = vis("read-jump");
         const targets = clip ? findClipTargets(clip.find) : null;
         if (targets){
-          // land a few lines above the first number so it is read, and zapped, within the first seconds
+          // land a few lines above the first number so it is read, and zapped, a second or two after the intro
           const top = targets[0].getBoundingClientRect().top;
           const ws = [...docBody.getElementsByClassName("w")];
           let anchor = targets[0];
-          for (let i = ws.indexOf(targets[0]); i >= 0; i--){ const r = ws[i].getBoundingClientRect(); if (r.height && top - r.top > innerHeight * 0.18){ anchor = ws[i]; break; } }
+          for (let i = ws.indexOf(targets[0]); i >= 0; i--){ const r = ws[i].getBoundingClientRect(); if (r.height && top - r.top > innerHeight * 0.3){ anchor = ws[i]; break; } }
           const y0 = scrollY;
           await wait(() => window.crawlerJumpTo(anchor), 100, 30000);
           await wait(() => Math.abs(scrollY - y0) > 40, 100, 15000).catch(() => {});
