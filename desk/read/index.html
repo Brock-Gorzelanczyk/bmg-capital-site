@@ -3315,7 +3315,6 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       };
       format.addEventListener("change", syncFormat); syncFormat();
       ideaSetup(format);
-      picturesSetup();
     }
     // ---- Idea clip: a pasted idea fills the hook, ticker, numbers and intro; Start loads the filing itself ----
     const NAME_TICKERS = {"jpmorgan": "JPM", "jp morgan": "JPM", "chase": "JPM", "costco": "COST", "amazon": "AMZN", "apple": "AAPL", "microsoft": "MSFT",
@@ -3499,6 +3498,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       });
       drawPics();
     }
+    if (isRecord) picturesSetup();
     const palettePicker = setup.querySelector("#rec-palette");
     try { const saved = localStorage.getItem(PALETTE_LS); if (saved && palettes[saved]) palettePicker.value = saved; } catch (e) {}
     const previewEl = setup.querySelector("#rec-palette-preview");
