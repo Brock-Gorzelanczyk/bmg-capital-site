@@ -3362,8 +3362,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       // of them together, and a primary statement heading ("Consolidated statements of ...", "balance sheets") just above wins ties
       const low = ws.map(w => w.textContent.trim().toLowerCase());
       const underStatement = i => {
-        for (let j = i; j > Math.max(0, i - 700); j--){
-          if (low[j] === "consolidated" && /^(statements?|balance)$/.test(low[j + 1] || "")) return true;
+        for (let j = i; j > Math.max(0, i - 260); j--){
+          if (low[j] !== "consolidated") continue;
+          const next = low.slice(j + 1, j + 4).join(" ");
+          if (/^(statements? of (income|operations|earnings|comprehensive|cash)|balance sheets?)/.test(next)) return true;
         }
         return false;
       };
