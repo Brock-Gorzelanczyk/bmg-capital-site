@@ -294,6 +294,20 @@ body.recmode[data-rec-palette] .sig-pop.s-observation,body.recmode[data-rec-pale
 body.recmode[data-rec-palette] .sig-pop .sev.s-observation{background:var(--crawler-main);color:#05070c}
 body.recmode[data-rec-palette] #rec-hud{color:var(--crawler-main);border-color:color-mix(in srgb,var(--crawler-main) 45%,transparent);box-shadow:0 0 14px color-mix(in srgb,var(--crawler-main) 25%,transparent)}
 body.recmode[data-rec-palette] #rec-end h3,body.recmode[data-rec-palette] .rk-one h2 span{color:var(--crawler-main)}
+.clip-idea{border:1px solid #cad2d8;border-radius:8px;padding:10px 12px;margin:10px 0;display:flex;flex-direction:column;gap:6px}
+.clip-idea legend{font-weight:700;padding:0 4px}.clip-idea p{margin:0;font-size:12px;opacity:.8}
+.clip-idea textarea,.clip-idea input[type=text]{width:100%;box-sizing:border-box;padding:7px;border:1px solid #cad2d8;border-radius:6px;font:inherit;color:#111;background:#fff}
+.clip-idea .opt span{display:flex;gap:6px}.clip-st{min-height:1em}.clip-st.err{color:#d93025;opacity:1}
+#clip-intro{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.8);color:#fff;font-family:Inter,'IBM Plex Sans',sans-serif;pointer-events:none;transition:opacity .25s}
+#clip-intro.out{opacity:0}
+#clip-intro .ci-h{position:absolute;left:6.5vw;right:6.5vw;top:13vh;font-size:9.1vw;font-weight:900;line-height:1.04;letter-spacing:-.18vw}
+#clip-intro .ci-row{position:absolute;left:6.5vw;right:6.5vw;top:42.7vh;display:flex;gap:4vw;align-items:center}
+#clip-intro .ci-pic{width:43.5vw;height:27.4vw;border-radius:2.8vw;overflow:hidden;flex:none;position:relative;background:linear-gradient(135deg,#0d2a5c,#081631 70%);border:.2vw solid #3a5a96;box-shadow:0 2vw 5vw rgba(0,0,0,.6)}
+#clip-intro .ci-pic img{width:100%;height:100%;object-fit:cover;display:block}
+#clip-intro .ci-chip{position:absolute;left:4vw;top:8.9vw;width:7vw;height:5.4vw;border-radius:1vw;background:linear-gradient(135deg,#e9cf86,#b28f3a)}
+#clip-intro .ci-nm{position:absolute;left:4vw;bottom:3.7vw;font-size:3.1vw;font-weight:700;letter-spacing:.1vw;color:#dfe7f5}
+#clip-intro .ci-big{font-size:10.9vw;font-weight:900;color:var(--crawler-main,#6ff4ff);line-height:.95;letter-spacing:-.28vw}
+#clip-intro .ci-small{font-size:3.6vw;font-weight:700;margin-top:1vw;color:#d8d8d8;white-space:pre-line}
 #rec-palette,#rec-quality,#rec-format,#rec-pace{max-width:220px;padding:7px;border:1px solid #cad2d8;border-radius:6px;background:#fff;color:#111;font:inherit}
 .rec-palette-preview{display:flex;align-items:center;gap:8px;margin:8px 0 16px;font-size:12px;color:#9aa6b1}
 .rec-palette-preview{flex-direction:column;align-items:flex-start;--pm:#6ff4ff;--pa:#ff3da6;--pt:#9fb4ff;--pb:#6ff4ff}
@@ -3221,7 +3235,18 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       <h2>Record mode</h2>
       <p>Choose a 10-K or 10-Q PDF and press Start. ${canRecord ? "With “Record this window” on, Chrome asks you to share this tab, and the finished clip downloads at the end." : "Use your Mac's screen recorder (Shift-Command-5, Record Selected Portion) on this window."}</p>
       <div id="rec-file-slot"></div>
-      <label class="opt">Clip format <select id="rec-format"><option value="custom" selected>Continuous read (first-video movement)</option><option value="highlights">40-second highlights camera</option></select></label>
+      <fieldset class="clip-idea" id="clip-idea-box"><legend>Idea clip</legend>
+        <p>Paste an idea from your ideas panel (or type the hook and the numbers). The clip opens on your hook for 2 seconds, then the spider lands where those numbers are in the filing and reads at clip speed.</p>
+        <textarea id="clip-paste" rows="3" placeholder="Paste the idea line here"></textarea>
+        <label class="opt">Hook <input id="clip-hook" type="text" maxlength="90" placeholder="jpmorgan made $156 million a day in 2025"></label>
+        <label class="opt">Ticker <span><input id="clip-ticker" type="text" maxlength="10" placeholder="JPM"> <select id="clip-form"><option>10-K</option><option>10-Q</option></select></span></label>
+        <label class="opt">Numbers to find <input id="clip-find" type="text" placeholder="57,048, 58,471"></label>
+        <label class="opt">Intro big number <span><input id="clip-big" type="text" maxlength="14" placeholder="$156m"> <input id="clip-small" type="text" maxlength="40" placeholder="/ day · on average"></span></label>
+        <label class="opt">Intro picture (optional) <input id="clip-pic" type="file" accept="image/*"></label>
+        <label class="opt">Clip length <span><input id="clip-len" type="number" min="15" max="30" value="20"> s</span></label>
+        <p class="clip-st" id="clip-st" role="status"></p>
+      </fieldset>
+      <label class="opt">Clip format <select id="rec-format"><option value="custom" selected>Continuous read (first-video movement)</option><option value="highlights">40-second highlights camera</option><option value="idea">Idea clip · your hook, then the spider on your numbers</option></select></label>
       <label class="opt">Highlight pace <select id="rec-pace"><option value="1.6" selected>Fast · faster crawler, steady highlights</option><option value="1">Brisk · focus on statements</option></select></label>
       <p>Highlights: 2-second opening, 33 seconds through statement findings, 5-second ending. Continuous scrolling, with more time around real figures.</p>
       <label class="opt">Jump to the ending after <span><input type="number" id="rec-finish" min="5" max="600" value="115"> s</span></label>
@@ -3263,6 +3288,89 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         }
       };
       format.addEventListener("change", syncFormat); syncFormat();
+      ideaSetup(format);
+    }
+    // ---- Idea clip: a pasted idea fills the hook, ticker, numbers and intro; Start loads the filing itself ----
+    const NAME_TICKERS = {"jpmorgan": "JPM", "jp morgan": "JPM", "chase": "JPM", "costco": "COST", "amazon": "AMZN", "apple": "AAPL", "microsoft": "MSFT",
+      "j&j": "JNJ", "johnson & johnson": "JNJ", "coinbase": "COIN", "oracle": "ORCL", "gatx": "GATX", "trinity": "TRN", "tesla": "TSLA", "nvidia": "NVDA",
+      "alphabet": "GOOGL", "google": "GOOGL", "meta": "META", "netflix": "NFLX", "walmart": "WMT", "prologis": "PLD", "nextera": "NEE", "amd": "AMD",
+      "micron": "MU", "nike": "NKE", "starbucks": "SBUX", "disney": "DIS", "mcdonald": "MCD", "coca-cola": "KO", "pepsico": "PEP", "visa": "V",
+      "mastercard": "MA", "bank of america": "BAC", "wells fargo": "WFC", "goldman": "GS", "morgan stanley": "MS", "target": "TGT", "home depot": "HD",
+      "robinhood": "HOOD", "palantir": "PLTR", "intel": "INTC", "boeing": "BA", "ford": "F", "general motors": "GM", "uber": "UBER", "airbnb": "ABNB"};
+    function parseIdea(txt){
+      const field = k => { const m = txt.match(new RegExp("\\*\\*" + k + ":\\*\\*\\s*([^|]*)", "i")); return m ? m[1].trim() : ""; };
+      const hook = (field("hook") || (txt.includes("|") ? "" : txt.split("\n")[0])).replace(/^[-*\s\[\]x]+/i, "").trim();
+      const nums = field("numbers") || txt;
+      const low = (txt.match(/\(([^)]*10-[KQ][^)]*)\)/i) || [, nums])[1].toLowerCase() + " " + hook.toLowerCase();
+      let ticker = (txt.match(/\b(?:ticker|nyse|nasdaq)\s*[:=]?\s*([A-Z]{1,5})\b/) || [])[1] || "";
+      if (!ticker){ for (const [n, tk] of Object.entries(NAME_TICKERS)) if (new RegExp("\\b" + n.replace(/[&]/g, "\\&") + "\\b").test(low)){ ticker = tk; break; } }
+      const form = /10-q/i.test(nums) ? "10-Q" : "10-K";
+      const find = [...new Set((nums.match(/\d{1,3}(?:,\d{3})+(?:\.\d+)?/g) || []))].slice(0, 6);
+      const big = (hook.match(/\$\s?[\d.,]+\s*(?:billion|million|thousand|[bmk])?/i) || [""])[0]
+        .replace(/\s*billion/i, "b").replace(/\s*million/i, "m").replace(/\s*thousand/i, "k").replace(/\s+/g, "");
+      const per = (hook.match(/\b(a day|a week|a month|a year|an hour|per day|per year)\b/i) || [""])[0].replace(/^(a|an|per)\s/i, "/ ");
+      return {hook, ticker, form, find, big, small: per ? per + (/day|hour|week|month/.test(per) ? "\non average" : "") : ""};
+    }
+    let clipPicUrl = "";
+    function ideaSetup(format){
+      const q = id => setup.querySelector("#" + id), st = q("clip-st");
+      const ready = () => {
+        const idea = format.value === "idea";
+        startBtn.disabled = idea ? !(q("clip-hook").value.trim() && (q("clip-ticker").value.trim() || fileIn.files[0])) : !fileIn.files[0];
+      };
+      q("clip-paste").addEventListener("input", () => {
+        const v = parseIdea(q("clip-paste").value);
+        for (const [id, val] of [["clip-hook", v.hook], ["clip-ticker", v.ticker], ["clip-find", v.find.join(", ")], ["clip-big", v.big], ["clip-small", v.small]]) if (val) q(id).value = val;
+        q("clip-form").value = v.form;
+        format.value = "idea"; format.dispatchEvent(new Event("change"));
+        st.classList.remove("err");
+        st.textContent = v.ticker ? `Filled in from the idea. Check the fields, then Start.` : "Filled in from the idea. Add the ticker.";
+        ready();
+      });
+      q("clip-pic").addEventListener("change", e => { const f = e.target.files[0]; if (clipPicUrl) URL.revokeObjectURL(clipPicUrl); clipPicUrl = f ? URL.createObjectURL(f) : ""; });
+      for (const id of ["clip-hook", "clip-ticker"]) q(id).addEventListener("input", ready);
+      format.addEventListener("change", ready);
+      fileIn.addEventListener("change", ready);
+    }
+    async function loadClipFiling(ticker, form){
+      const r = await fetch("/api/edgar/filings?ticker=" + encodeURIComponent(ticker), {cache: "no-store"});
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "SEC EDGAR lookup failed.");
+      const f = (j.filings || []).find(x => x.form === form) || (j.filings || []).find(x => /^10-[KQ]/.test(x.form));
+      if (!f) throw new Error(`${j.company || ticker} has no ${form} in its recent filings.`);
+      const q = new URLSearchParams({cik: j.cik, accession: f.accession, document: f.document});
+      const d = await fetch("/api/edgar/document?" + q, {cache: "no-store"});
+      if (!d.ok){ let m = "Download failed."; try { m = (await d.json()).error || m; } catch (x){} throw new Error(m); }
+      const ext = (f.document.match(/\.(\w+)$/) || ["", "htm"])[1];
+      pick(new File([await d.blob()], `${j.ticker} ${f.form.replace("/", "-")} ${f.period || f.filed} filed ${f.filed} ${f.accession}.${ext}`, {type: "text/html"}));
+      const tk = document.getElementById("read-ticker"); if (tk) tk.value = j.ticker;
+      return {company: j.company, form: f.form, period: f.period || f.filed};
+    }
+    // The words for the numbers to find: the place in the filing where most of them sit together.
+    const numKey = s => (s || "").replace(/[$()\s,]/g, "").replace(/[.;:]+$/, "");
+    function findClipTargets(values){
+      const want = values.map(numKey).filter(Boolean);
+      if (!want.length) return null;
+      const ws = [...docBody.getElementsByClassName("w")], keys = ws.map(w => numKey(w.textContent));
+      let best = null;
+      keys.forEach((k, i) => {
+        if (k !== want[0]) return;
+        const hits = [i];
+        for (const v of want.slice(1)){ for (let j = Math.max(0, i - 300); j < Math.min(ws.length, i + 300); j++) if (keys[j] === v){ hits.push(j); break; } }
+        if (!best || hits.length > best.length) best = hits;
+      });
+      if (!best){                                            // the first number is not there: take any of the others
+        for (const v of want.slice(1)){ const i = keys.indexOf(v); if (i >= 0){ best = [i]; break; } }
+      }
+      return best ? best.map(i => ws[i]) : null;
+    }
+    function clipIntro(hook, big, small, name){
+      const el = document.createElement("div");
+      el.id = "clip-intro";
+      const pic = clipPicUrl ? `<img src="${clipPicUrl}" alt="">` : `<div class="ci-chip"></div><div class="ci-nm">${esc((name || "").toLowerCase())}</div>`;
+      el.innerHTML = `<div class="ci-h">${esc(hook)}</div><div class="ci-row"><div class="ci-pic">${pic}</div>${big ? `<div><div class="ci-big">${esc(big)}</div><div class="ci-small">${esc(small)}</div></div>` : ""}</div>`;
+      B.appendChild(el);
+      return el;
     }
     const palettePicker = setup.querySelector("#rec-palette");
     try { const saved = localStorage.getItem(PALETTE_LS); if (saved && palettes[saved]) palettePicker.value = saved; } catch (e) {}
@@ -3780,15 +3888,28 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       state.highlightPlan = {start,end,targets:routeTargets.length,duration:33,pace};
     }
     startBtn.addEventListener("click", async () => {
+      const idea = setup.querySelector("#rec-format").value === "idea";
+      const clip = idea ? {hook: setup.querySelector("#clip-hook").value.trim(), ticker: setup.querySelector("#clip-ticker").value.trim().toUpperCase(),
+        form: setup.querySelector("#clip-form").value, find: setup.querySelector("#clip-find").value.split(/,\s+|;|\s{2,}/).map(s => s.trim()).filter(Boolean),
+        big: setup.querySelector("#clip-big").value.trim(), small: setup.querySelector("#clip-small").value.trim().replace(/\s*·\s*/g, "\n"),
+        secs: Math.min(30, Math.max(15, +setup.querySelector("#clip-len").value || 20))} : null;
       const highlights = setup.querySelector("#rec-format").value === "highlights";
       const pace = +setup.querySelector("#rec-pace").value || 1.6;
       const previousTempo = state.speedMul || 1;
-      const finishAt = Math.max(5, +setup.querySelector("#rec-finish").value || 115);
+      const finishAt = clip ? clip.secs - 2 : Math.max(5, +setup.querySelector("#rec-finish").value || 115);
       const keySecs = Math.max(0, +setup.querySelector("#rec-keys").value || 0);
       const oneSecs = Math.max(0, +setup.querySelector("#rec-one").value || 0);
       state.recordRenderWidth = setup.querySelector("#rec-quality")?.value === "standard" ? 0 : 1080;
       state.captureQuality = null;
       const capture = setup.querySelector("#rec-capture");
+      if (clip && clip.ticker && !fileIn.files[0]){
+        // the filing is fetched before the screen-share prompt, so a bad ticker never starts a recording
+        const st = setup.querySelector("#clip-st");
+        st.classList.remove("err"); st.textContent = `Loading the latest ${clip.form} for ${clip.ticker} from SEC EDGAR...`; startBtn.disabled = true;
+        try { clip.filing = await loadClipFiling(clip.ticker, clip.form); }
+        catch (e){ st.classList.add("err"); st.textContent = e.message || "Could not load the filing."; startBtn.disabled = false; return; }
+        st.textContent = "";
+      }
       if (capture && capture.checked) await askCapture();          // asked first, while the click still counts as a user gesture
       setup.remove();
       const curtain = document.createElement("div");
@@ -3796,10 +3917,22 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       curtain.innerHTML = `<div style="width:84px;opacity:.9">${BMG_LINE}</div>`;
       B.appendChild(curtain);
       document.getElementById("read-run").click();
+      let clipWatch = 0;
       try {
         await wait(() => vis("read-skip"), 50);
         const jb = vis("read-jump");
-        if (jb){
+        const targets = clip ? findClipTargets(clip.find) : null;
+        if (targets){
+          // land a few lines above the first number so it is read, and zapped, within the first seconds
+          const top = targets[0].getBoundingClientRect().top;
+          const ws = [...docBody.getElementsByClassName("w")];
+          let anchor = targets[0];
+          for (let i = ws.indexOf(targets[0]); i >= 0; i--){ const r = ws[i].getBoundingClientRect(); if (r.height && top - r.top > innerHeight * 0.18){ anchor = ws[i]; break; } }
+          const y0 = scrollY;
+          await wait(() => window.crawlerJumpTo(anchor), 100, 30000);
+          await wait(() => Math.abs(scrollY - y0) > 40, 100, 15000).catch(() => {});
+          let last = scrollY; await wait(() => { const st = Math.abs(scrollY - last) < 20; last = scrollY; return st; }, 250, 5000).catch(() => {});
+        } else if (jb){
           // lift the curtain only once the view has actually moved to the statements, then settled
           const y0 = scrollY; jb.click();
           await wait(() => scrollY - y0 > innerHeight * 0.5, 100, 15000).catch(() => {});
@@ -3810,16 +3943,45 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         if (state.feet && state.feet.length){
           await settleSpiderPose();
         }
+        let intro = null;
+        if (clip){
+          // the opening: the hook over the paused page for 2 seconds, then the spider at clip speed
+          state.paused = true;
+          const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
+          intro = clipIntro(clip.hook, clip.big, clip.small, co.name || (clip.filing && clip.filing.company) || clip.ticker);
+          state.speedMul = 1.5;
+        }
         if (rec) rec.start(500);                                   // the clip starts here, on the statements
         if (highlights){ await sleep(2000); startHighlights(pace); }
-        startOverlays();
         if (renderProfile){ renderProfile.frames = []; renderProfile.draws = []; renderProfile.last = 0; }
         curtain.classList.add("out"); setTimeout(() => curtain.remove(), 400);
+        if (intro){
+          await sleep(2000);
+          intro.classList.add("out"); setTimeout(() => intro.remove(), 300);
+          state.paused = false;
+          // the numbers asked for are lit as the spider reaches them (the zap only fires within its reach)
+          const pending = new Set(targets || []);
+          clipWatch = setInterval(() => {
+            for (const el of pending) if (zapTo(el, true, true)){ el.classList.add("found", "pink", "hl-zap"); pending.delete(el); }
+            if (!pending.size) clearInterval(clipWatch);
+          }, 100);
+        }
+        startOverlays();
         // count only time that is not paused
         let left = finishAt * 1000, last = Date.now();
         await wait(() => { const now = Date.now(); const paused = (document.getElementById("ctl-pause") || {}).textContent === "Resume";
                             if (!paused) left -= now - last; last = now; return left <= 0; }, 100);
         state.recordCamera = null;
+        clearInterval(clipWatch);
+        if (clip){
+          // an idea clip ends on the crawl itself: no findings or summary screens
+          clearInterval(hudTimer);
+          state.paused = true;
+          const blob = await stopCapture();
+          const end = document.createElement("div"); end.id = "rec-end"; B.appendChild(end);
+          finalControls(end, blob);
+          return;
+        }
         const sk = vis("read-skip"); if (sk) sk.click();
         clearInterval(hudTimer);
         await wait(() => state.readRes && state.readRes.report, 100, 30000);
@@ -3828,6 +3990,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         finalControls(end, blob);
       } catch (e) {
         state.recordCamera = null;
+        clearInterval(clipWatch);
+        document.getElementById("clip-intro")?.remove();
         curtain.remove();
         const blob = await stopCapture();
         if (blob){ const end = document.createElement("div"); end.id = "rec-end"; B.appendChild(end); finalControls(end, blob); }
