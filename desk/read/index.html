@@ -764,6 +764,19 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
 </script>
 <script>
 (() => {
+  const recordingUrl = new URL(location.href);
+  if (recordingUrl.searchParams.get("mode") === "rec" && recordingUrl.searchParams.get("surface") === "isolated" && recordingUrl.searchParams.get("recording_frame") !== "1"){
+    // Keep the recording's animation tree separate from scripts on the outer page.
+    const frame = document.createElement("iframe");
+    recordingUrl.searchParams.set("recording_frame", "1");
+    frame.id = "recording-surface"; frame.title = "Crawler recording";
+    frame.src = recordingUrl.href; frame.allow = "display-capture";
+    frame.style.cssText = "position:fixed;inset:0;width:100%;height:100%;border:0;background:#000";
+    document.documentElement.style.cssText += ";filter:none;background:#000;overflow:hidden";
+    document.body.style.cssText = "margin:0;background:#000;overflow:hidden";
+    document.body.replaceChildren(frame);
+    return;
+  }
   const SVG_NS = "http://www.w3.org/2000/svg";
   const doc = document.getElementById("doc");
   const spiderSvg = document.getElementById("spider");
@@ -1267,7 +1280,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     profileFrame(now);
     const dt = Math.min(0.05, (now - (state.lastCrawl || now)) / 1000);
     state.lastCrawl = now;
-    if (state.paused || !state.feet || !state.feet.length) return;
+    if (state.paused || !state.feet || !state.feet.length || !walking()) return;
     const t = state.crawlTarget;
     if (t && walking()){
       // Body: damped spring toward the goal with a capped speed, so it
@@ -2918,6 +2931,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
   function applyLive(changes){
     if (!state.live || !changes || !changes.length || !liveEl) return;
+    let follow = null;
     for (const ch of changes){
       if (ch.kind === "signal" && ch.op === "show"){
         const sg = (state.live.plan.signals || []).find(x => x.id === ch.id);
@@ -2931,7 +2945,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         ol.appendChild(li);
         const ph = document.getElementById("lr-sigs-ph");
         if (ph){ const left = state.live.plan.signals.length - ol.children.length; ph.textContent = left > 0 ? `${left} pending` : ""; ph.hidden = !left; }
-        liveFollow(li);      // keep the last line fully in view
+        follow = li;      // follow once after this group of updates
         setTimeout(() => li.classList.remove("flash"), 1400);
         continue;
       }
@@ -2943,10 +2957,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         row.dataset.arrived = "1"; row.classList.add("lr-row-enter");
         setTimeout(() => row.classList.remove("lr-row-enter"), 450);
       }
-      liveFollow(td);
+      follow = td;
       td.classList.toggle("is-w", ch.state === "withdrawn");
       td.classList.add("flash"); setTimeout(() => td.classList.remove("flash"), 1400);
     }
+    if (follow) liveFollow(follow);
     liveProgress();
   }
   // A figure the spider read that is not a report cell (segment, share and other
@@ -3463,19 +3478,29 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         try { rec = new MediaRecorder(stream, {videoBitsPerSecond: 12e6}); recType = rec.mimeType || ""; }
         catch (fallbackError) { stream.getTracks().forEach(t => t.stop()); stream = null; rec = null; return false; }
       }
+      const chosenType = rec.mimeType || recType || "video/webm";
+      if (diskWriter && /mp4/.test(chosenType) !== /\.mp4$/i.test(diskFile.name)){
+        // A fallback encoder may change containers after the save picker.
+        // Keep the complete stream in memory rather than mislabel the file.
+        try { await diskWriter.abort(); } catch (_) {}
+        diskWriter = diskFile = null;
+      }
+      recType = chosenType;
       const actual = stream.getVideoTracks()[0]?.getSettings() || {};
       const size = actual.width && actual.height ? `${actual.width} × ${actual.height}` : "resolution unavailable";
       const fps = actual.frameRate ? `${Math.round(actual.frameRate * 10) / 10} fps` : "frame rate unavailable";
       const rate = rec.videoBitsPerSecond ? `${Math.round(rec.videoBitsPerSecond / 1e6)} Mbps encoder target` : "encoder bitrate unavailable";
       captureDetails = `${high ? "High Quality" : "Standard"}: ${size} · ${fps} · ${rate}`;
       state.captureQuality = {...actual, requestedQuality: high ? "high" : "standard", encoderBitsPerSecond: rec.videoBitsPerSecond || null};
-      if (diskWriter && rec.mimeType && /mp4/.test(rec.mimeType) !== /mp4/.test(recType)) recType = rec.mimeType;
       rec.ondataavailable = e => {
         if (!e.data || !e.data.size) return;
-        if (diskWriter && !diskError){
+        if (diskWriter){
           const part = e.data;
-          diskChain = diskChain.then(() => diskWriter.write(part)).then(() => { diskBytes += part.size; })
-            .catch(err => { diskError = err; chunks.push(part); });
+          diskChain = diskChain.then(async () => {
+            if (diskError) return;
+            try { await diskWriter.write(part); diskBytes += part.size; }
+            catch (err) { diskError = err; }
+          });
         } else chunks.push(e.data);
       };
       return true;
@@ -3488,7 +3513,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
           if (diskWriter){
             await diskChain;
             try { await diskWriter.close(); } catch (e) { diskError = diskError || e; }
-            if (!diskError){ res({disk: true, name: diskFile.name, size: diskBytes, type: recType || "video/webm"}); return; }
+            if (diskError){ res({diskError: true, name: diskFile.name}); return; }
+            res({disk: true, name: diskFile.name, size: diskBytes, type: recType || "video/webm"}); return;
           }
           res(new Blob(chunks, {type: recType || "video/webm"}));
         };
@@ -3539,8 +3565,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const ext = blob && /mp4/.test(blob.type) ? "mp4" : "webm";
       const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
       const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
-      const onDisk = blob && blob.disk;
-      bar.innerHTML = `${onDisk ? `<span class="rf-dl">Saved to ${esc(blob.name)} (${(blob.size / 1e6).toFixed(1)} MB), written while recording</span>` : blob ? `<a class="rf-dl" download="BMG-${esc((co.ticker || "reader").replace(/[^A-Za-z0-9]/g, ""))}-${stamp}.${ext}" href="${URL.createObjectURL(blob)}">Download recording (${ext.toUpperCase()}, ${(blob.size / 1e6).toFixed(1)} MB)</a>` : `<span>Not recorded in the browser (screen sharing was off or declined).</span>`}
+      const onDisk = blob && blob.disk, saveFailed = blob && blob.diskError;
+      bar.innerHTML = `${saveFailed ? `<span role="alert">Recording could not be saved to ${esc(blob.name)}. Choose another location and record again.</span>` : onDisk ? `<span class="rf-dl">Saved to ${esc(blob.name)} (${(blob.size / 1e6).toFixed(1)} MB), written while recording</span>` : blob ? `<a class="rf-dl" download="BMG-${esc((co.ticker || "reader").replace(/[^A-Za-z0-9]/g, ""))}-${stamp}.${ext}" href="${URL.createObjectURL(blob)}">Download recording (${ext.toUpperCase()}, ${(blob.size / 1e6).toFixed(1)} MB)</a>` : `<span>Not recorded in the browser (screen sharing was off or declined).</span>`}
         <button type="button" id="rf-again">Record again</button><button type="button" id="rf-back">&larr; Back to reader</button>`;
       if (blob && captureDetails){
         const details = document.createElement("small"); details.id = "rec-capture-details";
@@ -3552,6 +3578,19 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       bar.querySelector("#rf-back").onclick = leave;
     }
 
+    async function finishRecording(keySecs, oneSecs, highlights){
+      state.recordCamera = null;
+      stopWalk();
+      clearInterval(hudTimer);
+      await wait(() => state.readRes && state.readRes.report, 100, 30000);
+      // The ending reads the completed server report. Filling every underlying
+      // report row first can freeze the last crawler frame inside the video.
+      const end = await ending(keySecs, oneSecs, highlights);
+      const blob = await stopCapture();
+      finalControls(end, blob);
+      const skip = vis("read-skip");
+      if (skip) setTimeout(() => skip.click(), 0);
+    }
     const settleSpiderPose = async () => {
       if (!state.feet || !state.feet.length) return;
           state.legAnim = {}; state.legJ = []; state.legLast = [];
@@ -3709,13 +3748,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         let left = finishAt * 1000, last = Date.now();
         await wait(() => { const now = Date.now(); const paused = (document.getElementById("ctl-pause") || {}).textContent === "Resume";
                             if (!paused) left -= now - last; last = now; return left <= 0; }, 100);
-        state.recordCamera = null;
-        const sk = vis("read-skip"); if (sk) sk.click();
-        clearInterval(hudTimer);
-        await wait(() => state.readRes && state.readRes.report, 100, 30000);
-        const end = await ending(keySecs, oneSecs, highlights);
-        const blob = await stopCapture();
-        finalControls(end, blob);
+        await finishRecording(keySecs, oneSecs, highlights);
       } catch (e) {
         state.recordCamera = null;
         curtain.remove();
@@ -3921,12 +3954,18 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // what the walk did not reach comes from the completed analysis, and says so
     if (state.live) applyLive(state.live.finish());
     // Whatever the walk did not reach is still listed, linked to its page.
+    const pages = [...docBody.querySelectorAll(".pdfpage")], pageWords = new Map(), used = new Set();
     (state.pendingFindings || []).splice(0).forEach(p => {
       let el = null;
-      const pg = p.page ? docBody.querySelectorAll(".pdfpage")[p.page - 1] : null;
-      if (pg) el = [...pg.querySelectorAll(".w")].find(w => !w.classList.contains("found") && holds(w, p.value)) || null;
-      if (el) markFactInDoc({doc_id: state.currentDocId, label: p._f.label, value: p.value, _el: el, _f: p._f});
-      else { addFinding(p._f, null); onFindingSignals(p._f, null); }
+      const pg = p.page ? pages[p.page - 1] : null;
+      if (pg){
+        if (!pageWords.has(pg)) pageWords.set(pg, [...pg.querySelectorAll(".w")]);
+        el = pageWords.get(pg).find(w => !used.has(w) && !w.classList.contains("found") && holds(w, p.value)) || null;
+      }
+      // Unreached findings belong to the completed analysis, so retain their
+      // source links without launching another walk or measuring offscreen words.
+      addFinding(p._f, null); onFindingSignals(p._f, null);
+      if (el){ used.add(el); p._f._el = el; }
     });
     // signals with no anchor in the document still belong in the list
     Object.values(state.sigById || {}).forEach(sg => { if (!sg._shown){ sg._shown = true; addSignalCard(sg); } });
