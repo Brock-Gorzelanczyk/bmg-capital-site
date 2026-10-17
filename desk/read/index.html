@@ -235,7 +235,7 @@ body.recmode .read-side{box-sizing:border-box;padding:6px 12px 0!important;box-s
 body.recmode .lr-v{font-size:15px}body.recmode .lr-t td{padding:3px 5px}body.recmode .lr h4{margin:8px 0 3px}
 body.recmode.rec-dark,body.recmode.rec-dark main.read-page,body.recmode.rec-dark .read-grid,body.recmode.rec-dark .stage,body.recmode.rec-dark .doc,body.recmode.rec-dark #doc,body.recmode.rec-dark #docbody{background:#000!important}
 body.recmode.rec-dark .pdfpage{background:#000!important;box-shadow:none!important}
-body.recmode.rec-dark .pdfpage canvas{filter:invert(1) hue-rotate(180deg) contrast(1.1)}
+body.recmode.rec-dark .pdfpage canvas:not(.dark-baked){filter:invert(1) hue-rotate(180deg) contrast(1.1)}
 body.recmode.rec-dark svg.spider .leg{stroke:#6ff4ff!important;stroke-width:2.6!important}
 body.recmode.rec-dark svg.spider .foot,body.recmode.rec-dark svg.spider .knee{fill:#ff3da6!important}
 body.recmode.rec-dark svg.spider .body{stroke:#6ff4ff!important}body.recmode.rec-dark svg.spider .mesh{stroke:#9fb4ff!important}
@@ -535,7 +535,7 @@ table.rs td.num{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
 
 /* Shared reader appearance, independent of recording layout. */
 body.readerfx.rec-dark .pdfpage{background:#000!important;box-shadow:none!important}
-body.readerfx.rec-dark .pdfpage canvas{filter:invert(1) hue-rotate(180deg) contrast(1.1)}
+body.readerfx.rec-dark .pdfpage canvas:not(.dark-baked){filter:invert(1) hue-rotate(180deg) contrast(1.1)}
 body.readerfx.rec-dark svg.spider .leg{stroke:#6ff4ff!important;stroke-width:2.6!important}
 body.readerfx.rec-dark svg.spider .foot,body.readerfx.rec-dark svg.spider .knee{fill:#ff3da6!important}
 body.readerfx.rec-dark svg.spider .body{stroke:#6ff4ff!important}body.readerfx.rec-dark svg.spider .mesh{stroke:#9fb4ff!important}
@@ -2538,10 +2538,26 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       c.width = Math.floor(pg.vp.width * dpr); c.height = Math.floor(pg.vp.height * dpr);
       pg.box.insertBefore(c, pg.box.firstChild);
       pg.canvas = c;
+      // Dark page: the page is inverted once, in its own pixels, when it is drawn. A CSS filter on
+      // the canvas was redrawn on every repaint near it and cost about 7 fps while the spider walked.
+      const dark = document.body.classList.contains("rec-dark") && document.body.matches(".recmode,.readerfx");
+      if (dark) c.style.visibility = "hidden";                 // no white flash before the inversion
       pg.task = pg.page.render({canvasContext: c.getContext("2d"), viewport: pg.vp,
         transform: dpr === 1 ? null : [dpr, 0, 0, dpr, 0, 0]});
-      try { await pg.task.promise; } catch (e) { /* cancelled: the page scrolled away first */ }
+      let done = false;
+      try { await pg.task.promise; done = true; } catch (e) { /* cancelled: the page scrolled away first */ }
       pg.task = null;
+      if (dark && done && pg.canvas === c){ bakeDark(c); c.style.visibility = ""; }
+    };
+    const bakeDark = c => {
+      const copy = document.createElement("canvas"); copy.width = c.width; copy.height = c.height;
+      copy.getContext("2d").drawImage(c, 0, 0);
+      const x = c.getContext("2d");
+      x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = "copy";
+      x.filter = "invert(1) hue-rotate(180deg) contrast(1.1)";          // the same look the CSS filter gave
+      x.drawImage(copy, 0, 0); x.restore();
+      copy.width = copy.height = 0;
+      c.classList.add("dark-baked");
     };
     const drop = (pg) => {
       if (!pg.drawn) return;
@@ -2570,7 +2586,12 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       if (e.isIntersecting){ const pg = byBox.get(e.target); if (pg){ draw(pg); onScroll(); } }
     }), {rootMargin: "1200px 0px"});
     pages.forEach(pg => io.observe(pg.box));
-    pdfOpen = {pdf, pages, io, onScroll};
+    // dark page switched on or off: pages near the screen are drawn again in the new look
+    const redraw = () => {
+      for (const pg of pages) drop(pg);
+      for (const pg of pages){ const top = docTop() + pg.docY; if (top + pg.vp.height > -1200 && top < innerHeight + 1200) draw(pg); }
+    };
+    pdfOpen = {pdf, pages, io, onScroll, redraw};
     if (pages[0]) await draw(pages[0]);
   }
 
@@ -3568,7 +3589,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     };
     palettePicker.addEventListener("change", applyPalette);
     applyPalette();
-    setup.querySelector("#rec-dark").addEventListener("change", e => { B.classList.toggle("rec-dark", e.target.checked); applyPalette(); });
+    setup.querySelector("#rec-dark").addEventListener("change", e => { B.classList.toggle("rec-dark", e.target.checked); applyPalette(); if (pdfOpen) pdfOpen.redraw(); });
     if (isRecord) addEventListener("keydown", e => {
       if (e.key === "Escape") leave();
       if (e.key === " " && !setup.isConnected){ e.preventDefault(); const p = document.getElementById("ctl-pause"); if (p) p.click(); }
