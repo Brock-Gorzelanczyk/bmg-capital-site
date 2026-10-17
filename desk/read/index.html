@@ -1811,8 +1811,12 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // Only words on rendered lines near the body: scanning every span of
     // a long filing on every step would stall the animation.
     if (state.rows && state.rows.length){
-      const by = state.body.y, out = [];
-      for (const r of state.rows){ if (Math.abs(r.y - by) <= HI_REACH * 1.7 + 30) out.push(...r.els); }
+      // rows are sorted by y: binary search to the first row in reach, then take rows until out of reach
+      // (the same rows, in the same order, as checking every row of a 30,000-line filing)
+      const by = state.body.y, out = [], rows = state.rows, span = HI_REACH * 1.7 + 30;
+      let lo = 0, hi = rows.length;
+      while (lo < hi){ const mid = (lo + hi) >> 1; if (rows[mid].y < by - span) lo = mid + 1; else hi = mid; }
+      for (let i = lo; i < rows.length && rows[i].y <= by + span; i++) out.push(...rows[i].els);
       if (h1.textContent.trim()) out.unshift(h1);
       return out;
     }
@@ -3552,12 +3556,27 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // as it arrives. Calculated cells and figures from the completed analysis
     // never fly: only what the spider actually zapped goes to the report.
     const zapQ = []; let zapBusy = false;
+    // Where a word is on screen, from the cached word positions and the scroll: a live
+    // getBoundingClientRect after the page changed forced a full layout (and the panel lookup
+    // searched every word span) several times a frame.
+    function screenRect(el){
+      if (!el || !el.isConnected) return null;
+      if (!doc.contains(el)) return el.getBoundingClientRect();
+      const w = wordRect(el), g = docGeo(), top = g.absTop + w.y - state.sy, left = g.left + w.x;
+      return {left, top, right: left + w.w, bottom: top + w.h, width: w.w, height: w.h};
+    }
+    let panelGeo = null;
+    function sidePanel(){
+      if (panelGeo && panelGeo.ep === state.layoutEpoch && panelGeo.ih === innerHeight) return panelGeo;
+      const panel = document.querySelector(".read-side"), p = panel && panel.getBoundingClientRect();
+      panelGeo = {ep: state.layoutEpoch, ih: innerHeight, p, fixed: !!p && getComputedStyle(panel).position === "fixed"};
+      return panelGeo;
+    }
     function readerSourceVisible(el){
-      if (!el || !el.isConnected) return false;
-      const r = el.getBoundingClientRect();
-      const panel = document.querySelector(".read-side");
-      const p = panel && panel.getBoundingClientRect();
-      const covered = p && getComputedStyle(panel).position === "fixed" && r.right > p.left && r.left < p.right;
+      const r = screenRect(el);
+      if (!r) return false;
+      const {p, fixed} = sidePanel();
+      const covered = fixed && r.right > p.left && r.left < p.right;
       const bottom = covered && p.top > 0 ? Math.min(innerHeight, p.top) : innerHeight;
       return r.bottom >= 0 && r.top < bottom && r.right >= 0 && r.left < innerWidth;
     }
@@ -3573,7 +3592,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const w0 = chip.offsetWidth, t0 = performance.now();
       const step = (now) => {
         const k = Math.min(1, (now - t0) / FLY_MS), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-        const a = el.isConnected ? el.getBoundingClientRect() : s0, b = td.getBoundingClientRect();
+        const a = (el.isConnected && screenRect(el)) || s0, b = td.getBoundingClientRect();
         const x0 = a.left, y0 = a.top, x1 = b.left + b.width / 2 - w0 / 2, y1 = b.top + b.height / 2 - 8;
         const arc = Math.sin(k * Math.PI) * -40;
         chip.style.transform = `translate(${(x1 - x0) * e + (x0 - s0.left)}px, ${(y1 - y0) * e + (y0 - s0.top) + arc}px) scale(${1 + .25 * Math.sin(k * Math.PI)})`;
