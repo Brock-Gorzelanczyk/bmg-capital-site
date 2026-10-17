@@ -3309,7 +3309,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const big = (hook.match(/\$\s?[\d.,]+\s*(?:billion|million|thousand|[bmk])?/i) || [""])[0]
         .replace(/\s*billion/i, "b").replace(/\s*million/i, "m").replace(/\s*thousand/i, "k").replace(/\s+/g, "");
       const per = (hook.match(/\b(a day|a week|a month|a year|an hour|per day|per year)\b/i) || [""])[0].replace(/^(a|an|per)\s/i, "/ ");
-      return {hook, ticker, form, find, big, small: per ? per + (/day|hour|week|month/.test(per) ? "\non average" : "") : ""};
+      return {hook, ticker, form, find, big, small: per ? per + (/day|hour|week|month/.test(per) ? " · on average" : "") : ""};
     }
     let clipPicUrl = "";
     function ideaSetup(format){
@@ -3989,6 +3989,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         const blob = await stopCapture();
         finalControls(end, blob);
       } catch (e) {
+        console.error("record mode stopped early:", e);
         state.recordCamera = null;
         clearInterval(clipWatch);
         document.getElementById("clip-intro")?.remove();
