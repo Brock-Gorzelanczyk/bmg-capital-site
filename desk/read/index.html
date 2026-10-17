@@ -2066,6 +2066,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // no mouse hit-testing over tens of thousands of word spans while the
     // page scrolls itself (restored when the walk ends)
     doc.style.pointerEvents = "none";
+    holdHtmlBlocks(docBody.querySelector(".htmldoc"));
     bumpLayout(); geo = null;      // the document is fully laid out now: measure it afresh
     clearTimeout(state.walkTimer);
     const rows = visualRows();
@@ -2536,6 +2537,46 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     into.appendChild(wrap);
     fitHtml(wrap);
   }
+  // HTML filings are one long page of word spans (180,000 in JPMorgan's 10-K), so every frame painted and
+  // layered all of it: 1.7 fps. Before the walk measures the words, each block box of the filing that keeps
+  // its exact layout under containment is set to content-visibility:auto with its measured height, so the
+  // browser skips the blocks off screen. A block whose words move under containment (a child margin that
+  // collapsed through its edge, overflow) is left alone. The walk then measures every word with the blocks
+  // in place, so cached word positions stay true whether a block is on screen or skipped.
+  function holdHtmlBlocks(wrap){
+    if (!wrap || !wrap.isConnected || wrap.dataset.held) return;
+    wrap.dataset.held = "1";
+    const z = parseFloat(wrap.style.zoom) || 1, MAXH = 1500, units = [];
+    (function walk(el){
+      for (const k of el.children){
+        const cs = getComputedStyle(k), h = k.getBoundingClientRect().height;
+        if (k.tagName === "DIV" && cs.display === "block" && cs.position === "static" && cs.float === "none" && h > 0 && h <= MAXH) units.push(k);
+        else if (k.children.length && h > 0) walk(k);
+      }
+    })(wrap);
+    const words = k => k.getElementsByClassName("w");
+    const read = k => {
+      const r = k.getBoundingClientRect(), ws = words(k), f = ws[0], l = ws[ws.length - 1];
+      return {h: r.height, f: f ? f.getBoundingClientRect().top - r.top : 0, l: l ? l.getBoundingClientRect().top - r.top : 0,
+        over: k.scrollHeight > k.clientHeight + 1 || k.scrollWidth > k.clientWidth + 1};
+    };
+    const before = units.map(read);
+    units.forEach((k, i) => { if (!before[i].over) k.style.contain = "layout paint"; });
+    const after = units.map(read);
+    units.forEach(k => { k.style.contain = ""; });
+    units.forEach((k, i) => {
+      const b = before[i], a = after[i];
+      if (b.over || a.over || Math.abs(a.h - b.h) > 0.01 || Math.abs(a.f - b.f) > 0.01 || Math.abs(a.l - b.l) > 0.01) return;
+      k.style.containIntrinsicSize = `auto none auto ${b.h / z}px`;
+      k.style.contentVisibility = "auto";
+      k.classList.add("cv-held");
+    });
+  }
+  function releaseHtmlBlocks(wrap){
+    if (!wrap || !wrap.dataset.held) return;
+    delete wrap.dataset.held;
+    for (const k of [...wrap.getElementsByClassName("cv-held")]){ k.style.contentVisibility = ""; k.style.containIntrinsicSize = ""; k.classList.remove("cv-held"); }
+  }
   // A filing's own layout can be wider than the reader (Amazon's June 2026 10-Q statements need 1,440 px).
   // Scale the whole filing down with CSS zoom so every column is visible. The words stay real text, laid out
   // at the smaller size, so the spider's footholds, scrolling and page height stay true. Runs before the
@@ -2548,12 +2589,18 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     wrap.style.zoom = z === 1 ? "" : z.toFixed(4);
     wrap.dataset.fit = z.toFixed(3);
   }
+  let rehold = 0;
   addEventListener("resize", () => {
     const w = document.querySelector("#doc .htmldoc");
     if (!w) return;
-    const before = w.dataset.fit;
+    const before = w.dataset.fit, held = !!w.dataset.held || !!rehold;
+    releaseHtmlBlocks(w);       // measure the filing's own width, then hold the blocks again once resizing stops
     fitHtml(w);
-    if (w.dataset.fit !== before){ bumpLayout(); geo = null; }
+    if (held){
+      clearTimeout(rehold);
+      rehold = setTimeout(() => { rehold = 0; if (w.isConnected){ holdHtmlBlocks(w); bumpLayout(); geo = null; } }, 400);
+    }
+    if (w.dataset.fit !== before || held){ bumpLayout(); geo = null; }
   });
 
   // ---- upload, Run, watch the spider, then a summary ----
@@ -3472,9 +3519,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
       const tag = [co.ticker || co.ticker_hint, co.form].filter(Boolean).join(" ");
       hudTimer = setInterval(() => {
+        // scoped lookups: a whole-document query walks every word span (180,000 in JPMorgan's HTML 10-K)
         const figs = liveEl ? liveEl.querySelectorAll(".lr-c .lr-v").length : 0;
-        const obs = document.querySelectorAll("#lr-sigs li").length;
-        const pages = [...document.querySelectorAll(".pdfpage")];
+        const sigs = document.getElementById("lr-sigs"), obs = sigs ? sigs.children.length : 0;
+        const pages = pdfOpen ? pdfOpen.pages.map(pg => pg.box) : [];
         if (!isRecord){
           const bounds = doc.getBoundingClientRect(), side = document.querySelector(".read-side");
           const limit = side && getComputedStyle(side).position === "fixed" ? side.getBoundingClientRect().top : innerHeight;
@@ -3484,7 +3532,8 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         }
         const mid = innerHeight * (isRecord ? 0.3 : 0.5);
         const i = pages.findIndex(x => { const r = x.getBoundingClientRect(); return r.top <= mid && r.bottom >= mid; });
-        hud.innerHTML = `<b>${esc(tag || "BMG READER")}</b> <span>${figs} figure${figs === 1 ? "" : "s"}</span> <span>${obs} observation${obs === 1 ? "" : "s"}</span>${i >= 0 ? ` <span>p.${i + 1}</span>` : ""}`;
+        const html = `<b>${esc(tag || "BMG READER")}</b> <span>${figs} figure${figs === 1 ? "" : "s"}</span> <span>${obs} observation${obs === 1 ? "" : "s"}</span>${i >= 0 ? ` <span>p.${i + 1}</span>` : ""}`;
+        if (hud.dataset.html !== html){ hud.dataset.html = html; hud.innerHTML = html; }
       }, 200);
     }
 
