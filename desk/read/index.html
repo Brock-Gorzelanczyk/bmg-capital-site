@@ -3487,13 +3487,13 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         const hook = setup.querySelector("#clip-hook").value.trim();
         const preview = hook ? clipIntro(hook, setup.querySelector("#clip-big").value.trim(), setup.querySelector("#clip-small").value.trim().replace(/\s*·\s*/g, "\n"),
           setup.querySelector("#clip-ticker").value.trim()) : null;
-        setup.hidden = true; picLayer.hidden = false; B.classList.add("pics-edit");
+        setup.style.display = "none"; picLayer.hidden = false; B.classList.add("pics-edit");
         const bar = document.createElement("div"); bar.id = "pics-done";
         bar.innerHTML = `<span>Drag to move · corner to resize · &times; to remove</span><button type="button">Done</button>`;
         B.appendChild(bar);
         bar.querySelector("button").addEventListener("click", () => {
           bar.remove(); if (preview) preview.remove();
-          B.classList.remove("pics-edit"); picLayer.hidden = true; setup.hidden = false; drawPics();
+          B.classList.remove("pics-edit"); picLayer.hidden = true; setup.style.display = ""; drawPics();
         });
       });
       drawPics();
