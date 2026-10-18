@@ -3945,7 +3945,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (isRecord) window.READER_VIEW_FRAC = 0.6;                    // the bottom 40% is the live report panel
     const leave = () => {
       if (window.opener && !window.opener.closed){ window.close(); return; }
-      location.href = "/desk/read/";
+      location.href = location.pathname;                            // this page without ?mode=rec, wherever the site is served
     };
     const palettes = {
       default: {name: "Original cyan + pink (default)", main: "#6ff4ff", accent: "#ff3da6", trail: "#9fb4ff"},

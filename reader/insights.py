@@ -333,7 +333,11 @@ def guidance(doc, kind: str = "other", limit: int = 14) -> list[dict]:
     taken = {(x["offset"]) for x in tables}
     spans = [(x["offset"], x["end"]) for x in tables]
     for m in _GUIDE.finditer(body):
+        if m.group(0)[:1] == "T" and re.search(r"[,&]\s*$|[a-z]\s+$", body[max(0, m.start() - 3):m.start()]):
+            continue                    # "Barnes & Noble, Target, Dick's": the retailer, not a target (Simon Property's property list)
         s, e = _own_line(body, *sentence_at(body, m.start()), m.start())
+        if len(re.findall(r"\S {2,}\S", body[s:e])) >= 3:
+            continue                    # a table row laid out in columns, not a sentence (guidance tables are read on their own)
         if (s, e) in seen:
             continue
         seen.add((s, e))
