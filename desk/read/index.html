@@ -729,6 +729,17 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
 @keyframes numin{0%{opacity:0;transform:scale(.7) translateY(14px)}100%{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.num-card{animation:none}}
 
+/* a desktop page: the document scrolls in its own pane under the cursor, the page around it scrolls on its own;
+   the control bar sits under the pane, the map and the progress pill inside the stage beside it */
+@media (min-width:901px){
+  body:not(.rec):not(.recmode) .read-grid{height:calc(100vh - 24px);align-items:stretch}
+  body:not(.rec):not(.recmode) .stage{display:flex;flex-direction:column;min-height:0;position:relative}
+  body:not(.rec):not(.recmode) .doc-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overflow-anchor:none;border-radius:10px 10px 0 0;scrollbar-width:thin}
+  body:not(.rec):not(.recmode) .stage .strip{position:relative;bottom:auto;flex:none;box-shadow:none;z-index:31}   /* its Ask and keys pop-ups open over the counter pill */
+  body:not(.rec):not(.recmode) .read-side{position:relative;top:0;height:100%;max-height:none}
+  body:not(.rec):not(.recmode) .fmap{position:absolute;top:14px;bottom:calc(var(--bar-h,100px) + 14px);right:calc(var(--sbw,0px) + 8px);left:auto}
+  body:not(.rec):not(.recmode) .stage > #rec-hud{position:absolute;top:auto;bottom:calc(var(--bar-h,100px) + 12px)}
+}
 /* ---- The report: tabs ---- */
 .rp-trades td:first-child{width:26%}.rp-trades td:nth-child(2){min-width:150px}.rp-trades td small{white-space:nowrap}
 .rp-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-right:auto}
@@ -829,13 +840,18 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
 <div id="read-ctl" class="rd-ctl" hidden><button type="button" id="read-cancel">Cancel</button><span class="muted">Cancel stops the server job. Once the report is built, Pause and Skip only affect the animation.</span></div>
 <div class="read-grid" id="read-stage" hidden>
   <div class="stage">
+    <!-- On a desktop page the document scrolls in this pane, so the wheel over the filing moves the filing and the
+         wheel anywhere else moves the page. In Record mode, the video layout and on a phone it is a plain block and
+         the window scrolls, as before. -->
+    <div class="doc-scroll" id="doc-scroll">
     <div class="doc" id="doc">
       <svg class="spider" id="spider"></svg>
       <h1 id="doc-h1"></h1>
       <div id="docbody"></div>
     </div>
-    <!-- The control bar sits at the bottom of the screen while the document is in view. It stays the "strip", so
-         record mode and the video scripts hide it (and the filing map inside it) as they always did. -->
+    </div>
+    <!-- The control bar under the document. It stays the "strip", so record mode and the video scripts hide it as
+         they always did. -->
     <div class="strip" id="ctl-bar" role="toolbar" aria-label="Reading controls">
       <button class="btn ctl-main" id="ctl-pause" type="button" title="Pause or resume (Space)">Pause</button>
       <span class="ctl-speeds" id="ctl-speeds" role="group" aria-label="Speed"><button type="button" data-speed="0.5" title="1">0.5x</button><button type="button" data-speed="1" class="on" title="2">1x</button><button type="button" data-speed="2" title="3">2x</button><button type="button" data-speed="4" title="4">4x</button></span>
@@ -848,8 +864,8 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
       <button class="btn ctl-keys" id="ctl-keys" type="button" aria-label="Keyboard shortcuts" aria-expanded="false" title="Keyboard shortcuts (?)">?</button>
       <div class="ctl-pop" id="ask-pop" hidden role="region" aria-label="Answers" aria-live="polite"></div>
       <div class="ctl-pop ctl-keys-pop" id="keys-pop" hidden><b>Keyboard</b><ul><li><kbd>Space</kbd> pause or resume</li><li><kbd>1</kbd>&ndash;<kbd>4</kbd> speed 0.5x, 1x, 2x, 4x</li><li><kbd>J</kbd> jump to statements</li><li><kbd>G</kbd> go to a section</li><li><kbd>S</kbd> skip to results</li><li><kbd>/</kbd> ask a question</li><li><kbd>F</kbd> red flags</li><li><kbd>Esc</kbd> close</li></ul></div>
-      <div class="fmap" id="fmap" hidden aria-label="Filing map"><div class="fmap-track" id="fmap-track"></div><i class="fmap-dot" id="fmap-dot" aria-hidden="true"></i></div>
     </div>
+    <div class="fmap" id="fmap" hidden aria-label="Filing map"><div class="fmap-track" id="fmap-track"></div><i class="fmap-dot" id="fmap-dot" aria-hidden="true"></i></div>
   </div>
   <aside class="read-side" aria-label="Report and findings"><div class="rs-tabs" role="tablist"><button type="button" role="tab" id="tab-live" aria-controls="read-live" aria-selected="true">Report</button><button type="button" role="tab" id="tab-found" aria-controls="pane-found" aria-selected="false" tabindex="-1">Found</button><button type="button" role="tab" id="tab-flags" aria-controls="pane-flags" aria-selected="false" tabindex="-1" hidden>Red flags <b class="tab-n" id="flags-n"></b></button><button type="button" class="rs-sheet" id="rs-sheet" aria-expanded="true">Hide</button></div><section id="read-live" class="lr" role="tabpanel" aria-labelledby="tab-live" aria-live="off"><p class="muted lr-empty">The BMG Capital report builds here as the spider reaches each figure.</p></section><div id="pane-found" role="tabpanel" aria-labelledby="tab-found" hidden><div id="read-brief" class="bf" hidden aria-live="polite"></div><div class="rs-head"><h2>Found</h2><div id="read-count">0 found</div></div><div id="read-scope"></div><section id="read-signals" class="sg-group" hidden><h4><i></i>Signals <span class="n">0</span></h4><ol></ol></section><div id="read-chips"></div><div id="read-findings"></div></div><div id="pane-flags" class="fl" role="tabpanel" aria-labelledby="tab-flags" hidden></div></aside>
 </div>
@@ -1074,7 +1090,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
   function sizeSvg(){
     // Clip the drawing surface to the viewport, keeping all gait coordinates
     // in document space. A full 10-K otherwise repaints a huge SVG every frame.
-    const g = docGeo(), v = spiderWindow(g.width, g.height, state.sy - g.absTop, innerHeight);
+    const g = docGeo(), v = spiderWindow(g.width, g.height, state.sy - g.absTop, g.vh);
     const key = `${v.width} ${v.height} ${v.top}`;
     if (state.svgWindow === key) return;
     state.svgWindow = key;
@@ -1271,10 +1287,10 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     state.boost = (state.boost || 1) + ((state.boostTarget || 1) - (state.boost || 1)) * Math.min(1, dt * (rising ? 3.2 : 1.6));
     if (state.recordCamera) state.scrollPos = state.recordCamera(dt);
     else if (!(state.camHoldUntil > now)) state.scrollPos += SCROLL_SPEED * U * (state.speedMul || 1) * state.boost * dt;   // a Go landing holds a moment
-    let maxS = Math.max(0, docGeo().sh - innerHeight);
-    if (state.scrollPos > maxS){ geo = null; maxS = Math.max(0, docGeo().sh - innerHeight); }   // page grew since it was measured
+    let maxS = Math.max(0, docGeo().sh - V.h());
+    if (state.scrollPos > maxS){ geo = null; maxS = Math.max(0, docGeo().sh - V.h()); }   // page grew since it was measured
     state.scrollPos = Math.min(state.scrollPos, maxS);
-    window.scrollTo(0, state.scrollPos);
+    V.to(state.scrollPos);
     state.sy = Math.round(state.scrollPos * devicePixelRatio) / devicePixelRatio;
     // The spider rides the scroll: it moves with the page view, so its own
     // crawl only moves it around inside the frame (reference clip).
@@ -1286,8 +1302,14 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     // Feet stay planted on the page (measured from the original), so the
     // legs step quickly and often as the page and the body move.
   }
-  addEventListener("wheel", () => { state.userScrolledAt = performance.now(); }, {passive: true});
-  addEventListener("touchmove", () => { state.userScrolledAt = performance.now(); }, {passive: true});
+  // In the pane layout the pane's own scroll events tell instead (see docGeo): a wheel's target is not a safe
+  // signal there, since the page can scroll under the pointer before the event is dispatched.
+  const userScroll = e => {
+    if (!paneOn()) state.userScrolledAt = performance.now();
+    else if (!docScroll.contains(e.target)) state.userPageAt = performance.now();
+  };
+  addEventListener("wheel", userScroll, {passive: true});
+  addEventListener("touchmove", userScroll, {passive: true});
   const DECORATIVE_TEXT_EFFECTS = true;
   // Laser zaps (first-video look): a quick line from the spider's eyes to
   // each word it marks. Every outline or highlight it draws gets one, and so
@@ -1517,7 +1539,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
       state.body.x = Math.min(dr.width - edge, Math.max(edge, state.body.x + bv.x * dt));
       state.body.y = Math.max(10, state.body.y + bv.y * dt);
       // Never leave the frame: ease back inside 15%..80% of the screen.
-      const vh = innerHeight * (window.READER_VIEW_FRAC || 1);   // a pinned panel can cover the bottom
+      const vh = V.h() * (window.READER_VIEW_FRAC || 1);   // a pinned panel can cover the bottom
       const sy = dr.top + state.body.y, lo = vh * 0.22, hi = vh * 0.72;
       if (sy > hi) state.body.y -= (sy - hi) * 0.25; else if (sy < lo) state.body.y += (lo - sy) * 0.25;
       // Face the actual direction of travel over the page (crawl plus the
@@ -1557,14 +1579,68 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
   // re-measured when the layout really changes (load, resize).
   let geo = null;
   const rectCache = new WeakMap();
-  state.sy = window.scrollY;
-  addEventListener("scroll", () => { state.sy = window.scrollY; }, {passive: true});
+  // Where the document scrolls: its own pane on a desktop page (the wheel over the filing moves the filing, the
+  // wheel anywhere else moves the page around it), the window in Record mode, the video layout and on a phone.
+  // Walk positions are in that scroll's coordinates; the view is the box the walk reads in (the pane, or the window).
+  const docScroll = document.getElementById("doc-scroll");
+  const wideMQ = matchMedia("(min-width:901px)");
+  const paneOn = () => !!docScroll && wideMQ.matches && !document.body.classList.contains("rec") && !document.body.classList.contains("recmode");
+  const V = {
+    y(){ return paneOn() ? docScroll.scrollTop : window.scrollY; },
+    to(y, smooth){
+      if (paneOn()){ if (smooth) docScroll.scrollTo({top: y, behavior: "smooth"}); else { docScroll.scrollTop = y; state.camWrote = y; } }
+      else if (smooth) window.scrollTo({top: y, behavior: "smooth"});
+      else window.scrollTo(0, y);
+    },
+    h(){ return docGeo().vh; },                          // the view's height, from the cached geometry
+    top(){ return paneOn() ? docGeo().paneTop - state.wy : 0; },   // the view's top on screen (cached geometry and the page's scroll)
+    contentY(el){ return el.getBoundingClientRect().top - (paneOn() ? docScroll.getBoundingClientRect().top : 0) + V.y(); },   // an element's place in the scroll
+    // the view's box on screen, read now (for the rare checks that compare live rectangles with it)
+    box(){ return paneOn() ? docScroll.getBoundingClientRect() : {top: 0, bottom: innerHeight}; },
+  };
+  window.crawlerScrollY = () => V.y();                // the perf and QA scripts read the document's scroll here
+  state.sy = state.wy = window.scrollY;
+  addEventListener("scroll", () => { state.wy = window.scrollY; if (!paneOn()) state.sy = state.wy; }, {passive: true});
+  // A scroll of the pane that the camera did not write (wheel, trackpad, keys, the scrollbar, a smooth jump to a
+  // finding) is the reader's: the camera yields for a moment, as it does for a wheel in the window layout. A write
+  // the browser held back at the bottom of the document is still the camera's.
+  if (docScroll) docScroll.addEventListener("scroll", () => {
+    if (!paneOn()) return;
+    const y = docScroll.scrollTop;
+    if (walking() && state.camWrote != null && Math.abs(y - state.camWrote) > 2 &&
+        !(y < state.camWrote && y >= docScroll.scrollHeight - docScroll.clientHeight - 1)) state.userScrolledAt = performance.now();
+    state.sy = y;
+  }, {passive: true});
   addEventListener("resize", () => { bumpLayout(); });
+  // crossing the desktop width moves the document between the pane and the window: the camera re-anchors there
+  wideMQ.addEventListener("change", () => {
+    const rel = geo && state.currentDocId ? state.sy - geo.absTop : null;    // the reading place, from the document's top
+    bumpLayout(); geo = null;
+    if (rel != null) V.to(Math.max(0, docGeo().absTop + rel));               // the same place in the new scroll
+    state.sy = V.y(); if (state.scrollPos != null) state.scrollPos = state.sy;
+    if (pdfOpen && pdfOpen.reobserve) pdfOpen.reobserve();      // the PDF's page observer measures against the new scroll
+  });
+  // On a desktop page the page itself scrolls only to bring the reading pane into view: when a document opens
+  // (force), and when Go, a map mark, a finding or a source sends the reader somewhere while the pane is out of view.
+  function revealPane(force){
+    if (!paneOn()) return;
+    const r = document.getElementById("read-stage").getBoundingClientRect();
+    if (!force && r.top >= -2 && r.bottom <= innerHeight + 2) return;
+    window.scrollTo({top: Math.max(0, r.top + window.scrollY - 12), behavior: REDUCED ? "auto" : "smooth"});
+  }
   function docGeo(){
     if (geo && geo.ep === state.layoutEpoch) return geo;
     const r = doc.getBoundingClientRect();
-    state.sy = window.scrollY;
-    geo = {ep: state.layoutEpoch, absTop: r.top + state.sy, left: r.left, width: r.width, height: r.height, cw: doc.clientWidth, sh: document.documentElement.scrollHeight};
+    if (paneOn()){
+      const pr = docScroll.getBoundingClientRect();
+      state.sy = docScroll.scrollTop; state.wy = window.scrollY;
+      geo = {ep: state.layoutEpoch, absTop: r.top - pr.top + state.sy, left: r.left, width: r.width, height: r.height, cw: doc.clientWidth,
+             sh: docScroll.scrollHeight, vh: docScroll.clientHeight, paneTop: pr.top + state.wy};
+    } else {
+      state.sy = window.scrollY;
+      geo = {ep: state.layoutEpoch, absTop: r.top + state.sy, left: r.left, width: r.width, height: r.height, cw: doc.clientWidth,
+             sh: document.documentElement.scrollHeight, vh: innerHeight, paneTop: 0};
+    }
     return geo;
   }
   function docTop(){ return docGeo().absTop - state.sy; }
@@ -2244,7 +2320,8 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
       U = Math.max(0.5, Math.min(2.2, lh / 14));
     }
     plantInitialFeet();
-    window.scrollTo({top: Math.max(0, dRect.top + window.scrollY - 60), behavior: "smooth"});
+    if (paneOn()){ V.to(0); state.sy = 0; revealPane(true); }
+    else window.scrollTo({top: Math.max(0, dRect.top + window.scrollY - 60), behavior: "smooth"});
     setStatus(`reading <b>${ev.host||""}</b> ${ev.doc_type} ${(ev.published_at||ev.fetched_at||"").slice(0,10)} &nbsp;&middot;&nbsp; 0 numbers found`);
     const dur = state.walkOverride || computeWalkDuration(ev.doc_id, ev.fetched_at);
     setTimeout(() => { if (token === state.loadToken) startWalk(ev.doc_id, dur); }, 80);
@@ -2325,7 +2402,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
       sc += Math.min(3, t.replace(/[^A-Za-z]/g, "").length / 4);
       return sc;
     }
-    const readLineY = () => innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5 - docTop();
+    const readLineY = () => V.h() * (window.READER_VIEW_FRAC || 1) * 0.5 - docTop();
     const rowY = (r) => docSpaceCenter(rows[r].els[0]).y;
     function pickFocusNear(exclude){
       const ry = readLineY();
@@ -2351,7 +2428,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     // the rows passed on the way are read at once, as Jump to statements always did.
     state.walkSeek = (toScroll) => {
       if (state.walkState.docId !== doc_id || state.walkState.done) return;
-      const ry = innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5 - (docGeo().absTop - toScroll);
+      const ry = V.h() * (window.READER_VIEW_FRAC || 1) * 0.5 - (docGeo().absTop - toScroll);
       let lo = 0, hi = rows.length;
       while (lo < hi){ const m = (lo + hi) >> 1; if (rowY(m) < ry - 20) lo = m + 1; else hi = m; }
       readIdx = lo; state.walkState.lineIdx = lo;
@@ -2361,8 +2438,8 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
       if (state.walkState.docId !== doc_id || state.walkState.done) return;
       if (state.paused){ state.walkTimer = setTimeout(step, 150); return; }
       const ry = readLineY();
-      let atBottom = state.sy + innerHeight >= docGeo().sh - 2;
-      if (atBottom){ geo = null; atBottom = state.sy + innerHeight >= docGeo().sh - 2; }
+      let atBottom = state.sy + V.h() >= docGeo().sh - 2;
+      if (atBottom){ geo = null; atBottom = state.sy + V.h() >= docGeo().sh - 2; }
       while (readIdx < rows.length && (rowY(readIdx) <= ry + 20 || atBottom)){
         if (state.onRow) state.onRow(rows[readIdx].els);
         readIdx++;
@@ -2763,22 +2840,27 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
         // Fixed PDF page boxes share the cached document origin. Reading
         // their DOM rects after the spider writes would force another layout.
         const top = docTop() + pg.docY;
-        if (top + pg.vp.height < -4000 || top > innerHeight + 4000) drop(pg);
+        if (top + pg.vp.height < -4000 || top > V.h() + 4000) drop(pg);
       }
     };
     const onScroll = () => { if (!sweepQueued){ sweepQueued = true; requestAnimationFrame(sweep); } };
     addEventListener("scroll", onScroll, true);
     const byBox = new Map(pages.map(pg => [pg.box, pg]));
-    const io = new IntersectionObserver(es => es.forEach(e => {
-      if (e.isIntersecting){ const pg = byBox.get(e.target); if (pg){ draw(pg); onScroll(); } }
-    }), {rootMargin: "1200px 0px"});
-    pages.forEach(pg => io.observe(pg.box));
+    const observe = () => {
+      const o = new IntersectionObserver(es => es.forEach(e => {
+        if (e.isIntersecting){ const pg = byBox.get(e.target); if (pg){ draw(pg); onScroll(); } }
+      }), {root: paneOn() ? docScroll : null, rootMargin: "1200px 0px"});
+      pages.forEach(pg => o.observe(pg.box));
+      return o;
+    };
+    let io = observe();
+    const reobserve = () => { io.disconnect(); io = observe(); if (pdfOpen) pdfOpen.io = io; };
     // dark page switched on or off: pages near the screen are drawn again in the new look
     const redraw = () => {
       for (const pg of pages) drop(pg);
-      for (const pg of pages){ const top = docTop() + pg.docY; if (top + pg.vp.height > -1200 && top < innerHeight + 1200) draw(pg); }
+      for (const pg of pages){ const top = docTop() + pg.docY; if (top + pg.vp.height > -1200 && top < V.h() + 1200) draw(pg); }
     };
-    pdfOpen = {pdf, pages, io, onScroll, redraw};
+    pdfOpen = {pdf, pages, io, onScroll, redraw, reobserve};
     if (pages[0]) await draw(pages[0]);
   }
 
@@ -3377,8 +3459,8 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
   function scrollToFinding(f){
     if (f._el && f._el.isConnected && state.walkState && !state.walkState.done && !state.walkSkipped){ seekTo(f._el, {page: f.pdf_page, n: 1}); return; }
     if (f._el && f._el.isConnected){
-      const r = f._el.getBoundingClientRect();
-      window.scrollTo({top: r.top + window.scrollY - innerHeight / 2, behavior: REDUCED ? "auto" : "smooth"});
+      revealPane();
+      V.to(V.contentY(f._el) - V.h() / 2, !REDUCED);
       f._el.classList.add("hl-bping"); setTimeout(() => f._el && f._el.classList.remove("hl-bping"), 2400);
     } else if (f.pdf_page) jumpToSource(f.pdf_page, tokenOf(f));
   }
@@ -3492,8 +3574,8 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     if (sg.focus === "leverage") tickBrief("debt_equity", sg.headline, sg.severity);
     if (!el || !el.isConnected) return;
     el.classList.add("sig-mark", "sig-" + sg.severity);
-    const vr = el.getBoundingClientRect();
-    if (vr.bottom < 40 || vr.top > innerHeight - 20) return;     // passed during a jump: listed, not popped
+    const vr = el.getBoundingClientRect(), vb = V.box();
+    if (vr.bottom < vb.top + 40 || vr.top > vb.bottom - 20) return;     // passed during a jump: listed, not popped
     // the callout sits beside the figure, in document space, so it scrolls with the page
     // Above the figure, over lines already read, with a pointer down to it.
     const c = docSpaceCenter(el), W = doc.clientWidth || 800, w = Math.min((document.body.classList.contains("recmode") || document.body.classList.contains("readerfx")) ? 57.5 : 310, W - 24);
@@ -4173,8 +4255,9 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
       if (!r) return false;
       const {p, fixed} = sidePanel();
       const covered = fixed && r.right > p.left && r.left < p.right;
-      const bottom = covered && p.top > 0 ? Math.min(innerHeight, p.top) : innerHeight;
-      return r.bottom >= 0 && r.top < bottom && r.right >= 0 && r.left < innerWidth;
+      let top = 0, bottom = covered && p.top > 0 ? Math.min(innerHeight, p.top) : innerHeight;
+      if (paneOn()){ top = Math.max(0, V.top()); bottom = Math.min(bottom, V.top() + V.h()); }
+      return r.bottom >= top && r.top < bottom && r.right >= 0 && r.left < innerWidth;
     }
     // Where a word is on screen, from the cached word positions and the scroll: a live
     // getBoundingClientRect after the page changed forced a full layout (and the panel lookup
@@ -4182,7 +4265,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     function screenRect(el){
       if (!el || !el.isConnected) return null;
       if (!doc.contains(el)) return el.getBoundingClientRect();
-      const w = wordRect(el), g = docGeo(), top = g.absTop + w.y - state.sy, left = g.left + w.x;
+      const w = wordRect(el), g = docGeo(), top = V.top() + g.absTop + w.y - state.sy, left = g.left + w.x;
       return {left, top, right: left + w.w, bottom: top + w.h, width: w.w, height: w.h};
     }
     let panelGeo = null;
@@ -4355,7 +4438,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
           if (svg.style.display !== "none") svg.style.display = "none";
           previous = null; return;
         }
-        const g0 = docGeo(), top = docTop();
+        const g0 = docGeo(), top = V.top() + docTop();
         // The head's SVG coordinates already describe the rendered eye. Reading
         // its screen rectangle after drawing forces layout of the filing again.
         const eye = scannerEyePoint(spiderSvg.querySelector(".head"), g0.left, top);
@@ -4406,14 +4489,19 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
         // Positions come from the cached document geometry and page offsets: reading live rectangles
         // here forced a layout of the filing five times a second, and the panel lookup walked every word span.
         const g = docGeo(), top = docTop();
-        if (!isRecord){
+        const inPane = paneOn();
+        if (inPane !== (hud.parentNode === stageCol) && stageCol){
+          (inPane ? stageCol : B).append(hud);
+          if (inPane){ hud.style.top = hud.style.left = ""; hud.hidden = false; }
+        }
+        if (!isRecord && !inPane){
           const {p: side, fixed} = sidePanel();
           const limit = (fixed ? side.top : innerHeight) - (state.barH || 0), bottom = top + g.height;
           hud.style.top = Math.max(8, Math.min(limit - 40, bottom - 40)) + "px";
           hud.style.left = (g.left + g.width / 2) + "px";
           hud.hidden = bottom < 0 || top > innerHeight;
         }
-        const mid = innerHeight * (isRecord ? 0.3 : 0.5);
+        const mid = V.h() * (isRecord ? 0.3 : 0.5);
         const i = pdfOpen ? pdfOpen.pages.findIndex(pg => top + pg.docY <= mid && top + pg.docY + pg.vp.height >= mid) : -1;
         const html = `<b>${esc(tag || "BMG READER")}</b> <span>${figs} figure${figs === 1 ? "" : "s"}</span> <span>${obs} observation${obs === 1 ? "" : "s"}</span>${i >= 0 ? ` <span>p.${i + 1}</span>` : ""}`;
         if (hud.dataset.html !== html){ hud.dataset.html = html; hud.innerHTML = html; }
@@ -4609,7 +4697,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
         const version = ++jumpVersion, token = state.loadToken;
         spiderSvg.style.visibility = "hidden";
         try {
-          await wait(() => token !== state.loadToken || (state.scrollPos != null && Math.abs(scrollY - state.scrollPos) < 40), 50, 15000);
+          await wait(() => token !== state.loadToken || (state.scrollPos != null && Math.abs(V.y() - state.scrollPos) < 40), 50, 15000);
           if (token === state.loadToken && version === jumpVersion) await settleSpiderPose();
         } catch (e) { /* Restore visibility even if a run is cancelled mid-jump. */ }
         finally { if (version === jumpVersion) spiderSvg.style.visibility = ""; }
@@ -5052,6 +5140,8 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     let card = document.getElementById("read-report-ready");
     if (!card){ card = document.createElement("div"); card.id = "read-report-ready"; card.className = "rp-ready"; }
     sumEl.innerHTML = ""; sumEl.appendChild(card); sumEl.hidden = false;
+    if (paneOn() && !REDUCED && !(performance.now() - (state.userPageAt || -1e9) < 4000))
+      requestAnimationFrame(() => { if (!sumEl.hidden) sumEl.scrollIntoView({block: "nearest", behavior: "smooth"}); });
     const co = rep.company, ins = res.insights || {};
     // insider trades, a fund's holdings and a call have no statements: no statement coverage, issues or competitor
     const docOnly = ins.kind === "insider" || ins.kind === "holdings" || ins.kind === "transcript";
@@ -5422,15 +5512,15 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     if (!target) return false;
     closeReport();
     if (state.walkState && !state.walkState.done && !state.walkSkipped) return seekTo(target, {page, n: 1});
-    const r = target.getBoundingClientRect();
-    window.scrollTo({top: r.top + window.scrollY - innerHeight * 0.4, behavior: REDUCED ? "auto" : "smooth"});
+    revealPane();
+    V.to(V.contentY(target) - V.h() * 0.4, !REDUCED);
     if (target.classList.contains("w")){ target.classList.add("hl-bping"); setTimeout(() => target.classList.remove("hl-bping"), 2400); }
     return true;
   }
   function closeReport(){
     const o = document.getElementById("bmg-report"); if (!o || o.hidden) return;
     o.hidden = true; document.body.classList.remove("rp-open");
-    if (state.reportOpener && state.reportOpener.focus) state.reportOpener.focus();
+    if (state.reportOpener && state.reportOpener.focus) state.reportOpener.focus({preventScroll: true});   // a source link scrolls on its own
   }
   function openReport(anchor, mode){
     const res = state.readRes; if (!res || !res.report) return;
@@ -5675,7 +5765,8 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
         const offs = Object.entries(state.live.plan.fact_pages || {}).filter(([f, p]) => p >= state.jumpPage).map(([f]) => state.live.plan.fact_offsets[f]).filter(x => x != null);
         if (offs.length) applyLive(state.live.markEarlier(Math.min(...offs)));
       }
-      const y = pg.getBoundingClientRect().top + window.scrollY - innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5 + 40;
+      const y = V.contentY(pg) - V.h() * (window.READER_VIEW_FRAC || 1) * 0.5 + 40;
+      revealPane();
       if (y > state.scrollPos){ state.scrollPos = y; if (state.readerJumpSettled) state.readerJumpSettled(); }
     };
     go();
@@ -5690,7 +5781,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
       const offs = Object.entries(state.live.plan.fact_pages || {}).filter(([f, p]) => p >= page).map(([f]) => state.live.plan.fact_offsets[f]).filter(x => x != null);
       if (offs.length) applyLive(state.live.markEarlier(Math.min(...offs)));
     }
-    const y = el.getBoundingClientRect().top + window.scrollY - innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5 + 40;
+    const y = V.contentY(el) - V.h() * (window.READER_VIEW_FRAC || 1) * 0.5 + 40;
     if (y > state.scrollPos){ state.scrollPos = y; if (state.readerJumpSettled) state.readerJumpSettled(); }
     return true;
   };
@@ -5756,10 +5847,11 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
   function seekTo(el, opts = {}){
     if (!el || !el.isConnected) return false;
     const running = state.walkState && !state.walkState.done && state.scrollPos != null && !state.walkSkipped;
-    const top = el.getBoundingClientRect().top + window.scrollY;
+    const top = V.contentY(el);
+    revealPane();
     if (running){
-      const maxS = Math.max(0, docGeo().sh - innerHeight);
-      const target = Math.max(0, Math.min(maxS, top - innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5 + 40));
+      const maxS = Math.max(0, docGeo().sh - V.h());
+      const target = Math.max(0, Math.min(maxS, top - V.h() * (window.READER_VIEW_FRAC || 1) * 0.5 + 40));
       if (target > state.scrollPos && opts.page && state.live){
         // facts before the landing page were read by the server, not shown in this walk (as Jump to statements)
         const offs = Object.entries(state.live.plan.fact_pages || {}).filter(([f, p]) => p >= opts.page).map(([f]) => state.live.plan.fact_offsets[f]).filter(x => x != null);
@@ -5768,9 +5860,9 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
       if (target < state.scrollPos && state.walkSeek) state.walkSeek(target);
       state.scrollPos = target;
       state.camHoldUntil = performance.now() + 2600;     // the page holds still a moment so the place can be read, then reading goes on
-      if (state.paused){ window.scrollTo(0, target); state.sy = target; }
+      if (state.paused){ V.to(target); state.sy = target; }
       if (state.readerJumpSettled) state.readerJumpSettled();
-    } else window.scrollTo({top: top - innerHeight * 0.4, behavior: REDUCED ? "auto" : "smooth"});
+    } else V.to(top - V.h() * 0.4, !REDUCED);
     if (opts.light !== false && el.classList.contains("w")){
       const L = wordList(), i = L.idx.get(el), ws = i == null ? [el] : L.els.slice(i, i + (opts.n || 8));
       ws.forEach(w => w.classList.add("hl-zap"));
@@ -5808,16 +5900,26 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
       if (y == null) return "";
       return `<button type="button" class="fmap-mark ${m.kind === "sec" ? "" : m.kind}" data-i="${i}" data-label="${esc(m.label)}${m.page ? " · p." + m.page : ""}" style="top:${(Math.max(0, Math.min(1, y / H)) * 100).toFixed(2)}%" aria-label="${esc(m.label)}"></button>`;
     }).join("");
-    const r = stageCol.getBoundingClientRect();
-    fmap.style.left = Math.round(r.right - 21) + "px";
+    if (paneOn()){
+      fmap.style.left = fmap.style.top = fmap.style.bottom = fmap.style.visibility = ""; state.fmapT = state.fmapB = null;
+      stageCol.style.setProperty("--sbw", Math.max(0, docScroll.offsetWidth - docScroll.clientWidth) + "px");
+    }
+    else { const r = stageCol.getBoundingClientRect(); fmap.style.left = Math.round(r.right - 21) + "px"; }
     fmap.hidden = !fmapTrack.children.length;
-    state.fmapH = fmap.clientHeight;
+    state.fmapH = fmap.clientHeight; state.fmapDotY = null;
   }
   // the spider's place on the map, and the map kept within the document on screen: from the cached document
   // geometry and the scroll, no layout reads
   const mapNarrow = matchMedia("(max-width:900px)");          // the map is not shown on a narrow screen
   function mapTick(){
     if (!fmap || fmap.hidden || !state.readRes || mapNarrow.matches) return;
+    if (paneOn()){
+      const g = docGeo(), H = g.height || 1, h = state.fmapH || fmap.clientHeight;
+      const mid = state.sy - g.absTop + g.vh * (window.READER_VIEW_FRAC || 1) * 0.5;
+      const dot = Math.round(Math.max(0, Math.min(1, mid / H)) * h);
+      if (state.fmapDotY !== dot){ state.fmapDotY = dot; fmapDot.style.transform = `translateY(${dot}px)`; }
+      return;
+    }
     const g = docGeo(), H = g.height || 1, y = state.sy != null && walking() ? state.sy : scrollY;
     const docT = g.absTop - y, docB = docT + H;
     const t = Math.max(84, docT + 12), bot = Math.max((state.barH || 100) + 10, innerHeight - docB + 12), h = innerHeight - t - bot;   // clear of the control bar
@@ -5831,7 +5933,9 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
   setInterval(mapTick, 200);
   // once the walk is over the reader scrolls the page: the map follows each scroll at once, not 200 ms late
   let mapTickQueued = false;
-  addEventListener("scroll", () => { if (mapTickQueued || walking()) return; mapTickQueued = true; requestAnimationFrame(() => { mapTickQueued = false; mapTick(); }); }, {passive: true});
+  const mapOnScroll = () => { if (mapTickQueued || walking()) return; mapTickQueued = true; requestAnimationFrame(() => { mapTickQueued = false; mapTick(); }); };
+  addEventListener("scroll", mapOnScroll, {passive: true});
+  if (docScroll) docScroll.addEventListener("scroll", mapOnScroll, {passive: true});
   let mapResize = 0;
   addEventListener("resize", () => { clearTimeout(mapResize); mapResize = setTimeout(() => { mapEntries.forEach(m => { m._el = m._el && m._el.isConnected ? m._el : null; }); if (state.readRes) placeMap(); }, 450); });
   if (fmapTrack) fmapTrack.addEventListener("click", e => { const b = e.target.closest(".fmap-mark"); if (b) goTo(mapEntries[+b.dataset.i], {raw: mapEntries[+b.dataset.i].raw}); });
@@ -6230,7 +6334,13 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
   // each layout that changes it, never by a forced layout
   (function barSize(){
     const bar = document.getElementById("ctl-bar"); if (!bar || !window.ResizeObserver) return;
-    new ResizeObserver(es => { if (!document.body.classList.contains("recmode")) state.barH = Math.round(es[es.length - 1].borderBoxSize?.[0]?.blockSize ?? bar.offsetHeight) + 6; }).observe(bar);
+    new ResizeObserver(es => {
+      if (document.body.classList.contains("recmode")) return;
+      const h = Math.round(es[es.length - 1].borderBoxSize?.[0]?.blockSize ?? bar.offsetHeight);
+      state.barH = h + 6;
+      bar.parentNode.style.setProperty("--bar-h", h + "px");          // the pane layout keeps the map and the counter above the bar
+      if (fmap && !fmap.hidden && paneOn()){ state.fmapH = fmap.clientHeight; state.fmapDotY = null; }
+    }).observe(bar);
   })();
 })();
 </script>
