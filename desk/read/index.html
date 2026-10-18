@@ -319,6 +319,14 @@ body.pics-edit .rp-pic .rp-x{display:block;position:absolute;top:-14px;right:-14
 body.pics-edit .rp-pic .rp-size{display:block;position:absolute;right:-10px;bottom:-10px;width:22px;height:22px;border-radius:4px;background:var(--crawler-main,#6ff4ff);cursor:nwse-resize}
 #pics-done{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:62;display:flex;gap:8px;align-items:center;background:rgba(0,0,0,.85);color:#fff;padding:10px 14px;border-radius:10px;font:13px sans-serif}
 #pics-done button{font:600 14px sans-serif;padding:8px 14px;border-radius:8px;border:0;cursor:pointer}
+/* Record mode's rewind strip: shown only while the recording holds (paused, or replaying), so it is never in the clip */
+#rec-rw{position:fixed;left:10px;right:10px;bottom:12px;z-index:3200;background:rgba(6,9,14,.94);color:#eef3f8;border:1px solid #2a3442;border-radius:14px;padding:10px 12px 9px;font:13px 'IBM Plex Sans',sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.5)}
+#rec-rw[hidden]{display:none}#rec-rw .rr-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+#rec-rw .rr-st{color:#ffb020;font:700 12px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.05em}#rec-rw .rr-time{font:600 12px 'IBM Plex Mono',monospace;color:#c5d0dc}
+#rec-rw .rr-bar{position:relative;height:16px;margin:6px 0 8px;cursor:pointer;touch-action:none}#rec-rw .rr-bar::before{content:"";position:absolute;left:0;right:0;top:6px;height:4px;border-radius:2px;background:#2a3442}
+#rec-rw .rr-bar i{position:absolute;left:0;top:6px;height:4px;border-radius:2px;background:#ffb020}#rec-rw .rr-bar i::after{content:"";position:absolute;right:-6px;top:-4px;width:12px;height:12px;border-radius:50%;background:#ffb020}
+#rec-rw .rr-btns{display:flex;flex-wrap:wrap;gap:6px}#rec-rw button{flex:1 1 auto;font:600 13px 'IBM Plex Sans',sans-serif;padding:8px 10px;border-radius:9px;border:1px solid #3a4656;background:#0c121a;color:#e8edf2;cursor:pointer}
+#rec-rw button[data-rw="play"]{background:#6ff4ff;color:#04131a;border:0}#rec-rw button:disabled{opacity:.4;cursor:default}#rec-rw small{display:block;margin-top:6px;color:#8fa0b3;font-size:11.5px}
 #clip-intro{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.8);color:#fff;font-family:Inter,'IBM Plex Sans',sans-serif;pointer-events:none;transition:opacity .25s}
 #clip-intro.out{opacity:0}
 #clip-intro .ci-h{position:absolute;left:6.5vw;right:6.5vw;top:13vh;font-size:9.1vw;font-weight:900;line-height:1.04;letter-spacing:-.18vw}
@@ -664,6 +672,22 @@ details.omni-more>summary{cursor:pointer;padding:10px 14px;font:600 13.5px 'IBM 
 .stage .strip .status{flex:1 1 150px;font-size:12px;order:9}
 .stage .strip .ctl-keys{order:10;width:36px;padding:0;flex:none}
 .ctl-pop{position:absolute;bottom:calc(100% + 10px);right:12px;width:min(560px,calc(100% - 24px));max-height:min(62vh,560px);overflow:auto;background:#fff;color:#141414;border:1px solid #d9ddd8;border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.2);padding:12px 14px;z-index:45;font:13.5px/1.4 'IBM Plex Sans',sans-serif}
+/* rewind: back and forward 10 s around Pause, the read's time and the live point, and a bar along the top of the controls */
+.stage .strip .ctl-rw{width:46px;padding:0;display:inline-flex;align-items:center;justify-content:center;gap:1px;font:700 11px 'IBM Plex Mono',monospace}
+.stage .strip .ctl-rw svg{width:17px;height:17px;fill:currentColor}.stage .strip .ctl-rw:disabled{opacity:.4;cursor:default}
+.ctl-time{display:inline-block;width:104px;height:16px;contain:strict;overflow:hidden;font:600 12px/16px 'IBM Plex Mono',monospace;color:#4a4a4a;white-space:nowrap}.ctl-time[hidden]{display:none}
+.stage .strip .ctl-live{height:28px;padding:0 9px 0 8px;display:inline-flex;align-items:center;gap:5px;font:700 10.5px 'IBM Plex Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#4a4a4a}
+.stage .strip .ctl-live::before{content:"";width:7px;height:7px;border-radius:50%;background:#9aa0a8}
+.stage .strip .ctl-live.at{border-color:transparent;cursor:default;color:#b42318}.stage .strip .ctl-live.at::before{background:#e5484d}
+.stage .strip .ctl-live:not(.at){border-color:#e8920c;color:#8a4b00}
+.ctl-prog{position:absolute;left:10px;right:10px;top:-7px;height:14px;cursor:pointer;touch-action:none;z-index:2;outline:none}
+.ctl-prog::before{content:"";position:absolute;left:0;right:0;top:5px;height:4px;border-radius:2px;background:#dfe3de;transition:height .12s,top .12s}
+.ctl-prog i{position:absolute;left:0;top:5px;height:4px;width:var(--p,100%);max-width:100%;border-radius:2px;background:#0f7d47;transition:height .12s,top .12s}
+.ctl-prog::after{content:"";position:absolute;top:2px;left:calc(var(--p,100%) - 5px);width:10px;height:10px;border-radius:50%;background:#0f7d47;box-shadow:0 0 0 2px #fff;opacity:0;transition:opacity .12s}
+.ctl-prog:hover::before,.ctl-prog:hover i,.ctl-prog.drag::before,.ctl-prog.drag i{top:4px;height:6px}
+.ctl-prog:hover::after,.ctl-prog.drag::after,.ctl-prog:focus-visible::after,#ctl-bar.rp .ctl-prog::after{opacity:1}
+.ctl-prog:focus-visible::before{box-shadow:0 0 0 2px rgba(15,125,71,.35)}
+#ctl-bar.rp .ctl-prog i,#ctl-bar.rp .ctl-prog::after{background:#e8920c}
 .ctl-pop[hidden]{display:none}.ctl-keys-pop{width:260px}.ctl-keys-pop ul{margin:6px 0 0;padding:0;list-style:none}.ctl-keys-pop li{margin:3px 0}
 kbd{font:600 11px 'IBM Plex Mono',monospace;border:1px solid #c9c9c4;border-bottom-width:2px;border-radius:4px;padding:0 5px;background:#f6f6f3}
 .ask-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:0 0 8px}.ask-h b{font-size:14px}.ask-h small{color:#6b6f76}
@@ -858,6 +882,7 @@ body.av-open{overflow:hidden}
 .nw-meta{font-size:12.5px;color:#5d6862;margin:3px 0 6px}.nw-meta a{color:#0f5fc7}.nw-score{font:500 11px 'IBM Plex Mono',monospace;color:#9aa0a8;margin-left:4px}
 .nw-acts{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start}.nw-more{flex-basis:100%;font-size:12.5px}.nw-more summary{cursor:pointer;color:#5d6862}.nw-more ul{margin:4px 0 0;padding-left:18px}.nw-more li{margin:0 0 3px}.nw-more a{color:#141414}
 .nw-filers td{vertical-align:middle}.nw-filers td:first-child{width:auto}
+.ps-views{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}.ps-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff3da6;margin-left:3px;vertical-align:1px}
 .ps-held{font-size:13px;margin:6px 0 10px}.ps-held input{width:200px;height:30px;border:1px solid #c9cfca;border-radius:7px;padding:0 8px;font:600 13px 'IBM Plex Mono',monospace}.ps-held small{color:#6b6f76}
 .ps-slots{list-style:none;margin:0;padding:0}.ps-slot{background:#fff;border:1px solid #e3e3dc;border-radius:14px;padding:14px 16px;margin:0 0 14px}.ps-slot.posted{background:#f6fbf7;border-color:#b7dfc8}.ps-slot.flash{outline:3px solid #4f7bff;outline-offset:2px}
 .ps-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:0 0 8px}.ps-time{height:32px;border:1px solid #c9cfca;border-radius:7px;padding:0 6px;font:600 14px 'IBM Plex Mono',monospace}
@@ -972,9 +997,13 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     <!-- The control bar under the document. It stays the "strip", so record mode and the video scripts hide it as
          they always did. -->
     <div class="strip" id="ctl-bar" role="toolbar" aria-label="Reading controls">
+      <div class="ctl-prog" id="ctl-prog" role="slider" tabindex="0" aria-label="Time in this read: press or drag to go back" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" hidden><i></i></div>
+      <button class="btn ctl-rw" id="ctl-back" type="button" hidden title="Back 10 seconds (&larr;)" aria-label="Back 10 seconds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1.5L6.5 6.5 12 11.5V8a5 5 0 1 1-5 5H4.5A7.5 7.5 0 1 0 12 5z"/></svg><span>10</span></button>
       <button class="btn ctl-main" id="ctl-pause" type="button" title="Pause or resume (Space)">Pause</button>
+      <button class="btn ctl-rw" id="ctl-fwd" type="button" hidden title="Forward 10 seconds (&rarr;)" aria-label="Forward 10 seconds"><span>10</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1.5l5.5 5L12 11.5V8a5 5 0 1 0 5 5h2.5A7.5 7.5 0 1 1 12 5z"/></svg></button>
       <span class="ctl-speeds" id="ctl-speeds" role="group" aria-label="Speed"><button type="button" data-speed="0.5" title="1">0.5x</button><button type="button" data-speed="1" class="on" title="2">1x</button><button type="button" data-speed="2" title="3">2x</button><button type="button" data-speed="4" title="4">4x</button></span>
       <select id="ctl-speed" class="ctl-speed-sel" aria-label="Speed" tabindex="-1"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option></select>
+      <span class="ctl-time" id="ctl-time" hidden aria-hidden="true"></span><button class="btn ctl-live at" id="ctl-live" type="button" hidden disabled title="At the live point">Live</button>
       <button class="btn" id="read-jump" type="button" hidden title="Jump to statements (J)">Jump to statements</button>
       <span class="ctl-go"><button class="btn" id="ctl-go" type="button" aria-haspopup="menu" aria-expanded="false" hidden title="Go to a section (G)">Go to &#9662;</button><span class="ctl-menu" id="ctl-menu" role="menu" hidden></span></span>
       <button class="btn" id="read-skip" type="button" hidden title="Skip to results (S)">Skip to results</button>
@@ -982,7 +1011,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       <span class="status" id="status" role="status">idle</span>
       <button class="btn ctl-keys" id="ctl-keys" type="button" aria-label="Keyboard shortcuts" aria-expanded="false" title="Keyboard shortcuts (?)">?</button>
       <div class="ctl-pop" id="ask-pop" hidden role="region" aria-label="Answers" aria-live="polite"></div>
-      <div class="ctl-pop ctl-keys-pop" id="keys-pop" hidden><b>Keyboard</b><ul><li><kbd>Space</kbd> pause or resume</li><li><kbd>1</kbd>&ndash;<kbd>4</kbd> speed 0.5x, 1x, 2x, 4x</li><li><kbd>J</kbd> jump to statements</li><li><kbd>G</kbd> go to a section</li><li><kbd>S</kbd> skip to results</li><li><kbd>/</kbd> ask a question</li><li><kbd>F</kbd> red flags</li><li><kbd>Esc</kbd> close</li></ul></div>
+      <div class="ctl-pop ctl-keys-pop" id="keys-pop" hidden><b>Keyboard</b><ul><li><kbd>Space</kbd> pause or resume</li><li><kbd>&larr;</kbd> <kbd>&rarr;</kbd> back or forward 10 seconds</li><li><kbd>L</kbd> back to the live point</li><li><kbd>1</kbd>&ndash;<kbd>4</kbd> speed 0.5x, 1x, 2x, 4x</li><li><kbd>J</kbd> jump to statements</li><li><kbd>G</kbd> go to a section</li><li><kbd>S</kbd> skip to results</li><li><kbd>/</kbd> ask a question</li><li><kbd>F</kbd> red flags</li><li><kbd>Esc</kbd> close</li></ul></div>
     </div>
     <div class="fmap" id="fmap" hidden aria-label="Filing map"><div class="fmap-track" id="fmap-track"></div><i class="fmap-dot" id="fmap-dot" aria-hidden="true"></i></div>
   </div>
@@ -1390,25 +1419,32 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   }
 
   const SCROLL_SPEED = 140;   // px per second at 1x, matched to the clip (lines per second)
+  // Rewind (see "Rewind" below): the camera's path as it ran, the effects seen on the way, the live point and,
+  // while going back, the moment on that path the page is at.
+  const TL = {path: [], fx: [], fxi: 0, live: 0, t: 0, floor: 0, replay: false, set: null, replant: false, firing: false};
   function camera(){
     // The page scrolls under the spider at a steady pace (reference clip),
     // independent of where the spider is. A manual scroll wins for 2.5 s.
     const now = performance.now();
     const dt = Math.min(0.05, (now - (state.camT || now)) / 1000);
     state.camT = now;
-    if (state.userScrolledAt && now - state.userScrolledAt < 2500){ state.scrollPos = null; return; }
+    if (state.userScrolledAt && now - state.userScrolledAt < 2500){ if (TL.replay) tlStop(); state.scrollPos = null; return; }
     if (!walking() || state.paused || !state.rows) { state.scrollPos = null; return; }
-    if (state.scrollPos == null) state.scrollPos = state.sy;
+    if (state.scrollPos == null) state.scrollPos = TL.replay ? TL.set : state.sy;
+    // another control moved the page during a replay (Go to, Jump to statements): reading goes on live from there
+    if (TL.replay && Math.abs(state.scrollPos - TL.set) > 2) tlStop();
     const before = state.sy;
     // Ease the boost in and out so speed changes are smooth: into blank space twice as quickly as before, back
     // down to reading speed as gently as before, so text never arrives with a jolt.
     const rising = (state.boostTarget || 1) > (state.boost || 1);
     state.boost = (state.boost || 1) + ((state.boostTarget || 1) - (state.boost || 1)) * Math.min(1, dt * (rising ? 3.2 : 1.6));
-    if (state.recordCamera) state.scrollPos = state.recordCamera(dt);
+    if (TL.replay) state.scrollPos = tlReplayPos(dt);                        // going back: the path as it ran
+    else if (state.recordCamera) state.scrollPos = state.recordCamera(dt);
     else if (!(state.camHoldUntil > now)) state.scrollPos += SCROLL_SPEED * U * (state.speedMul || 1) * state.boost * dt;   // a Go landing holds a moment
     let maxS = Math.max(0, docGeo().sh - V.h());
     if (state.scrollPos > maxS){ geo = null; maxS = Math.max(0, docGeo().sh - V.h()); }   // page grew since it was measured
     state.scrollPos = Math.min(state.scrollPos, maxS);
+    if (TL.replay) TL.set = state.scrollPos; else tlRecord(dt, state.scrollPos);
     V.to(state.scrollPos);
     state.sy = Math.round(state.scrollPos * devicePixelRatio) / devicePixelRatio;
     // The spider rides the scroll: it moves with the page view, so its own
@@ -1416,6 +1452,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const ride = state.sy - before;
     state.body.y += ride;
     state.rideSince = (state.rideSince || 0) + ride;
+    if (TL.replant){ TL.replant = false; tlReplant(); }                      // the replay jumped back up the page
     // The feet ride too: the legs hold their pose while the page scrolls
     // and only step when the spider itself moves (reference clip).
     // Feet stay planted on the page (measured from the original), so the
@@ -2494,6 +2531,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   }
 
   function startWalk(doc_id, duration_s){
+    tlReset();                                   // a new document: nothing to go back to yet
     if (state.walkSkipped){ state.walkState = {done:true, docId:doc_id, lineIdx:0}; return; }
     state.walkState = {done:false, docId:doc_id, lineIdx:0};
     // no mouse hit-testing over tens of thousands of word spans while the
@@ -2660,6 +2698,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (!found) return;
     if (state.onFound) state.onFound(ev, found);
     found.classList.add("found", familyOf(ev.label));
+    tlFx("lit", {el: found});                    // a rewind lights it again as the spider reaches it
     // Original PDF/HTML fills inherit the filing font and never resize words.
     if (!docBody.classList.contains("orig")) bumpLayout();
     // Move the body so the value sits TARGET_REACH px away (never under
@@ -3998,6 +4037,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         <label class="pics-drop" id="pics-drop"><input type="file" id="pics-file" accept="image/*" multiple hidden><b>Drop pictures here or click to choose</b><span>They show on top of the video, where you place them.</span></label>
         <ul class="pics-list" id="pics-list"></ul>
         <button type="button" id="pics-place" hidden>Place pictures on the screen</button>
+        <p>Pictures placed here are in the recording itself. To move them while the video plays, time them, or add text and a song, press Edit in Studio when the take ends (Posting, Studio).</p>
       </fieldset>
       <label class="opt">Clip format <select id="rec-format"><option value="custom" selected>Continuous read (first-video movement)</option><option value="highlights">40-second highlights camera</option><option value="idea">Idea clip · your hook, then the spider on your numbers</option></select></label>
       <label class="opt">Highlight pace <select id="rec-pace"><option value="1.6" selected>Fast · faster crawler, steady highlights</option><option value="1">Brisk · focus on statements</option></select></label>
@@ -4013,7 +4053,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       ${canRecord ? `<label class="opt">Record this window (downloads a video) <input type="checkbox" id="rec-capture" checked></label>` : ""}
       ${canRecord && window.showSaveFilePicker ? `<label class="opt">Save to disk while recording (long takes use no extra memory) <input type="checkbox" id="rec-disk" checked></label>` : ""}
       <button id="rec-start" type="button" disabled>Start</button>
-      <p>Space pauses. Esc leaves record mode. Highlight clips include a two-second logo opening. Custom clips start when the black screen lifts on the first financial statement.</p>`;
+      <p>Space pauses and &larr; &rarr; go back or forward 10 seconds: the recording waits while it is paused or going back, then goes on where it left off. Esc leaves record mode. Highlight clips include a two-second logo opening. Custom clips start when the black screen lifts on the first financial statement.</p>`;
     const fileIn = document.getElementById("read-file"), startBtn = setup.querySelector("#rec-start");
     if (isRecord){
       B.appendChild(setup);
@@ -4362,6 +4402,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (isRecord) addEventListener("keydown", e => {
       if (e.key === "Escape") leave();
       if (e.key === " " && !setup.isConnected){ e.preventDefault(); const p = document.getElementById("ctl-pause"); if (p) p.click(); }
+      // back and forward 10 seconds, and back to the live point, once the clip is running (not over its opening)
+      if (setup.isConnected || e.metaKey || e.ctrlKey || e.altKey || document.querySelector("#rec-curtain,#clip-intro,#rec-end")) return;
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight"){
+        e.preventDefault();
+        if (e.repeat && performance.now() - (state.tlKeyAt || 0) < 150) return;
+        state.tlKeyAt = performance.now();
+        state.tlStep(e.key === "ArrowLeft" ? -10 : 10);
+      } else if (e.key === "l" || e.key === "L") state.tlLive();
     });
     const vis = id => { const el = document.getElementById(id); return el && !el.hidden ? el : null; };
     const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -4453,10 +4501,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         const sigs = changes.filter(ch => ch.kind === "signal" && ch.op === "show");
         const rest = changes.filter(ch => !sigs.includes(ch));
         const text = (el.textContent || "").trim() || f.value || "";
-        if (td) fly(el, td, text, false, () => applyLive(rest));
+        if (td){ fly(el, td, text, false, () => applyLive(rest)); tlFx("fly", {el, dest: td, text}); }
         else {
           const tr = foundSlot(f);
-          if (tr) fly(el, tr.querySelector(".lr-v"), text, false, () => { applyLive(rest); revealFound(tr); });
+          if (tr){ fly(el, tr.querySelector(".lr-v"), text, false, () => { applyLive(rest); revealFound(tr); }); tlFx("fly", {el, dest: tr.querySelector(".lr-v"), text}); }
           else applyLive(rest);
         }
         // observations fly in once the numbers have landed, so the panel is not pulled two ways
@@ -4501,8 +4549,25 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (!sg || !dest || !readerSourceVisible(el) || performance.now() - at > 6000){ applyLive([ch]); return; }
       zapTo(el, true, true);
       setTimeout(() => fly(el, dest, sg.headline, true, () => applyLive([ch])), ZAP_LAND);
+      tlFx("obs", {el, sig: sg.id, text: sg.headline});
     }, 120);
     state.zapFly = (f, el, changes) => { zapQ.push({f, el, changes, at: performance.now()}); pumpZaps(); };
+    // A rewind replays a flight: the figure, observation or heading leaves the page again and lands on its place
+    // in the report, which flashes; the report itself is already filled and does not change.
+    state.tlFly = x => {
+      const el = x.el;
+      if (!el || !el.isConnected || !readerSourceVisible(el)) return;
+      const dest = x.kind === "obs" ? document.querySelector(`#lr-sigs [data-sig="${CSS.escape(x.sig)}"]`) : x.dest;
+      if (!dest || !dest.isConnected) return;
+      if (x.kind !== "fly") zapTo(el, true, true);                 // a figure's zap comes back with its "lit" moment
+      (x.words || [el]).forEach(w => { w.classList.add("hl-zap"); setTimeout(() => w.classList.remove("hl-zap"), 1100); });
+      fly(el, dest, x.text, x.kind !== "fly", () => {
+        const c = dest.closest(".lr-c, .lr-sig, tr") || dest;
+        c.classList.add(c.matches("tr") ? "lr-row-enter" : "flash");
+        setTimeout(() => c.classList.remove("flash", "lr-row-enter"), 1400);
+        liveFollow(c);
+      });
+    };
 
     // A section heading the spider reads ("Note 1 ...", "Item 7. ...") is zapped and lands in
     // "Sections read" with its page, so the report keeps moving through pages of plain text.
@@ -4544,6 +4609,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (!readerSourceVisible(el) || !zapTo(el, true, true)){ revealFound(tr); return; }
       els.slice(0, 6).forEach(w => { w.classList.add("hl-zap"); setTimeout(() => w.classList.remove("hl-zap"), 1100); });
       setTimeout(() => fly(el, tr.querySelector("td"), title, true, () => revealFound(tr)), ZAP_LAND);
+      if (state.tlFx) state.tlFx("sec", {el, dest: tr.querySelector("td"), text: title, words: els.slice(0, 6)});
     };
 
     // -- eye scanner: a narrow cone sweeps smoothly in front of the eyes.
@@ -4728,12 +4794,21 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
             await diskChain;
             try { await diskWriter.close(); } catch (e) { diskError = diskError || e; }
             if (diskError){ res({diskError: true, name: diskFile.name}); return; }
-            res({disk: true, name: diskFile.name, size: diskBytes, type: recType || "video/webm"}); return;
+            res({disk: true, name: diskFile.name, size: diskBytes, type: recType || "video/webm", handle: diskFile}); return;
           }
           res(new Blob(chunks, {type: recType || "video/webm"}));
         };
         rec.stop();
       });
+    }
+    // A pause or a rewind holds the recording (MediaRecorder pause): nothing is captured until it goes on again.
+    function holdCapture(on){
+      if (!rec) return false;
+      try {
+        if (on && rec.state === "recording"){ rec.pause(); return true; }
+        if (!on && rec.state === "paused"){ rec.resume(); return true; }
+      } catch (e) { /* the recorder stopped meanwhile */ }
+      return false;
     }
 
     // -- the ending: key findings, then a one-page summary, all from the finished report
@@ -4790,6 +4865,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       end.appendChild(bar);
       bar.querySelector("#rf-again").onclick = () => location.reload();
       bar.querySelector("#rf-back").onclick = leave;
+      if (state.takeReady) state.takeReady(blob, bar);
     }
 
     async function finishRecording(keySecs, oneSecs, highlights){
@@ -4827,6 +4903,113 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
             return settled >= 4;
           }, 80, 3000);
     };
+    // -- Rewind and pause while recording. The recording holds (nothing is captured) while the crawl is paused or
+    // replaying what was already recorded, and for the moment of a skip ahead. The strip with the controls shows only
+    // while the recording holds, so it never appears in the clip, and the clip goes on from exactly where it held.
+    const holds = new Set();
+    let rwStrip = null, settling = false, settleTimer = 0;
+    function recHold(why, on){
+      const was = holds.size > 0;
+      if (on) holds.add(why); else holds.delete(why);
+      if (holds.size && !was){
+        if (settling){ clearTimeout(settleTimer); settling = false; state.paused = false; }
+        holdCapture(true);
+      }
+      drawRwStrip();
+      if (!holds.size && was){
+        if (!rec || rec.state === "inactive") return;
+        // The capture re-sends a still page now and then, so for a moment it can still hold a frame with the strip:
+        // the crawl waits a third of a second with the strip gone, then the crawl and the recording go on together.
+        settling = true; state.paused = true;
+        settleTimer = setTimeout(() => { settling = false; state.paused = false; if (!holds.size) holdCapture(false); }, 350);
+      }
+    }
+    function drawRwStrip(){
+      const show = !!rec && rec.state !== "inactive" && (holds.has("pause") || holds.has("replay")) && !document.getElementById("rec-end");
+      if (!show){ if (rwStrip) rwStrip.hidden = true; return; }
+      if (!rwStrip){
+        rwStrip = document.createElement("div"); rwStrip.id = "rec-rw";
+        rwStrip.setAttribute("role", "toolbar"); rwStrip.setAttribute("aria-label", "Replay controls");
+        rwStrip.innerHTML = `<div class="rr-top"><b class="rr-st"></b><span class="rr-time"></span></div>
+          <div class="rr-bar" role="slider" tabindex="0" aria-label="Time in this clip" aria-valuemin="0"><i></i></div>
+          <div class="rr-btns"><button type="button" data-rw="back">&laquo; 10 s</button><button type="button" data-rw="play"></button><button type="button" data-rw="fwd">10 s &raquo;</button><button type="button" data-rw="live">Back to live</button></div>
+          <small>Not in the recording while this shows. &larr; &rarr; 10 seconds &middot; Space pause &middot; L back to live</small>`;
+        B.appendChild(rwStrip);
+        rwStrip.addEventListener("click", e => {
+          const b = e.target.closest("button[data-rw]"); if (!b) return;
+          const k = b.dataset.rw;
+          if (k === "back") state.tlStep(-10);
+          else if (k === "fwd") state.tlStep(10);
+          else if (k === "live") state.tlLive();
+          else document.getElementById("ctl-pause")?.click();
+          drawRwStrip();
+        });
+        const bar = rwStrip.querySelector(".rr-bar");
+        const seek = e => { const r = bar.getBoundingClientRect(), f = Math.max(0, Math.min(1, (e.clientX - r.left) / (r.width || 1))), x = state.tlInfo(); state.tlStep(f * x.live - x.t); };
+        bar.addEventListener("pointerdown", e => {
+          e.preventDefault(); bar.setPointerCapture(e.pointerId); seek(e);
+          let last = performance.now();
+          const move = ev => { const now = performance.now(); if (now - last < 110) return; last = now; seek(ev); };
+          const up = () => { bar.removeEventListener("pointermove", move); bar.removeEventListener("pointerup", up); bar.removeEventListener("pointercancel", up); };
+          bar.addEventListener("pointermove", move); bar.addEventListener("pointerup", up); bar.addEventListener("pointercancel", up);
+        });
+        setInterval(() => { if (!rwStrip.hidden) drawRwStrip(); }, 200);
+      }
+      rwStrip.hidden = false;
+      const x = state.tlInfo(), paused = holds.has("pause");
+      const mmss = s => { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+      // texts changed in place and only when they change, as on the Crawler's bar (a new text node each tick costs frames)
+      const put = (el, text) => { if (el.textContent === text) return; if (el.childNodes.length === 1 && el.firstChild.nodeType === 3) el.firstChild.nodeValue = text; else el.textContent = text; };
+      put(rwStrip.querySelector(".rr-st"), x.replay ? (paused ? "Replay paused" : "Replay") + " · not recording" : "Paused · not recording");
+      put(rwStrip.querySelector(".rr-time"), x.replay ? `${mmss(x.t)} / ${mmss(x.live)} · ${mmss(x.live - x.t)} behind` : mmss(x.live));
+      const w = (x.live > 0 ? Math.min(100, x.t / x.live * 100) : 100).toFixed(2) + "%", bi = rwStrip.querySelector(".rr-bar i");
+      if (bi.style.width !== w) bi.style.width = w;
+      put(rwStrip.querySelector('[data-rw="play"]'), state.paused ? "Resume" : "Pause");
+      rwStrip.querySelector('[data-rw="back"]').disabled = !x.on || x.t < 0.3;
+      rwStrip.querySelector('[data-rw="fwd"]').disabled = !x.on || (!x.replay && !x.canSkip);
+      rwStrip.querySelector('[data-rw="live"]').disabled = !x.replay;
+    }
+    // -- The take goes to the Studio (Posting tab): kept in this browser, and the Crawler window that opened Record
+    // mode hears of it. Edit in Studio opens it there (or the Crawler in a new tab, when this window was opened alone).
+    state.takeReady = (blob, bar) => {
+      if (!isRecord || !blob || blob.diskError || !window.indexedDB) return;
+      const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
+      const ticker = (co.ticker || co.ticker_hint || setup.querySelector("#clip-ticker")?.value || "").toUpperCase().replace(/[^A-Z0-9.]/g, "");
+      const hook = setup.querySelector("#rec-format")?.value === "idea" ? (setup.querySelector("#clip-hook")?.value || "").trim() : "";
+      const when = new Date();
+      const take = {id: "take-" + when.getTime().toString(36), created: when.getTime(), size: blob.size, type: blob.type, meta: {ticker, hook, form: co.form || "", source: "record"},
+        name: [ticker || "Crawler", co.form || "", "take", when.toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})].filter(Boolean).join(" ")};
+      if (blob.disk) take.handle = blob.handle; else take.blob = blob;
+      const b = document.createElement("button"); b.type = "button"; b.id = "rf-studio"; b.disabled = true; b.textContent = "Keeping it for the Studio...";
+      bar.insertBefore(b, bar.querySelector("#rf-again"));
+      // a take saved on disk: its file goes along with the messages, so the Crawler window opens it without asking
+      // Chrome for the file again
+      let handed = null;
+      studioDB.put("takes", take).then(() => studioDB.prune(10)).then(async () => {
+        if (blob.disk && blob.handle) handed = await blob.handle.getFile().catch(() => null);
+        b.disabled = false; b.textContent = "Edit in Studio";
+        try { new BroadcastChannel("bmg-studio").postMessage({type: "take", id: take.id, file: handed}); } catch (e) {}
+      }).catch(e => { b.textContent = "Not kept for the Studio (" + ((e && e.message) || "browser storage") + "): open the downloaded file there"; });
+      b.onclick = () => {
+        try { localStorage.setItem("bmg-studio-open", take.id); } catch (e) {}
+        const o = window.opener;
+        if (o && !o.closed){
+          try { o.postMessage({type: "bmg-open-take", id: take.id, file: handed}, location.origin); o.focus(); b.textContent = "Open in the Crawler window: Posting, Studio"; return; } catch (e) {}
+        }
+        window.open(location.pathname + "#studio", "_blank");
+      };
+    };
+    if (isRecord){
+      state.onReplay = on => recHold("replay", on);
+      state.onSkip = on => recHold("skip", on);
+      document.getElementById("ctl-pause")?.addEventListener("click", e => {
+        if (settling){                         // pressed again while the recording was about to go on: it stays paused
+          clearTimeout(settleTimer); settling = false;
+          state.paused = true; e.currentTarget.textContent = "Resume"; e.currentTarget.classList.add("on");
+        }
+        recHold("pause", state.paused);
+      });
+    }
     if (!isRecord){
       let jumpVersion = 0;
       state.readerJumpSettled = async () => {
@@ -4991,6 +5174,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           state.speedMul = 1.5;
         }
         if (rec){ refreshCaptureDetails(); rec.start(500); }       // the clip starts here; sample the settled window as recording starts
+        state.tlMark();                                             // a rewind goes back no further than this
+        if (holds.size) holdCapture(true);                          // paused under the curtain: the recording waits too
         if (pics.length){ drawPics(); picLayer.hidden = false; }
         if (highlights){ await sleep(2000); startHighlights(pace); }
         if (renderProfile){ renderProfile.frames = []; renderProfile.draws = []; renderProfile.last = 0; }
@@ -5005,7 +5190,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           cardedLines = [];
           clipWatch = setInterval(() => {
             const hit = [];
-            for (const el of pending) if (zapTo(el, true, true)){ el.classList.add("found", "pink", "hl-zap"); pending.delete(el); hit.push(el); }
+            for (const el of pending) if (zapTo(el, true, true)){ el.classList.add("found", "pink", "hl-zap"); pending.delete(el); hit.push(el); tlFx("lit", {el, pink: true}); }
             if (hit.length) clipCards(hit);
             if (!pending.size) clearInterval(clipWatch);
           }, 100);
@@ -5013,8 +5198,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         startOverlays();
         // count only time that is not paused
         let left = finishAt * 1000, last = Date.now();
+        // (nor time the recording holds for a rewind: the clip's length is what is recorded)
         await wait(() => { const now = Date.now(); const paused = (document.getElementById("ctl-pause") || {}).textContent === "Resume";
-                            if (!paused) left -= now - last; last = now; return left <= 0; }, 100);
+                            if (!paused && !holds.size && !settling) left -= now - last; last = now; return left <= 0; }, 100);
         state.recordCamera = null;
         clearInterval(clipWatch);
         if (clip){
@@ -5044,7 +5230,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (f.group === "Operating metrics") tickBrief("kpi:" + f.label, f.value);
     for (const id of f.signals || []){
       const sg = (state.sigById || {})[id];
-      if (sg && !sg._shown){ sg._shown = true; sg._f = f; popSignal(sg, el); }
+      if (sg && !sg._shown){ sg._shown = true; sg._f = f; popSignal(sg, el); tlFx("pop", {sg, el}); }
     }
   }
 
@@ -6137,15 +6323,224 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   });
   if (askIn) askIn.addEventListener("focus", () => { if (state.answers && state.answers.length && askPop.innerHTML) askPop.hidden = false; });
 
+  // ---- Rewind: back and forward through the crawl, the same in the Crawler and in Record mode ----
+  // The camera's path is kept as it runs (seconds of reading and the scroll position), and each card, pop-up and
+  // flying figure is noted with its moment. Going back replays that path at the pace it ran: the spider reads along
+  // and those effects come back on time, while the report and its counts stay as they are, since nothing is found
+  // twice. Forward from a replay goes on along the path; forward from the live point skips ahead what 10 seconds
+  // of reading covers (the lines passed are read at once, as Jump to statements does). Record mode holds its
+  // recording while the crawl is paused or replaying (state.onReplay), so the clip has no repeats.
+  function tlReset(){
+    const was = TL.replay;
+    Object.assign(TL, {path: [], fx: [], fxi: 0, live: 0, t: 0, floor: 0, replay: false, set: null, replant: false});
+    if (was) tlNotify();
+  }
+  function tlIdx(t){                                 // the last point of the path at or before t
+    const P = TL.path;
+    if (!P.length || t < P[0].t) return -1;
+    let lo = 0, hi = P.length - 1;
+    while (lo < hi){ const m = (lo + hi + 1) >> 1; if (P[m].t <= t) lo = m; else hi = m - 1; }
+    return lo;
+  }
+  function tlPos(t){
+    const P = TL.path, i = tlIdx(t);
+    if (i < 0) return P.length ? P[0].y : 0;
+    const a = P[i], b = P[i + 1];
+    if (!b || b.t <= a.t || b.y < a.y) return a.y;    // a jump back up the page lands at once
+    return a.y + (b.y - a.y) * Math.min(1, (t - a.t) / (b.t - a.t));
+  }
+  function tlRecord(dt, y){
+    if (!(dt > 0)) return;
+    TL.live += dt; TL.t = TL.live;
+    const P = TL.path, last = P[P.length - 1], moved = !last || Math.abs(y - last.y) > 0.5;
+    if (!moved && TL.live - last.t < 0.5) return;    // a page holding still: a point every half second
+    if (moved && last && TL.live - dt - last.t > 1e-6) P.push({t: TL.live - dt, y: last.y, s: last.s});   // it starts moving now
+    P.push({t: TL.live, y, s: state.speedMul || 1});
+  }
+  function tlReplayPos(dt){
+    const P = TL.path, i0 = Math.max(0, tlIdx(TL.t));
+    // the pace it ran at, faster or slower by a speed change since
+    const t1 = Math.min(TL.live, TL.t + dt * (state.speedMul || 1) / ((P[i0] && P[i0].s) || 1));
+    const i1 = tlIdx(t1);
+    // the path went back up the page here (a Go to, a map click): reading starts again there, as it did
+    for (let j = i0 + 1; j <= i1; j++) if (P[j].y < P[j - 1].y - 2){ if (state.walkSeek) state.walkSeek(P[j].y); TL.replant = true; }
+    TL.t = t1;
+    tlFire(t1);
+    if (t1 >= TL.live) tlStop();
+    return tlPos(t1);
+  }
+  function tlStop(){                                 // back at the live point, or another control moved the page
+    if (!TL.replay) return;
+    TL.replay = false; TL.t = TL.live; TL.fxi = TL.fx.length; TL.set = null;
+    tlNotify();
+  }
+  function tlFx(kind, data){                         // an effect on screen now, noted for a replay
+    if (TL.firing || !walking()) return;
+    const t = TL.replay ? TL.t : TL.live, F = TL.fx;
+    let i = F.length; while (i > 0 && F[i - 1].t > t) i--;
+    F.splice(i, 0, Object.assign({t, kind}, data));
+    if (TL.replay && i <= TL.fxi) TL.fxi++;          // seen just now: not replayed again at once
+  }
+  state.tlFx = tlFx;
+  function tlFire(t){
+    const F = TL.fx;
+    while (TL.fxi < F.length && F[TL.fxi].t <= t){
+      const x = F[TL.fxi++];
+      TL.firing = true;
+      try { tlReplayFx(x); } catch (e) { /* an effect whose element is gone */ } finally { TL.firing = false; }
+    }
+  }
+  function tlReplayFx(x){
+    const el = x.el;
+    if (x.kind === "card") numberCard(x.c);
+    else if (x.kind === "pop"){ if (el && el.isConnected) popSignal(x.sg, el); }
+    else if (x.kind === "lit"){
+      if (!el || !el.isConnected) return;
+      zapTo(el, !!x.pink, true);
+      el.classList.add("hl-zap"); setTimeout(() => el.classList.remove("hl-zap"), 1100);
+    } else if (x.kind === "ins"){
+      if (el && el.isConnected) zapTo(el, false, true);
+      for (const i of x.ids || []){
+        const li = liveEl && liveEl.querySelector(`.lr-ins li[data-x="${i}"]`); if (!li) continue;
+        li.classList.add("arrived"); setTimeout(() => li.classList.remove("arrived"), 500); liveFollow(li);
+      }
+    } else if (state.tlFly) state.tlFly(x);          // a figure, an observation or a heading flying into the report
+  }
+  // the spider is planted again around its body, the pose a read starts with (after a jump of the page)
+  function tlReplant(){
+    if (!state.body || !state.feet || !state.feet.length) return;
+    state.legAnim = {}; state.legJ = []; state.legLast = [];
+    state.vel = {x: 0, y: 0}; state.bodyVel = {x: 0, y: 0}; state.lastBodyP = {...state.body};
+    state.crawlTarget = null; state.nextFocus = null; state.silkAnchor = null;
+    state.feet = gaitFeet();
+  }
+  // The page goes to y now; the spider keeps its place on the screen. reread: the walk reads on from the line
+  // under the reading line (going back, or within the path); a skip ahead reads the lines passed instead.
+  function tlJumpTo(y, reread){
+    if (reread && state.walkSeek) state.walkSeek(y);
+    const from = state.sy;
+    state.scrollPos = y; TL.set = y; state.camHoldUntil = 0; state.userScrolledAt = 0;
+    V.to(y); state.sy = Math.round(y * devicePixelRatio) / devicePixelRatio;
+    if (state.body) state.body.y += state.sy - from;
+    tlReplant();
+    cardQ.length = 0;                                // a card still waiting belongs to the moment left behind
+    if (state.paused) drawSpider();                  // nothing else draws while paused
+  }
+  const tlCan = () => walking() && !state.walkSkipped && !!state.rows && TL.path.length > 1 && !document.getElementById("rec-end");
+  const tlStart = () => Math.max(TL.floor, TL.path.length ? TL.path[0].t : 0);
+  function tlSeek(to){                               // to a moment on the path; the live point ends a replay
+    if (!tlCan()) return false;
+    const P = TL.path;
+    to = Math.max(tlStart(), Math.min(TL.live, to));
+    if (to >= TL.live - 0.05){
+      if (!TL.replay) return false;
+      TL.replay = false; TL.t = TL.live; TL.fxi = TL.fx.length;
+      tlJumpTo(P[P.length - 1].y, true); TL.set = null;
+      tlNotify(); return true;
+    }
+    const was = TL.replay;
+    TL.replay = true; TL.t = to;
+    let i = 0; while (i < TL.fx.length && TL.fx[i].t <= to) i++;
+    TL.fxi = i;                                      // what came before this moment is not replayed
+    tlJumpTo(tlPos(to), true);
+    if (!was) tlNotify(); else tlDraw();
+    return true;
+  }
+  function tlSkip(secs){                             // forward from the live point
+    if (state.recordCamera) return false;            // a highlights clip runs on its own timeline
+    const maxS = Math.max(0, docGeo().sh - V.h()), at = state.scrollPos != null ? state.scrollPos : state.sy;
+    const y = Math.min(maxS, at + SCROLL_SPEED * U * (state.speedMul || 1) * secs);
+    if (y - at < 4) return false;
+    if (state.onSkip) state.onSkip(true);
+    tlJumpTo(y, false);
+    if (state.onSkip) requestAnimationFrame(() => requestAnimationFrame(() => state.onSkip(false)));
+    tlDraw();
+    return true;
+  }
+  function tlStep(secs){                             // back (secs < 0) or forward by secs
+    if (!tlCan()) return false;
+    if (secs < 0 || TL.replay) return tlSeek((TL.replay ? TL.t : TL.live) + secs);
+    return tlSkip(secs);
+  }
+  function tlNotify(){
+    const bar = document.getElementById("ctl-bar"); if (bar) bar.classList.toggle("rp", TL.replay);
+    tlDraw(); if (state.onReplay) state.onReplay(TL.replay);
+  }
+  state.tlStep = tlStep;
+  state.tlLive = () => tlSeek(TL.live);
+  state.tlMark = () => { TL.floor = TL.live; tlDraw(); };        // Record mode: the clip starts here; nothing before it to go back to
+  state.tlInfo = () => ({on: tlCan(), replay: TL.replay, t: (TL.replay ? TL.t : TL.live) - tlStart(), live: TL.live - tlStart(), canSkip: !state.recordCamera});
+  const rwBack = document.getElementById("ctl-back"), rwFwd = document.getElementById("ctl-fwd"), rwTime = document.getElementById("ctl-time");
+  const rwLive = document.getElementById("ctl-live"), rwProg = document.getElementById("ctl-prog");
+  const mmss = s => { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+  // The bar writes to the page only when what it shows changes. At the live point that is never (the line is full,
+  // Live is lit, no clock ticks: a write a second there cost the live crawl a dropped frame every few seconds); a
+  // replay moves the line and the time.
+  let rwShown = null, rwKey = "", rwTimeText = "";
+  function tlAria(){
+    const lo = tlStart(), t = TL.replay ? TL.t : TL.live, span = Math.max(0.001, TL.live - lo);
+    rwProg.setAttribute("aria-valuemax", String(Math.round(span))); rwProg.setAttribute("aria-valuenow", String(Math.round(t - lo)));
+    rwProg.setAttribute("aria-valuetext", TL.replay ? `${mmss(t - lo)} of ${mmss(span)}, replaying` : `${mmss(span)}, live`);
+  }
+  function tlDraw(){
+    const on = tlCan();
+    if (on !== rwShown){ rwShown = on; rwKey = ""; for (const b of [rwBack, rwFwd, rwLive, rwProg]) if (b) b.hidden = !on; if (rwTime) rwTime.hidden = true; }
+    if (!on) return;
+    const lo = tlStart(), t = TL.replay ? TL.t : TL.live, span = Math.max(0.001, TL.live - lo);
+    const backOff = t - lo < 0.3, fwdOff = !TL.replay && !!state.recordCamera;
+    const key = TL.replay ? `r${Math.floor((t - lo) * 4)}/${Math.floor(span)}/${backOff}` : `l${backOff}${fwdOff}`;
+    if (key === rwKey) return;                         // nothing new to show
+    rwKey = key;
+    if (rwTime){
+      rwTime.hidden = !TL.replay;
+      // the text node is changed in place, and only when its text changes (a new node each time cost frames)
+      const text = TL.replay ? `${mmss(t - lo)} / ${mmss(span)}` : "";
+      if (text && text !== rwTimeText){ rwTimeText = text; (rwTime.firstChild || rwTime.appendChild(document.createTextNode(""))).nodeValue = text; }
+    }
+    if (rwLive){ rwLive.disabled = !TL.replay; rwLive.classList.toggle("at", !TL.replay); rwLive.title = TL.replay ? "Back to where the reading is (L)" : "At the live point"; }
+    if (rwBack) rwBack.disabled = backOff;
+    if (rwFwd) rwFwd.disabled = fwdOff;
+    if (rwProg){ rwProg.style.setProperty("--p", TL.replay ? ((t - lo) / span * 100).toFixed(2) + "%" : "100%"); tlAria(); }
+  }
+  setInterval(tlDraw, 250);
+  if (rwBack) rwBack.addEventListener("click", () => tlStep(-10));
+  if (rwFwd) rwFwd.addEventListener("click", () => tlStep(10));
+  if (rwLive) rwLive.addEventListener("click", () => tlSeek(TL.live));
+  if (rwProg){
+    // the bar along the top of the controls: press or drag anywhere on it to go to that moment
+    const frac = e => { const r = rwProg.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / (r.width || 1))); };
+    const seekFrac = f => { const lo = tlStart(); tlSeek(lo + f * (TL.live - lo)); };
+    rwProg.addEventListener("pointerdown", e => {
+      if (!tlCan() || e.button > 0) return;
+      e.preventDefault(); rwProg.setPointerCapture(e.pointerId); rwProg.classList.add("drag");
+      seekFrac(frac(e));
+      let last = performance.now();
+      const move = ev => { const now = performance.now(); if (now - last < 110) return; last = now; seekFrac(frac(ev)); };
+      const up = ev => { rwProg.removeEventListener("pointermove", move); rwProg.removeEventListener("pointerup", up); rwProg.removeEventListener("pointercancel", up); rwProg.classList.remove("drag"); if (ev.type === "pointerup") seekFrac(frac(ev)); };
+      rwProg.addEventListener("pointermove", move); rwProg.addEventListener("pointerup", up); rwProg.addEventListener("pointercancel", up);
+    });
+    rwProg.addEventListener("focus", tlAria);        // its numbers for a screen reader (they do not tick at the live point)
+    rwProg.addEventListener("keydown", e => {
+      if (e.key === "Home"){ e.preventDefault(); tlSeek(0); }
+      else if (e.key === "End"){ e.preventDefault(); tlSeek(TL.live); }
+    });
+  }
+
   // ---- keyboard: the bar's controls without the mouse ----
   addEventListener("keydown", e => {
-    if (document.body.classList.contains("recmode") || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (document.body.classList.contains("recmode") || document.body.classList.contains("av-open") || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === "Escape"){ closeMenus(); askPop.hidden = true; return; }
     if (e.target.closest("input,textarea,select,[contenteditable]") || document.body.classList.contains("rp-open")) return;
     if (document.getElementById("read-stage").hidden) return;
     const k = e.key.toLowerCase(), click = id => { const b = document.getElementById(id); if (b && !b.hidden && !b.disabled){ b.click(); return true; } return false; };
     if (e.key === " "){ if (click("ctl-pause")) e.preventDefault(); }
     else if ("1234".includes(e.key) && e.key.length === 1){ const sp = document.getElementById("ctl-speed"); sp.value = ["0.5", "1", "2", "4"][+e.key - 1]; sp.dispatchEvent(new Event("change")); }
+    else if (e.key === "ArrowLeft" || e.key === "ArrowRight"){
+      if (e.target.closest("[role=tab],[role=menu]") || (e.repeat && performance.now() - (state.tlKeyAt || 0) < 150)) return;
+      state.tlKeyAt = performance.now();
+      if (tlStep(e.key === "ArrowLeft" ? -10 : 10)) e.preventDefault();
+    }
+    else if (k === "l"){ if (state.tlLive()) e.preventDefault(); }
     else if (k === "j") click("read-jump");
     else if (k === "s") click("read-skip");
     else if (k === "g"){ if (!goBtn.hidden){ e.preventDefault(); goBtn.click(); } }
@@ -6245,6 +6640,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       insTargets.delete(w);
       list.forEach(i => revealIns(i));
       zapTo(w, false, true);
+      tlFx("ins", {el: w, ids: list});
     }
   };
 
@@ -6260,6 +6656,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // nothing under the opening curtain or the clip's hook, and an idea clip's cards are its own numbers
     if (rec && (document.querySelector("#rec-curtain:not(.out),#clip-intro:not(.out)") || (document.body.classList.contains("clip-zoom") && !c.clip))) return;
     cardQ.push(c); if (cardQ.length > (c.clip ? 6 : 3)) cardQ.shift();
+    tlFx("card", {c});
     if (!cardBusy) nextCard();
   }
   function nextCard(){
@@ -7020,6 +7417,36 @@ Who is the auditor?</textarea>
   deepLink();
   addEventListener("hashchange", deepLink);
   document.getElementById("lib-grid")?.addEventListener("click", () => openGrid());
+  // ---- Studio storage (this browser): takes from Record mode, the Studio's pictures and songs, and its edit ----
+  // IndexedDB, so a long take or a song does not have to fit in memory or in localStorage. Shared by the Record mode
+  // window (which keeps each take) and the Studio in the Posting tab (window.bmgStudioDB).
+  const studioDB = (() => {
+    let dbp = null;
+    const open = () => dbp || (dbp = new Promise((res, rej) => {
+      const r = indexedDB.open("bmg-studio", 1);
+      r.onupgradeneeded = () => { for (const n of ["takes", "media", "projects"]) if (!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n, {keyPath: "id"}); };
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => { dbp = null; rej(r.error || new Error("This browser's storage is not available.")); };
+    }));
+    const run = async (store, mode, fn) => {
+      const db = await open();
+      return new Promise((res, rej) => {
+        const t = db.transaction(store, mode), q = fn(t.objectStore(store));
+        t.oncomplete = () => res(q && q.result); t.onerror = t.onabort = () => rej(t.error || new Error("Storage error"));
+      });
+    };
+    const api = {
+      put: (store, v) => run(store, "readwrite", o => o.put(v)),
+      get: (store, id) => run(store, "readonly", o => o.get(id)),
+      all: store => run(store, "readonly", o => o.getAll()),
+      del: (store, id) => run(store, "readwrite", o => o.delete(id)),
+      // the newest takes stay in the list (a downloaded or saved file is never touched)
+      async prune(keep){ const all = (await api.all("takes")).sort((a, b) => b.created - a.created); for (const t of all.slice(keep)) await api.del("takes", t.id); }
+    };
+    return api;
+  })();
+  window.bmgStudioDB = studioDB;
+
   // ======== News and Posting (the owner's Mac): the month's top stories, and five post drafts a day ========
   // Nothing here posts anywhere: each draft is copied, opened in the platform's own upload page, and posted by the owner.
   (function appViews(){
@@ -7034,22 +7461,25 @@ Who is the auditor?</textarea>
     document.body.appendChild(pane);
     const body = pane.querySelector(".av-body"), scroller = pane.querySelector(".av-scroll");
     const pressed = v => document.querySelectorAll(".app-tabs button[data-app]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.app === v)));
-    document.addEventListener("bmg-local", () => { tabs.hidden = false; const h = location.hash.slice(1); if (h === "news" || h === "posting") show(h); });
+    document.addEventListener("bmg-local", () => { tabs.hidden = false; const h = location.hash.slice(1); if (h === "news" || h === "posting" || h === "studio") show(h); });
     function show(v){
       if (v === "crawler"){
+        if (studio) studio.hide();
         pane.hidden = true; document.body.classList.remove("av-open"); view = null; pressed("crawler");
         if (pausedByMe){ pausedByMe = false; const pb = document.getElementById("ctl-pause"); if (pb && state.paused && !pb.disabled) pb.click(); }
-        if (/^#(news|posting)$/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
+        if (/^#(news|posting|studio)$/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
         return;
       }
       // the crawl waits while another view is open, and goes on when the Crawler is back
       if (walking() && !state.paused){ const pb = document.getElementById("ctl-pause"); if (pb && !pb.disabled){ pb.click(); pausedByMe = true; } }
       const again = view === v && !pane.hidden;
-      view = v; pane.hidden = false; document.body.classList.add("av-open"); pressed(v);
+      view = v; pane.hidden = false; document.body.classList.add("av-open"); pressed(v === "studio" ? "posting" : v);
       history.replaceState(null, "", location.pathname + location.search + "#" + v);
       if (again) return;
+      if (studio && v !== "studio") studio.hide();
+      body.classList.toggle("wide", v === "studio");
       scroller.scrollTop = 0;
-      if (v === "news") renderNews(false); else renderPosting(false);
+      if (v === "news") renderNews(false); else if (v === "studio") renderStudio(); else renderPosting(false);
     }
     state.showApp = show;
     document.addEventListener("click", e => { const b = e.target.closest(".app-tabs button[data-app]"); if (b){ e.preventDefault(); show(b.dataset.app); } });
@@ -7087,10 +7517,12 @@ Who is the auditor?</textarea>
           if (!r.ok) throw new Error((j && j.error) || "HTTP " + r.status);
           news = j;
         } catch (e){
+          if (view !== "news" || pane.hidden) return;
           body.innerHTML = `<div class="nw"><div class="av-h"><h2>News</h2></div><p class="err">Could not load the news (${esc(e.message || e)}).</p><button type="button" class="av-btn nw-refresh">Try again</button></div>`;
           return;
         }
       }
+      if (view !== "news" || pane.hidden) return;        // another view opened while the stories loaded: they are drawn on the next visit
       drawNews();
     }
     function storyHTML(s, i){
@@ -7120,6 +7552,7 @@ Who is the auditor?</textarea>
     }
     body.addEventListener("click", async e => {
       const t = e.target;
+      const pv = t.closest("[data-pview]"); if (pv){ show(pv.dataset.pview === "studio" ? "studio" : "posting"); return; }
       if (t.closest(".nw-refresh")){ renderNews(true); return; }
       const seg = t.closest("[data-sub]"); if (seg){ subject = seg.dataset.sub; drawNews(); return; }
       const cr = t.closest("[data-crawl]"); if (cr){ crawlTicker(cr.dataset.crawl, "rel"); return; }
@@ -7133,19 +7566,74 @@ Who is the auditor?</textarea>
       }
     });
 
-    // ---------------- Posting
+    // ---------------- Posting: Today's posts, and the Studio (the editor for Record mode takes)
+    let takeWaiting = false;                 // a take arrived while the Studio was not on screen
+    const postingTabs = sel => `<div class="ps-views" role="tablist" aria-label="Posting"><button type="button" role="tab" class="av-seg" data-pview="drafts" aria-selected="${sel === "drafts"}">Today's posts</button><button type="button" role="tab" class="av-seg" data-pview="studio" aria-selected="${sel === "studio"}">Studio${takeWaiting && sel !== "studio" ? ' <i class="ps-dot" title="A new take is waiting"></i>' : ""}</button></div>`;
+    // The Studio (studio.js) loads the first time it opens. It is fetched past the browser's year-long cache of
+    // static scripts, so a new version is used as soon as the server has it.
+    let studio = null, studioEl = null, studioP = null;
+    const takeFiles = new Map();             // take id -> its file, handed over by the record window (a take saved on disk)
+    function loadStudio(){
+      return studioP || (studioP = (async () => {
+        if (window.BMGStudio) return window.BMGStudio;
+        const r = await fetch("studio.js", {cache: "no-cache"});
+        if (!r.ok) throw new Error("The Studio's file did not load (studio.js, HTTP " + r.status + ").");
+        const sc = document.createElement("script"); sc.textContent = (await r.text()) + "\n//# sourceURL=studio.js";
+        document.head.appendChild(sc);
+        if (!window.BMGStudio) throw new Error("The Studio did not start.");
+        return window.BMGStudio;
+      })().catch(e => { studioP = null; throw e; }));
+    }
+    const openRecorder = () => {
+      const h = Math.min(960, (screen.availHeight || 900) - 60), w = Math.round(h * 9 / 16);
+      return !!window.open("/desk/read/?layout=record&mode=rec", "bmg-record", `popup=yes,width=${w},height=${h}`);
+    };
+    async function renderStudio(){
+      takeWaiting = false;
+      if (!studioEl){ studioEl = document.createElement("div"); studioEl.className = "st-wrap"; }
+      body.innerHTML = `<div class="ps">${postingTabs("studio")}</div>`;
+      body.querySelector(".ps").appendChild(studioEl);
+      if (studio){ studio.show(); return; }
+      studioEl.innerHTML = rtLoading("Opening the Studio...");
+      try {
+        const S = await loadStudio();
+        if (!studio) studio = window.bmgStudio = S.mount(studioEl, {db: studioDB, openRecorder, files: takeFiles});     // window.bmgStudio.state(): the edit, for checks
+        if (view === "studio" && !pane.hidden) studio.show();
+      } catch (e){ studioEl.innerHTML = `<p class="err">${esc(e.message || e)}</p>`; }
+    }
+    // Record mode's Edit in Studio, and takes that end while the Crawler is open
+    addEventListener("message", e => {
+      if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-open-take") return;
+      if (e.data.file instanceof Blob) takeFiles.set(e.data.id, e.data.file);
+      if (studio){ try { localStorage.removeItem("bmg-studio-open"); } catch (x) {} show("studio"); studio.openTake(e.data.id); }
+      else show("studio");                   // the Studio opens the take named in localStorage as it starts
+    });
+    try {
+      new BroadcastChannel("bmg-studio").onmessage = e => {
+        if (!e.data || e.data.type !== "take") return;
+        if (e.data.file instanceof Blob) takeFiles.set(e.data.id, e.data.file);
+        if (studio) studio.takeArrived(e.data.id);
+        if (view !== "studio" || pane.hidden){
+          takeWaiting = true;
+          const b = body.querySelector('[data-pview="studio"]');
+          if (b && !b.querySelector(".ps-dot")) b.insertAdjacentHTML("beforeend", ' <i class="ps-dot" title="A new take is waiting"></i>');
+        }
+      };
+    } catch (e) { /* no BroadcastChannel: the take is in the Studio's list when it opens */ }
     const PLAT = {tiktok: "TikTok", instagram: "Instagram", x: "X"};
     const SRC = {routine: "Daily hook ideas", read: "Your Crawler read", news: "From the news"};
     async function renderPosting(rebuild, focusId){
-      body.innerHTML = `<div class="ps"><div class="av-h"><h2>Posting</h2></div>${rtLoading(rebuild ? "Rebuilding today's five drafts..." : "Loading today's five drafts from your hook ideas, your Crawler reads and the news...")}</div>`;
+      body.innerHTML = `<div class="ps">${postingTabs("drafts")}<div class="av-h"><h2>Posting</h2></div>${rtLoading(rebuild ? "Rebuilding today's five drafts..." : "Loading today's five drafts from your hook ideas, your Crawler reads and the news...")}</div>`;
       try {
         const {r, j} = await api(`/api/posting/today${rebuild ? "?rebuild=1" : ""}`);
         if (!r.ok) throw new Error((j && (j.error || j.detail)) || "HTTP " + r.status);
         posting = j;
       } catch (e){
-        body.innerHTML = `<div class="ps"><div class="av-h"><h2>Posting</h2></div><p class="err">Could not load today's drafts (${esc(e.message || e)}).</p><button type="button" class="av-btn ps-reload">Try again</button></div>`;
+        if (view !== "posting" || pane.hidden) return;
+        body.innerHTML = `<div class="ps">${postingTabs("drafts")}<div class="av-h"><h2>Posting</h2></div><p class="err">Could not load today's drafts (${esc(e.message || e)}).</p><button type="button" class="av-btn ps-reload">Try again</button></div>`;
         return;
       }
+      if (view !== "posting" || pane.hidden) return;     // the Studio or News opened while the drafts loaded: not drawn over it
       drawPosting();
       if (focusId){ const el = body.querySelector(`.ps-slot[data-id="${focusId}"]`); if (el){ el.scrollIntoView({block: "start"}); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1800); } }
     }
@@ -7199,7 +7687,7 @@ Who is the auditor?</textarea>
       const j = posting, posted = j.slots.filter(s => s.posted).length;
       const used = new Set(j.slots.map(s => s.draft && s.draft.idea));
       const groups = ["routine", "read", "news"].map(k => [k, j.ideas.filter(x => x.source === k && !used.has(x.id))]);
-      body.innerHTML = `<div class="ps">
+      body.innerHTML = `<div class="ps">${postingTabs("drafts")}
         <div class="av-h"><h2>Posting <small>${esc(j.day)}</small></h2><span class="av-st">${posted} of ${j.slots.length} posted</span><button type="button" class="av-btn ps-rebuild" title="Unposted slots get new ideas; posted ones stay">Rebuild unposted</button></div>
         <p class="rp-note">Five drafts a day, mixed: the daily hook ideas, numbers from your Crawler reads (each with its page) and one about building with AI or a story in the news. Edit anything; the checks run again as you type. Nothing posts by itself: copy the caption, open the platform, press post, then mark it here.</p>
         <div class="ps-held">Held names, disclosed on screen and in captions: <input class="ps-held-in" value="${esc(j.held.join(", "))}" aria-label="Held tickers, separated by commas"> <small>from ${esc(j.held_source)}</small></div>
