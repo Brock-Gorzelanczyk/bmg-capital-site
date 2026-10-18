@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/site.187e1258.css">
+<link rel="stylesheet" href="../../site.187e1258.css">
 <style>
 .stage{--bg:#fff;--fg:#1f2328;--dim:#6b6f76;--pink:#ff2bd6;--org:#ff9f1c;--blue:#4f7bff;--cyan:#27e3ff;--t1:#7fa2ff;--t2:#27e3ff;--t3:#8a6cff;--t4:#ff2bd6;--t5:#7fa2ff}
 .stage{background:var(--bg);color:var(--fg);font:15px/1.8 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-x:hidden}
@@ -495,6 +495,7 @@ body.rp-open{overflow:hidden}
 html,body{overflow-x:clip}
 .rp-doc code{word-break:break-all}
 .read-privacy{font-size:12.5px;color:#6b6f76;margin:0 0 12px;max-width:820px}
+.read-privacy.no-server{color:#7a4a00;background:#fff7e6;border:1px solid #f0d2a6;border-radius:8px;padding:8px 12px;font-size:13.5px}
 .rd-stages{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;padding:0;counter-reset:st}
 .rd-stages[hidden]{display:none}
 .rd-stages .st{flex:1 1 130px;min-width:120px;border:1px solid #e3e3dc;border-radius:8px;padding:7px 10px;background:#fff;display:grid;grid-template-columns:12px 1fr;column-gap:7px;align-items:center}
@@ -765,38 +766,156 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
 .ideas-st{font-size:12px;color:#9aa4b1}
 .rf .rf-clip,.lr-clip{margin-left:6px;height:22px;padding:0 7px;border-radius:6px;border:1px solid #d6d6cf;background:#fff;color:#141414;font:600 10.5px 'IBM Plex Sans',sans-serif;cursor:pointer;vertical-align:1px}
 .rf .rf-clip:hover,.lr-clip:hover{border-color:#ff2bd6;color:#c2189f}
+/* ---- research tools: history, peers, redline, guidance history, tone, scores, segments, summary, notes, grid, EDGAR search ---- */
+.omni #edgar-ticker.phrase{text-transform:none;font:500 16px 'IBM Plex Sans',sans-serif}
+.fts-f{display:inline-flex;gap:6px;margin-left:6px;vertical-align:middle}.fts-f select{height:30px;border:1px solid #d6d6cf;border-radius:7px;background:#fff;font:12.5px 'IBM Plex Sans',sans-serif;padding:0 6px}
+.rl-head .rl-grid{margin-left:auto;height:32px;padding:0 12px;border:1px solid #0f7d47;border-radius:8px;background:#fff;color:#0f7d47;font-weight:600;cursor:pointer}
+.rp-ready .rp-alt,#bmg-report .rp-bar .rp-xlsx{background:#fff;color:#0f7d47}
+#bmg-report .rp-bar .rp-xlsx[hidden]{display:none}
+#bmg-report .rp-bar>button{white-space:nowrap;flex:none}
+.rt-loading{color:#6b6f76;font-size:13px;padding:18px 0}.rt-loading::before{content:"";display:inline-block;width:10px;height:10px;margin-right:8px;border-radius:50%;border:2px solid #0f7d47;border-top-color:transparent;animation:stspin .8s linear infinite;vertical-align:-1px}
+.rp-note.err,.nt-pane .err{color:#b42318}
+.rt-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(236px,1fr));gap:10px;margin:10px 0 18px}
+.rt-card{border:1px solid #e3e3dc;border-radius:10px;padding:10px 12px 6px;display:flex;flex-direction:column}
+.rt-card span{font-size:11.5px;color:#6b6f76;text-transform:uppercase;letter-spacing:.05em}.rt-card b{font:600 20px/1.2 'IBM Plex Mono',monospace}.rt-card small{font-size:11px;color:#8a9099}
+.rt-spark{width:100%;height:78px;margin-top:4px}.rt-spark rect{fill:#9fe8bd}.rt-spark rect.last{fill:#0f7d47}.rt-spark rect.neg{fill:#f2a6a8}.rt-spark rect.neg.last{fill:#e5484d}.rt-spark rect:hover{fill:#4f7bff}
+.rt-spark .base{stroke:#c9c9c4;stroke-width:1}.rt-spark .yr{font:9px 'IBM Plex Mono',monospace;fill:#8a9099}
+.rt-hist,.rt-peers,.rt-guide,.gp-t{font-size:12px}.rt-hist td:first-child,.rt-peers td:first-child{width:auto;min-width:170px}.rt-hist a{color:#141414;text-decoration:none;border-bottom:1px dotted #9aa0a8}.rt-hist a:hover{color:#0f5fc7}
+.rt-hist th small{display:block;font-weight:400;color:#8a9099}
+.rt-sug{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.rt-sug button{display:flex;flex-direction:column;align-items:flex-start;padding:5px 9px;border:1px solid #d6d6cf;border-radius:8px;background:#fff;cursor:pointer;font:600 12.5px 'IBM Plex Mono',monospace;color:#141414;max-width:200px}
+.rt-sug button small{font:400 10.5px 'IBM Plex Sans',sans-serif;color:#6b6f76;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}.rt-sug button:hover{border-color:#0f7d47}
+.rt-peerform{display:flex;gap:8px;margin:8px 0 12px}.rt-peerform input{flex:1;min-width:0;height:38px;border:1px solid #c9cfca;border-radius:8px;padding:0 10px;font:13px 'IBM Plex Mono',monospace}
+.rt-peerform button,.rt-ai-go,.gp-row button,.gp-head button{height:38px;padding:0 16px;border-radius:8px;border:1px solid #0f7d47;background:#0f7d47;color:#fff;font-weight:600;cursor:pointer}.rt-peerform button:disabled,.gp-row button:disabled{opacity:.6;cursor:wait}
+.rt-rank{display:block;height:4px;width:64px;margin:4px 0 1px auto;background:#eef0ec;border-radius:2px;position:relative}.rt-rank::after{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--p);background:#2fdc74;border-radius:2px}
+.rt-peers tr.me td{background:#f3fbf6}
+.rt-legend span,.rt-counts span{display:inline-block;font:600 11px 'IBM Plex Mono',monospace;margin-right:8px}.rt-legend .added,.rt-counts .added{color:#0f7d47}.rt-legend .deleted,.rt-counts .deleted{color:#b42318}.rt-legend .changed,.rt-counts .changed{color:#a35d00}
+.rt-counts{display:block;margin-top:2px;font-weight:400}.rt-only{color:#7a3cff}
+.rt-check{display:block;font-size:13px;margin:6px 0}
+.rt-top{padding-left:20px;font-size:13px}.rt-top li{margin:0 0 4px}.rt-top a{color:#141414;text-decoration:none}.rt-top a:hover{color:#0f5fc7}
+.rt-tag{display:inline-block;font:600 9.5px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.05em;padding:1px 6px;border-radius:9px;border:1px solid #d8d8d2;color:#6b6f76;margin-right:4px;vertical-align:1px}
+.rt-tag.added,.rt-tag.raised{color:#0f7d47;border-color:#b7dfc8}.rt-tag.deleted,.rt-tag.lowered{color:#b42318;border-color:#f4c7c3}.rt-tag.changed,.rt-tag.updated,.rt-tag.narrowed{color:#a35d00;border-color:#f0d2a6}.rt-tag.reaffirmed,.rt-tag.maintained{color:#2556c4;border-color:#c7d6f7}
+.rt-sec{border:1px solid #e3e3dc;border-radius:8px;margin:0 0 6px;background:#fff}.rt-sec>summary{cursor:pointer;padding:8px 12px;font-size:13.5px}.rt-sec[open]>summary{border-bottom:1px solid #eee}
+.rt-blocks{padding:8px 12px}.rt-blk{border-left:3px solid #c9c9c4;padding:4px 10px;margin:0 0 8px;font-size:13px;border-radius:0 6px 6px 0}
+.rt-blk p{margin:0 0 2px;white-space:pre-wrap;word-break:break-word}.rt-blk small{font-size:11px}
+.rt-blk.added{border-color:#2fdc74;background:#f3fbf6}.rt-blk.deleted{border-color:#e5484d;background:#fff6f6}.rt-blk.deleted p{color:#7a2420}.rt-blk.changed{border-color:#e8920c;background:#fffaf1}.rt-blk.nums{opacity:.8}
+.rt-blk del,.rt-legend del{background:#ffd7d5;color:#8a1f1a;text-decoration:line-through;border-radius:2px}.rt-blk ins,.rt-legend ins{background:#c9f1d8;color:#0b5d34;text-decoration:none;border-radius:2px}
+.rt-blk.flash{outline:2px solid #4f7bff;outline-offset:2px}
+.rt-guide td{min-width:190px}.rt-guide td:first-child{min-width:150px;width:auto}.rt-gc{margin:0 0 10px}.rt-gc q{display:block;font-size:12px;line-height:1.4}.rt-gc q::before,.rt-gc q::after{content:none}
+.rt-tones{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin:10px 0}
+.rt-tone{border:1px solid #e3e3dc;border-radius:10px;padding:10px 12px}.rt-tone span{display:block;font-size:11.5px;color:#6b6f76;text-transform:uppercase;letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rt-tone b{font:600 22px 'IBM Plex Mono',monospace}.rt-tone small{display:block;font-size:11px;color:#8a9099}
+.rt-tone i{display:block;height:6px;margin:6px 0;border-radius:3px;background:linear-gradient(90deg,#e5484d,#e3e3dc 50%,#2fdc74);position:relative}.rt-tone i::after{content:"";position:absolute;left:var(--x);top:-3px;width:3px;height:12px;background:#141414;transform:translateX(-50%);border-radius:1px}
+.rt-sents{list-style:none;padding:0;font-size:13px}.rt-sents li{border-left:3px solid #c9c9c4;padding:3px 10px;margin:0 0 8px}.rt-sents li.pos{border-color:#2fdc74}.rt-sents li.neg{border-color:#e5484d}.rt-sents small{display:block;font:11px 'IBM Plex Mono',monospace;color:#8a9099}
+.rt-words{font-size:12px;color:#4a4a4a;margin:10px 0}.rt-words summary{cursor:pointer;font-weight:600}
+.rt-scores{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:10px 0 16px}
+.rt-score{border:1px solid #e3e3dc;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;background:#fafaf7}
+.rt-score span{font-size:11.5px;color:#6b6f76;text-transform:uppercase;letter-spacing:.04em}.rt-score b{font:600 24px/1.15 'IBM Plex Mono',monospace}.rt-score em{font-style:normal;font-weight:600;font-size:13px}.rt-score em::first-letter{text-transform:uppercase}.rt-score small{font-size:11px;color:#6b6f76;line-height:1.35}
+.rt-score.ok{border-color:#b7dfc8;background:#f3fbf6}.rt-score.ok em{color:#0f7d47}.rt-score.mid{border-color:#f0d2a6;background:#fffaf1}.rt-score.mid em{color:#a35d00}.rt-score.bad{border-color:#f4c7c3;background:#fff6f6}.rt-score.bad em{color:#b42318}
+.rt-tests{list-style:none;padding:0;font-size:13px}.rt-tests li{padding:3px 0;border-bottom:1px dashed #eceee9}.rt-tests b{display:inline-block;min-width:58px;font:600 10.5px 'IBM Plex Mono',monospace;text-transform:uppercase}.rt-tests li.ok b{color:#0f7d47}.rt-tests li.bad b{color:#b42318}.rt-tests li.na{color:#8a9099}
+.rt-tests small{display:block;margin-left:62px;color:#6b6f76;font-size:11.5px}
+.rt-ai{border-left:3px solid #7a3cff;background:#faf7ff;border-radius:0 8px 8px 0;padding:10px 14px;margin:0 0 16px;font-size:13.5px}.rt-ai.off{border-color:#c9c9c4;background:#fafaf7;color:#4a4a4a}.rt-ai.err{border-color:#e5484d;background:#fff6f6}
+.rt-ai>small{display:block;color:#6b6f76;font-size:11.5px;margin-top:4px}.rt-ai ul{margin:8px 0 4px;padding-left:18px}.rt-ai li{margin:0 0 6px}.rt-ai li small{display:block;color:#8a9099}.rt-ai-go{height:32px;padding:0 12px;margin-left:8px;background:#7a3cff;border-color:#7a3cff}.rt-ai details{font-size:12.5px}
+.w.nt-yellow{background:rgba(255,212,0,.42);border-radius:2px}.w.nt-green{background:rgba(47,220,116,.36);border-radius:2px}.w.nt-blue{background:rgba(79,123,255,.28);border-radius:2px}.w.nt-pink{background:rgba(255,43,214,.26);border-radius:2px}
+.pdftext .w.nt-yellow{background:rgba(255,212,0,.42)}.pdftext .w.nt-green{background:rgba(47,220,116,.36)}.pdftext .w.nt-blue{background:rgba(79,123,255,.28)}.pdftext .w.nt-pink{background:rgba(255,43,214,.26)}
+.w.nt[data-note]{box-shadow:inset 0 -2px 0 #b86e00}
+#nt-bar{position:fixed;z-index:2600;display:flex;flex-wrap:wrap;gap:6px;align-items:center;max-width:300px;background:#141414;padding:6px 8px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25)}#nt-bar[hidden]{display:none}
+#nt-bar .nt-c{width:22px;height:22px;border-radius:50%;border:2px solid #fff;cursor:pointer;padding:0}#nt-bar .nt-c.nt-yellow{background:#ffd400}#nt-bar .nt-c.nt-green{background:#2fdc74}#nt-bar .nt-c.nt-blue{background:#4f7bff}#nt-bar .nt-c.nt-pink{background:#ff2bd6}
+#nt-bar .nt-add,#nt-bar .nt-save{height:26px;padding:0 10px;border-radius:7px;border:1px solid #3a4656;background:#222;color:#fff;font:600 12px 'IBM Plex Sans',sans-serif;cursor:pointer}#nt-bar .nt-save{background:#0f7d47;border-color:#0f7d47}
+#nt-bar .nt-txt{flex-basis:100%;width:100%;box-sizing:border-box;border-radius:6px;border:0;padding:6px;font:13px 'IBM Plex Sans',sans-serif}
+.nt-pane{padding:8px 2px;font-size:13px}.nt-list{list-style:none;margin:0;padding:0}.nt-list li{border-left:4px solid #ffd400;padding:4px 8px;margin:0 0 8px;background:#fcfcfa;border-radius:0 6px 6px 0}
+.nt-list li.nt-green{border-color:#2fdc74}.nt-list li.nt-blue{border-color:#4f7bff}.nt-list li.nt-pink{border-color:#ff2bd6}
+.nt-list .nt-go{display:block;text-align:left;width:100%;border:0;background:none;padding:0;font:13px/1.4 'IBM Plex Sans',sans-serif;color:#141414;cursor:pointer}.nt-list .nt-go b{font:600 11px 'IBM Plex Mono',monospace;color:#0f5fc7;margin-right:4px}
+.nt-list p{margin:3px 0;font-size:12.5px;color:#3a3a3a}.nt-list small{color:#8a9099;font-size:11px}.nt-list .nt-del{float:right;border:0;background:none;color:#b42318;font-size:11px;cursor:pointer;padding:0}
+.rt-notes li{border-left:4px solid #ffd400;padding-left:10px}.rt-notes li.nt-green{border-color:#2fdc74}.rt-notes li.nt-blue{border-color:#4f7bff}.rt-notes li.nt-pink{border-color:#ff2bd6}
+#grid-pop{position:fixed;inset:0;z-index:2100;background:rgba(20,22,24,.55);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px;box-sizing:border-box}#grid-pop[hidden]{display:none}
+.gp-box{background:#fff;color:#141414;border-radius:10px;max-width:1100px;width:100%;padding:16px 20px 20px;font:14px/1.5 'IBM Plex Sans',sans-serif;box-shadow:0 10px 40px rgba(0,0,0,.25);box-sizing:border-box}
+.gp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:17px}.gp-head button{background:#fff;color:#0f7d47}
+.gp-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:4px 14px;max-height:210px;overflow:auto;border:1px solid #e3e3dc;border-radius:8px;padding:8px 10px;font-size:13px}.gp-pick small{color:#8a9099}
+.gp-q{width:100%;box-sizing:border-box;margin:10px 0 8px;padding:8px;border:1px solid #c9cfca;border-radius:8px;font:13px/1.5 'IBM Plex Mono',monospace}
+.gp-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.gp-row .gp-csv{background:#fff;color:#0f7d47}.gp-st{font-size:13px;color:#4a4a4a}
+.gp-out{margin-top:12px}.gp-t td{min-width:170px}.gp-t td:first-child{width:auto;min-width:160px}.gp-t td b{font-family:'IBM Plex Mono',monospace}
+@media (max-width:700px){.rt-scores{grid-template-columns:repeat(2,1fr)}.rt-cards{grid-template-columns:1fr 1fr}.rt-card b{font-size:16px}.gp-box{padding:12px}}
+@media (max-width:420px){.rt-cards{grid-template-columns:1fr}}
+@media print{#nt-bar,#grid-pop{display:none!important}}
+/* ---- the app's tabs (Crawler, News, Posting) and the News and Posting views ---- */
+.app-tabs{display:inline-flex;gap:4px;padding:4px;margin:0 0 12px;border:1px solid #d9dcd6;border-radius:12px;background:#f6f7f4}.app-tabs[hidden]{display:none}
+.app-tabs button{height:34px;padding:0 16px;border:0;border-radius:9px;background:none;font:600 14px 'IBM Plex Sans',sans-serif;color:#4a524d;cursor:pointer}
+.app-tabs button[aria-pressed=true]{background:#141414;color:#fff}.app-tabs button:focus-visible{outline:2px solid #0f7d47;outline-offset:1px}
+body.av-open{overflow:hidden}
+#app-view{position:fixed;inset:0;z-index:1900;background:#f4f5f2;display:flex;flex-direction:column}#app-view[hidden]{display:none}
+.av-bar{display:flex;align-items:center;gap:14px;padding:10px 16px;background:#fff;border-bottom:1px solid #e3e3dc;flex:none}
+.av-brand{display:flex;align-items:center;gap:4px;font:800 17px 'IBM Plex Sans',sans-serif;letter-spacing:-.02em}.av-brand svg{width:18px;height:15px}.av-bar .app-tabs{margin:0}
+.av-scroll{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}.av-body{max-width:980px;margin:0 auto;padding:18px 16px 60px;box-sizing:border-box;font:14.5px/1.5 'IBM Plex Sans',sans-serif;color:#141414}
+.av-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin:0 0 6px}.av-h h2{margin:0;font:700 26px 'Source Serif 4',Georgia,serif}.av-h h2 small{font:500 14px 'IBM Plex Sans',sans-serif;color:#6b6f76}
+.av-st{font-size:13px;color:#4a4a4a}.av-h .av-btn{margin-left:auto}
+.av-btn{height:36px;padding:0 14px;border-radius:8px;border:1px solid #0f7d47;background:#0f7d47;color:#fff;font:600 13.5px 'IBM Plex Sans',sans-serif;cursor:pointer}.av-btn:disabled{opacity:.6;cursor:wait}
+.av-chip{display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:8px;border:1px solid #c9cfca;background:#fff;color:#141414;font:600 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer;text-decoration:none;white-space:nowrap}
+.av-chip:hover{border-color:#0f7d47;color:#0f7d47}.av-chip.post{border-color:#0f7d47;color:#0f7d47}.av-chip:disabled{opacity:.55;cursor:default}
+.av-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}.av-seg{height:34px;padding:0 13px;border-radius:17px;border:1px solid #c9cfca;background:#fff;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer;color:#3a3a3a}
+.av-seg[aria-selected=true]{background:#141414;border-color:#141414;color:#fff}
+.nw-list{list-style:none;margin:0;padding:0}.nw-item{display:grid;grid-template-columns:34px 1fr;gap:4px 10px;background:#fff;border:1px solid #e3e3dc;border-radius:12px;padding:12px 14px;margin:0 0 10px}
+.nw-rank{font:700 18px 'IBM Plex Mono',monospace;color:#9aa0a8;text-align:right}.nw-t{font:600 16px/1.35 'IBM Plex Sans',sans-serif;color:#141414;text-decoration:none}.nw-t:hover{color:#0f5fc7}
+.nw-meta{font-size:12.5px;color:#5d6862;margin:3px 0 6px}.nw-meta a{color:#0f5fc7}.nw-score{font:500 11px 'IBM Plex Mono',monospace;color:#9aa0a8;margin-left:4px}
+.nw-acts{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start}.nw-more{flex-basis:100%;font-size:12.5px}.nw-more summary{cursor:pointer;color:#5d6862}.nw-more ul{margin:4px 0 0;padding-left:18px}.nw-more li{margin:0 0 3px}.nw-more a{color:#141414}
+.nw-filers td{vertical-align:middle}.nw-filers td:first-child{width:auto}
+.ps-held{font-size:13px;margin:6px 0 10px}.ps-held input{width:200px;height:30px;border:1px solid #c9cfca;border-radius:7px;padding:0 8px;font:600 13px 'IBM Plex Mono',monospace}.ps-held small{color:#6b6f76}
+.ps-slots{list-style:none;margin:0;padding:0}.ps-slot{background:#fff;border:1px solid #e3e3dc;border-radius:14px;padding:14px 16px;margin:0 0 14px}.ps-slot.posted{background:#f6fbf7;border-color:#b7dfc8}.ps-slot.flash{outline:3px solid #4f7bff;outline-offset:2px}
+.ps-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:0 0 8px}.ps-time{height:32px;border:1px solid #c9cfca;border-radius:7px;padding:0 6px;font:600 14px 'IBM Plex Mono',monospace}
+.ps-plats{display:inline-flex;gap:10px;font-size:13px}.ps-plat input{vertical-align:-2px}.ps-src-l{font-size:12.5px;color:#6b6f76}
+.ps-state{margin-left:auto;font:600 11px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.04em;padding:3px 9px;border-radius:10px}.ps-state.ok{background:#e7f6ed;color:#0f7d47}.ps-state.bad{background:#fdecea;color:#b42318}.ps-state.done{background:#141414;color:#fff}
+.ps-l{display:block;font:600 12px 'IBM Plex Sans',sans-serif;color:#3a3a3a;margin:0 0 8px}.ps-l small{font-weight:400;color:#8a9099;margin-left:4px}
+.ps-l input,.ps-l textarea{display:block;width:100%;box-sizing:border-box;margin-top:3px;border:1px solid #c9cfca;border-radius:8px;padding:7px 9px;font:14px/1.4 'IBM Plex Sans',sans-serif;color:#141414;background:#fff;resize:vertical}
+.ps-hook{font:600 17px 'IBM Plex Sans',sans-serif!important}.ps-l input:focus,.ps-l textarea:focus{outline:none;border-color:#0f7d47;box-shadow:0 0 0 3px rgba(15,125,71,.12)}
+.ps-caps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ps-blocks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:4px 0 8px}.ps-block{border:1px solid #e3e3dc;border-radius:8px;padding:7px 9px;background:#fafaf7;min-width:0}
+.ps-block>div{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:12.5px}.ps-block pre{margin:6px 0 0;white-space:pre-wrap;word-break:break-word;font:12.5px/1.45 'IBM Plex Sans',sans-serif;color:#2a2a2a}
+.ps-open{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}
+.ps-acts{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0}.ps-acts .ps-posted{margin-left:auto}.ps-acts .ps-posted.undo{background:#fff;color:#0f7d47}.ps-msg{flex-basis:100%;font-size:12.5px;color:#0f7d47}
+.ps-hooks ul{list-style:none;padding:0;margin:4px 0}.ps-hooks li{font-size:13.5px;margin:0 0 4px}.ps-hooks li small{color:#8a9099}.ps-hooks li.bad{color:#8a9099}
+.ps-checks,.ps-sources,.ps-group{margin:6px 0 0;font-size:13px}.ps-checks summary,.ps-sources summary,.ps-group summary{cursor:pointer;font-weight:600;color:#3a3a3a}
+.ps-checklist{list-style:none;padding:0;margin:6px 0}.ps-checklist li{padding:3px 0;border-bottom:1px dashed #eceee9}.ps-checklist b{display:inline-block;min-width:68px;font:600 10.5px 'IBM Plex Mono',monospace;text-transform:uppercase}
+.ps-checklist li.ok b{color:#0f7d47}.ps-checklist li.bad b{color:#b42318}.ps-checklist li.own b{color:#a35d00}.ps-checklist small{display:block;margin-left:72px;color:#6b6f76}
+.ps-src td{font-size:12px}.ps-src td small{display:block;color:#8a9099}.ps-src tr.tier3 td{color:#a35d00}
+.ps-more-h{font:700 18px 'Source Serif 4',Georgia,serif;margin:22px 0 6px}.ps-group{background:#fff;border:1px solid #e3e3dc;border-radius:12px;padding:10px 14px;margin:0 0 10px}
+.ps-ideas{list-style:none;padding:0;margin:8px 0 0}.ps-idea{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:7px 0;border-top:1px solid #f0f0ec}
+.ps-idea small{display:block;font-size:12px;color:#5d6862}.ps-idea small.muted{color:#8a9099}.ps-use{display:flex;gap:4px;flex:none}.ps-use select{height:30px;border:1px solid #c9cfca;border-radius:7px;font-size:12.5px}
+@media (max-width:760px){.ps-caps,.ps-blocks{grid-template-columns:1fr}.av-h h2{font-size:22px}.av-bar{flex-wrap:wrap;gap:6px}.ps-idea{flex-direction:column}.ps-acts .ps-posted{margin-left:0}}
+@media print{#app-view{display:none!important}}
+/* dark mode: the News and Posting views and the ask-across-reads box turn dark like the page chrome around the Crawler */
+html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filter:invert(1) hue-rotate(180deg)}
 </style>
-<!-- bmg-theme --><link rel="stylesheet" href="/assets/theme.css"><script>try{if(localStorage.getItem("bmg-theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script><script src="/assets/theme.js" defer></script>
+<!-- bmg-theme --><link rel="stylesheet" href="../../assets/theme.css"><script>try{if(localStorage.getItem("bmg-theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script><script src="../../assets/theme.js" defer></script>
 </head>
 <body>
 <header class="site-header">
   <div class="site-header-inner">
-    <a class="brand" href="/" aria-label="BMG Capital home">
+    <a class="brand" href="../../" aria-label="BMG Capital home">
       <span class="brand-mark">
         <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden="true"><polyline points="5,23 12,15 18,19 27,8" fill="none" stroke="#3ddc84" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
       </span>
       <span class="brand-wm">BMG CAPITAL</span>
     </a>
     <nav aria-label="Main" class="site-nav">
-  <a href="/#reports">Reports</a>
-  <a href="/tool/">Research tool</a>
-  <a href="/desk/read/" aria-current="page">Crawler</a>
-  <a href="/desk/">Desk</a>
-  <a href="/desk/live/">Live</a>
-  <a href="/#about">About</a>
-  <a href="/resume.pdf" class="nav-resume">Resume</a>
+  <a href="../../#reports">Reports</a>
+  <a href="../../tool/">Research tool</a>
+  <a href="../../desk/read/" aria-current="page">Crawler</a>
+  <a href="../../desk/">Desk</a>
+  <a href="../../desk/live/">Live</a>
+  <a href="../../#about">About</a>
+  <a href="../../resume.pdf" class="nav-resume">Resume</a>
 </nav>
   </div>
 </header>
 <main class="container read-page">
-<a class="back" href="/">&larr; Back to BMG Capital</a>
+<a class="back" href="../../">&larr; Back to BMG Capital</a>
 <h1 class="rp">Crawler</h1>
+<nav class="app-tabs" id="app-tabs" hidden aria-label="Crawler, News and Posting"><button type="button" data-app="crawler" aria-pressed="true">Crawler</button><button type="button" data-app="news" aria-pressed="false">News</button><button type="button" data-app="posting" aria-pressed="false">Posting</button></nav>
 <p class="lede">Type a ticker or drop in a document: a 10-K, 10-Q, earnings release, call transcript, insider trades or a fund's holdings. The server reads it, checks the arithmetic and builds a BMG Capital report in which every figure cites its page. The spider then shows each finding where it sits in the document.</p>
 <!-- One search bar: a ticker (looked up on SEC EDGAR on this Mac) or a file. "read-form" keeps the video scripts' hiding rules working. -->
 <section class="read-form omni" id="omni" aria-label="Read a filing">
   <div class="omni-bar" id="omni-bar">
     <svg class="omni-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><line x1="15.5" y1="15.5" x2="21" y2="21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-    <span class="omni-field" id="read-edgar" hidden><input id="edgar-ticker" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="Ticker, e.g. AAPL" aria-label="Ticker to look up on SEC EDGAR"><button id="edgar-find" type="button">Find</button></span>
+    <span class="omni-field" id="read-edgar" hidden><input id="edgar-ticker" type="text" maxlength="200" autocomplete="off" spellcheck="false" placeholder="Ticker, or words to search all filings" aria-label="Ticker to look up on SEC EDGAR, or words to search every SEC filing"><button id="edgar-find" type="button">Find</button></span>
     <label id="read-drop"><input type="file" id="read-file" hidden accept=".pdf,.docx,.pptx,.htm,.html,.txt,.md"><b>Drop a file here or click to choose</b><span id="read-drop-name">10-K, 10-Q, release, call transcript: PDF, DOCX, HTML or text, up to <span id="read-max">10</span> MB.</span></label>
     <input id="read-ticker" type="text" maxlength="6" autocomplete="off" spellcheck="false" placeholder="Ticker (optional)" aria-label="Ticker for the dropped file (optional)">
     <button id="read-run" type="button">Run</button>
@@ -812,7 +931,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
 <details class="paste omni-more" id="omni-more"><summary>More: My reads, watchlist, earnings watch, paste text, appearance</summary>
 <div class="omni-more-in">
 <section class="read-library" id="read-library" hidden aria-labelledby="lib-h">
-  <div class="rl-head"><h2 id="lib-h">My reads</h2><span id="lib-count"></span></div>
+  <div class="rl-head"><h2 id="lib-h">My reads</h2><span id="lib-count"></span><button type="button" id="lib-grid" class="rl-grid">Ask across reads</button></div>
   <div class="rl-wrap"><table class="rl-t"><thead><tr><th>Filing</th><th>Figures</th><th>Checks</th><th>Saved</th><th></th></tr></thead><tbody id="lib-rows"></tbody></table></div>
   <p id="lib-status" role="status"></p>
 </section>
@@ -867,7 +986,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     </div>
     <div class="fmap" id="fmap" hidden aria-label="Filing map"><div class="fmap-track" id="fmap-track"></div><i class="fmap-dot" id="fmap-dot" aria-hidden="true"></i></div>
   </div>
-  <aside class="read-side" aria-label="Report and findings"><div class="rs-tabs" role="tablist"><button type="button" role="tab" id="tab-live" aria-controls="read-live" aria-selected="true">Report</button><button type="button" role="tab" id="tab-found" aria-controls="pane-found" aria-selected="false" tabindex="-1">Found</button><button type="button" role="tab" id="tab-flags" aria-controls="pane-flags" aria-selected="false" tabindex="-1" hidden>Red flags <b class="tab-n" id="flags-n"></b></button><button type="button" class="rs-sheet" id="rs-sheet" aria-expanded="true">Hide</button></div><section id="read-live" class="lr" role="tabpanel" aria-labelledby="tab-live" aria-live="off"><p class="muted lr-empty">The BMG Capital report builds here as the spider reaches each figure.</p></section><div id="pane-found" role="tabpanel" aria-labelledby="tab-found" hidden><div id="read-brief" class="bf" hidden aria-live="polite"></div><div class="rs-head"><h2>Found</h2><div id="read-count">0 found</div></div><div id="read-scope"></div><section id="read-signals" class="sg-group" hidden><h4><i></i>Signals <span class="n">0</span></h4><ol></ol></section><div id="read-chips"></div><div id="read-findings"></div></div><div id="pane-flags" class="fl" role="tabpanel" aria-labelledby="tab-flags" hidden></div></aside>
+  <aside class="read-side" aria-label="Report and findings"><div class="rs-tabs" role="tablist"><button type="button" role="tab" id="tab-live" aria-controls="read-live" aria-selected="true">Report</button><button type="button" role="tab" id="tab-found" aria-controls="pane-found" aria-selected="false" tabindex="-1">Found</button><button type="button" role="tab" id="tab-flags" aria-controls="pane-flags" aria-selected="false" tabindex="-1" hidden>Red flags <b class="tab-n" id="flags-n"></b></button><button type="button" role="tab" id="tab-notes" aria-controls="pane-notes" aria-selected="false" tabindex="-1" hidden>Notes <b class="tab-n" id="notes-n"></b></button><button type="button" class="rs-sheet" id="rs-sheet" aria-expanded="true">Hide</button></div><section id="read-live" class="lr" role="tabpanel" aria-labelledby="tab-live" aria-live="off"><p class="muted lr-empty">The BMG Capital report builds here as the spider reaches each figure.</p></section><div id="pane-found" role="tabpanel" aria-labelledby="tab-found" hidden><div id="read-brief" class="bf" hidden aria-live="polite"></div><div class="rs-head"><h2>Found</h2><div id="read-count">0 found</div></div><div id="read-scope"></div><section id="read-signals" class="sg-group" hidden><h4><i></i>Signals <span class="n">0</span></h4><ol></ol></section><div id="read-chips"></div><div id="read-findings"></div></div><div id="pane-flags" class="fl" role="tabpanel" aria-labelledby="tab-flags" hidden></div><div id="pane-notes" class="nt-pane" role="tabpanel" aria-labelledby="tab-notes" hidden></div></aside>
 </div>
 <section id="read-summary" hidden></section>
 </main>
@@ -3082,7 +3201,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
   const tickerIn = document.getElementById("read-ticker");
   const runRead = document.getElementById("read-run");
   // The server says how big a file it takes (10 MB public, 50 MB on the owner's Mac).
-  const READ_MAX = {bytes: 10 * 1024 * 1024, local: false, mb(){ return Math.round(this.bytes / 1048576); }};
+  const READ_MAX = {bytes: 10 * 1024 * 1024, local: false, summary: false, mb(){ return Math.round(this.bytes / 1048576); }};
   // On the owner's Mac, start-reader.command pulls new versions from GitHub every 2 minutes.
   // The page picks them up by itself: it reloads when nothing is being read, and otherwise
   // offers a Reload button so a crawl or recording in progress is never cut off.
@@ -3108,9 +3227,17 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     check(); setInterval(check, 20000);
   }
 
-  fetch("/api/read/limits", {cache: "no-store"}).then(r => r.ok ? r.json() : null).then(j => {
-    if (!j || !j.max_bytes) return;
-    READ_MAX.bytes = j.max_bytes; READ_MAX.local = !!j.local;
+  // A static copy of the site (GitHub Pages) has no Crawler server: say so instead of letting a run fail.
+  function noServer(){
+    if (document.getElementById("no-server")) return;
+    const n = document.createElement("p"); n.id = "no-server"; n.className = "read-privacy no-server"; n.setAttribute("role", "status");
+    n.textContent = "This copy of the site is static, so the Crawler cannot read a file here: it needs its server. It runs on the owner's Mac (start-reader.command); the reports on this site were made with it.";
+    document.getElementById("omni")?.before(n);
+    runRead.disabled = true; runRead.title = "The Crawler's server is not running on this copy of the site";
+  }
+  fetch("/api/read/limits", {cache: "no-store"}).then(r => r.ok ? r.json() : null, () => null).then(j => {
+    if (!j || !j.max_bytes){ noServer(); return; }
+    READ_MAX.bytes = j.max_bytes; READ_MAX.local = !!j.local; READ_MAX.summary = !!j.summary;
     const el = document.getElementById("read-max"); if (el) el.textContent = READ_MAX.mb();
     document.dispatchEvent(new CustomEvent("bmg-read-limits"));
     if (READ_MAX.local) try { watchForNewVersion(); } catch (e) { /* a failed watcher must never stop the rest of setup */ }
@@ -3169,7 +3296,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
       pick(new File([await r.blob()], title));
       const tk = document.getElementById("read-ticker"); if (tk) tk.value = b.dataset.ticker || "";
       st.textContent = "";
-      runRead.click();
+      startRead();
     } catch (x){ st.classList.add("err"); st.textContent = "Could not reach the local server."; }
     finally { b.disabled = false; }
   });
@@ -3183,13 +3310,22 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     if (!box) return;
     const say = (t, err) => { st.textContent = t; st.classList.toggle("err", !!err); };
     let found = null;
+    const tickerShaped = v => /^[A-Za-z][A-Za-z0-9.\-]{0,9}$/.test(v);
+    tick.addEventListener("input", () => tick.classList.toggle("phrase", !!tick.value.trim() && !tickerShaped(tick.value.trim())));
     async function lookup(){
-      const t = tick.value.trim().toUpperCase();
-      if (!t){ say("Enter a ticker, for example AMZN.", true); return; }
-      find.disabled = true; list.innerHTML = ""; say("Looking up " + t + " on SEC EDGAR...");
+      const raw = tick.value.trim(), t = raw.toUpperCase();
+      if (!t){ say("Enter a ticker, for example AMZN, or words to search every SEC filing.", true); return; }
+      find.disabled = true; list.innerHTML = "";
+      if (!tickerShaped(raw)){                                   // words or a "quoted phrase": SEC full-text search
+        found = null; picksEl.hidden = true; watchRow.hidden = true;
+        try { await ftsSearch(raw, 0); } finally { find.disabled = false; }
+        return;
+      }
+      say("Looking up " + t + " on SEC EDGAR...");
       try {
         const r = await fetch("/api/edgar/filings?earnings=1&ticker=" + encodeURIComponent(t), {cache: "no-store"});
         const j = await r.json();
+        if (!r.ok && r.status === 404 && /No SEC filer has the ticker/.test(j.error || "")){ found = null; picksEl.hidden = true; await ftsSearch(raw, 0, `No company has the ticker ${t}. `); return; }
         if (!r.ok){ say(j.error || "SEC EDGAR lookup failed.", true); return; }
         found = j;
         remember(j.ticker);
@@ -3250,7 +3386,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
         const tk = document.getElementById("read-ticker"); if (tk) tk.value = ticker || "";
         say(`Loaded ${name.replace(/\.htm$/, "")}. Reading...`);
         list.innerHTML = "";
-        runRead.click();
+        startRead();
       } catch (x){ say("Could not reach the local server.", true); }
       finally { if (found) drawPicks(found); }
     }
@@ -3319,14 +3455,14 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
         const blob = await r.blob();
         const ext = (f.document.match(/\.(\w+)$/) || ["", "htm"])[1];
         // the file name carries the filing's identity into the report's source line
-        const name = `${found.ticker} ${f.form.replace("/", "-")} ${f.period || f.filed} filed ${f.filed} ${f.accession}.${ext}`;
+        const name = `${found.ticker || "CIK" + found.cik} ${f.form.replace("/", "-")} ${f.period || f.filed} filed ${f.filed} ${f.accession}.${ext}`;
         const file = new File([blob], name, {type: blob.type || "text/html"});
         pick(file);
         state.companyHint = {file, name: found.company || ""};     // a release that never names its company is still labeled
         const tk = document.getElementById("read-ticker"); if (tk) tk.value = found.ticker;
         say(`Loaded ${f.form} for the period ended ${f.period || f.filed} (filed ${f.filed}). Reading...`);
         list.innerHTML = "";                                   // the choice is made; keep the page short
-        runRead.click();
+        startRead();
       } catch (x){ say("Could not reach the local server.", true); }
       finally { list.querySelectorAll("button").forEach(x => { x.disabled = false; }); }
     }
@@ -3387,10 +3523,10 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
   // the ticker typed in the bar goes with it). Record mode keeps its own Start button.
   const omni = document.getElementById("omni");
   const autoRun = () => {
-    if (document.body.classList.contains("recmode") || !chosen || runRead.disabled) return;
+    if (document.body.classList.contains("recmode") || !chosen) return;
     const et = document.getElementById("edgar-ticker"), t = et ? et.value.trim() : "";
     if (READ_MAX.local && t && /^[A-Za-z][A-Za-z0-9.\-]{0,9}$/.test(t) && !tickerIn.value.trim()) tickerIn.value = t.toUpperCase();
-    runRead.click();
+    startRead();
   };
   fileIn.addEventListener("change", () => { if (fileIn.files[0]) setTimeout(autoRun, 0); });
   if (omni){
@@ -5028,6 +5164,18 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     ctlEl.hidden = true;
   }
   function resetRunBtn(t){ runRead.disabled = false; runRead.textContent = t || "Run"; }
+  // A read started from the page (a filing picked, a saved read opened, a link, a search hit, a dropped file)
+  // replaces the one on screen, even while that one is still being read or walked: the old job is cancelled on
+  // the server (a finished job is left as it is) and its events are no longer applied.
+  function startRead(){
+    if (runRead.disabled){
+      if (state.xhr){ showErr("A file is still uploading; choose again in a moment."); return; }
+      const old = state.jobId;
+      if (old) api(`/api/read/jobs/${encodeURIComponent(old)}/cancel`, {method: "POST"}).catch(() => {});
+      resetRunBtn();
+    }
+    runRead.click();
+  }
   async function finish(id, st){
     ctlEl.hidden = true; cancelBtn.hidden = true;
     if (st === "done"){
@@ -5156,12 +5304,15 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
       <div class="rp-ready-txt"><b>Your BMG Capital report is ready</b><span>${esc(co.name || callCo.name || co.name_hint || res.title)}${co.period ? " &middot; " + esc(co.period) : ""}</span>
       ${docOnly ? `<span class="cov">${esc(ins.label || "")} &middot; ${esc(what)}</span></div>`
       : `<span class="cov">Coverage: <b>${esc(rep.coverage.status)}</b> &middot; ${counts.map(([g, n]) => `${n} ${esc(g.toLowerCase())}`).join(", ")} &middot; validation ${rep.validation.passed ? "passed" : "withdrew " + rep.validation.withdrawn.length + " item(s)"}</span></div>`}
-      <div class="rp-actions"><button type="button" class="rp-view">View report</button><button type="button" class="rp-dl">Download PDF</button><button type="button" class="rp-srcs">Review sources</button>${READ_MAX.local && ["annual", "quarterly"].includes((state.ins || {}).kind) ? `<button type="button" class="rp-srcs rp-yoy">This year vs last year</button>` : ""}<button type="button" class="rp-srcs rp-mkclip" title="Open Record mode with this filing's headline number filled in">Make a clip</button></div>
+      <div class="rp-actions"><button type="button" class="rp-view">View report</button><button type="button" class="rp-dl">Download PDF</button><button type="button" class="rp-alt rp-xl" title="Every number a number, linked to its page">Download Excel</button><button type="button" class="rp-srcs">Review sources</button>${READ_MAX.local && ["annual", "quarterly"].includes((state.ins || {}).kind) ? `<button type="button" class="rp-srcs rp-yoy">This year vs last year</button><button type="button" class="rp-alt rp-redline" title="Every section and table: added, deleted or changed">Full redline</button>` : ""}${READ_MAX.local ? `<button type="button" class="rp-alt rp-grid" title="Your questions against several saved reads at once">Ask across reads</button>` : ""}<button type="button" class="rp-srcs rp-mkclip" title="Open Record mode with this filing's headline number filled in">Make a clip</button></div>
       ${iss.length ? `<div class="rp-issues"><b>Unresolved (${iss.length})</b><ul>${iss.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : docOnly ? "" : `<div class="rp-issues ok">No unresolved issues were recorded for the items in the report.</div>`}`;
     card.querySelector(".rp-view").onclick = () => openReport();
     card.querySelector(".rp-dl").onclick = (e) => downloadPdf(e.currentTarget);
     card.querySelector(".rp-srcs").onclick = () => openReport("rp-sources");
     const yb = card.querySelector(".rp-yoy"); if (yb) yb.onclick = () => runYoy(yb);
+    card.querySelector(".rp-xl").onclick = e => downloadXlsx(e.currentTarget);
+    const rb = card.querySelector(".rp-redline"); if (rb) rb.onclick = () => openReport("tab:changes");
+    const gb = card.querySelector(".rp-grid"); if (gb) gb.onclick = () => openGrid();
     card.querySelector(".rp-mkclip").onclick = () => {
       if (docOnly){ makeClip(clipSubject(ins, res) || {label: "", value: "", text: ""}); return; }
       const perf = rep.financials.performance || [], F = rep.evidence.facts;
@@ -5354,7 +5505,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
       ${(sr.failed || []).map(x => `<p class="rp-note"><b>Could not read:</b> ${esc(x)}</p>`).join("")}`;
     // The report in five tabs (all of them print): what it says, the statements, the ratios and screens, the
     // observations (risks, red flags, guidance, the call), and where every figure comes from.
-    const T = {summary: [], statements: [], ratios: [], observations: [], sources: []};
+    const T = {summary: [], statements: [], segments: [], ratios: [], scores: [], history: [], peers: [], changes: [], guidehist: [], tone: [], observations: [], notes: [], sources: []};
     const ins = res.insights || {};
     const docOnly = ins.kind === "insider" || ins.kind === "holdings" || ins.kind === "transcript";
     const callCo = (ins.kind === "transcript" && (ins.call || {}).company) || {};    // named in the transcript itself
@@ -5371,6 +5522,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
       ${docOnly ? "" : `<p class="rp-cov">Coverage: <b>${esc(rep.coverage.status)}</b> &middot; ${rep.coverage.facts_published} headline figures &middot; ${rep.coverage.checks_run} checks, ${rep.coverage.checks_failed} failed &middot; validation ${rep.validation.passed ? "passed" : "withdrew " + rep.validation.withdrawn.length + " item(s)"}</p>
       ${secondCheck(rep.second_check)}
       <section class="rp-tiles">${tile("revenue", "Revenue")}${tile("net_income", "Net income")}${tile("eps_diluted", "Diluted EPS")}${tile("fcf", "Free cash flow")}</section>`}`);
+    if (ins.kind !== "insider" && ins.kind !== "holdings") T.summary.push(summaryBox());
     const insight = insightsHTML(ins, state.yoy, srcOf);
     T.summary.push(...insight.lead);
     if (!docOnly){                            // insider trades, a fund's holdings and a call have no statements to report
@@ -5439,7 +5591,17 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
       <p class="rp-note">${esc(rep.source.name)} &middot; ${esc((rep.source.kind || "").toUpperCase())} &middot; ${pagesWord} &middot; sha256 <code>${esc(rep.source.sha256)}</code></p>`);
     const evid = [...used].map(id => F[id]).filter(Boolean).map(x => `<tr><td>${esc(x.name)}<small>${esc(x.method || "")}</small></td><td class="num">${esc(x.display)}<small>${esc(per(x))}</small></td><td>${srcOf(x)}<small>${esc((x.source || {}).table_title || "")}</small></td><td class="muted"><q>${esc((x.source || {}).excerpt || "")}</q></td><td>${stat(x.status)}</td></tr>`).join("");
     if (evid) T.sources.push(`<h3 id="rp-evidence">Evidence for the figures above</h3><div class="rp-tw"><table class="rp-table rp-ev"><tr><th>Fact</th><th class="num">Value</th><th>Location</th><th>Excerpt</th><th>Status</th></tr>${evid}</table></div>`);
-    const TABS = [["summary", "Summary"], ["statements", "Statements"], ["ratios", "Ratios"], ["observations", "Observations"], ["sources", "Sources"]];
+    // the research tools: segments and quality scores from this report; the ten-year history, peers, the full redline,
+    // the guidance history and tone are fetched the first time their tab is opened
+    const rtKind = ins.kind || "other", rtEdgar = READ_MAX.local && !!rtTicker(res);
+    if (!docOnly){ T.segments.push(segmentsHTML(rep)); T.scores.push(scoresHTML(rep)); }
+    if (rtEdgar && rtKind !== "holdings" && rtKind !== "insider"){ T.history.push(lazyTab("history")); T.peers.push(lazyTab("peers")); }
+    if (READ_MAX.local && (rtKind === "annual" || rtKind === "quarterly")) T.changes.push(lazyTab("changes"));
+    if (rtEdgar && ["release", "transcript", "annual", "quarterly"].includes(rtKind)) T.guidehist.push(lazyTab("guidehist"));
+    if (rtKind === "release" || rtKind === "transcript") T.tone.push(lazyTab("tone"));
+    T.notes.push(notesHTML());
+    const TABS = [["summary", "Summary"], ["statements", "Statements"], ["segments", "Segments"], ["ratios", "Ratios"], ["scores", "Scores"], ["history", "History"], ["peers", "Peers"],
+                  ["changes", "Changes"], ["guidehist", "Guidance"], ["tone", "Tone"], ["observations", "Observations"], ["notes", "Notes"], ["sources", "Sources"]];
     return `<article class="rp-doc">${head}
       ${TABS.map(([k, l]) => `<section class="rp-tab" data-tab="${k}" data-label="${l}">${T[k].join("")}</section>`).join("")}
       <footer class="rp-foot"><span>BMG Capital</span>${BMG_LINE}<span class="muted">${esc(kindName)} &middot; automatically generated, not reviewed by an analyst &middot; not investment advice</span></footer>
@@ -5529,10 +5691,11 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     if (!o){
       o = document.createElement("div"); o.id = "bmg-report";
       o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-label", "BMG Capital company report");
-      o.innerHTML = `<div class="rp-bar"><div class="rp-tabs" role="tablist" aria-label="Report sections"></div><button type="button" class="rp-pdf">Download PDF</button><button type="button" class="rp-close">Close</button></div><div class="rp-scroll"></div>`;
+      o.innerHTML = `<div class="rp-bar"><div class="rp-tabs" role="tablist" aria-label="Report sections"></div><button type="button" class="rp-pdf">Download PDF</button><button type="button" class="rp-xlsx">Excel</button><button type="button" class="rp-close">Close</button></div><div class="rp-scroll"></div>`;
       document.body.appendChild(o);
       o.querySelector(".rp-close").onclick = closeReport;
       o.querySelector(".rp-pdf").onclick = (e) => (o.dataset.mode === "compare" ? downloadComparePdf : downloadPdf)(e.currentTarget);
+      o.querySelector(".rp-xlsx").onclick = (e) => downloadXlsx(e.currentTarget);
       o.addEventListener("click", e => {
         const tb = e.target.closest(".rp-tabs [role=tab]");
         if (tb){ showReportTab(o, tb.dataset.tab); return; }
@@ -5574,9 +5737,12 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     tabsEl.innerHTML = secs.map(x => `<button type="button" role="tab" data-tab="${x.dataset.tab}" aria-selected="false" tabindex="-1">${esc(x.dataset.label)}</button>`).join("");
     bar.classList.toggle("tabbed", secs.length > 0);
     o.hidden = false; document.body.classList.add("rp-open");
+    o.querySelector(".rp-xlsx").hidden = mode === "compare";
+    o.querySelector(".rt-ai-go")?.addEventListener("click", e => writeSummary(e.currentTarget));
     const sc = o.querySelector(".rp-scroll");
-    const t = anchor ? sc.querySelector("#" + anchor) : null;
-    if (secs.length) showReportTab(o, t && t.closest(".rp-tab") ? t.closest(".rp-tab").dataset.tab : secs[0].dataset.tab);
+    const wantTab = anchor && anchor.startsWith("tab:") ? anchor.slice(4) : null;
+    const t = anchor && !wantTab ? sc.querySelector("#" + anchor) : null;
+    if (secs.length) showReportTab(o, wantTab && secs.some(x => x.dataset.tab === wantTab) ? wantTab : t && t.closest(".rp-tab") ? t.closest(".rp-tab").dataset.tab : secs[0].dataset.tab);
     sc.scrollTop = t ? t.offsetTop - 10 : 0;
     o.querySelector(".rp-close").focus();
   }
@@ -5584,6 +5750,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     o.querySelectorAll(".rp-tab").forEach(x => { x.hidden = x.dataset.tab !== tab; });
     o.querySelectorAll(".rp-tabs [role=tab]").forEach(b => { const on = b.dataset.tab === tab; b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1; });
     const sc = o.querySelector(".rp-scroll"); if (sc) sc.scrollTop = 0;
+    const lazy = o.querySelector(`.rp-tab[data-tab="${tab}"] .rt-lazy[data-lazy]`); if (lazy) loadLazy(lazy);
   }
 
   // Save the finished report to the vault on GitHub (free storage). Owner
@@ -6271,6 +6438,906 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     document.addEventListener("bmg-local", () => { if (W.on) start(); });
   })();
 
+  // ======== Research tools: ten-year history, peers, full redline, guidance history, tone, quality scores, segments,
+  // the optional written summary, the Excel download, highlights and notes, ask across reads, EDGAR full-text search ========
+  const RT = {job: null, data: {}, notes: [], noteSha: null, notesP: Promise.resolve()};
+  function rtReset(){ RT.job = null; RT.data = {}; state.aiSummary = null; }
+  function rtData(){ if (RT.job !== state.jobId){ RT.job = state.jobId; RT.data = {}; } return RT.data; }
+  function rtTicker(res){
+    res = res || state.readRes || {};
+    const co = (res.report && res.report.company) || {}, call = (((res.insights || {}).call || {}).company) || {};
+    const m = /^([A-Z][A-Z0-9.\-]{0,9}) (?:10-[KQ]|20-F|40-F|8-K)/.exec(res.title || "");
+    const t = String(co.ticker || co.ticker_hint || call.ticker || (m && m[1]) || (document.getElementById("read-ticker") || {}).value || "").toUpperCase().trim();
+    return /^CIK\d+$/.test(t) ? "" : t;
+  }
+  const fmtUSD = v => {
+    if (v == null || !isFinite(v)) return "n/a";
+    const a = Math.abs(v), s = a >= 1e12 ? `$${(a / 1e12).toFixed(2)}T` : a >= 1e9 ? `$${(a / 1e9).toFixed(1)}B` : a >= 1e6 ? `$${(a / 1e6).toFixed(1)}M` : a >= 1e3 ? `$${(a / 1e3).toFixed(1)}K` : `$${a.toFixed(0)}`;
+    return v < 0 ? "-" + s : s;
+  };
+  function fmtBy(v, unit){
+    if (v == null || !isFinite(v)) return "n/a";
+    if (unit === "USD") return fmtUSD(v);
+    if (unit === "USD/shares" || unit === "USD/share") return (v < 0 ? "-$" : "$") + Math.abs(v).toFixed(2);
+    if (unit === "shares") return Math.abs(v) >= 1e9 ? (v / 1e9).toFixed(2) + "B" : (v / 1e6).toFixed(1) + "M";
+    if (unit === "ratio" || unit === "pct") return (v * 100).toFixed(1) + "%";
+    if (unit === "x") return v.toFixed(2) + "x";
+    return String(v);
+  }
+  const secIndex = (cik, accn) => `https://www.sec.gov/Archives/edgar/data/${+cik}/${String(accn).replace(/-/g, "")}/${accn}-index.htm`;
+  const rtLoading = what => `<p class="rt-loading" role="status">${esc(what)}</p>`;
+  const rtErr = (j, r, dflt) => `<p class="rp-note err">${esc((j && (j.error || j.detail)) || (r && r.status === 404 && !j ? "This read is no longer on the server; run the file again." : dflt))}</p>`;
+
+  // ---- little charts: one bar per year; each bar's tooltip names the filing behind it
+  function sparkBars(points, unit, years){
+    const W = 248, H = 78, pad = 4, n = points.length || 1, bw = (W - pad * 2) / n;
+    const vals = points.map(p => p ? p.value : null).filter(v => v != null);
+    if (!vals.length) return "";
+    const max = Math.max(0, ...vals), min = Math.min(0, ...vals), span = (max - min) || 1;
+    const usable = H - pad * 2 - 12, y0 = pad + (max / span) * usable;
+    const bars = points.map((p, i) => {
+      if (!p) return "";
+      const h = Math.max(1, Math.abs(p.value) / span * usable), x = pad + i * bw + 1, y = p.value >= 0 ? y0 - h : y0;
+      const yr = (years[i] || {}).label || (p.end || "").slice(0, 4);
+      const tip = `${yr} (ends ${p.end}): ${fmtBy(p.value, unit)}${p.accn ? ` · ${p.form} filed ${p.filed} · ${p.accn} · ${p.tag}` : p.calc ? ` · ${p.calc}` : ""}${p.first_reported ? ` · first reported ${fmtBy(p.first_reported.value, unit)} (${p.first_reported.accn})` : ""}`;
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(2, bw - 3).toFixed(1)}" height="${h.toFixed(1)}" class="${p.value < 0 ? "neg" : ""}${i === points.length - 1 ? " last" : ""}"><title>${esc(tip)}</title></rect>`;
+    }).join("");
+    const first = (years[0] || {}).label || "", last = (years[years.length - 1] || {}).label || "";
+    return `<svg class="rt-spark" viewBox="0 0 ${W} ${H}" role="img" aria-label="One bar per year, ${esc(first)} to ${esc(last)}"><line x1="${pad}" x2="${W - pad}" y1="${y0.toFixed(1)}" y2="${y0.toFixed(1)}" class="base"/>${bars}
+      <text x="${pad}" y="${H - 1}" class="yr">${esc(first)}</text><text x="${W - pad}" y="${H - 1}" class="yr" text-anchor="end">${esc(last)}</text></svg>`;
+  }
+
+  // ---- Segments and KPIs, from the report (the filing's own inline XBRL tags, each with the page its row is printed on)
+  function segmentsHTML(rep){
+    const sg = rep.segments || {};
+    const chip = v => v && v.page ? `<a class="rp-src" href="#" data-page="${v.page}" data-val="${esc(v.raw || "")}" title="${esc(v.quote || "")}">p. ${v.page}</a>` : "";
+    const table = (kind, t) => `<h3>${esc(kind)}: ${esc(t.label)}</h3><div class="rp-tw"><table class="rp-table rt-seg"><tr><th>${esc(kind)}</th>${t.periods.map(p => `<th class="num">${esc(p.label)}</th>`).join("")}</tr>
+      ${t.rows.map(r => `<tr><td>${esc(r.name)}</td>${r.values.map(v => `<td class="num">${v ? esc(v.display) + `<small>${chip(v)}</small>` : '<span class="muted">n/a</span>'}</td>`).join("")}</tr>`).join("")}</table></div>`;
+    const parts = [];
+    if ((sg.segments || []).length) parts.push(`<h2 id="rp-segments">Segments</h2><p class="rp-note">From the filing's own inline XBRL tags on its segment axis: each figure is a tagged fact of this filing, with the page where its row is printed. ${esc(sg.profit_note || "")}</p>` + sg.segments.map(t => table("Segment", t)).join(""));
+    if ((sg.products || []).length) parts.push((parts.length ? "" : `<h2 id="rp-segments">Revenue by product and region</h2>`) + sg.products.map(t => table("Product or service", t)).join(""));
+    if ((sg.regions || []).length) parts.push((parts.length ? "" : `<h2 id="rp-segments">Revenue by region</h2>`) + sg.regions.map(t => table("Region", t)).join(""));
+    if (!parts.length && sg.note) parts.push(`<h2 id="rp-segments">Segments</h2><p class="rp-note">${esc(sg.note)}</p>`);
+    if ((sg.kpis || []).length) parts.push(`<h2 id="rp-kpis">Operating measures by period</h2><p class="rp-note">Company-defined measures tagged in this filing, with both periods it reports. Similarly named measures of different companies are not directly comparable.</p><div class="rp-tw"><table class="rp-table"><tr><th>Measure</th><th class="num">Now</th><th class="num">Before</th><th>Source</th></tr>
+      ${sg.kpis.map(k => `<tr><td>${esc(k.name)}${k.scope ? `<small>${esc(k.scope)}</small>` : ""}</td><td class="num">${esc(k.now || "")}<small>${esc(k.now_period || "")}</small></td><td class="num">${esc(k.before || "")}<small>${esc(k.before_period || "")}</small></td>
+        <td>${k.page ? `<a class="rp-src" href="#" data-page="${k.page}" data-val="${esc(k.raw || "")}" title="${esc(k.quote || "")}">p. ${k.page}</a>` : ""}</td></tr>`).join("")}</table></div>`);
+    return parts.join("");
+  }
+
+  // ---- Quality scores, from the report: every input a statement line of this filing with its page
+  function scoresHTML(rep){
+    const sc = rep.scores;
+    if (!sc) return "";
+    if (sc.status !== "computed") return `<h2 id="rp-scores">Quality scores</h2><p class="rp-note">${esc(sc.reason || "Not computed.")}</p>`;
+    const I = sc.inputs || {};
+    const pchip = p => p && p.page ? `<a class="rp-src" href="#" data-page="${p.page}" data-val="${esc(p.raw || "")}" title="${esc(p.quote || "")}">p. ${p.page}</a>` : p && p.calc ? `<span class="muted" title="${esc(p.formula || "")}">calc</span>` : "";
+    const zoneCls = z => z === "safe" ? "ok" : z === "grey" ? "mid" : z === "distress" ? "bad" : "";
+    const card = (title, cls, body) => `<div class="rt-score ${cls}"><span>${esc(title)}</span>${body}</div>`;
+    const miss = x => `<b>n/a</b><small>${esc(x && x.status === "not meaningful" ? x.reason : "Not computed. Missing: " + ((x && x.missing) || []).join(", "))}</small>`;
+    const a = sc.altman || {}, ab = sc.altman_book || {}, p = sc.piotroski || {}, b = sc.beneish || {};
+    const cards = `<div class="rt-scores">
+      ${card("Altman Z", a.status === "computed" ? zoneCls(a.zone) : "na", a.status === "computed" ? `<b>${a.value}</b><em>${esc(a.zone)}</em><small>${esc(a.cutoffs)}</small>` : miss(a))}
+      ${card("Altman Z'' (book equity)", ab.status === "computed" ? zoneCls(ab.zone) : "na", ab.status === "computed" ? `<b>${ab.value}</b><em>${esc(ab.zone)}</em><small>${esc(ab.cutoffs)}</small>` : miss(ab))}
+      ${card("Piotroski F", p.max ? (p.status === "computed" ? (p.value >= 7 ? "ok" : p.value >= 4 ? "mid" : "bad") : "na") : "na", p.max ? `<b>${p.value} of ${p.max}</b><em>${p.status === "computed" ? "all nine tests ran" : `${9 - p.max} of 9 tests not run`}</em><small>One point per test passed; 8 or 9 is the paper's strong group, 0 to 2 its weak group.</small>` : miss(p))}
+      ${card("Beneish M", b.status === "computed" ? (b.flag ? "bad" : "ok") : "na", b.status === "computed" ? `<b>${b.value}</b><em>${b.flag ? "above -1.78: flagged" : "below -1.78: not flagged"}</em><small>Eight-variable model; flag line -1.78</small>` : miss(b))}
+    </div>`;
+    const terms = (x, title) => x && x.status === "computed" ? `<h3>${esc(title)}</h3><p class="rp-note">${esc(x.model || "")}${x.caveat ? ". " + esc(x.caveat) : ""}</p><div class="rp-tw"><table class="rp-table"><tr><th>Term</th><th class="num">Value</th><th class="num">Weight</th><th>Inputs</th></tr>
+      ${x.terms.map(t => `<tr><td>${t.code ? `<b>${esc(t.code)}</b> ` : ""}${esc(t.name)}</td><td class="num">${t.value}</td><td class="num">${t.weight}</td><td class="muted">${t.inputs.map(k => esc((I[k] || {}).name || k)).join(", ")}</td></tr>`).join("")}</table></div>` : "";
+    const tests = p.tests ? `<h3>Piotroski tests</h3><ul class="rt-tests">${p.tests.map(t => `<li class="${t.passed === true ? "ok" : t.passed === false ? "bad" : "na"}"><b>${t.passed === true ? "Pass" : t.passed === false ? "Fail" : "Not run"}</b> ${esc(t.name)}<small>${esc(t.detail || ("Missing: " + (t.missing || []).join(", ")))}</small></li>`).join("")}</ul><p class="rp-note">${esc(p.basis || "")} ${esc(p.caveat || "")}</p>` : "";
+    const inputs = `<h3>Inputs, each read from this filing</h3><div class="rp-tw"><table class="rp-table"><tr><th>Line</th><th class="num">This year</th><th class="num">Last year</th><th>Read from</th></tr>
+      ${Object.values(I).map(x => `<tr><td>${esc(x.name)}</td><td class="num">${x.now ? esc(x.now.display) + `<small>${pchip(x.now)}</small>` : "n/a"}</td><td class="num">${x.before ? esc(x.before.display) + `<small>${pchip(x.before)}</small>` : "n/a"}</td><td class="muted">${esc(x.basis || "")}</td></tr>`).join("")}</table></div>`;
+    return `<h2 id="rp-scores">Quality scores</h2><p class="rp-note">${esc(sc.note)} Periods: ${esc(sc.period.current)} against ${esc(sc.period.prior)}.</p>${cards}${terms(a, "Altman Z terms")}${terms(ab, "Altman Z'' terms")}${tests}${terms(b, "Beneish M variables")}
+      ${b.reading ? `<p class="rp-note">${esc(b.reading)}</p>` : ""}${inputs}`;
+  }
+
+  // ---- lazy tabs: each fetched the first time it is opened, kept for this read
+  const lazyTab = key => `<div class="rt-lazy" data-lazy="${key}">${rtLoading("Loading...")}</div>`;
+  async function loadLazy(box){
+    const key = box.dataset.lazy; if (!key || box.dataset.busy) return;
+    box.dataset.busy = "1";
+    try {
+      if (key === "history") box.innerHTML = await historyHTML();
+      else if (key === "peers"){ box.innerHTML = await peersHTML(); wirePeers(box); }
+      else if (key === "changes"){ box.innerHTML = await redlineHTML(); wireRedline(box); }
+      else if (key === "guidehist") box.innerHTML = await guideHistHTML();
+      else if (key === "tone") box.innerHTML = await toneHTML();
+      box.removeAttribute("data-lazy");
+    } catch (e){ box.innerHTML = `<p class="rp-note err">Could not load (${esc(String(e.message || e))}). Close the report and open this tab again to retry.</p>`; delete rtData()[key]; }
+    finally { delete box.dataset.busy; }
+  }
+  async function rtGet(key, url){
+    const D = rtData();
+    if (!D[key]) D[key] = api(url).then(x => { if (!x.r.ok) delete D[key]; return x; }, e => { delete D[key]; throw e; });
+    return D[key];
+  }
+
+  async function historyHTML(){
+    const t = rtTicker(); if (!t) return `<p class="rp-note">The company's ticker is not known for this read; load it by ticker to see its ten-year history.</p>`;
+    const {r, j} = await rtGet("history", `/api/read/history?ticker=${encodeURIComponent(t)}`);
+    if (!r.ok) return `<h2 id="rp-history">Ten years from SEC XBRL</h2>` + rtErr(j, r, "SEC EDGAR did not answer.");
+    const yrs = j.years || [];
+    if (!yrs.length) return `<h2 id="rp-history">Ten years from SEC XBRL</h2><p class="rp-note">${esc(j.note)}</p>`;
+    const all = (j.series || []).concat(j.calcs || []);
+    const S = Object.fromEntries(all.map(s => [s.key, s]));
+    const card = (k, title) => { const s = S[k]; if (!s || !s.points.some(Boolean)) return ""; const last = [...s.points].reverse().find(Boolean);
+      return `<div class="rt-card"><span>${esc(title || s.label)}</span><b>${esc(fmtBy(last.value, s.unit))}</b><small>${esc((yrs[s.points.lastIndexOf(last)] || {}).label || "")}</small>${sparkBars(s.points, s.unit, yrs)}</div>`; };
+    const cards = [["revenue"], ["net_income"], ["eps_diluted", "Diluted EPS"], ["fcf"], ["operating_margin"], ["net_margin"], ["gross_margin"], ["cfo"], ["cash"], ["long_term_debt"], ["shares_diluted"], ["dividends_per_share"]].map(([k, t]) => card(k, t)).join("");
+    const cell = (s, p) => {
+      if (!p) return `<td class="num muted">n/a</td>`;
+      if (p.calc) return `<td class="num" title="${esc(p.calc)}">${esc(fmtBy(p.value, s.unit))}</td>`;
+      return `<td class="num"><a href="${esc(secIndex(j.cik, p.accn))}" target="_blank" rel="noopener" title="${esc(`${p.form} filed ${p.filed} · ${p.accn} · ${p.tag}${p.first_reported ? ` · first reported ${fmtBy(p.first_reported.value, s.unit)} in ${p.first_reported.accn}` : ""}`)}">${esc(fmtBy(p.value, s.unit))}${p.first_reported ? "*" : ""}</a></td>`;
+    };
+    const rows = all.map(s => `<tr${s.formula ? ' class="calc"' : ""}><td>${esc(s.label)}${s.formula ? `<span class="rp-formula">${esc(s.formula)}</span>` : ""}</td>${s.points.map(p => cell(s, p)).join("")}</tr>`).join("");
+    return `<h2 id="rp-history">Ten years from SEC XBRL</h2>
+      <p class="rp-note">${esc(j.note)} Each number links to the filing it comes from on SEC EDGAR; * marks a year restated later (hover for the first-reported value). Source: <a href="${esc(j.source)}" target="_blank" rel="noopener">SEC XBRL company facts</a>, read ${esc(j.read_at)}.</p>
+      <div class="rt-cards">${cards}</div>
+      <div class="rp-tw"><table class="rp-table rt-hist"><tr><th>Year</th>${yrs.map(y => `<th class="num">${esc(y.label)}<small>${esc(y.end)}</small></th>`).join("")}</tr>${rows}</table></div>`;
+  }
+
+  async function peersHTML(){
+    const t = rtTicker(); if (!t) return `<p class="rp-note">The company's ticker is not known for this read; load it by ticker to compare peers.</p>`;
+    const {r, j} = await rtGet("peers", `/api/read/peers?ticker=${encodeURIComponent(t)}`);
+    if (!r.ok) return `<h2 id="rp-peers">Peers</h2>` + rtErr(j, r, "SEC EDGAR did not answer.");
+    const sug = j.suggestions || [], D = rtData();
+    return `<h2 id="rp-peers">Peers</h2>
+      <p class="rp-note">${esc(j.company || t)} files under SEC industry code ${esc(j.sic || "n/a")}${j.sic_name ? ` (${esc(j.sic_name)})` : ""}. Suggested: companies with that code that filed a 10-K in the last 18 months, nearest in revenue first. Click one to add it, or type any tickers.</p>
+      <div class="rt-sug">${sug.map(s => `<button type="button" data-peer="${esc(s.ticker)}" title="${esc(s.company)}${s.revenue ? " · revenue " + fmtUSD(s.revenue) + " in " + s.revenue_year : ""}">${esc(s.ticker)}<small>${esc(s.company.slice(0, 28))}</small></button>`).join("") || '<span class="muted">No suggestions for this industry code.</span>'}</div>
+      <div class="rt-peerform"><input type="text" class="rt-peers-in" value="${esc(D.peersIn != null ? D.peersIn : sug.slice(0, 5).map(s => s.ticker).join(", "))}" aria-label="Peer tickers, separated by commas" placeholder="Peer tickers, for example TRN, GBX"><button type="button" class="rt-peers-go">Compare</button></div>
+      <div class="rt-peers-out">${D.peersOut || ""}</div>`;
+  }
+  function wirePeers(box){
+    const inp = box.querySelector(".rt-peers-in"), out = box.querySelector(".rt-peers-out"), go = box.querySelector(".rt-peers-go");
+    if (!inp) return;
+    box.querySelectorAll("[data-peer]").forEach(b => b.addEventListener("click", () => {
+      const cur = inp.value.split(",").map(x => x.trim()).filter(Boolean);
+      if (!cur.includes(b.dataset.peer)) cur.push(b.dataset.peer);
+      inp.value = cur.join(", ");
+    }));
+    const run = async () => {
+      const t = rtTicker(), D = rtData();
+      D.peersIn = inp.value;
+      go.disabled = true;
+      out.innerHTML = rtLoading("Reading each company's XBRL from SEC EDGAR (a few seconds per company the first time)...");
+      try {
+        const {r, j} = await api(`/api/read/peers?ticker=${encodeURIComponent(t)}&peers=${encodeURIComponent(inp.value)}`);
+        if (!r.ok){ out.innerHTML = rtErr(j, r, "Could not build the table."); return; }
+        const M = j.metrics || [];
+        const cell = row => m => {
+          const x = row.metrics[m.key];
+          if (!x) return `<td class="num muted">n/a</td>`;
+          const tip = (x.refs || []).map(rf => `${rf.tag} ${rf.end} (${rf.accn}, filed ${rf.filed})`).join("; ") + (x.formula ? ` · ${x.formula}` : "");
+          const pr = x.pct_rank;
+          return `<td class="num" title="${esc(tip)}">${esc(fmtBy(x.value, m.unit))}${pr != null ? `<i class="rt-rank" style="--p:${pr}%"></i><small>${pr}th pct of ${x.of}</small>` : ""}</td>`;
+        };
+        out.innerHTML = D.peersOut = `<div class="rp-tw"><table class="rp-table rt-peers"><tr><th>Company</th>${M.map(m => `<th class="num">${esc(m.label)}</th>`).join("")}</tr>
+          ${j.rows.map(row => `<tr${row.ticker === j.ticker ? ' class="me"' : ""}><td><b>${esc(row.ticker)}</b><small>${esc(row.company || row.note || "")}${row.fy_end ? " · year ended " + esc(row.fy_end) : ""}</small></td>${M.map(cell(row)).join("")}</tr>`).join("")}</table></div>
+          <p class="rp-note">${esc(j.note)} Hover a value for the XBRL tags and filings it rests on.</p>`;
+      } catch (e){ out.innerHTML = `<p class="rp-note err">Could not reach the local server.</p>`; }
+      finally { go.disabled = false; }
+    };
+    go.addEventListener("click", run);
+    inp.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); run(); } });
+  }
+
+  // the words of a redline block as they read this year (for the link that sends the spider there)
+  const nowText = b => b.type === "changed" ? b.words.filter(w => w[0] !== "-").map(w => w[1]).join(" ") : b.now ? b.now.text || "" : "";
+  async function redlineHTML(){
+    const {r, j} = await rtGet("redline", `/api/read/jobs/${encodeURIComponent(state.jobId)}/redline`);
+    if (!r.ok) return `<h2 id="rp-changes">Full redline</h2>` + rtErr(j, r, "Last year's filing could not be compared.");
+    rtData().redlineJ = j;
+    const c = j.counts, pr = j.prior || {};
+    const top = (j.top || []).map(t => {
+      const s = j.sections[t.section], b = s && s.blocks[t.block]; if (!b) return "";
+      const txt = b.type === "changed" ? nowText(b) : (b.now || b.before).text || "";
+      return `<li><a href="#" data-sec="${t.section}" data-blk="${t.block}"><span class="rt-tag ${b.type}">${b.type}</span> ${s.item === "cover" ? "Cover" : "Item " + esc(s.item)} · ${esc(txt.slice(0, 150))}${txt.length > 150 ? "..." : ""}</a></li>`;
+    }).join("");
+    const secs = j.sections.map((s, i) => {
+      const cc = s.counts, nums = cc.changed - cc.changed_words;
+      return `<details class="rt-sec" data-sec="${i}"><summary><b>${s.item === "cover" ? "" : "Item " + esc(s.item) + ". "}${esc(s.title)}</b>
+        <span class="rt-counts"><span class="added">${cc.added} added</span> <span class="deleted">${cc.deleted} deleted</span> <span class="changed">${cc.changed_words} reworded</span>${nums ? ` <span class="muted">${nums} numbers only</span>` : ""} <span class="muted">${s.unchanged} unchanged</span>${s.only ? ` <span class="rt-only">${s.only === "now" ? "new this year" : "not in this year's filing"}</span>` : ""}</span></summary><div class="rt-blocks"></div></details>`;
+    }).join("");
+    return `<h2 id="rp-changes">Full redline: this filing against last year's</h2>
+      <p class="rp-note">Compared with the ${esc(pr.form || "")} for the period ended ${esc(pr.period || "")} (filed ${esc(pr.filed || "")}, <a href="${esc(pr.url || "#")}" target="_blank" rel="noopener">${esc(pr.accession || "")}</a>) from SEC EDGAR. ${esc(j.note)}</p>
+      <p class="rt-legend"><span class="added">added this year</span> <span class="deleted">deleted since last year</span> <span class="changed">changed: <del>last year's words</del> <ins>this year's words</ins></span></p>
+      <p class="rp-cov"><b>${c.added.toLocaleString()}</b> lines added, <b>${c.deleted.toLocaleString()}</b> deleted, <b>${c.changed.toLocaleString()}</b> changed (${c.changed_words.toLocaleString()} reworded, ${(c.changed - c.changed_words).toLocaleString()} in numbers only), ${c.unchanged.toLocaleString()} unchanged.${j.truncated ? " Very long: the first 6,000 changes are listed." : ""}</p>
+      <label class="rt-check"><input type="checkbox" class="rt-nums"> Also list lines whose only change is a number (tables rolled forward a year)</label>
+      ${top ? `<h3>Biggest changes in wording</h3><ol class="rt-top">${top}</ol>` : ""}
+      <h3>Every section</h3><p class="rp-note">Open a section to see its changes.</p>${secs}`;
+  }
+  function redlineBlocks(s, si, nums){
+    const out = s.blocks.map((b, i) => {
+      if (b.type === "changed" && b.numbers_only && !nums) return "";
+      const body = b.type === "changed" ? b.words.map(([op, t]) => op === "=" ? esc(t) : op === "-" ? `<del>${esc(t)}</del>` : `<ins>${esc(t)}</ins>`).join(" ")
+        : esc((b.now || b.before).text || "");
+      const here = b.now ? `<a class="rp-src" href="#" data-page="${b.now.page || ""}" data-q="${esc(nowText(b).slice(0, 160))}" data-off="${b.now.offset}">this year p. ${b.now.page || "?"}</a>` : "";
+      const there = b.before ? `<span class="muted">last year p. ${b.before.page || "?"}</span>` : "";
+      return `<div class="rt-blk ${b.type}${b.numbers_only ? " nums" : ""}" id="rt-b-${si}-${i}"><p>${body}</p><small>${here} ${there}</small></div>`;
+    }).join("");
+    return (out || `<p class="muted">No ${nums ? "" : "wording "}changes in this section.</p>`) + (s.truncated ? `<p class="rp-note">This section's list stops at the 6,000-change limit.</p>` : "");
+  }
+  function wireRedline(box){
+    const j = rtData().redlineJ; if (!j || !j.sections) return;
+    const nums = box.querySelector(".rt-nums");
+    const fill = (d, force) => {
+      const si = +d.dataset.sec, bl = d.querySelector(".rt-blocks");
+      if (force || !bl.dataset.filled){ bl.innerHTML = redlineBlocks(j.sections[si], si, nums.checked); bl.dataset.filled = "1"; }
+    };
+    box.querySelectorAll("details.rt-sec").forEach(d => d.addEventListener("toggle", () => { if (d.open) fill(d); }));
+    nums.addEventListener("change", () => box.querySelectorAll("details.rt-sec").forEach(d => { if (d.open) fill(d, true); else delete d.querySelector(".rt-blocks").dataset.filled; }));
+    box.querySelector(".rt-top")?.addEventListener("click", e => {
+      const a = e.target.closest("a[data-sec]"); if (!a) return;
+      e.preventDefault();
+      const d = box.querySelector(`details.rt-sec[data-sec="${a.dataset.sec}"]`); if (!d) return;
+      d.open = true; fill(d);
+      const el = document.getElementById(`rt-b-${a.dataset.sec}-${a.dataset.blk}`);
+      if (el){ el.scrollIntoView({block: "center"}); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1800); }
+    });
+  }
+
+  async function guideHistHTML(){
+    const t = rtTicker(); if (!t) return `<p class="rp-note">The company's ticker is not known for this read; load it by ticker to see its guidance history.</p>`;
+    const {r, j} = await rtGet("guidehist", `/api/read/guidance-history?ticker=${encodeURIComponent(t)}&n=8`);
+    if (!r.ok) return `<h2 id="rp-guidehist">Guidance history</h2>` + rtErr(j, r, "SEC EDGAR did not answer.");
+    const rel = j.releases || [];
+    if (!(j.rows || []).length) return `<h2 id="rp-guidehist">Guidance history</h2><p class="rp-note">No guidance lines (a number with a period) were found in ${rel.length} earnings releases filed with SEC EDGAR. ${esc(j.note)}</p>`;
+    return `<h2 id="rp-guidehist">Guidance history: the last ${rel.length} earnings releases</h2><p class="rp-note">${esc(j.note)} Oldest release on the left.</p>
+      <div class="rp-tw"><table class="rp-table rt-guide"><tr><th>Guides</th>${rel.map(x => `<th><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.filed)}</a>${x.error ? `<small>${esc(x.error)}</small>` : ""}</th>`).join("")}</tr>
+      ${j.rows.map(row => `<tr><td><b>${esc(row.label)}</b></td>${rel.map(x => { const cs = row.cells[x.accession] || [];
+        return `<td>${cs.map(c => `<div class="rt-gc">${c.direction && c.direction !== "stated" ? `<span class="rt-tag ${esc(c.direction)}">${esc(c.direction)}</span>` : ""}<q title="${esc(c.text)}">${esc(c.text.length > 200 ? c.text.slice(0, 200) + "..." : c.text)}</q><small><a href="${esc(x.url)}" target="_blank" rel="noopener">p. ${c.page || "?"} of the release</a></small></div>`).join("")}</td>`; }).join("")}</tr>`).join("")}</table></div>`;
+  }
+
+  async function toneHTML(){
+    const {r, j} = await rtGet("tone", `/api/read/jobs/${encodeURIComponent(state.jobId)}/tone`);
+    if (!r.ok) return `<h2 id="rp-tone">Management tone</h2>` + rtErr(j, r, "Tone could not be measured.");
+    const gauge = (s, label) => s && s.score != null ? `<div class="rt-tone"><span>${esc(label)}</span><b>${s.score > 0 ? "+" : ""}${s.score}</b><i style="--x:${((s.score + 100) / 2).toFixed(0)}%"></i><small>${s.positive} positive, ${s.negative} negative words in ${s.sentences_counted} sentences</small></div>` : "";
+    const sents = (list, cls) => list.map(x => `<li class="${cls}"><a class="rp-src" href="#" data-page="${x.page || ""}" data-q="${esc(x.text.slice(0, 160))}" data-off="${x.offset}">p. ${x.page || "?"}</a> ${esc(x.text)}<small>${esc(x.words.map(w => (w[1] > 0 ? "+" : "-") + w[0]).join(" "))}</small></li>`).join("");
+    const w = j.now.whole || {}, pr = j.prior, cmp = j.compare;
+    return `<h2 id="rp-tone">Management tone</h2><p class="rp-note">${esc(j.now.method)} Forward-looking-statement boilerplate and table rows are left out. A reading aid for how the language moved, not a measure of results; the word lists are below.</p>
+      <div class="rt-tones">${gauge(w, "This document")}${gauge(j.now.prepared, "Prepared remarks")}${gauge(j.now.qa, "Questions and answers")}${pr ? gauge(pr.tone.whole, "Prior: " + (pr.title || "")) : ""}</div>
+      ${pr && cmp && cmp.change != null ? `<p class="rp-cov">Against the prior ${pr.source === "SEC EDGAR" ? "release" : "document"} (${esc(pr.title || "")}): <b>${cmp.change > 0 ? "+" : ""}${cmp.change} points</b>, ${esc(cmp.reading)}.${pr.url ? ` <a href="${esc(pr.url)}" target="_blank" rel="noopener">The prior release on SEC EDGAR</a>.` : ""}</p>`
+        : `<p class="rp-note">${esc(j.prior_error || (j.kind === "transcript" ? "No earlier call of this company is in My reads; read the previous call's transcript first to compare the two." : READ_MAX.local ? "No prior earnings release was found to compare." : "The prior release is fetched from SEC EDGAR by the Crawler on your Mac."))}</p>`}
+      ${(w.most_positive || []).length ? `<h3>Most positive sentences</h3><ul class="rt-sents">${sents(w.most_positive, "pos")}</ul>` : ""}
+      ${(w.most_negative || []).length ? `<h3>Most negative sentences</h3><ul class="rt-sents">${sents(w.most_negative, "neg")}</ul>` : ""}
+      <details class="rt-words"><summary>The word lists</summary><p><b>Positive:</b> ${esc(j.word_lists.positive.join(", "))}</p><p><b>Negative:</b> ${esc(j.word_lists.negative.join(", "))}</p></details>`;
+  }
+
+  // ---- the optional written summary (top of the Summary tab; only on this Mac, only with a key)
+  function summaryBox(){
+    if (!READ_MAX.local) return "";
+    const s = state.aiSummary;
+    if (!READ_MAX.summary) return `<div class="rt-ai off" id="rp-ai"><b>Written summary (optional, off).</b> <span>To turn it on, put your Anthropic API key alone on one line in ~/.bmg-anthropic-key and restart the reader. Every sentence it writes is kept only if the reader finds its quotes in the document.</span></div>`;
+    if (!s) return `<div class="rt-ai" id="rp-ai"><b>Written summary</b> <button type="button" class="rt-ai-go">Write it</button><small>Uses your Anthropic key (a few cents). Every sentence must quote the document; the reader drops any whose quote it cannot find, or that has a number its quotes do not contain.</small></div>`;
+    if (s.status !== "done") return `<div class="rt-ai err" id="rp-ai"><b>Written summary:</b> ${esc(s.reason || s.error || "failed")} <button type="button" class="rt-ai-go">Try again</button></div>`;
+    return `<div class="rt-ai" id="rp-ai"><b>Written summary</b> <small>${esc(s.model)} · ${s.sentences.length} of ${s.asked} sentences kept · $${s.cost_usd}</small>
+      <ul>${s.sentences.map(x => `<li>${esc(x.text)} ${x.quotes.map(q => `<a class="rp-src" href="#" data-page="${q.page || ""}" data-q="${esc(q.quote.slice(0, 160))}" data-off="${q.offset}" title="${esc(q.quote)}">p. ${q.page}</a>`).join(" ")}</li>`).join("")}</ul>
+      ${s.dropped.length ? `<details><summary>${s.dropped.length} dropped by the check</summary><ul>${s.dropped.map(d => `<li>${esc(d.text)}<small>${esc(d.reason)}</small></li>`).join("")}</ul></details>` : ""}<p class="rp-note">${esc(s.note)}</p></div>`;
+  }
+  async function writeSummary(btn){
+    btn.disabled = true; btn.textContent = "Writing and checking each quote...";
+    try {
+      const {r, j} = await api(`/api/read/jobs/${encodeURIComponent(state.jobId)}/summary`, {method: "POST"});
+      state.aiSummary = j || {status: "error", reason: "HTTP " + r.status};
+    } catch (e){ state.aiSummary = {status: "error", reason: "Could not reach the local server."}; }
+    openReport("rp-ai");
+  }
+
+  // ---- the Excel download: every number a number, linked to its page
+  async function downloadXlsx(btn){
+    if (!state.jobId) return;
+    const t = btn.textContent; btn.disabled = true; btn.textContent = "Building the workbook...";
+    try {
+      const r = await fetch(`/api/read/jobs/${encodeURIComponent(state.jobId)}/report.xlsx?history=${READ_MAX.local ? 1 : 0}`, {headers: {"X-Reader-Owner": owner()}});
+      if (r.status === 404){ jobGone(); return; }
+      if (!r.ok){ let j = {}; try { j = await r.json(); } catch (x) {} showErr("The workbook could not be built" + (j.error ? ": " + j.error : ".")); return; }
+      const name = ((r.headers.get("content-disposition") || "").match(/filename="([^"]+)"/) || [])[1] || "BMG-Capital-report.xlsx";
+      const a = document.createElement("a"); a.href = URL.createObjectURL(await r.blob()); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    } catch (e){ showErr("Could not reach the server for the workbook."); }
+    finally { btn.disabled = false; btn.textContent = t; }
+  }
+
+  // ---- highlights and notes: select words in the document, pick a color or write a note
+  const NOTE_COLORS = ["yellow", "green", "blue", "pink"];
+  const notesKey = sha => "bmg-notes:" + sha;
+  function notesLoad(sha){
+    RT.noteSha = sha || null; RT.notes = [];
+    RT.notesP = (async () => {
+      if (!sha) return;
+      if (READ_MAX.local){ try { const r = await fetch(`/api/reads/${sha}/notes`, {cache: "no-store"}); if (r.ok) RT.notes = (await r.json()).notes || []; } catch (e) {} }
+      else { try { RT.notes = JSON.parse(localStorage.getItem(notesKey(sha)) || "[]"); } catch (e) { RT.notes = []; } }
+    })();
+    notesPanel();
+    return RT.notesP;
+  }
+  async function notesSave(){
+    const sha = RT.noteSha; if (!sha) return;
+    let ok = true;
+    if (READ_MAX.local){ try { const r = await fetch(`/api/reads/${sha}/notes`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({notes: RT.notes})}); ok = r.ok; } catch (e) { ok = false; } }
+    else { try { localStorage.setItem(notesKey(sha), JSON.stringify(RT.notes)); } catch (e) { ok = false; } }
+    notesPanel(ok ? "" : "Not saved: the local server did not answer. Your notes are still on screen.");
+  }
+  // the words a note covers; if the page laid out differently since, the same first word nearby
+  function noteWords(n){
+    const L = wordList(); let i = n.w;
+    if (i == null || i < 0 || !L.els.length) return [];
+    const want = normW((n.text || "").split(/\s+/)[0] || "");
+    if (want && L.norm[i] !== want){
+      let best = null;
+      for (let d = 1; d < 400 && best == null; d++) for (const k of [i - d, i + d]) if (k >= 0 && k < L.els.length && L.norm[k] === want){ best = k; break; }
+      if (best == null) return [];
+      i = best;
+    }
+    return L.els.slice(i, i + Math.max(1, Math.min(400, n.n || 1)));
+  }
+  function notesApply(){
+    docBody.querySelectorAll(".w.nt").forEach(w => { w.classList.remove("nt", ...NOTE_COLORS.map(c => "nt-" + c)); delete w.dataset.note; });
+    for (const n of RT.notes) for (const w of noteWords(n)){ w.classList.add("nt", "nt-" + (NOTE_COLORS.includes(n.color) ? n.color : "yellow")); if (n.note) w.dataset.note = n.note; }
+    notesPanel();
+  }
+  function notesPanel(msg){
+    const pane = document.getElementById("pane-notes"), tab = document.getElementById("tab-notes");
+    if (!pane || !tab) return;
+    tab.hidden = !RT.noteSha;
+    if (tab.hidden && tab.getAttribute("aria-selected") === "true") selectTab("tab-live");
+    document.getElementById("notes-n").textContent = RT.notes.length || "";
+    pane.innerHTML = (msg ? `<p class="err">${esc(msg)}</p>` : "") + (RT.notes.length ? `<ol class="nt-list">${RT.notes.map((n, i) => `<li class="nt-${esc(n.color || "yellow")}"><button type="button" class="nt-go" data-i="${i}"><b>p. ${esc(String(n.page || "?"))}</b> ${esc((n.text || "").slice(0, 160))}${(n.text || "").length > 160 ? "..." : ""}</button>${n.note ? `<p>${esc(n.note)}</p>` : ""}<small>${esc(n.at || "")}</small><button type="button" class="nt-del" data-i="${i}" aria-label="Remove this highlight">Remove</button></li>`).join("")}</ol>`
+      : `<p class="muted">Select words in the document to highlight them or add a note. They stay with this read${READ_MAX.local ? " on this Mac" : " in this browser"}, and go into the report${READ_MAX.local ? " and the Excel download" : ""}.</p>`);
+  }
+  (function noteSelection(){
+    const bar = document.createElement("div"); bar.id = "nt-bar"; bar.hidden = true; bar.setAttribute("role", "toolbar"); bar.setAttribute("aria-label", "Highlight or add a note");
+    bar.innerHTML = NOTE_COLORS.map(c => `<button type="button" class="nt-c nt-${c}" data-c="${c}" title="Highlight ${c}" aria-label="Highlight ${c}"></button>`).join("") + `<button type="button" class="nt-add">Note</button><textarea class="nt-txt" rows="2" maxlength="4000" placeholder="Your note" aria-label="Your note" hidden></textarea><button type="button" class="nt-save" hidden>Save</button>`;
+    document.body.appendChild(bar);
+    let sel = null, range = null, raf = 0;
+    const txt = bar.querySelector(".nt-txt"), save = bar.querySelector(".nt-save");
+    const hide = () => { bar.hidden = true; sel = null; range = null; txt.hidden = true; save.hidden = true; txt.value = ""; };
+    // the bar sits just above the selected words and follows them while the page or the camera scrolls
+    const place = () => {
+      raf = 0;
+      if (bar.hidden || !range) return;
+      const rect = range.getBoundingClientRect();
+      const off = rect.bottom < 0 || rect.top > innerHeight || (!rect.width && !rect.height);
+      bar.style.visibility = off ? "hidden" : "";
+      if (off) return;
+      bar.style.left = Math.max(8, Math.min(innerWidth - bar.offsetWidth - 8, rect.left)) + "px";
+      bar.style.top = (rect.top > bar.offsetHeight + 16 ? rect.top - bar.offsetHeight - 8 : rect.bottom + 8) + "px";
+    };
+    const follow = () => { if (!bar.hidden && !raf) raf = requestAnimationFrame(place); };
+    document.addEventListener("mouseup", e => {
+      if (bar.contains(e.target)) return;
+      setTimeout(() => {
+        const s = window.getSelection();
+        if (!s || s.isCollapsed || !s.rangeCount || !RT.noteSha || document.body.classList.contains("recmode")){ if (!bar.contains(document.activeElement)) hide(); return; }
+        const el = node => node && (node.nodeType === 1 ? node : node.parentElement);
+        const wa = el(s.anchorNode)?.closest(".w"), wf = el(s.focusNode)?.closest(".w");
+        if (!wa || !wf || !docBody.contains(wa) || !docBody.contains(wf)){ hide(); return; }
+        const L = wordList(); let i0 = L.idx.get(wa), i1 = L.idx.get(wf);
+        if (i0 == null || i1 == null){ hide(); return; }
+        if (i0 > i1) [i0, i1] = [i1, i0];
+        sel = {w: i0, n: Math.min(400, i1 - i0 + 1)};
+        range = s.getRangeAt(0).cloneRange();
+        bar.hidden = false;
+        place();
+      }, 10);
+    });
+    const pageOfWord = w => { const pg = w.closest(".pdfpage"); if (pg) return [...docBody.querySelectorAll(".pdfpage")].indexOf(pg) + 1; try { return htmlPageOf(w); } catch (e) { return null; } };
+    const add = (color, note) => {
+      if (!sel) return;
+      const ws = wordList().els.slice(sel.w, sel.w + sel.n);
+      if (!ws.length) return;
+      RT.notes.push({id: Date.now().toString(36), w: sel.w, n: ws.length, page: pageOfWord(ws[0]), text: ws.map(x => x.textContent).join(" ").replace(/\s+/g, " ").trim().slice(0, 2000),
+                     note: note || "", color, at: new Date().toISOString().slice(0, 16).replace("T", " ")});
+      try { window.getSelection().removeAllRanges(); } catch (e) {}
+      hide(); notesApply(); notesSave();
+    };
+    bar.addEventListener("mousedown", e => { if (e.target !== txt) e.preventDefault(); });     // keep the selection while a button is pressed
+    bar.addEventListener("click", e => {
+      const c = e.target.closest(".nt-c"); if (c){ add(c.dataset.c, ""); return; }
+      if (e.target.closest(".nt-add")){ txt.hidden = false; save.hidden = false; txt.focus(); place(); return; }
+      if (e.target.closest(".nt-save")) add("yellow", txt.value.trim());
+    });
+    txt.addEventListener("keydown", e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)){ e.preventDefault(); add("yellow", txt.value.trim()); } });
+    addEventListener("keydown", e => { if (e.key === "Escape" && !bar.hidden) hide(); });
+    addEventListener("scroll", follow, {passive: true});
+    addEventListener("resize", follow);
+    document.getElementById("doc-scroll")?.addEventListener("scroll", follow, {passive: true});
+    document.getElementById("pane-notes")?.addEventListener("click", e => {
+      const go = e.target.closest(".nt-go"), del = e.target.closest(".nt-del");
+      if (go){ const ws = noteWords(RT.notes[+go.dataset.i] || {}); if (ws[0]) seekTo(ws[0], {n: Math.min(ws.length, 14)}); else setStatus("That highlight's words are not in the document on screen."); }
+      if (del){ RT.notes.splice(+del.dataset.i, 1); notesApply(); notesSave(); }
+    });
+  })();
+  function notesHTML(){
+    if (!RT.notes.length) return "";
+    return `<h2 id="rp-notes">Your highlights and notes</h2><ul class="rp-risks rt-notes">${RT.notes.map(n => `<li class="nt-${esc(n.color || "yellow")}">${n.page ? `<a class="rp-src" href="#" data-page="${n.page}" data-q="${esc((n.text || "").slice(0, 160))}">p. ${n.page}</a>` : ""}<blockquote>${esc(n.text)}</blockquote>${n.note ? `<p>${esc(n.note)}</p>` : ""}<small class="muted">${esc(n.at || "")}</small></li>`).join("")}</ul>`;
+  }
+
+  // ---- ask across reads: each question against each chosen read; every answer from that document, with its page
+  async function openGrid(){
+    let pop = document.getElementById("grid-pop");
+    if (!pop){
+      pop = document.createElement("div"); pop.id = "grid-pop"; pop.setAttribute("role", "dialog"); pop.setAttribute("aria-modal", "true"); pop.setAttribute("aria-label", "Ask across reads");
+      pop.innerHTML = `<div class="gp-box"><div class="gp-head"><b>Ask across reads</b><button type="button" class="gp-close">Close</button></div>
+        <p class="rp-note">Pick up to 10 reads and type up to 8 questions, one per line. Each answer comes only from that document, with its page.</p>
+        <div class="gp-pick"></div><textarea class="gp-q" rows="4" aria-label="Questions, one per line">What was revenue?
+How many employees?
+Who is the auditor?</textarea>
+        <div class="gp-row"><button type="button" class="gp-run">Ask</button><button type="button" class="gp-csv" hidden>Download CSV</button><span class="gp-st" role="status"></span></div><div class="gp-out"></div></div>`;
+      document.body.appendChild(pop);
+      const close = () => { pop.hidden = true; if (document.getElementById("bmg-report")?.hidden !== false) document.body.classList.remove("rp-open"); };
+      pop.querySelector(".gp-close").onclick = close;
+      pop.addEventListener("click", e => { if (e.target === pop) close(); });
+      addEventListener("keydown", e => { if (e.key === "Escape" && !pop.hidden) close(); });
+      pop.querySelector(".gp-run").onclick = runGrid;
+      pop.querySelector(".gp-csv").onclick = () => {
+        const g = RT.grid; if (!g) return;
+        const q = s => `"${String(s == null ? "" : s).replace(/"/g, '""')}"`;
+        const lines = [["Document", "Form", "Period", ...g.questions.flatMap(x => [x, "Page"])].map(q).join(",")]
+          .concat(g.rows.map(r => [r.company || r.title, r.form, r.period, ...r.cells.flatMap(c => { const b = c.best || {}; return [b.kind === "fact" ? b.value : (b.text || c.note || ""), b.page || ""]; })].map(q).join(",")));
+        const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([lines.join("\n")], {type: "text/csv"})); a.download = "BMG-Capital-ask-across-reads.csv";
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      };
+      pop.querySelector(".gp-out").addEventListener("click", e => {
+        const a = e.target.closest("a[data-page]"); if (!a) return;
+        e.preventDefault();
+        close(); closeReport();
+        if (a.dataset.job && a.dataset.job === state.jobId){
+          const el = locate(+a.dataset.page || null, a.dataset.q, a.dataset.off ? +a.dataset.off : null);
+          if (el) seekTo(el, {page: +a.dataset.page, n: 12});
+          return;
+        }
+        if (a.dataset.sha) location.hash = `src=${a.dataset.sha}&p=${a.dataset.page}&q=${encodeURIComponent(a.dataset.q || "")}${a.dataset.t ? "&t=" + encodeURIComponent(a.dataset.t) : ""}`;   // opens through hashchange
+      });
+    }
+    pop.hidden = false; document.body.classList.add("rp-open");
+    const pick = pop.querySelector(".gp-pick");
+    pick.innerHTML = rtLoading("Loading My reads...");
+    let reads = [];
+    try { const r = await fetch("/api/reads", {cache: "no-store"}); if (r.ok) reads = (await r.json()).reads || []; } catch (e) {}
+    const cur = state.jobId && state.readRes ? `<label><input type="checkbox" data-job="${esc(state.jobId)}" checked> <b>This read</b> <small>${esc(state.readRes.title || "")}</small></label>` : "";
+    const others = reads.filter(e => !state.readRes || e.sha256 !== state.readRes.sha256).slice(0, 40);
+    pick.innerHTML = cur + others.map((e, i) => `<label><input type="checkbox" data-sha="${esc(e.sha256)}" data-t="${esc(e.job_ticker || "")}"${i < (cur ? 2 : 3) ? " checked" : ""}> ${esc(e.company || e.title)}${e.ticker ? " · " + esc(e.ticker) : ""} <small>${esc([e.form, e.period].filter(Boolean).join(" · ") || e.title)}</small></label>`).join("")
+      || (cur ? "" : `<p class="muted">No saved reads yet. Read a few filings first; each one is kept in My reads.</p>`);
+    pop.querySelector(".gp-q").focus();
+  }
+  async function runGrid(){
+    const pop = document.getElementById("grid-pop"), st = pop.querySelector(".gp-st"), out = pop.querySelector(".gp-out"), btn = pop.querySelector(".gp-run");
+    const boxes = [...pop.querySelectorAll(".gp-pick input:checked")];
+    const body = {jobs: boxes.filter(b => b.dataset.job).map(b => b.dataset.job), reads: boxes.filter(b => b.dataset.sha).map(b => ({sha: b.dataset.sha, ticker: b.dataset.t || null})),
+                  questions: pop.querySelector(".gp-q").value.split("\n").map(s => s.trim()).filter(Boolean).slice(0, 8)};
+    if (body.jobs.length + body.reads.length > 10){ st.textContent = "Pick at most 10 reads."; return; }
+    btn.disabled = true;
+    st.textContent = "Reading each document (the first question on a long filing takes a few seconds)...";
+    try {
+      const {r, j} = await api("/api/read/grid", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+      if (!r.ok){ st.textContent = (j && j.error) || "Could not ask."; return; }
+      RT.grid = j; st.textContent = ""; pop.querySelector(".gp-csv").hidden = false;
+      const cell = (row, c) => {
+        const b = c.best;
+        if (!b) return `<td class="muted">${esc(c.note || "Not found in this document")}</td>`;
+        const main = b.kind === "fact" ? `<b>${esc(b.value)}</b><small>${esc(b.label || "")}${b.period ? " · " + esc(b.period) : ""}</small>` : `<span>${esc((b.text || "").slice(0, 240))}${(b.text || "").length > 240 ? "..." : ""}</span>`;
+        return `<td>${main} ${b.page ? `<a href="#" class="rp-src" data-page="${b.page}" data-q="${esc((b.excerpt || b.text || "").slice(0, 160))}" data-off="${b.offset != null ? b.offset : ""}"${row.job ? ` data-job="${esc(row.job)}"` : ""}${!row.job && row.sha ? ` data-sha="${esc(row.sha)}"` : ""}${row.ticker ? ` data-t="${esc(row.ticker)}"` : ""}>p. ${b.page}</a>` : ""}</td>`;
+      };
+      out.innerHTML = `<div class="rp-tw"><table class="rp-table gp-t"><tr><th>Document</th>${j.questions.map(q => `<th>${esc(q)}</th>`).join("")}</tr>
+        ${j.rows.map(row => `<tr><td><b>${esc(row.company || row.title)}</b><small>${esc([row.form, row.period].filter(Boolean).join(" · "))}</small></td>${row.cells.map(c => cell(row, c)).join("")}</tr>`).join("")}</table></div><p class="rp-note">${esc(j.note)} A page link opens that read and goes to the answer.</p>`;
+    } catch (e){ st.textContent = "Could not reach the server."; }
+    finally { btn.disabled = false; }
+  }
+
+  // ---- a link into the reader (from the Excel download or the grid): #src=<sha>&p=<page>&v=<value>&q=<quote>&t=<ticker>
+  function deepLink(){
+    const h = new URLSearchParams(location.hash.slice(1));
+    const sha = h.get("src");
+    if (!sha || !/^[0-9a-f]{64}$/.test(sha)) return;
+    const go = async () => {
+      try {
+        const r = await fetch(`/api/reads/${sha}/file`, {cache: "no-store"});
+        if (!r.ok){ showErr("That saved read is not in My reads on this computer, so the link cannot open it."); return; }
+        const title = r.headers.get("X-Read-Title") || "saved-read";
+        state.afterLoad = {page: +h.get("p") || null, val: h.get("v") || null, q: h.get("q") || null};
+        pick(new File([await r.blob()], title));
+        const tk = document.getElementById("read-ticker"); if (tk) tk.value = h.get("t") || "";
+        history.replaceState(null, "", location.pathname + location.search);
+        startRead();
+      } catch (e){ showErr("Could not reach the local server."); }
+    };
+    if (READ_MAX.local) go();
+    else {
+      document.addEventListener("bmg-local", go, {once: true});
+      document.addEventListener("bmg-read-limits", () => { if (!READ_MAX.local) showErr("This link opens a saved read in the Crawler on the Mac that made it (start-reader.command)."); }, {once: true});
+    }
+  }
+  // the words of a phrase in the document on screen (an EDGAR full-text hit), anywhere in it
+  function findWords(q){
+    const want = String(q || "").replace(/["“”]/g, " ").split(/\s+/).map(normW).filter(Boolean).slice(0, 6);
+    const L = wordList();
+    if (!want.length || !L.els.length) return null;
+    for (let k = want.length; k >= 1; k--){
+      for (let i = 0; i < L.els.length - k + 1; i++){
+        if (L.norm[i] !== want[0]) continue;
+        let ok = true;
+        for (let j = 1; j < k; j++) if (L.norm[i + j] !== want[j]){ ok = false; break; }
+        if (ok) return {el: L.els[i], n: k};
+      }
+      if (k <= Math.min(2, want.length - 1)) break;
+    }
+    return null;
+  }
+  // after a link or a search hit loads a document: skip the walk and go to the place it named
+  function afterLoadJump(){
+    const a = state.afterLoad; if (!a) return;
+    state.afterLoad = null;
+    setTimeout(() => {
+      state.userPageAt = performance.now();              // the finish card must not scroll the page away from the place
+      if (state.doneHook || walking()) skipWalk();
+      setTimeout(() => {
+        if (a.phrase){
+          const hit = findWords(a.phrase);
+          if (hit){ seekTo(hit.el, {n: Math.max(hit.n, 3)}); setStatus(`found "${a.phrase}" in this document`); }
+          else setStatus(`"${a.phrase}" was not found in the text on screen (SEC's search also matches words split across lines, and in a document's exhibits)`);
+          return;
+        }
+        if (a.q){ const el = locate(a.page, a.q, null); if (el && el.classList.contains("w")){ seekTo(el, {page: a.page, n: 12}); return; } }
+        if (a.page && !jumpToSource(a.page, a.val)) setStatus(`p. ${a.page} is not part of the document on screen`);
+      }, 350);
+    }, 200);
+  }
+
+  // ---- EDGAR full-text search: words or a "quoted phrase" typed in the search bar
+  const FTS_OPEN = /\.(htm|html|txt|pdf)$/i;
+  async function ftsSearch(q, offset, lead){
+    const listEl2 = document.getElementById("edgar-list"), st = document.getElementById("edgar-status");
+    const fsel = document.getElementById("fts-since");
+    const forms = (document.getElementById("fts-forms") || {}).value || "", since = fsel ? fsel.value : "5";
+    const today = new Date().toISOString().slice(0, 10);
+    const start = since ? new Date(Date.now() - (+since) * 365.25 * 86400000).toISOString().slice(0, 10) : "";
+    offset = offset || 0;
+    st.classList.remove("err"); st.textContent = `${lead || ""}Searching every SEC filing since 2001 for ${q}...`;
+    document.getElementById("omni-picks").hidden = true; document.getElementById("omni-funds").hidden = true;
+    if (!offset) listEl2.innerHTML = "";
+    let r, j;
+    try { ({r, j} = await api(`/api/edgar/search?q=${encodeURIComponent(q)}&forms=${encodeURIComponent(forms)}&start=${start}&end=${start ? today : ""}&offset=${offset}`)); }
+    catch (e){ st.classList.add("err"); st.textContent = "Could not reach the local server."; return; }
+    if (!r.ok){ st.classList.add("err"); st.textContent = (j && j.error) || "SEC full-text search failed."; return; }
+    RT.fts = {q, hits: (offset ? (RT.fts || {}).hits || [] : []).concat(j.hits)};
+    st.innerHTML = `${esc(lead || "")}${j.total.toLocaleString()}${j.total_relation === "gte" ? "+" : ""} SEC documents contain ${esc(q)}. <span class="fts-f"><select id="fts-forms" aria-label="Form type"><option value="">All forms</option>${["10-K", "10-Q", "8-K", "DEF 14A", "S-1", "20-F", "6-K"].map(f => `<option${f === forms ? " selected" : ""}>${f}</option>`).join("")}</select><select id="fts-since" aria-label="Filed since"><option value="">Since 2001</option>${[1, 3, 5].map(y => `<option value="${y}"${String(y) === since ? " selected" : ""}>Last ${y} year${y > 1 ? "s" : ""}</option>`).join("")}</select></span>`;
+    st.querySelectorAll("select").forEach(s => s.addEventListener("change", () => ftsSearch(q, 0)));
+    listEl2.querySelector("li.re-more")?.remove();
+    const base = RT.fts.hits.length - j.hits.length;
+    listEl2.insertAdjacentHTML("beforeend", j.hits.map((h, i) => `<li><span><b>${esc(h.company)}${h.ticker ? " (" + esc(h.ticker) + ")" : ""}</b> · ${esc(h.form)}${h.period ? " · period " + esc(h.period) : ""}<small>filed ${esc(h.filed)} · ${esc(h.description || h.document)} · <a href="${esc(h.url)}" target="_blank" rel="noopener">on SEC</a></small></span>${FTS_OPEN.test(h.document) ? `<button type="button" data-fts="${base + i}">Open</button>` : `<span class="muted">not readable here</span>`}</li>`).join("")
+      + (j.hits.length >= 100 && offset + 100 < Math.min(j.total, 10000) ? `<li class="re-more"><button type="button" data-fts-more="${offset + 100}">More results</button></li>` : ""));
+    if (!RT.fts.hits.length) listEl2.innerHTML = `<li><span class="muted">No filings matched. Put an exact phrase in quotes, for example "going concern".</span></li>`;
+  }
+  document.getElementById("edgar-list")?.addEventListener("click", e => {
+    const more = e.target.closest("button[data-fts-more]");
+    if (more && RT.fts){ more.disabled = true; ftsSearch(RT.fts.q, +more.dataset.ftsMore); return; }
+    const b = e.target.closest("button[data-fts]"); if (!b || !RT.fts || !state.readEdgarFiling) return;
+    const h = RT.fts.hits[+b.dataset.fts]; if (!h) return;
+    state.afterLoad = {phrase: RT.fts.q.replace(/^"|"$/g, "")};
+    state.readEdgarFiling({cik: h.cik, ticker: h.ticker || "", company: h.company, filings: []},
+                          {form: h.form, filed: h.filed, period: h.period, accession: h.accession, document: h.document});
+  });
+  state.ftsSearch = ftsSearch;
+  deepLink();
+  addEventListener("hashchange", deepLink);
+  document.getElementById("lib-grid")?.addEventListener("click", () => openGrid());
+  // ======== News and Posting (the owner's Mac): the month's top stories, and five post drafts a day ========
+  // Nothing here posts anywhere: each draft is copied, opened in the platform's own upload page, and posted by the owner.
+  (function appViews(){
+    const webUrl = u => /^https?:\/\/[^\s/]/i.test(String(u || "")) ? String(u) : "#";      // feed links are web pages, never scripts
+    const tabs = document.getElementById("app-tabs"); if (!tabs) return;
+    let view = null, pausedByMe = false, news = null, posting = null, subject = "all";
+    const pane = document.createElement("div");
+    pane.id = "app-view"; pane.hidden = true; pane.setAttribute("role", "region"); pane.setAttribute("aria-label", "News and Posting");
+    pane.innerHTML = `<div class="av-bar"><span class="av-brand">BMG Capital ${BMG_LINE}</span><nav class="app-tabs in" aria-label="Crawler, News and Posting">
+        <button type="button" data-app="crawler" aria-pressed="false">Crawler</button><button type="button" data-app="news" aria-pressed="false">News</button><button type="button" data-app="posting" aria-pressed="false">Posting</button></nav></div>
+      <div class="av-scroll"><div class="av-body"></div></div>`;
+    document.body.appendChild(pane);
+    const body = pane.querySelector(".av-body"), scroller = pane.querySelector(".av-scroll");
+    const pressed = v => document.querySelectorAll(".app-tabs button[data-app]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.app === v)));
+    document.addEventListener("bmg-local", () => { tabs.hidden = false; const h = location.hash.slice(1); if (h === "news" || h === "posting") show(h); });
+    function show(v){
+      if (v === "crawler"){
+        pane.hidden = true; document.body.classList.remove("av-open"); view = null; pressed("crawler");
+        if (pausedByMe){ pausedByMe = false; const pb = document.getElementById("ctl-pause"); if (pb && state.paused && !pb.disabled) pb.click(); }
+        if (/^#(news|posting)$/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
+        return;
+      }
+      // the crawl waits while another view is open, and goes on when the Crawler is back
+      if (walking() && !state.paused){ const pb = document.getElementById("ctl-pause"); if (pb && !pb.disabled){ pb.click(); pausedByMe = true; } }
+      const again = view === v && !pane.hidden;
+      view = v; pane.hidden = false; document.body.classList.add("av-open"); pressed(v);
+      history.replaceState(null, "", location.pathname + location.search + "#" + v);
+      if (again) return;
+      scroller.scrollTop = 0;
+      if (v === "news") renderNews(false); else renderPosting(false);
+    }
+    state.showApp = show;
+    document.addEventListener("click", e => { const b = e.target.closest(".app-tabs button[data-app]"); if (b){ e.preventDefault(); show(b.dataset.app); } });
+    const when = s => s ? new Date(s.replace("Z", ":00Z")).toLocaleDateString(undefined, {month: "short", day: "numeric"}) : "";
+    const copyText = async (t, btn) => {
+      let ok = false;
+      try { await navigator.clipboard.writeText(t); ok = true; } catch (e) {
+        const ta = document.createElement("textarea"); ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select();
+        try { ok = document.execCommand("copy"); } catch (x) {} ta.remove();
+      }
+      if (btn){ const o = btn.textContent; btn.textContent = ok ? "Copied" : "Copy failed: select and copy"; setTimeout(() => { btn.textContent = o; }, 1600); }
+    };
+    // a ticker from a story or an idea, loaded in the Crawler: its latest earnings release (or 10-K, 10-Q) from SEC EDGAR
+    function crawlTicker(t, act){
+      show("crawler");
+      const inp = document.getElementById("edgar-ticker"), find = document.getElementById("edgar-find"), picks = document.getElementById("omni-picks");
+      if (!inp || !find || !t) return;
+      inp.value = t; inp.classList.remove("phrase"); picks.hidden = true;
+      find.click();
+      const t0 = Date.now();
+      const wait = setInterval(() => {
+        const b = picks.querySelector(`button[data-act="${act || "k"}"]`);
+        if (b && !picks.hidden && !find.disabled){ clearInterval(wait); if (!b.disabled) b.click(); }
+        else if (Date.now() - t0 > 60000) clearInterval(wait);
+      }, 250);
+      document.getElementById("omni")?.scrollIntoView({block: "start", behavior: REDUCED ? "auto" : "smooth"});
+    }
+
+    // ---------------- News
+    async function renderNews(refresh){
+      if (!news || refresh){
+        body.innerHTML = `<div class="nw"><div class="av-h"><h2>News</h2></div>${rtLoading("Collecting this month's top stories from Google News, Hacker News and SEC EDGAR (about 15 seconds the first time)...")}</div>`;
+        try {
+          const {r, j} = await api(`/api/news${refresh ? "?refresh=1" : ""}`);
+          if (!r.ok) throw new Error((j && j.error) || "HTTP " + r.status);
+          news = j;
+        } catch (e){
+          body.innerHTML = `<div class="nw"><div class="av-h"><h2>News</h2></div><p class="err">Could not load the news (${esc(e.message || e)}).</p><button type="button" class="av-btn nw-refresh">Try again</button></div>`;
+          return;
+        }
+      }
+      drawNews();
+    }
+    function storyHTML(s, i){
+      const more = s.count > 1 ? ` + ${s.count - 1} more` : "";
+      const hn = s.points ? ` · ${s.points} points${s.discussion ? ` · <a href="${esc(webUrl(s.discussion))}" target="_blank" rel="noopener">${s.comments || 0} comments</a>` : ""}` : "";
+      const span = s.first && s.latest && when(s.first) !== when(s.latest) ? `${when(s.first)} to ${when(s.latest)}` : when(s.latest);
+      return `<li class="nw-item" data-i="${i}"><span class="nw-rank">${i + 1}</span><div class="nw-main">
+        <a class="nw-t" href="${esc(webUrl(s.url))}" target="_blank" rel="noopener">${esc(s.title)}</a>
+        <div class="nw-meta"><b>${esc(s.publisher)}</b>${more} · ${esc(span)}${hn} <span class="nw-score" title="${esc(news.rule)}">score ${s.score}</span></div>
+        <div class="nw-acts">${(s.tickers || []).slice(0, 3).map(t => `<button type="button" class="av-chip" data-crawl="${esc(t)}" title="Load ${esc(t)}'s latest earnings release in the Crawler">Read ${esc(t)}'s filing</button>`).join("")}
+          <button type="button" class="av-chip post" data-post="${i}">Make a post</button>
+          ${s.headlines.length > 1 ? `<details class="nw-more"><summary>All ${s.headlines.length} headlines</summary><ul>${s.headlines.map(h => `<li><a href="${esc(webUrl(h.url))}" target="_blank" rel="noopener">${esc(h.title)}</a> <small>${esc(h.publisher)} · ${esc(when(h.published))}</small></li>`).join("")}</ul></details>` : ""}</div></div></li>`;
+    }
+    function drawNews(){
+      const j = news, subs = [["all", "Top overall"], ...j.subjects.map(s => [s.key, s.label]), ["filers", "Earnings filed this month"]];
+      const list = subject === "all" ? j.all : subject === "filers" ? null : (j.stories[subject] || []);
+      body.innerHTML = `<div class="nw">
+        <div class="av-h"><h2>News <small>the last 30 days</small></h2><span class="av-st">Collected ${esc(j.fetched_at)} · ${j.counts.headlines.toLocaleString()} headlines in ${j.counts.stories.toLocaleString()} stories</span><button type="button" class="av-btn nw-refresh">Refresh</button></div>
+        <p class="rp-note">Headlines and links only: open a story to read it. Ranked by a fixed rule (${esc(j.rule)}) A story is a reason to read a filing, never a source for a number in a post.</p>
+        ${j.errors.length ? `<p class="rp-note err">Not reached this time: ${esc(j.errors.slice(0, 4).join("; "))}${j.errors.length > 4 ? "..." : ""}</p>` : ""}
+        <div class="av-chips" role="tablist">${subs.map(([k, l]) => `<button type="button" role="tab" class="av-seg" data-sub="${k}" aria-selected="${k === subject}">${esc(l)}</button>`).join("")}</div>
+        ${list ? `<ol class="nw-list">${list.map(storyHTML).join("") || `<li class="muted">No stories.</li>`}</ol>`
+          : `<p class="rp-note">8-K item 2.02 earnings releases filed with the SEC in the last 30 days, largest companies first (last year's revenue, SEC XBRL frames). Read one in the Crawler, then make posts from its numbers.</p>
+             <div class="rp-tw"><table class="rp-table nw-filers"><tr><th>Company</th><th>Filed</th><th class="num">Revenue, ${esc(String((j.filers[0] || {}).revenue_year || ""))}</th><th></th></tr>
+             ${j.filers.map(f => `<tr><td><b>${esc(f.ticker)}</b> ${esc(f.company)}</td><td>${esc(f.filed)}</td><td class="num">${f.revenue ? esc(fmtUSD(f.revenue)) : "n/a"}</td><td><button type="button" class="av-chip" data-crawl="${esc(f.ticker)}">Read the release</button> <a href="${esc(f.url)}" target="_blank" rel="noopener">SEC</a></td></tr>`).join("")}</table></div>`}
+        <p class="rp-note">Sources: ${esc(j.sources.join("; "))}.</p></div>`;
+    }
+    body.addEventListener("click", async e => {
+      const t = e.target;
+      if (t.closest(".nw-refresh")){ renderNews(true); return; }
+      const seg = t.closest("[data-sub]"); if (seg){ subject = seg.dataset.sub; drawNews(); return; }
+      const cr = t.closest("[data-crawl]"); if (cr){ crawlTicker(cr.dataset.crawl, "rel"); return; }
+      const mk = t.closest("[data-post]");
+      if (mk){
+        const list = subject === "all" ? news.all : (news.stories[subject] || []), s = list[+mk.dataset.post];
+        mk.disabled = true; mk.textContent = "Drafting...";
+        const {r, j} = await api("/api/posting/drafts", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({story: s, slot: "auto"})});
+        if (!r.ok){ mk.disabled = false; mk.textContent = (j && j.error) || "No post angle for this story"; return; }
+        posting = null; show("posting"); renderPosting(false, j.id);
+      }
+    });
+
+    // ---------------- Posting
+    const PLAT = {tiktok: "TikTok", instagram: "Instagram", x: "X"};
+    const SRC = {routine: "Daily hook ideas", read: "Your Crawler read", news: "From the news"};
+    async function renderPosting(rebuild, focusId){
+      body.innerHTML = `<div class="ps"><div class="av-h"><h2>Posting</h2></div>${rtLoading(rebuild ? "Rebuilding today's five drafts..." : "Loading today's five drafts from your hook ideas, your Crawler reads and the news...")}</div>`;
+      try {
+        const {r, j} = await api(`/api/posting/today${rebuild ? "?rebuild=1" : ""}`);
+        if (!r.ok) throw new Error((j && (j.error || j.detail)) || "HTTP " + r.status);
+        posting = j;
+      } catch (e){
+        body.innerHTML = `<div class="ps"><div class="av-h"><h2>Posting</h2></div><p class="err">Could not load today's drafts (${esc(e.message || e)}).</p><button type="button" class="av-btn ps-reload">Try again</button></div>`;
+        return;
+      }
+      drawPosting();
+      if (focusId){ const el = body.querySelector(`.ps-slot[data-id="${focusId}"]`); if (el){ el.scrollIntoView({block: "start"}); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1800); } }
+    }
+    const failing = d => (d.checks || []).filter(c => c.pass === false);
+    function checksHTML(d){
+      return `<ul class="ps-checklist">${d.checks.map(c => `<li class="${c.pass === true ? "ok" : c.pass === false ? "bad" : "own"}"><b>${c.pass === true ? "Pass" : c.pass === false ? "Fix" : "You check"}</b> ${esc(c.check)}${c.detail ? `<small>${esc(c.detail)}</small>` : ""}</li>`).join("")}</ul>`;
+    }
+    function blocksHTML(d){
+      const xUrl = "https://x.com/intent/post?text=" + encodeURIComponent(d.blocks.x);
+      return `${["tiktok", "instagram", "x"].map(k => `<div class="ps-block"><div><b>${PLAT[k]}</b><button type="button" class="av-chip" data-copy="${k}">Copy</button></div><pre>${esc(d.blocks[k])}</pre></div>`).join("")}
+        <div class="ps-open"><a class="av-chip" href="https://www.tiktok.com/tiktokstudio/upload" target="_blank" rel="noopener">Open TikTok upload</a>
+        <a class="av-chip" href="https://www.instagram.com/" target="_blank" rel="noopener">Open Instagram</a>
+        <a class="av-chip" href="${esc(xUrl)}" target="_blank" rel="noopener" title="Opens X with the post filled in; you press Post">Open X with this post</a></div>`;
+    }
+    function sourcesHTML(d){
+      return `<div class="rp-tw"><table class="rp-table ps-src"><tr><th>As shown</th><th>Source</th></tr>${(d.sources || []).map(s => `<tr${s.tier3 ? ' class="tier3"' : ""}><td>${esc(s.shown || "")}</td><td>${esc(s.where || "")}${s.derived ? `<small>${esc(s.derived)}</small>` : ""}${s.quote ? `<small>"${esc(s.quote.slice(0, 200))}"</small>` : ""}</td></tr>`).join("") || `<tr><td colspan="2" class="muted">No numbers.</td></tr>`}</table></div>`;
+    }
+    function slotHTML(s, i){
+      const d = s.draft;
+      if (!d) return `<li class="ps-slot empty" data-i="${i}"><div class="ps-top"><b class="ps-time-l">${esc(s.time)}</b> <span class="muted">This slot's draft is missing. Pick an idea below.</span></div></li>`;
+      const bad = failing(d), plats = (s.platform || d.platform || "").split(/,\s*/).filter(Boolean);
+      return `<li class="ps-slot${s.posted ? " posted" : ""}" data-i="${i}" data-id="${esc(d.id)}">
+        <div class="ps-top"><input type="time" class="ps-time" value="${esc(s.time || "")}" aria-label="Post time">
+          <span class="ps-plats">${["tiktok", "instagram", "x"].map(p => `<label class="ps-plat"><input type="checkbox" data-plat="${p}"${plats.includes(p) ? " checked" : ""}> ${PLAT[p]}</label>`).join("")}</span>
+          <span class="ps-src-l">${esc(SRC[d.source] || d.source)} · ${esc(d.pattern || "")}</span>
+          <span class="ps-state ${s.posted ? "done" : bad.length ? "bad" : "ok"}">${s.posted ? "Posted" + (s.posted_at ? " " + esc(s.posted_at.slice(11)) : "") : bad.length ? `${bad.length} to fix` : "Ready to post"}</span></div>
+        <label class="ps-l">Hook <small>on screen from the first frame; at most 8 words</small><input class="ps-hook" value="${esc(d.hook)}" maxlength="200"></label>
+        <label class="ps-l">On-screen cards <small>one per line, at most 2 short lines each</small><textarea class="ps-cards" rows="3">${esc(d.onscreen.slice(1).join("\n"))}</textarea></label>
+        <div class="ps-caps">${[["plain", "Caption: plain"], ["number", "Caption: number first"], ["question", "Caption: a question"]].map(([k, l]) => `<label class="ps-l">${l}<textarea class="ps-cap" data-k="${k}" rows="2">${esc(d.captions[k] || "")}</textarea></label>`).join("")}</div>
+        <label class="ps-l">Hashtags<input class="ps-tags" value="${esc(d.hashtags.map(t => "#" + t).join(" "))}"></label>
+        <div class="ps-blocks">${blocksHTML(d)}</div>
+        <div class="ps-acts"><button type="button" class="av-btn ps-clip" title="Opens Record mode with this hook and its filing filled in">Make the clip</button>
+          <button type="button" class="av-chip ps-source">Open the source</button>
+          <button type="button" class="av-chip ps-vault" title="Writes social/drafts/${esc(posting.day)}-....md in the vault; never over an existing file">Save to vault</button>
+          <a class="av-chip" href="/api/posting/drafts/${encodeURIComponent(d.id)}.md" download>Download .md</a>
+          <button type="button" class="av-chip ps-swap">Swap idea</button>
+          ${READ_MAX.summary ? `<button type="button" class="av-chip ps-rewrite">More hooks with Claude</button>` : ""}
+          <button type="button" class="av-btn ps-posted ${s.posted ? "undo" : ""}">${s.posted ? "Undo posted" : "I posted it"}</button>
+          <span class="ps-msg" role="status">${d.vault_path ? "In the vault: " + esc(d.vault_path) : ""}</span></div>
+        <div class="ps-hooks"></div>
+        <details class="ps-checks"${bad.length ? " open" : ""}><summary>Checks (${d.checks.filter(c => c.pass === true).length} pass, ${bad.length} to fix, ${d.checks.filter(c => c.pass === null).length} for you)</summary>${checksHTML(d)}</details>
+        <details class="ps-sources"><summary>Sources (${(d.sources || []).length})</summary>${sourcesHTML(d)}</details></li>`;
+    }
+    function ideaHTML(x){
+      const nums = (x.numbers || []).map(n => `${n.shown} (${n.where})`).join("; ") || x.numbers_text || "";
+      return `<li class="ps-idea" data-idea="${esc(x.id)}"><div><b>${esc(x.hook)}</b><small>${esc(x.pattern || "")}${x.company ? " · " + esc(x.company) : x.ticker ? " · " + esc(x.ticker) : ""}${x.news ? " · " + esc(x.news.publisher) + ": " + esc(x.news.title.slice(0, 90)) : ""}</small>
+        ${x.payoff ? `<small class="muted">${esc(x.payoff.slice(0, 220))}</small>` : ""}${nums ? `<small class="muted">Numbers: ${esc(nums.slice(0, 260))}${nums.length > 260 ? "..." : ""}</small>` : ""}</div>
+        <span class="ps-use"><select aria-label="Slot">${posting.slots.map((s, i) => `<option value="${i}">${esc(s.time || "slot " + (i + 1))}</option>`).join("")}</select><button type="button" class="av-chip" data-use="${esc(x.id)}">Use</button></span></li>`;
+    }
+    function drawPosting(){
+      const j = posting, posted = j.slots.filter(s => s.posted).length;
+      const used = new Set(j.slots.map(s => s.draft && s.draft.idea));
+      const groups = ["routine", "read", "news"].map(k => [k, j.ideas.filter(x => x.source === k && !used.has(x.id))]);
+      body.innerHTML = `<div class="ps">
+        <div class="av-h"><h2>Posting <small>${esc(j.day)}</small></h2><span class="av-st">${posted} of ${j.slots.length} posted</span><button type="button" class="av-btn ps-rebuild" title="Unposted slots get new ideas; posted ones stay">Rebuild unposted</button></div>
+        <p class="rp-note">Five drafts a day, mixed: the daily hook ideas, numbers from your Crawler reads (each with its page) and one about building with AI or a story in the news. Edit anything; the checks run again as you type. Nothing posts by itself: copy the caption, open the platform, press post, then mark it here.</p>
+        <div class="ps-held">Held names, disclosed on screen and in captions: <input class="ps-held-in" value="${esc(j.held.join(", "))}" aria-label="Held tickers, separated by commas"> <small>from ${esc(j.held_source)}</small></div>
+        ${j.notes.map(n => `<p class="rp-note">${esc(n)}</p>`).join("")}
+        <ol class="ps-slots">${j.slots.map(slotHTML).join("")}</ol>
+        <h3 class="ps-more-h">More ideas</h3>
+        ${groups.map(([k, xs]) => `<details class="ps-group"${k === "read" ? " open" : ""}><summary>${esc(SRC[k])} (${xs.length})</summary>${xs.length ? `<ul class="ps-ideas">${xs.map(ideaHTML).join("")}</ul>` : `<p class="muted">${k === "read" ? "Read a filing in the Crawler; its numbers become ideas here." : k === "news" ? "Open News once to collect the month's stories." : "The daily hook routine has not written ideas for today yet."}</p>`}</details>`).join("")}
+      </div>`;
+    }
+    const slotEl = el => el.closest(".ps-slot");
+    const draftOf = li => (posting.slots[+li.dataset.i] || {}).draft;
+    function redrawSlot(i){
+      const li = body.querySelector(`.ps-slot[data-i="${i}"]`); if (!li) return;
+      const tmp = document.createElement("div"); tmp.innerHTML = slotHTML(posting.slots[i], i);
+      li.replaceWith(tmp.firstElementChild);
+    }
+    // an edit is saved after a pause in typing; the blocks and the checks come back from the server
+    const pending = new Map();
+    function scheduleSave(li){
+      clearTimeout(pending.get(li.dataset.id));
+      pending.set(li.dataset.id, setTimeout(() => saveSlot(li), 650));
+    }
+    async function saveSlot(li){
+      const d = draftOf(li); if (!d) return;
+      const cards = li.querySelector(".ps-cards").value.split("\n").map(x => x.trim()).filter(Boolean);
+      const hook = li.querySelector(".ps-hook").value.trim();
+      const caps = {}; li.querySelectorAll(".ps-cap").forEach(t => { caps[t.dataset.k] = t.value.trim(); });
+      const tags = li.querySelector(".ps-tags").value.split(/[\s,]+/).map(x => x.replace(/^#/, "")).filter(Boolean);
+      const plats = [...li.querySelectorAll("[data-plat]:checked")].map(x => x.dataset.plat).join(", ");
+      const {r, j} = await api(`/api/posting/drafts/${encodeURIComponent(d.id)}`, {method: "PUT", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({hook, onscreen: [hook, ...cards], captions: caps, hashtags: tags, platform: plats})});
+      if (!r.ok){ li.querySelector(".ps-msg").textContent = (j && j.error) || "Not saved."; return; }
+      const i = +li.dataset.i;
+      posting.slots[i].draft = j; posting.slots[i].platform = plats;
+      const now = body.querySelector(`.ps-slot[data-i="${i}"]`); if (!now) return;
+      now.querySelector(".ps-blocks").innerHTML = blocksHTML(j);
+      const ch = now.querySelector(".ps-checks"), bad = failing(j);
+      ch.innerHTML = `<summary>Checks (${j.checks.filter(c => c.pass === true).length} pass, ${bad.length} to fix, ${j.checks.filter(c => c.pass === null).length} for you)</summary>${checksHTML(j)}`;
+      if (bad.length) ch.open = true;
+      const stl = now.querySelector(".ps-state");
+      if (!posting.slots[i].posted){ stl.className = "ps-state " + (bad.length ? "bad" : "ok"); stl.textContent = bad.length ? `${bad.length} to fix` : "Ready to post"; }
+      savePlan();
+    }
+    async function savePlan(){
+      const slots = posting.slots.map(s => ({time: s.time, platform: s.platform, draft: s.draft && s.draft.id, posted: !!s.posted, posted_at: s.posted_at || "", locked: !!s.locked}));
+      await api("/api/posting/plan", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({day: posting.day, slots})});
+    }
+    function clip(d){
+      const idea = posting.ideas.find(x => x.id === d.idea) || {};
+      const first = (idea.numbers || []).find(n => n.raw) || (idea.numbers || [])[0] || {};
+      const txt = [idea.numbers_text || "", idea.form || "", idea.payoff || ""].join(" ");
+      const x = {at: Date.now(), hook: d.hook, ticker: d.ticker || idea.ticker || "",
+        form: /10-Q/i.test(txt) ? "10-Q" : /\b8-K\b|ex-99|release/i.test(txt) ? "8-K" : "10-K",
+        find: first.raw ? [String(first.raw)] : [...new Set((txt.match(/\d{1,3}(?:,\d{3})+(?:\.\d+)?/g) || []))].slice(0, 6),
+        big: first.shown || (d.hook.match(/\$\s?[\d.,]+[bmk]?/i) || [""])[0], small: first.period || "", page: first.page || null,
+        source: first.where || "the Posting tab", quote: (first.quote || "").slice(0, 300)};
+      try { localStorage.setItem(PREFILL_LS, JSON.stringify(x)); } catch (e) {}
+      const h = Math.min(960, (screen.availHeight || 900) - 60), w = Math.round(h * 9 / 16);
+      const win = window.open("/desk/read/?layout=record&mode=rec&prefill=1", "bmg-record", `popup=yes,width=${w},height=${h}`);
+      return !!win;
+    }
+    function openSource(d){
+      // the idea behind the draft, else what the draft kept of it (an idea from an older list or a story from News)
+      const idea = posting.ideas.find(x => x.id === d.idea) || {}, sha = idea.sha || d.sha, nw = idea.news || d.news;
+      if (sha && /^[0-9a-f]{64}$/.test(sha)){
+        const n = (idea.numbers || d.sources || []).find(x => x.page) || {}, t = idea.job_ticker || d.ticker || "";
+        location.hash = `src=${sha}&p=${n.page || ""}${n.raw ? "&v=" + encodeURIComponent(n.raw) : ""}${t ? "&t=" + encodeURIComponent(t) : ""}`;
+        show("crawler"); return;                    // the link opens through the page's hashchange
+      }
+      if (nw && webUrl(nw.url) !== "#") window.open(nw.url, "_blank", "noopener");
+      const t = d.ticker || idea.ticker;
+      if (t) crawlTicker(t, /10-Q/i.test(idea.numbers_text || "") ? "q" : /10-K/i.test(idea.numbers_text || "") ? "k" : "rel");
+    }
+    body.addEventListener("input", e => {
+      const li = slotEl(e.target); if (!li || !e.target.matches(".ps-hook, .ps-cards, .ps-cap, .ps-tags")) return;
+      if (e.target.matches(".ps-hook")){
+        const old = li.dataset.hook != null ? li.dataset.hook : (draftOf(li) || {}).hook || "", now = e.target.value;
+        li.querySelectorAll(".ps-cap").forEach(c => { if (old && c.value.includes(old)) c.value = c.value.split(old).join(now); });
+        li.dataset.hook = now;
+      }
+      scheduleSave(li);
+    });
+    body.addEventListener("change", async e => {
+      const li = slotEl(e.target);
+      if (li && e.target.matches("[data-plat]")){ scheduleSave(li); return; }
+      if (li && e.target.matches(".ps-time")){ posting.slots[+li.dataset.i].time = e.target.value; savePlan(); return; }
+      if (e.target.matches(".ps-held-in")){
+        const held = e.target.value.split(/[\s,]+/).map(x => x.trim().toUpperCase()).filter(Boolean);
+        await api("/api/posting/settings", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({held})});
+        renderPosting(false);
+      }
+    });
+    body.addEventListener("click", async e => {
+      const t = e.target;
+      if (t.closest(".ps-reload")){ renderPosting(false); return; }
+      if (t.closest(".ps-rebuild")){ renderPosting(true); return; }
+      const li = slotEl(t), d = li && draftOf(li), msg = li && li.querySelector(".ps-msg");
+      const cp = t.closest("[data-copy]"); if (cp && d){ copyText(d.blocks[cp.dataset.copy], cp); return; }
+      if (t.closest(".ps-clip") && d){ if (!clip(d)) msg.textContent = "The Record mode window was blocked; allow pop-ups for this page."; return; }
+      if (t.closest(".ps-source") && d){ openSource(d); return; }
+      if (t.closest(".ps-vault") && d){
+        const {r, j} = await api(`/api/posting/drafts/${encodeURIComponent(d.id)}/vault`, {method: "POST"});
+        msg.textContent = r.ok ? `Saved in the vault: ${j.path} (not committed; commit it when you are ready)` : ((j && j.error) || "Not saved.");
+        if (r.ok) d.vault_path = j.path;
+        return;
+      }
+      if (t.closest(".ps-posted") && li){
+        const s = posting.slots[+li.dataset.i];
+        s.posted = !s.posted; s.posted_at = s.posted ? new Date().toISOString().slice(0, 16).replace("T", " ") : "";
+        await savePlan();
+        await api(`/api/posting/drafts/${encodeURIComponent(d.id)}`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({status: s.posted ? "POSTED" : "DRAFT"})});
+        redrawSlot(+li.dataset.i);
+        const head = body.querySelector(".av-h .av-st"); if (head) head.textContent = `${posting.slots.filter(x => x.posted).length} of ${posting.slots.length} posted`;
+        if (s.posted){ const m = body.querySelector(`.ps-slot[data-i="${li.dataset.i}"] .ps-msg`); if (m) m.textContent = "Marked posted. Its numbers go in social/analytics.csv at the Monday read."; }
+        return;
+      }
+      if (t.closest(".ps-swap") && li){ body.querySelector(".ps-more-h")?.scrollIntoView({block: "start", behavior: REDUCED ? "auto" : "smooth"}); body.querySelectorAll(".ps-use select").forEach(s => { s.value = li.dataset.i; }); return; }
+      if (t.closest(".ps-rewrite") && d){
+        const b = t.closest(".ps-rewrite"); b.disabled = true; b.textContent = "Writing...";
+        const {r, j} = await api(`/api/posting/drafts/${encodeURIComponent(d.id)}/rewrite`, {method: "POST"});
+        b.disabled = false; b.textContent = "More hooks with Claude";
+        const box = li.querySelector(".ps-hooks");
+        box.innerHTML = r.ok ? `<ul>${j.hooks.map(h => `<li class="${h.ok ? "ok" : "bad"}"><button type="button" class="av-chip" data-hook="${esc(h.hook)}"${h.ok ? "" : " disabled"}>Use</button> ${esc(h.hook)} <small>${esc(h.pattern)}${h.ok ? "" : " · fails: " + esc(h.why)}</small></li>`).join("")}</ul>` : `<p class="err">${esc((j && j.error) || "Failed.")}</p>`;
+        return;
+      }
+      const hk = t.closest("[data-hook]");
+      if (hk && li){ li.querySelector(".ps-hook").value = hk.dataset.hook; li.querySelector('.ps-cap[data-k="plain"]').value = hk.dataset.hook; saveSlot(li); return; }
+      const use = t.closest("[data-use]");
+      if (use){
+        const slot = +use.parentElement.querySelector("select").value;
+        use.disabled = true; use.textContent = "Drafting...";
+        const {r, j} = await api("/api/posting/drafts", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({idea: use.dataset.use, slot})});
+        if (!r.ok){ use.disabled = false; use.textContent = (j && j.error) || "Failed"; return; }
+        renderPosting(false, j.id);
+      }
+    });
+  })();
+
   // ---- wiring into a read: start, the document on screen, the end ----
   function toolsReset(){
     insTargets = new Map(); insItems = []; mapEntries = []; state.ins = null; state.wl = null; state.yoy = null; state.answers = [];
@@ -6282,6 +7349,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     if (flagsTab){ flagsTab.hidden = true; flagsPane.innerHTML = ""; flagsN.textContent = ""; }
     if (flagsTab && flagsTab.getAttribute("aria-selected") === "true") selectTab("tab-live");
     document.getElementById("num-cards")?.remove(); cardQ.length = 0; cardBusy = false;
+    rtReset(); notesLoad(null); document.getElementById("nt-bar")?.setAttribute("hidden", "");
   }
   function toolsStart(res){
     const ins = res.insights || {kind: "other", map: [], guidance: [], red_flags: []};
@@ -6294,6 +7362,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
     drawGoMenu();
     const co = (res.report && res.report.company) || {};
     if (ins.kind && ins.kind !== "annual" && ins.kind !== "quarterly") scopeEl.insertAdjacentHTML("beforeend", ` · <b>${esc(ins.label || KIND_WORD[ins.kind] || "")}</b>`);
+    notesLoad(res.sha256);
   }
   // the document is drawn: each quote is matched to its words, so its row appears when the spider reads them
   function toolsDocReady(){
@@ -6304,8 +7373,11 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
       const list = insTargets.get(el) || []; list.push(i); insTargets.set(el, list);
     });
     setTimeout(placeMap, 400);                // after the walk has measured the words
+    RT.notesP.then(notesApply);               // saved highlights on their words
+    afterLoadJump();                          // a link or a search hit named a place: go there
   }
   function toolsDone(){
+    state.afterLoad = null;
     insItems.forEach((x, i) => revealIns(i, true));
     insTargets.clear();
     pauseIdle(true);

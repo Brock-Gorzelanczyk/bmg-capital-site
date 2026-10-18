@@ -78,7 +78,7 @@ def parse(data: bytes) -> list[dict]:
         out.append({"concept": name, "value": v, "raw": raw, "unit": el.get("unitref") or "", "decimals": el.get("decimals"),
                     "start": ctx["start"], "end": ctx["end"], "instant": ctx["instant"] is not None, "dims": ctx["dims"],
                     "anchor": el.get("id") or (row.get("id") if row else None),
-                    "excerpt": re.sub(r"\s+", " ", row.get_text(" ", strip=True))[:240] if row else raw})
+                    "excerpt": re.sub(r"[\s\u200b-\u200d\u2060\ufeff]+", " ", row.get_text(" ", strip=True)).strip()[:240] if row else raw})   # no zero-width spaces (Simon Property)
     return out
 
 
@@ -111,3 +111,27 @@ def dei(data: bytes) -> dict:
         txt = re.sub(rb"<[^>]+>", b" ", m.group(2)).decode("utf-8", "replace")
         out[k] = re.sub(r"\s+", " ", txt.replace("&amp;", "&").replace("&#160;", " ").replace("&nbsp;", " ")).strip()
     return out
+
+
+def page_of(doc, excerpt: str, near=None):
+    """The page where a fact's table row is printed: the row's first words found in the extracted text (spacing
+    may differ between the tagged HTML and the text), nearest to page `near` when there are several."""
+    toks = re.sub(r"\s+", " ", excerpt or "").strip().split(" ")[:6]
+    if len(toks) < 2 or sum(len(t) for t in toks) < 8:
+        return None
+    cache = doc.__dict__.setdefault("_row_pages", {})
+    key = " ".join(toks)
+    if key not in cache:
+        rx = re.compile(r"\s*".join(re.escape(t) for t in toks))
+        hits = []
+        for m in rx.finditer(doc.body):
+            pg = doc.page_at(m.start())
+            if pg:
+                hits.append(pg)
+            if len(hits) >= 40:
+                break
+        cache[key] = hits
+    hits = cache[key]
+    if not hits:
+        return None
+    return min(hits, key=lambda h: abs(h - near)) if near else hits[0]

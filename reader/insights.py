@@ -90,6 +90,8 @@ def _title_run_ends(body: str, j: int) -> bool:
 
 
 _BULLETS = "\u2022\u25aa\u25cf\u25e6\u2023\u2043\uf0b7"
+# a press release's dateline opens a new sentence: "CHICAGO, Oct. 22, 2024 --", "NEW YORK, April 23, 2025 -"
+_DATELINE = re.compile(r"[A-Z][A-Z.'\- ]{2,40},(?: [A-Z][A-Za-z.]+,)? (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.? \d{1,2}\b")
 
 
 def sentence_at(body: str, pos: int, limit: int = 900) -> tuple[int, int]:
@@ -105,13 +107,13 @@ def sentence_at(body: str, pos: int, limit: int = 900) -> tuple[int, int]:
             break
         closed = ch in "\"'\u201d\u2019)" and i >= 2 and body[i - 2] in ".!?"          # a sentence that ends inside a quote
         if (ch in ".!?" or closed) and i < len(body) and body[i].isspace() \
-                and not re.search(r"(?:\b(?:Inc|Corp|Co|Ltd|No|U\.S|vs|approx|Mr|Ms|Dr|Jr|St)|\b[A-Z])\.$", body[max(0, i - 6):i - (1 if closed else 0)]):
+                and not re.search(r"(?:\b(?:Inc|Corp|Co|Ltd|No|U\.S|vs|approx|Mr|Ms|Dr|Jr|St|Jan|Feb|Mar|Apr|Aug|Sept?|Oct|Nov|Dec)|\b[A-Z])\.$", body[max(0, i - 6):i - (1 if closed else 0)]):
             start = i
             break
         if ch == "\n":
             ls, le = _line_bounds(body, i - 1)
             cont = body[i:i + 1].islower()          # the line after starts in lower case: a wrapped sentence, not a new one
-            if body[ls:le].strip() == "" or (not cont and (_is_break_line(body[ls:le]) or _bullet_item(body, ls, le))):
+            if body[ls:le].strip() == "" or _DATELINE.match(body[i:i + 80]) or (not cont and (_is_break_line(body[ls:le]) or _bullet_item(body, ls, le))):
                 start = i
                 break
         if ch == " " and i < pos - 20 and _title_run_ends(body, i - 1):
@@ -127,7 +129,7 @@ def sentence_at(body: str, pos: int, limit: int = 900) -> tuple[int, int]:
             end = j
             break
         if ch in ".!?" and (j + 1 >= len(body) or body[j + 1].isspace() or body[j + 1] in "\"'”’)") \
-                and not re.search(r"(?:\b(?:Inc|Corp|Co|Ltd|No|U\.S|vs|approx|Mr|Ms|Dr|Jr|St)|\b[A-Z])$", body[max(0, j - 5):j]):
+                and not re.search(r"(?:\b(?:Inc|Corp|Co|Ltd|No|U\.S|vs|approx|Mr|Ms|Dr|Jr|St|Jan|Feb|Mar|Apr|Aug|Sept?|Oct|Nov|Dec)|\b[A-Z])$", body[max(0, j - 5):j]):
             end = j + 1
             break
         if ch == "\n":
@@ -135,7 +137,7 @@ def sentence_at(body: str, pos: int, limit: int = 900) -> tuple[int, int]:
             nxt = body[ls:le]
             cs = _line_bounds(body, j)[0]
             cont = nxt.lstrip()[:1].islower()
-            if nxt.strip() == "" or (not cont and (_is_break_line(nxt) or _is_break_line(body[cs:j]) or _bullet_item(body, cs, j))):
+            if nxt.strip() == "" or _DATELINE.match(nxt.lstrip()) or (not cont and (_is_break_line(nxt) or _is_break_line(body[cs:j]) or _bullet_item(body, cs, j))):
                 end = j
                 break
         if ch == " " and j > pos + 20 and _title_run_ends(body, j):
@@ -197,20 +199,21 @@ def kind_of(doc, title: str = "") -> str:
 # ---------------------------------------------------------------------- guidance
 _GUIDE = re.compile(r"\b(?:guidance|outlook|expects?|expected to|expecting|anticipates?|anticipated to|forecasts?|we project|projecting|projected to|"
                     r"targets?|targeting|now sees|estimates?|on track to|reaffirm\w*|reiterat\w*|we see|we are guiding|guiding)\b", re.I)
-_PERIOD = re.compile(r"\b(?:full[- ]year|fiscal(?: year)? ?(?:20)?\d\d|(?:19|20)\d\d|next (?:quarter|year)|(?:first|second|third|fourth|1st|2nd|3rd|4th) quarter|"
+_PERIOD = re.compile(r"\b(?:full[- ]year|fiscal(?: year)? ?(?:20)?\d\d|(?:19|20)\d\d|next (?:quarter|year)|(?:first|second|third|fourth|1st|2nd|3rd|4th)[ \-\u2010\u2011]quarter|(?:march|june|september|december) quarter|"
                      r"\bQ[1-4]\b|for the (?:full )?(?:year|quarter)|this year|coming year|second half|first half|the year|the quarter)\b", re.I)
-_GNUM = re.compile(r"\$\s?\d|\d+(?:\.\d+)?\s?%|\b\d[\d,.]*\s?(?:million|billion|thousand|basis points|bps|percent)\b|\b(?:mid|high|low)[- ](?:single|double)[- ]digits?\b", re.I)
+_GNUM = re.compile(r"\$\s?\d|\d+(?:\.\d+)?\s?%|\b\d[\d,.]*\s?(?:million|billion|thousand|basis points|bps|percent)\b|\b(?:mid|high|low)[- ](?:single|double)[- ]digits?\b|\b(?:mid|high|low)[- ]teens\b", re.I)
 _BOILER = re.compile(r"forward[- ]looking statements?|safe harbor|private securities litigation|undue reliance|actual results (?:could|may|might|will) differ|"
                      r"risks? and uncertaint|no obligation to (?:update|revise)|undertake(?:s)? no obligation|does not undertake|cautionary|"
                      r"words such as|identified by words|could cause actual", re.I)
 _DIRECTION = [
-    ("raised", re.compile(r"\b(?:rais(?:e|es|ed|ing)|increas(?:e|es|ed|ing)|lift(?:s|ed)?|boost(?:s|ed)?|upgrad\w+)\b[^.]{0,60}\b(?:guidance|outlook|forecast|expectations?|range|target)\b|"
+    ("raised", re.compile(r"\b(?:rais(?:e|es|ed|ing)|increas(?:e|es|ed|ing)|lift(?:s|ed)?|boost(?:s|ed)?|upgrad\w+)\b[^.]{0,60}\b(?:guidance|outlook|forecast|expectations?|range|targets?)\b|"
                           r"\b(?:guidance|outlook|forecast)\b[^.]{0,30}\b(?:raised|increased)\b", re.I)),
-    ("lowered", re.compile(r"\b(?:lower(?:s|ed|ing)?|reduc(?:e|es|ed|ing)|cut(?:s|ting)?|trim(?:s|med)?|downgrad\w+)\b[^.]{0,60}\b(?:guidance|outlook|forecast|expectations?|range|target)\b|"
+    ("lowered", re.compile(r"\b(?:lower(?:s|ed|ing)?|reduc(?:e|es|ed|ing)|cut(?:s|ting)?|trim(?:s|med)?|downgrad\w+)\b[^.]{0,60}\b(?:guidance|outlook|forecast|expectations?|range|targets?)\b|"
                            r"\b(?:guidance|outlook|forecast)\b[^.]{0,30}\b(?:lowered|reduced|cut)\b", re.I)),
     ("narrowed", re.compile(r"\bnarrow(?:s|ed|ing)?\b[^.]{0,60}\b(?:guidance|outlook|range)\b", re.I)),
-    ("updated", re.compile(r"\bupdat(?:e|es|ed|ing)\b[^.]{0,60}\b(?:guidance|outlook|forecast|expectations?)\b", re.I)),
-    ("reaffirmed", re.compile(r"\b(?:reaffirm\w*|reiterat\w*|maintain(?:s|ed|ing)?|confirm(?:s|ed|ing)?)\b[^.]{0,60}\b(?:guidance|outlook|forecast|expectations?|range|target)\b", re.I)),
+    ("updated", re.compile(r"\bupdat(?:e|es|ed|ing)\b[^.]{0,60}\b(?:guidance|outlook|forecast|expectations?|targets?)\b", re.I)),
+    ("reaffirmed", re.compile(r"\b(?:reaffirm\w*|reiterat\w*|maintain(?:s|ed|ing)?|confirm(?:s|ed|ing)?)\b[^.]{0,60}\b(?:guidance|outlook|forecast|expectations?|range|targets?)\b|"
+                              r"\bcontinu(?:e|es|ed|ing) to (?:expect|anticipate|target|see|project)\b", re.I)),
 ]
 _ACCOUNTING = re.compile(r"(?i)\b(?:expected (?:life|lives|term|volatility|dividend yield|return on (?:plan )?assets|credit loss(?:es)?)|expected to (?:be )?(?:paid|recogni[sz]ed?|amortized|reclassified|vest|realized|settled)|"
                          r"expect(?:s|ed)? to recogni[sz]e|to be (?:realized|recogni[sz]ed)|deferred revenue|remaining performance obligations?|vested and expected|expected to vest|unrecognized|"
@@ -224,7 +227,7 @@ def _guidance_tables(doc) -> list[dict]:
     """Rows of a guidance table under an outlook heading ("Fiscal 2026 Guidance", then "Organic revenue
     Approximately +3%  +2% to +4%"), each quoted as printed, with the previous column when there is one."""
     body, out = doc.body, []
-    for m in re.finditer(r"(?im)^[^\n]{0,70}\b(?:guidance|outlook)\b[^\n]{0,90}$", body):
+    for m in re.finditer(r"(?im)^[^\n]{0,70}\b(?:guidance|outlook|targets?)\b[^\n]{0,90}$", body):
         head = m.group(0).strip()
         if head.endswith(".") or len(head) > 150 or _BOILER.search(head):
             continue
@@ -259,11 +262,65 @@ def _guidance_tables(doc) -> list[dict]:
                 cur, prev = cur_prev.get("current"), cur_prev.get("previous") or cur_prev.get("prior")
                 direction = "unchanged" if cur and prev and _ws(cur) == _ws(prev) else "updated" if cur and prev else "stated"
             else:
-                desc, direction = " ".join(vals), "stated"
+                desc, direction = " ".join(vals), next((d for d, rx in _DIRECTION if rx.search(head)), "stated")
             if not re.search(r"\d", desc):
                 continue
-            out.append({"text": f"{label}: {desc}", "direction": direction, "numbers": vals[:4], "table": _ws(head)[:120], **_loc(doc, off), "end": e})
+            item = {"text": f"{label}: {desc}", "direction": direction, "numbers": vals[:4], "table": _ws(head)[:120], "period": _ws(head)[:120],
+                    **_loc(doc, off), "end": e}
+            out = [x for x in out if x["offset"] != off] + [item]     # a row under two headings belongs to the nearer one
+    return sorted(out, key=lambda x: x["offset"])
+
+
+_BULLET_ITEM = re.compile(r"^[ \t]*[\u2022\u25aa\u25cf\u25e6\u2023\u2043\uf0b7\u25a0\u2013\-\*][ \t]*(\S[^\n]*)$")
+
+
+def _guidance_bullets(doc) -> list[dict]:
+    """The bullets of a guidance list: under an outlook heading or a guidance sentence ("Fiscal 2026 Guidance", "The
+    Company reaffirms its fiscal 2026 guidance.", then "\u2022Total sales growth of approximately 2.5% to 4.5%"; Home
+    Depot). Each bullet with a figure is a guidance line, quoted as printed; its direction and period are the opening
+    line's. A line that is neither a bullet nor about guidance ends the list."""
+    body, out, pos, ctx = doc.body, [], 0, None
+    for line in body.split("\n"):
+        lp, pos = pos, pos + len(line) + 1
+        t = line.strip()
+        if not t:
+            continue
+        bm = _BULLET_ITEM.match(line)
+        if bm and ctx:
+            item = bm.group(1).strip()
+            if _GNUM.search(item) and len(item) <= 300 and not _BOILER.search(item) and not _ACCOUNTING.search(item):
+                off = lp + line.index(item)
+                nums = [x.group(0) for x in re.finditer(r"\$\s?[\d.,]+\s?(?:million|billion|thousand|[MBK]\b)?|\d+(?:\.\d+)?\s?%|\b(?:mid|high|low)[- ](?:single|double)[- ]digits?|\b(?:mid|high|low)[- ]teens\b", item, re.I)][:6]
+                own = next((d for d, rx in _DIRECTION if rx.search(item)), None)        # "We continue to expect ..." says it itself
+                out.append({"text": item, "direction": own or ctx["direction"], "numbers": nums, "period": ctx["period"], "table": ctx["head"], **_loc(doc, off), "end": off + len(item)})
+            continue
+        opens = _OUTLOOK_HEAD.match(line) or (len(t) < 500 and (re.search(r"(?i)\b(?:guidance|outlook)\b", t) or (t.endswith(":") and _GUIDE.search(t))))
+        if opens and not _BOILER.search(t):
+            per = _PERIOD.search(t)
+            ctx = {"direction": next((d for d, rx in _DIRECTION if rx.search(t)), (ctx or {}).get("direction", "stated")),
+                   "period": per.group(0) if per else (ctx or {}).get("period", ""), "head": _ws(t)[:120]}
+        else:
+            ctx = None
     return out
+
+
+_JOINER = re.compile(r"(?:[,;:\-\u2013(&]|\b(?:" + "|".join(sorted(_SMALL_WORDS | {"our", "its", "their", "be", "is", "are", "was", "were", "than", "that", "which", "about", "approximately"})) + r"))$", re.I)
+
+
+def _own_line(body: str, s: int, e: int, pos: int) -> tuple[int, int]:
+    """Delta's highlights are lines with no closing period, one under another ("Guiding to low-teens revenue growth in
+    the June quarter ... fuel" / "Expect June quarter pre-tax profit of around $1 billion"): a line that ends on a
+    word and a next line that starts in upper case are two statements, so the one holding body[pos] is kept."""
+    cuts = [s]
+    for k in range(s, e):
+        if body[k] == "\n" and body[k + 1:k + 2].isupper() and not _JOINER.search(body[max(s, k - 20):k].rstrip()) \
+                and len(body[cuts[-1]:k].split()) >= 6:
+            cuts.append(k + 1)
+    cuts.append(e)
+    for a, b in zip(cuts, cuts[1:]):
+        if a <= pos < b:
+            return a, b
+    return s, e
 
 
 def guidance(doc, kind: str = "other", limit: int = 14) -> list[dict]:
@@ -271,9 +328,12 @@ def guidance(doc, kind: str = "other", limit: int = 14) -> list[dict]:
     heads = [m.start() for m in _OUTLOOK_HEAD.finditer(body)]
     seen, out = set(), []
     tables = _guidance_tables(doc) if kind in ("release", "transcript", "current", "other") else []
+    if kind in ("release", "transcript", "current", "other"):
+        tables += [b for b in _guidance_bullets(doc) if not any(t["offset"] <= b["offset"] < t["end"] for t in tables)]
     taken = {(x["offset"]) for x in tables}
+    spans = [(x["offset"], x["end"]) for x in tables]
     for m in _GUIDE.finditer(body):
-        s, e = sentence_at(body, m.start())
+        s, e = _own_line(body, *sentence_at(body, m.start()), m.start())
         if (s, e) in seen:
             continue
         seen.add((s, e))
@@ -297,9 +357,9 @@ def guidance(doc, kind: str = "other", limit: int = 14) -> list[dict]:
         if kind in ("release", "transcript"):
             score += 1
         direction = next((d for d, rx in _DIRECTION if rx.search(txt)), "stated")
-        nums = [x.group(0) for x in re.finditer(r"\$\s?[\d.,]+\s?(?:million|billion|thousand|[MBK]\b)?|\d+(?:\.\d+)?\s?%|\b(?:mid|high|low)[- ](?:single|double)[- ]digits?", txt, re.I)][:6]
+        nums = [x.group(0) for x in re.finditer(r"\$\s?[\d.,]+\s?(?:million|billion|thousand|[MBK]\b)?|\d+(?:\.\d+)?\s?%|\b(?:mid|high|low)[- ](?:single|double)[- ]digits?|\b(?:mid|high|low)[- ]teens\b", txt, re.I)][:6]
         out.append({"text": txt, "direction": direction, "numbers": nums, "score": score, **_loc(doc, s), "end": e})
-    out = [x for x in out if x["offset"] not in taken]
+    out = [x for x in out if x["offset"] not in taken and not any(a <= x["offset"] < b or x["offset"] <= a < x["end"] for a, b in spans)]
     out.sort(key=lambda x: -x["score"])
     uniq = []
     for x in out:                       # the same sentence printed twice (summary and MD&A) is listed once
@@ -999,6 +1059,19 @@ _TEXT_SYN = {"buyback": ("repurchase", "repurchased"), "repurchase": ("buyback",
              "debt": ("borrowing", "note"),
              "lawsuit": ("litigation", "proceeding"), "suit": ("litigation",), "dividend": ("dividends",), "competitor": ("competition", "competitive"),
              "tariff": ("trade",), "plant": ("facility", "manufacturing"), "factory": ("facility", "manufacturing")}
+# head count: a filing says employees, people, associates or team members; each word stands for the others (as _tok
+# stems them: "employees" is "employe", "employed" is "employ")
+_HEADCOUNT = ("employe", "employee", "employ", "people", "person", "associat", "workforce", "headcount", "staff", "worker", "personnel", "colleague")
+for _w in _HEADCOUNT:
+    _TEXT_SYN[_w] = tuple(x for x in _HEADCOUNT if x != _w)
+_HEADCOUNT_RX = r"employ\w*|people\b|persons?\b|associates?\b|staff\b|workers?\b|personnel\b|colleagues?\b|team members?\b"
+
+
+def _count_of(m) -> float:
+    """The number a count match states ("65,900 employees", "1.2 million people")."""
+    v = float(m.group(1).replace(",", "").rstrip(".") or 0)
+    mid = (m.group(2) or "").lower()
+    return v * (1e6 if "million" in mid else 1e3 if "thousand" in mid else 1)
 
 
 class Index:
@@ -1053,7 +1126,12 @@ class Index:
         noun = re.search(r"(?i)\bhow many ([a-z]+)", q)
         risky = bool(re.search(r"(?i)\brisk", q))
         outlook = bool(re.search(r"(?i)\b(?:guidance|outlook|expect|forecast|next year)", q))
-        count_rx = re.compile(r"(?i)(?<![\d,.])(?!(?:19|20)\d\d\b)\d[\d,.]*\+?\s+(?:[\w-]+\s+){0,3}" + re.escape(_stem(noun.group(1).lower())[:6])) if noun else None
+        count_rx = None
+        if noun:
+            st = _stem(noun.group(1).lower())
+            what = _HEADCOUNT_RX if st in _HEADCOUNT else re.escape(st[:6])
+            count_rx = re.compile(r"(?i)(?<![\d,.])(?!(?:19|20)\d\d\b)(\d[\d,.]*)\+?\s+((?:[\w-]+\s+){0,3})(?:" + what + ")")
+        counts = {}
         n = len(self.toks)
         scores = []
         for i, c in enumerate(self.toks):
@@ -1078,12 +1156,18 @@ class Index:
                 key = next((k for a, b, k in self.spans if a <= off < b), "")
                 if (risky and key == "risks") or (outlook and key in ("mdna", "outlook")):
                     sc *= 1.6                   # a risk question is answered first from Risk Factors
-            if count_rx and count_rx.search(self.sents[i][1]):
-                sc *= 2.5                       # "166,000 full-time equivalent employees" answers "how many employees"
+            if count_rx:
+                cs = [_count_of(m) for m in count_rx.finditer(self.sents[i][1])]
+                if cs:
+                    sc *= 2.5                   # "166,000 full-time equivalent employees" answers "how many employees"
+                    counts[i] = max(cs)
             if len(self.sents[i][1]) < 50:
                 sc *= 0.7                       # a heading or table label, not an answer
             if sc > 0:
                 scores.append((sc, i))
+        if counts:                              # of the sentences that count it, the largest number is the total
+            top = max(counts.values())          # (65,900 employees, not the 400 under a union contract)
+            scores = [(sc * (1.5 if counts.get(i) == top else 1.0), i) for sc, i in scores]
         scores.sort(reverse=True)
         out, seen = [], set()
         for sc, i in scores:

@@ -15,6 +15,7 @@ from __future__ import annotations
 import gzip
 import hashlib
 import json
+import re
 import threading
 import time
 from pathlib import Path
@@ -65,8 +66,17 @@ class Library:
             tmp.write_text(json.dumps(idx, indent=1))
             tmp.replace(self.index_path)
 
+    def _path(self, sha: str, ticker: Optional[str]) -> Optional[Path]:
+        """The saved result's file, or None when the id or ticker could name a file outside the library."""
+        t = (ticker or "_").upper()
+        if len(sha) != 64 or not all(c in "0123456789abcdef" for c in sha) or not re.fullmatch(r"[A-Z0-9._\-]{1,16}", t) or t.strip(".") == "":
+            return None
+        return self.root / f"{sha}-{t}.json.gz"
+
     def _load(self, sha: str, ticker: Optional[str]) -> Optional[dict]:
-        path = self.root / f"{sha}-{(ticker or '_').upper()}.json.gz"
+        path = self._path(sha, ticker)
+        if not path:
+            return None
         try:
             with gzip.open(path, "rt", encoding="utf-8") as fh:
                 saved = json.load(fh)
@@ -85,6 +95,42 @@ class Library:
 
     def entries(self) -> list[dict]:
         return self._index()
+
+    def load_any(self, sha: str, ticker: Optional[str]) -> Optional[dict]:
+        """A saved result whatever reader version wrote it (its text and pages do not go stale; Ask across reads uses
+        only those), or None."""
+        path = self._path(sha, ticker)
+        if not path:
+            return None
+        try:
+            with gzip.open(path, "rt", encoding="utf-8") as fh:
+                saved = json.load(fh)
+        except (OSError, ValueError):
+            return None
+        return {"result": saved.get("result"), "current": saved.get("version") == VERSION}
+
+    # ---- highlights and notes, kept beside the read (one JSON file per document, never deleted)
+    def _notes_path(self, sha: str) -> Optional[Path]:
+        if not all(c in "0123456789abcdef" for c in sha) or len(sha) != 64:
+            return None
+        return self.root / f"{sha}.notes.json"
+
+    def notes(self, sha: str) -> list:
+        p = self._notes_path(sha)
+        try:
+            return json.loads(p.read_text()) if p and p.exists() else []
+        except (OSError, ValueError):
+            return []
+
+    def save_notes(self, sha: str, notes: list) -> bool:
+        p = self._notes_path(sha)
+        if not p:
+            return False
+        with self.lock:
+            tmp = p.with_suffix(".tmp")
+            tmp.write_text(json.dumps(notes, indent=1))
+            tmp.replace(p)
+        return True
 
     def source(self, sha: str) -> Optional[tuple[bytes, str]]:
         if not all(c in "0123456789abcdef" for c in sha) or len(sha) != 64:

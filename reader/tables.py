@@ -19,18 +19,27 @@ from typing import Optional
 _YEAR = re.compile(r"\b(19|20)\d\d\b")
 _DAY_YEAR = re.compile(r"\b(\d{1,2}),((?:19|20)\d\d)\b")
 _DATE = re.compile(r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+((?:19|20)\d\d)\b")
-_CELL = re.compile(r"\(?-?\$?\d[\d,]*(?:\.\d+)?\)?%?|\$|%|\u2014|\u2013|-")
-_PHRASE = re.compile(r"\b(three|six|nine|twelve|3|6|9|12)[ -]months? ended\s+([A-Z][a-z]+\.? \d{1,2})|\b(years?|fiscal years?) ended\s+([A-Z][a-z]+\.? \d{1,2})", re.I)
+_CELL = re.compile(r"\(?-?\$?\d[\d,]*(?:\.\d+)?\)?%?|\$|%|\u2014|\u2013|-|N/M|n/m|NM|\*")     # N/M, *: a change not meaningful
+# "Three months ended June 30", "Year ended December 31", and Wells Fargo's "Quarter ended June 30,  Six months ended June 30,"
+_PHRASE = re.compile(r"\b(?:(?P<n>three|six|nine|twelve|3|6|9|12)[ -]months?|(?P<q>quarters?)|(?P<y>years?|fiscal years?)) ended\s+(?P<md>[A-Z][a-z]+\.? \d{1,2})", re.I)
 _KIND = {"three": "Q", "3": "Q", "six": "6M", "6": "6M", "nine": "9M", "9": "9M", "twelve": "FY", "12": "FY"}
-_CAPTION = re.compile(r"\(\s*(?:dollars |amounts |\$ )?(?:in )?(millions|billions|thousands)\b([^)]{0,200})\)", re.I)   # "in" optional: NEE prints "(millions, except ...)"
+_CAPTION = re.compile(r"\(\s*(?:unaudited[;,]?\s*)?(?:dollars |amounts |\$ )?(?:in )?(millions|billions|thousands)\b([^)]{0,200})\)", re.I)   # "in" optional: NEE prints "(millions, except ...)"; Disney "(unaudited; in millions ...)"
+# the same caption without brackets, at the start of a line (Home Depot: "in millions, except per share data  Fiscal 2025 ..."):
+# only where it can be a caption, alone on its line, before an "except ..." clause or before the columns
+_CAPTION_LINE = re.compile(r"(?im)^[ \t]*(?:(?:\$[ \t]*|dollars[ \t]+|amounts[ \t]+)?in[ \t]+(millions|billions|thousands)\b"
+                           r"|(millions|billions|thousands)[ \t]+of[ \t]+(?:u\.?s\.?[ \t]+)?dollars\b)"          # Chevron: "Millions of dollars  2025  2024"
+                           r"((?:,?[ \t]+except\b[^\n]{0,120})?(?:[ \t]{2,}[^\n]*)?)[ \t]*$")
 _MONTHS = {m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
 
 STATEMENTS = [
     ("comprehensive", re.compile(r"statements? of comprehensive (income|loss)|comprehensive (income|loss) statements?", re.I)),
-    ("income", re.compile(r"statements? of (operations|income|earnings)|income statements?", re.I)),
-    ("balance", re.compile(r"balance sheets\b|consolidated balance sheet|statements? of financial (position|condition)", re.I)),
+    # Caterpillar: "Consolidated Results of Operations for the Years Ended December 31," and "Consolidated Financial Position at
+    # December 31," (an MD&A heading "Consolidated Results of Operations" on its own is not the statement)
+    ("income", re.compile(r"statements? of (results of )?(operations|income|earnings)|income statements?|"     # its 10-Q: "Statement of Results of Operations"
+                          r"consolidated results of operations for the (?:years?|three|six|nine|twelve|quarters?|periods?)\b", re.I)),
+    ("balance", re.compile(r"balance sheets\b|consolidated balance sheet|statements? of financial (position|condition)|consolidated financial position (?:at|as of)\b", re.I)),
     ("cashflow", re.compile(r"statements? of cash flows?|cash flows? statements?", re.I)),     # Microsoft: "CASH FLOWS STATEMENTS"
-    ("equity", re.compile(r"statements? of (changes in )?(shareholders|stockholders)['’]? equity|statements? of changes in equity", re.I)),
+    ("equity", re.compile(r"statements? of (changes in )?(shareholders|stockholders|shareowners)['’]? equity|statements? of changes in equity", re.I)),   # Coca-Cola: "SHAREOWNERS'"
 ]
 
 
@@ -71,6 +80,36 @@ def _total_heading(groups: list, heading: str, toks: list) -> str:
     return heading
 
 
+# another entity's figures, said in so many words: the parent alone, a guarantor or issuer group. Chevron's MD&A: "summary
+# financial information for Chevron Corporation, as Guarantor, excluding its consolidated subsidiaries" (its net income
+# of $40,967 million was read as Chevron's, whose statement prints $12,485 million); Wells Fargo's "Parent-Only" statements
+_OTHER_ENTITY = re.compile(r"\bexcluding (?:its|their|the) (?:consolidated )?subsidiaries\b|\bobligor group\b|\bparent[- ](?:company[- ])?only\b"
+                           r"|\bas (?:the )?guarantor\b|\bcondensed financial information of (?:the )?registrant\b", re.I)
+
+
+# a paragraph that presents an affiliate's statements: Simon Property's "a summary of the combined balance sheets and
+# statements of operations of our equity method investments" (their total assets were read against Simon's own)
+_AFFILIATE_SUMMARY = re.compile(r"\b(?:summar\w*|condensed|combined)\b[^.]{0,120}\b(?:balance sheets?|statements? of (?:operations|income|earnings)"
+                                r"|financial (?:information|statements|data|position))\b[^.]{0,120}\b(?:equity[- ]method|joint ventures?|unconsolidated"
+                                r"|investees?|affiliates?|platform investments)\b", re.I)
+
+
+def _net_of_less(rows: list, table_id: int, toks: list) -> str:
+    """An unlabeled line right under a "Less" line is the line above it net of that one, not its section's total
+    (Simon Property: "Investment properties, at cost" less "accumulated depreciation", then 30,244,557 with no label,
+    which was read as Total assets)."""
+    if len(rows) < 2 or rows[-1]["table_id"] != table_id or rows[-2]["table_id"] != table_id:
+        return ""
+    base, less = rows[-2], rows[-1]
+    if not re.match(r"less\b", less["label"], re.I) or not len(base["values"]) == len(less["values"]) == len(toks):
+        return ""
+    vals = [parse_number(t) for t in toks]
+    if any(v is None for v in vals) or not all(abs(b - abs(x) - v) <= max(1.0, abs(v) * 1e-6) for b, x, v in zip(base["values"], less["values"], vals)):
+        return ""
+    what = re.sub(r"^less\W*", "", less["label"], flags=re.I).strip()
+    return f"{base['label']}, net of {what}" if what else f"{base['label']}, net"
+
+
 def scope_of(intro: str, title: str, block: str) -> str:
     """Whose figures a table holds, from the sentence that introduces it,
     its note title and its caption, in that order of weight. Running headers
@@ -79,6 +118,8 @@ def scope_of(intro: str, title: str, block: str) -> str:
     for text in (clean(intro), clean(title), clean(block)):
         if not text.strip():
             continue
+        if _OTHER_ENTITY.search(text):
+            return "subsidiary"
         for name, rx in _SCOPE_RX:
             if re.search(rx, text):
                 # "the Company and its consolidated subsidiaries" is the whole group
@@ -100,6 +141,24 @@ def _statement_named(title: str) -> str:
 # a summary of a statement in the MD&A ("Selected income statement data", "Consolidated
 # balance sheets analysis" in JPMorgan's 10-K) names the statement but is not it
 _SUMMARY = re.compile(r"\b(selected|data|analysis|highlights|summary|discussion)\b", re.I)
+
+
+_NUMBERED = {"level", "tier", "class", "series", "note", "notes", "phase", "stage", "item", "part", "type", "year", "years", "schedule",
+             "exhibit", "statement", "unit", "units", "group", "step", "round", "option", "plan", "fund", "facility", "tranche", "lot",
+             "block", "building", "line", "quarter", "week", "weeks", "day", "days", "month", "months", "segment", "region", "zone"}
+
+
+def row_key(label: str, statement_row: bool = False) -> str:
+    """A row label for matching: lower case, words only. A note in brackets that holds a number ("(included $ 134,559 ...
+    at fair value)") is not the label, and neither is a footnote mark printed against the last word ("Basic Net Income
+    Per Share1" is "basic net income per share"), nor are footnote letters ("Cost of sales(a), (b)"). On a statement's own rows a
+    footnote mark set off by a space is not
+    either ("Profit 1", "Diluted 2": Caterpillar), unless the word before numbers things ("Level 3", "Year 1")."""
+    low = re.sub(r"\(\s*[a-z]{1,2}\s*\)", " ", label.lower())          # footnote letters: "Cost of sales(a), (b)" (Pfizer)
+    k = re.sub(r"[^a-z0-9]+", " ", re.sub(r"\([^()]*\d[^()]*\)", " ", low)).strip()
+    k = re.sub(r"(?<=[a-z]{3})\d{1,2}$", "", k).strip()
+    m = re.search(r"\b([a-z]+) \d$", k) if statement_row else None
+    return k[:-2].strip() if m and m.group(1) not in _NUMBERED else k
 
 
 def statement_of(title: str) -> str:
@@ -132,13 +191,37 @@ def _iso(month: str, day: str, year: str) -> Optional[str]:
 
 def _kinds(text: str) -> list:
     out = []
-    for m in re.finditer(r"\b(three|six|nine|twelve) months\b|\b(?:fiscal )?years?\b(?= ended| end)|\bfiscal year\b", text, re.I):
-        w = (m.group(1) or "").lower()
+    for m in re.finditer(r"\b(three|six|nine|twelve) months\b|\b(quarters?)\s+ended\b|\b(?:first|second|third|fourth)[- ](quarter)\b"
+                         r"|\b(?:fiscal )?years?\b(?= ended| end)|\bfiscal year\b", text, re.I):
+        w = (m.group(1) or ("three" if m.group(2) or m.group(3) else "")).lower()      # Disney: "Quarter Ended  Nine Months Ended"
         out.append({"three": "Q", "six": "6M", "nine": "9M", "twelve": "FY"}.get(w, "FY"))
     return out
 
 
+_LINE_CAPTION = re.compile(r"(?i)^\s*(?:(?:\$\s*|dollars\s+|amounts\s+)?in\s+(?:millions|thousands|billions)(?:\s+of\s+(?:u\.?s\.?\s+)?dollars)?"
+                           r"|(?:millions|thousands|billions)\s+of\s+(?:u\.?s\.?\s+)?dollars)"
+                           r"(?:,?\s+except\s+(?:per[ -]share|share|shares|percentages?)[\w ,()-]*?(?:data|amounts|figures|information|values))?")
+
+
+_CHANGE_COL = re.compile(r"increase\s*\(decrease\)|\(decrease\)\s*increase|[%$]\s*change|\bchange\b|\bincrease\b|\bdecrease\b|\bvariance\b"
+                         r"|\(decr\.?\)|%\s*incr\.?", re.I)
+
+
 def header_periods(line: str, context: str) -> Optional[dict]:
+    """A column header with, when a change column follows each group of periods, the "slots" of a row's cells."""
+    h = _header_periods(line, context)
+    if h and not h.get("slots"):
+        line = _DAY_YEAR.sub(r"\1, \2", line)
+        dates = list(_DATE.finditer(line))
+        ps = [d.start() for d in dates] if len(dates) == len(h["cols"]) else [m.start() for m in _YEAR.finditer(line)]
+        marks = sorted([(p, "p") for p in ps] + [(m.start(), "c") for m in _CHANGE_COL.finditer(line)])
+        slots = [k for _, k in marks]
+        if len(ps) == len(h["cols"]) and "c" in slots and slots.index("c") < len(slots) - 1 - slots[::-1].index("p"):
+            h = {**h, "change_cols": False, "slots": slots}
+    return h
+
+
+def _header_periods(line: str, context: str) -> Optional[dict]:
     """A column header: two or more period columns. `context` is the line(s)
     just above, which may carry "Three months ended May 31"."""
     # "December 27,2025" (no space after the comma, as some inline-XBRL filings print it)
@@ -151,7 +234,8 @@ def header_periods(line: str, context: str) -> Optional[dict]:
     other = [t for t in nums if not _YEAR.fullmatch(re.sub(r"[^\d]", "", t)) and not re.fullmatch(r"\d{1,2},?", t.strip())]
     if len(other) > 1:
         return None
-    words = re.findall(r"[A-Za-z]+", re.sub(r"\([^)]*\)", " ", line))      # a scale caption may share the line
+    bare = _LINE_CAPTION.sub(" ", line)                 # "in millions, except per share data" before the dates, not in brackets
+    words = re.findall(r"[A-Za-z]+", re.sub(r"\([^)]*\)", " ", bare))      # a scale caption may share the line
     allowed = {"january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december",
                "change", "years", "year", "ended", "months", "three", "six", "nine", "twelve", "fiscal", "as", "of", "and", "at", "net", "sales",
                "total", "unaudited", "restated", "q", "fy"}
@@ -176,6 +260,12 @@ def header_periods(line: str, context: str) -> Optional[dict]:
             ks = [""] * len(dates)
         cols = [{"label": f"{d.group(1)[:3]} {d.group(2)}, {d.group(3)}", "end": _iso(d.group(1), d.group(2), d.group(3)),
                  "year": d.group(3), "type": k} for d, k in zip(dates, ks)]
+        # a change column after each group of periods (Home Depot's release: "August 2, 2026  August 3, 2025  % Change" twice):
+        # which cells of a row are periods and which are changes
+        marks = sorted([(d.start(), "p") for d in dates] + [(m.start(), "c") for m in _CHANGE_COL.finditer(line)])
+        slots = [k for _, k in marks]
+        if "c" in slots and slots.index("c") < len(slots) - 1 - slots[::-1].index("p"):
+            return {"cols": cols, "change_cols": False, "slots": slots, "text": line[:200]}
         return {"cols": cols, "change_cols": change_cols, "text": line[:200]}
     # "September 29,  September 30," above "2018  2017": one month and day per year column, in order
     last = (context.strip().split("\n") or [""])[-1]
@@ -184,7 +274,17 @@ def header_periods(line: str, context: str) -> Optional[dict]:
         kk = (_kinds(context[-300:]) or ["FY" if "year" in (low + context.lower()) else ""])[0]
         return {"cols": [{"label": f"{mo[:3]} {int(d)}, {y}", "end": _iso(mo, d, y), "year": y, "type": kk} for (mo, d), y in zip(mds, years)],
                 "change_cols": change_cols, "text": (last[-120:] + " | " + line)[:220]}
-    phrases = [((_KIND.get((m.group(1) or "").lower(), "FY") if m.group(1) else "FY"), (m.group(2) or m.group(4) or "").replace(".", ""))
+    # "For the Three Months Ended  For the Six Months Ended" over "June 30,  June 30," over "2026  2025  2026  2025" (Simon
+    # Property's 10-Q): one month and day per group of year columns, each group of its own length (all were six months)
+    kinds = _kinds(context[-300:])
+    if len(kinds) > 1 and mds and len(years) % len(kinds) == 0 and len(mds) in (1, len(kinds)):
+        per = len(years) // len(kinds)
+        cols = []
+        for g, k in enumerate(kinds):
+            mo, d = mds[g if len(mds) > 1 else 0]
+            cols += [{"label": f"{mo[:3]} {int(d)}, {y}", "end": _iso(mo, d, y), "year": y, "type": k} for y in years[g * per:(g + 1) * per]]
+        return {"cols": cols, "change_cols": change_cols, "text": (last[-120:] + " | " + line)[:220]}
+    phrases = [(_KIND.get(m.group("n").lower(), "FY") if m.group("n") else "Q" if m.group("q") else "FY", m.group("md").replace(".", ""))
                for m in _PHRASE.finditer(context + " " + line)]
     if phrases and len(years) % len(phrases) == 0:
         per = len(years) // len(phrases)
@@ -194,7 +294,11 @@ def header_periods(line: str, context: str) -> Optional[dict]:
                 mon, day = (md.split() + ["", ""])[:2]
                 cols.append({"label": f"{mon[:3]} {day}, {y}" if md else y, "end": _iso(mon, day, y) if md else None, "year": y, "type": k})
         return {"cols": cols, "change_cols": change_cols, "text": (context[-120:] + " | " + line)[:220]}
-    k = "FY" if ("year" in low or "fiscal" in low or "year" in context.lower()) else ""
+    if len(kinds) > 1 and len(years) % len(kinds) == 0:
+        per = len(years) // len(kinds)
+        return {"cols": [{"label": y, "end": None, "year": y, "type": kinds[i // per]} for i, y in enumerate(years)],
+                "change_cols": change_cols, "text": (context[-120:] + " | " + line)[:220]}
+    k = "FY" if ("year" in low or "fiscal" in low or "year" in context.lower() or "fiscal" in context[-200:].lower()) else ""
     # "December 31  2025 2024": one month and day for every year column
     md = re.search(r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})\b", line) \
         or re.search(r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s*$", context.strip())
@@ -206,12 +310,14 @@ def header_periods(line: str, context: str) -> Optional[dict]:
 
 def _caption(body: str, off: int) -> dict:
     """Scale and exceptions from the nearest "(In millions, except ...)" caption."""
-    hits = list(_CAPTION.finditer(body[max(0, off - 6000):off]))
+    window = body[max(0, off - 6000):off]
+    hits = list(_CAPTION.finditer(window)) + list(_CAPTION_LINE.finditer(window))
     if not hits:
         return {"scale": "", "shares_scale": "", "text": ""}
-    m = hits[-1]
-    scale = {"millions": "M", "billions": "B", "thousands": "K"}[m.group(1).lower()]
-    rest = m.group(2).lower()
+    m = max(hits, key=lambda x: x.end())          # the caption nearest the table
+    word, rest = ((m.group(1) or m.group(2)), m.group(3)) if m.re is _CAPTION_LINE else (m.group(1), m.group(2))
+    scale = {"millions": "M", "billions": "B", "thousands": "K"}[word.lower()]
+    rest = (rest or "").lower()
     shares_scale = scale
     sm = re.search(r"shares?[^.]{0,60}?(?:in|reflected in) (thousands|millions)", rest)
     if sm:
@@ -253,8 +359,58 @@ def _unit(label: str, heading: str, raw0: str) -> str:
 
 
 _ENTITY = re.compile(r"(?:\b(?:Inc|Corp|Corporation|Company|Co|LLC|Ltd|plc|N\.A)\.?|\bL\.?\s?P\.?)$", re.I)
+_STATEMENT_NO = re.compile(r"^(?:statement|exhibit|schedule)\s+[0-9IVX]{1,4}\b\s*", re.I)
 _PERIOD_LINE = re.compile(r"^(?:for the )?(?:(?:fiscal )?years?|three months|six months|nine months|twelve months|quarters?) ended\b[^\d]*(?:\d{1,2},?\s*)?(?:(?:19|20)\d\d)?$"
                           r"|^(?:as of |at )?(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+(?:19|20)\d\d$", re.I)
+
+
+_ROW_SCALE = {"": 1.0, "K": 1e3, "M": 1e6, "B": 1e9}
+
+
+def _date_year_columns(rows: list, doc) -> None:
+    """Columns headed by a year alone ("2025  2024  2023": Disney, Home Depot) take the end date and the length of the
+    inline XBRL facts printed in them, voted over the table's rows: Home Depot's "2025" ended February 1, 2026. Without
+    inline XBRL (a PDF) the year alone stays."""
+    from collections import Counter
+    from .facts import _duration_kind
+    xb = [x for x in getattr(doc, "xbrl", None) or [] if not x.get("dims") and x.get("value") is not None and x.get("end")]
+    if not xb:
+        return
+    by_val = {}
+    for x in xb:
+        by_val.setdefault(round(abs(x["value"]), 2), []).append(x)
+    groups = {}
+    for r in rows:
+        if r["cols"] and any(c.get("end") is None and c.get("year") for c in r["cols"]):
+            groups.setdefault(r["table_id"], []).append(r)
+    for rs in groups.values():
+        ncol = len(rs[0]["cols"])
+        votes = [Counter() for _ in range(ncol)]
+        for r in rs:
+            if len(r["cols"]) != ncol:
+                continue
+            for k, v in enumerate(r["values"][:ncol]):
+                year = r["cols"][k].get("year")
+                if v is None or not year:
+                    continue
+                for val in {round(abs(v) * _ROW_SCALE.get(r.get("scale") or "", 1.0), 2), round(abs(v), 2)}:
+                    for x in by_val.get(val, []):
+                        if x["end"][:4] in (year, str(int(year) + 1)):
+                            votes[k][(x["end"], "instant" if x.get("instant") else _duration_kind(x.get("start"), x["end"]))] += 1
+        for k in range(ncol):
+            if not votes[k]:
+                continue
+            (end, kind), n = votes[k].most_common(1)[0]
+            if n < 2 or n * 2 < sum(votes[k].values()):
+                continue                   # too few rows agree on one period
+            y, mo, d = end.split("-")
+            for r in rs:
+                c = r["cols"][k]
+                if c.get("end") is None:
+                    c.update(end=end, label=f"{_MON_ABBR[int(mo) - 1]} {int(d)}, {y}", type=c.get("type") or ("" if kind in ("instant", "unknown") else kind))
+
+
+_MON_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
 def parse(doc) -> list[dict]:
@@ -273,6 +429,9 @@ def parse(doc) -> list[dict]:
     groups = []      # [heading, [values of each row]] for the open sections of this table, in order
     label_head, prev_heading = None, ""
     entity = ""
+    other_at, other_text = None, ""      # a paragraph saying the tables below are another entity's or an affiliate's, and where
+    prose = False            # running text since the last statement title: the title was an MD&A heading, not the statement's
+    titled = True            # the open table sits right under its statement title
     pos = 0
     for line in body.split("\n"):
         start = pos
@@ -282,32 +441,56 @@ def parse(doc) -> list[dict]:
             continue
         ctx = " ".join(prev[-2:])
         prev.append(s)
+        if len(s) > 60 and (_OTHER_ENTITY.search(s) or _AFFILIATE_SUMMARY.search(s)):
+            other_at, other_text = len(prev) - 1, s
+        if len(s) > 200 and (s.endswith(".") or re.search(r"[a-z]{3}[.;] [A-Z]", s)):
+            prose = True
         if re.match(r"^(?:Note|NOTE)\s+\d{1,2}\b", s) and len(s) <= 120:
             title = s                                   # a note heading: tables below belong to the note
             entity = ""
+            other_at, prose = None, False
         elif re.match(r"^See accompanying notes", s, re.I):
             title = ""
         elif (len(s) <= 110 and not s.endswith((".", ":")) and not re.search(r"\d{3}", s) and _statement_named(s) != "other"
-              and re.match(r"^(?:(?:(?-i:[A-Z0-9][A-Z0-9 .,&'\u2019-]{2,70})|[A-Z][A-Za-z0-9 .,&'\u2019-]{1,60}?\b(?:Inc|Corp|Corporation|Company|Co|LLC|Ltd|plc)\.?)\s+)?(?:condensed\s+)?(?:consolidated\s+)?(?:statements?|balance)\b", s, re.I)):
+              and re.match(r"^(?:(?:(?-i:[A-Z0-9][A-Z0-9 .,&'\u2019-]{2,70})|[A-Z][A-Za-z0-9 .,&'\u2019-]{1,60}?\b(?:Inc|Corp|Corporation|Company|Co|LLC|Ltd|plc|L\.\s?P|LP)\.?)\s+)?(?:unaudited\s+)?(?:joint\s+ventures?\s+)?(?:combined\s+)?(?:condensed\s+)?(?:consolidated\s+)?"
+                           r"(?:statements?|balance|results of operations for the|financial position (?:at|as of))\b", s, re.I)):
             # a statement title opens its line (after an all-caps company name at most, so an MD&A heading
             # "Other Items Impacting FPL's Consolidated Statements of Income" is not one); a sentence
             # that mentions "the statements of income:" introduces a note table instead
             t2 = re.sub(r"^.*?((?:Condensed\s+)?(?:Consolidated\s+)?(?:Statements?|Balance Sheets?)\b)", r"\1", s, flags=re.I)
+            # Simon Property's 10-Q: "Unaudited Consolidated Balance Sheets" (the word before is not a registrant's name)
             title = t2 if _statement_named(t2) != "other" else s     # "INCOME STATEMENTS": the words before are the title
+            prose = False
+            # the company's own statements end such a paragraph's reach; an affiliate's "COMBINED BALANCE SHEETS" carry it on,
+            # and an affiliate's statement says so itself (Simon's release: "Unaudited Joint Venture Combined Statements of Operations")
+            if re.search(r"\bjoint ventures?\b|\bequity[- ]method\b|\bunconsolidated\b", s, re.I):
+                other_at, other_text = len(prev) - 1, s
+            elif other_at is not None and re.search(r"\b(?:combined|condensed)\b", s, re.I) and not re.search(r"\bconsolidated\b", s, re.I):
+                other_at = len(prev) - 1
+            else:
+                other_at = None
             # the registrant named just above ("FLORIDA POWER & LIGHT COMPANY"): a combined 10-K prints a
             # full set of statements for each registrant
             pre = s[:len(s) - len(t2)].strip()                # "Apple Inc.  CONSOLIDATED BALANCE SHEETS"
             entity = (pre if pre and _ENTITY.search(pre) else
                       prev[-2] if len(prev) > 1 and len(prev[-2]) <= 70 and _ENTITY.search(prev[-2]) else "")
+            entity = _STATEMENT_NO.sub("", entity)          # "STATEMENT 3  Caterpillar Inc.": the number is not the registrant
         h = header_periods(s, ctx) if len(s) < 260 else None
+        if h is None and re.fullmatch(r"(?:19|20)\d\d", s) and _YEAR.search(ctx):
+            h = header_periods(f"{ctx}  {s}", "")     # Simon's release: "June 30," / "2026  December 31," / "2025", the dates broken across lines
         if h:
             hdr, hdr_age, heading = h, 0, ""
             table_id += 1
+            # Chevron's MD&A has a heading "Consolidated Statement of Income" over paragraphs and small tables: a table after
+            # running text under such a heading is not the statement (its first rows were cited instead of the statement's)
+            titled = not prose
             row_index = 0
             groups = []
             # the sentence that introduces the table ("The following table shows
             # condensed income statements of the RRPF affiliates ... :")
             intro = next((x for x in reversed(prev[-6:-1]) if x.endswith(":") and len(x) > 30), "")
+            if not intro and other_at is not None and len(prev) - other_at <= 30:
+                intro = other_text
             restated = bool(re.search(r"as (adjusted|recast|revised|restated)|\brestated\b|\brecast\b", (ctx + " " + s).lower()))
             # the table's own caption: a short heading-like line just above
             # ("Rail North America Fleet Data"), which says whose figures these are
@@ -330,11 +513,17 @@ def parse(doc) -> list[dict]:
         k = len(parts)
         while k > 0 and _CELL.fullmatch(parts[k - 1]):
             k -= 1
-        label = " ".join(parts[:k]).strip(" :")
+        label = re.sub(r"^[-\u2013\u2014\u2022]\s+(?=[A-Za-z])", "", " ".join(parts[:k]).strip(" :"))     # "- Diluted": a list dash
         toks = _cells(parts[k:], hdr["change_cols"])
         if (len(toks) == n + 1 or (len(toks) > n + 1 and re.search(r"[.,%]", toks[1]))) and re.fullmatch(r"\((?:\d|[a-z])\)", toks[0]) and label:
             toks = toks[1:]                 # a footnote marker after the label: "Utilization rate (1) 99.0%"
             label += f" {parts[k]}"
+        elif (len(toks) == n + 1 and label and parts[k] == toks[0] and re.fullmatch(r"[1-9]", toks[0])
+              and (parts[k + 1] == "$" or re.search(r"[.,]", toks[1]))):
+            toks = toks[1:]                 # a bare footnote digit: "Profit 1  $ 8,884", "Diluted 2  472.3" (Caterpillar)
+            label += f" {parts[k]}"
+        if hdr.get("slots") and len(toks) == len(hdr["slots"]):
+            toks = [t for t, kind in zip(toks, hdr["slots"]) if kind == "p"]       # a change column after each group of periods
         if hdr["change_cols"] and len(toks) > n:
             toks = toks[:n]                      # the period columns come first; the rest are changes
         unlabeled = False
@@ -346,7 +535,10 @@ def parse(doc) -> list[dict]:
             lead = _cells(parts[:j], hdr["change_cols"])
             if hdr["change_cols"] and len(lead) > n:
                 lead = lead[:n]
-            if len(lead) == n and heading:
+            net = _net_of_less(rows, table_id, lead) if len(lead) == n else ""
+            if net:
+                label, toks = net, lead                # the line above net of the "Less" line; its section goes on
+            elif len(lead) == n and heading:
                 label, toks, unlabeled = "Total " + _total_heading(groups, heading, lead), lead, True
                 rest = " ".join(parts[j:]).strip(" :")
                 close_after = True               # a total ends its section
@@ -409,12 +601,12 @@ def parse(doc) -> list[dict]:
             sect = label[len("Total "):].strip() if label.startswith("Total ") else ""
             full = f"{sect}: Total" if sect else label
         loc = doc.location(start)
-        statement = statement_of(title)
+        statement = statement_of(title) if titled else "other"
         cols = hdr["cols"]
         if statement == "balance":
             cols = [dict(c, type="instant") for c in cols]
         rows.append({
-            "label": label, "full_label": full, "key": re.sub(r"[^a-z0-9]+", " ", re.sub(r"\([^()]*\d[^()]*\)", " ", label.lower())).strip(),   # "(included $ 134,559 ... at fair value)" is a note, not the label
+            "label": label, "full_label": full, "key": row_key(label, statement in ("income", "balance", "cashflow", "comprehensive", "equity")),
             "heading": heading, "values": vals, "raw": toks, "cols": cols, "header_text": hdr["text"],
             "unit": unit, "scale": scale, "caption": cap["text"], "table_title": title,
             "statement": statement, "unlabeled_total": unlabeled, "footnote": footnote, "block": block,
@@ -431,7 +623,7 @@ def parse(doc) -> list[dict]:
             groups.append([heading, [vals]])
         if fused:
             tl = "Total " + (_total_heading(groups, heading, fused) or heading)
-            rows.append(dict(rows[-1], label=tl, full_label=(f"{tl[len('Total '):].strip()}: Total" if tl[len('Total '):].strip() else tl), key=re.sub(r"[^a-z0-9]+", " ", tl.lower()).strip(),
+            rows.append(dict(rows[-1], label=tl, full_label=(f"{tl[len('Total '):].strip()}: Total" if tl[len('Total '):].strip() else tl), key=row_key(tl),
                              values=[parse_number(t) for t in fused], raw=fused, unlabeled_total=True, row_index=row_index))
             row_index += 1
             groups = []
@@ -450,10 +642,15 @@ def parse(doc) -> list[dict]:
     for r in rows:
         if r["table_id"] in combined:
             r["statement"] = "income"
+    _date_year_columns(rows, doc)
     # the first registrant whose statements are printed is the filer; another registrant's
     # statements (NEE's FPL, Prologis Inc.'s operating partnership L.P.) are a subsidiary's
     key = lambda e: re.sub(r"[^a-z0-9]", "", e.lower())
     first = next((key(r["entity"]) for r in rows if r["statement"] != "other" and r["entity"]), "")
+    first_stmt = next((r for r in rows if r["statement"] != "other"), None)
+    filer = key((getattr(doc, "dei", None) or {}).get("EntityRegistrantName") or "")
+    if first_stmt is not None and not first_stmt["entity"] and filer:
+        first = filer        # the filer's own statements name no entity (Simon Property Group, Inc.); a later set that does is another's
     for r in rows:
         if first and r["statement"] != "other" and r["entity"] and key(r["entity"]) != first and r["scope"] not in ("affiliate", "segment", "supplemental"):
             r["scope"], r["block"], r["other_registrant"] = "subsidiary", r["entity"], True

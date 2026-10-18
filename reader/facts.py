@@ -25,17 +25,20 @@ SCALE = {"": 1.0, "K": 1e3, "M": 1e6, "B": 1e9}
 # key, name, statement, period kind, label patterns (most specific first), unit
 METRICS = [
     ("revenue", "Revenue", "income", "flow",
-     [r"^(total net sales|total revenues?|total net revenues?|total revenue|total operating revenues?)$", r"^(net sales|revenues?|net revenues?|sales|operating revenues?)$"], "USD"),
+     [r"^(total net sales|total revenues?|total net revenues?|total revenue|total operating revenues?|total net operating revenues?|total sales and revenues?)$",
+      r"^(net sales|revenues?|net revenues?|sales|operating revenues?|net operating revenues?|sales and revenues?|sales and other operating revenues?)$"], "USD"),
     ("cost_of_revenue", "Cost of revenue", "income", "flow",
      [r"^(total cost of sales|total cost of revenues?|total cost of revenue)$", r"^(cost of sales|cost of revenues?|cost of goods sold)$"], "USD"),
     ("gross_profit", "Gross profit", "income", "flow", [r"^(gross margin|gross profit)$", r"^margin$"], "USD"),
     ("operating_income", "Operating income", "income", "flow",
      [r"^(operating income|income from operations|operating income loss|earnings from operations|operating loss|loss from operations|total operating profit|operating profit|operating profit loss)$"], "USD"),
     ("net_income", "Net income", "income", "flow",
-     [r"^net (income|earnings|loss)( loss)? attributable to (?!non ?controlling)[a-z0-9 .,&]+$", r"^(net income|net earnings|net income loss|net loss)$"], "USD"),
+     [r"^net (income|earnings|loss)( loss)? attributable to (?!non ?controlling)[a-z0-9 .,&]+$", r"^(net income|net earnings|net income loss|net loss)$",
+      r"^profit( loss)? attributable to (?!non ?controlling)[a-z0-9 .,&]+$", r"^profit( loss)?$"], "USD"),          # Caterpillar: "Profit"
     ("pretax_income", "Income before income taxes", "income", "flow",
      [r"^(income|earnings) (from continuing operations )?before (provision for )?income tax(es)?[a-z ]*$", r"^income loss before income taxes$",
-      r"^(loss|income loss|earnings loss) (from continuing operations )?before (provision for |benefit from )?income tax(es)?$"], "USD"),
+      r"^(loss|income loss|earnings loss) (from continuing operations )?before (provision for |benefit from )?income tax(es)?$",
+      r"^(consolidated )?profit( loss)? before (income )?taxes$"], "USD"),
     ("interest_expense", "Interest expense", "income", "flow",
      [r"^(interest expense|interest expense net|interest and foreign exchange|interest expense net of interest income|interest expense net of capitalized interest)$"], "USD"),
     ("gains_on_dispositions", "Gains on asset dispositions", "income", "flow",
@@ -46,31 +49,34 @@ METRICS = [
     ("nci_income", "Net income attributable to noncontrolling interests", "income", "flow",
      [r"^(less )?net (income|earnings|loss)( loss)? attributable to non ?controlling interests?( and redeemable non ?controlling interests?)?( in subsidiaries)?$"], "USD"),
     ("eps_basic", "Basic EPS", "income", "flow",
-     [r"^basic (earnings|net income) per (common )?share$", r"^basic$", r"^basic (net income|net earnings|earnings) attributable to [a-z0-9 .,&]+$"], "USD/share"),
+     [r"^basic (earnings|net income) per (common )?share$", r"^basic$", r"^basic (net income|net earnings|earnings) attributable to [a-z0-9 .,&]+$",
+      r"^profit per (common )?share( basic)?$"], "USD/share"),
     ("eps_diluted", "Diluted EPS", "income", "flow",
      [r"^diluted (earnings|net income) per (common )?share$", r"^diluted$", r"^diluted (net income|net earnings|earnings) attributable to [a-z0-9 .,&]+$",
       r"^diluted (earnings|net income|net loss) per (common )?share (from|of) consolidated operations$",
-      r"^(net )?(earnings|income) per (common )?share attributable to [a-z0-9 .,&]+ diluted$", r"^assuming dilution$"], "USD/share"),
-    ("shares_diluted", "Diluted weighted-average shares", "income", "flow", [r"^diluted$", r"^diluted (shares|weighted average shares)$", r"^assuming dilution$"], "shares"),
+      r"^(net )?(earnings|income) per (common )?share attributable to [a-z0-9 .,&]+ diluted$", r"^assuming dilution$",
+      r"^profit per (common )?share diluted$"], "USD/share"),
+    ("shares_diluted", "Diluted weighted-average shares", "income", "flow", [r"^diluted$", r"^diluted (shares|weighted average shares)$", r"^assuming dilution$",
+     r"^(weighted )?average (number of )?(common )?shares outstanding (diluted|assuming dilution)$"], "shares"),
     ("cash", "Cash and cash equivalents", "balance", "instant", [r"^cash and cash equivalents$", r"^cash and due from banks$"], "USD"),
     ("inventories", "Inventories", "balance", "instant", [r"^inventories$", r"^inventories net$"], "USD"),
     ("total_assets", "Total assets", "balance", "instant", [r"^total assets$"], "USD"),
     ("total_liabilities", "Total liabilities", "balance", "instant", [r"^total liabilities$"], "USD"),
     ("equity", "Shareholders' equity", "balance", "instant",
-     [r"^total (share|stock)holders( s)? equity$", r"^total (?!liabilities)[a-z .,&]+ (share|stock)holders( s)? equity$", r"^total equity$"], "USD"),
+     [r"^total (share|stock)holders( s)? equity$", r"^total (?!liabilities)(?!.*\b(?:plus|less|minus)\b)[a-z .,&]+ (share|stock)holders( s)? equity$", r"^total equity$"], "USD"),   # not Chevron's "total net debt plus total ... equity"
     ("liab_and_equity", "Total liabilities and equity", "balance", "instant",
      [r"^total liabilities and (share|stock)holders( s)? equity$", r"^total liabilities (and|&) equity$"], "USD"),
     ("cfo", "Operating cash flow", "cashflow", "flow",
-     [r"^(cash generated by operating activities|net cash (provided by|from|generated by|provided by used in|used in provided by) operating activities|net cash from operations)$",
+     [r"^(cash generated by operating activities|net cash (provided by|from|generated by|provided by used in|used in provided by|provided used by|provided used in|used provided by) operating activities|net cash from operations)$",
       # only when no total line exists (a filing with no discontinued operations that still says "continuing")
       r"^net cash (provided by|from|provided by used in) operating activities (of|from) continuing operations$"], "USD"),
     ("capex", "Capital expenditures", "cashflow", "flow",
      [r"^(payments for acquisition of property plant and equipment|capital expenditures|purchases of property( plant)? and equipment|capital expenditures for property and equipment|additions to property plant and equipment|additions to property and equipment|portfolio investments and capital additions)$",
       r"^purchases of property( plant)? and equipment (excluding|net of) [a-z ,]+$"], "USD"),
     ("buybacks", "Share repurchases", "cashflow", "flow",
-     [r"^(repurchases? of (common )?(stock|shares)|purchases? of treasury (stock|shares)|share repurchases?|stock repurchases?|payments for repurchase of common stock|shares repurchased|repurchases? of (common )?stock including excise tax|common stock repurchased|treasury stock repurchased)$"], "USD"),
+     [r"^(repurchases? of (common )?(stock|shares)|purchases? of treasury (stock|shares)|purchases? of stock for treasury|share repurchases?|stock repurchases?|payments for repurchase of common stock|shares repurchased|repurchases? of (common )?stock including excise tax|common stock repurchased|treasury stock repurchased)$"], "USD"),
     ("dividends", "Dividends paid", "cashflow", "flow",
-     [r"^(payments for dividends and dividend equivalents|payments for dividends|dividends paid|cash dividends paid|payments of dividends|cash dividends|dividends|dividends paid to (common )?(stockholders|shareholders)|common stock (cash )?dividends paid|cash dividend payments|dividends paid on common( and preferred)? stock|dividends on common stock)$"], "USD"),
+     [r"^(payments for dividends and dividend equivalents|payments for dividends|dividends paid|cash dividends paid|payments of dividends|cash dividends|dividends|dividends paid to (common )?(stockholders|shareholders)|common stock (cash )?dividends paid|cash dividend payments|dividends paid on common( and preferred)? stock|dividends on common stock|cash dividends (paid )?(on )?common( stock| shares)?)$"], "USD"),
 ]
 METRIC_NAMES = {k: n for k, n, *_ in METRICS}
 DEBT_COMPONENTS = r"^(commercial paper|term debt|long term debt|current portion of long term debt|short term debt|short term borrowings|notes payable|revolving notes|senior notes|current maturities of long term debt|long term debt net|debt net|recourse|non recourse|recourse debt|non recourse debt|total non recourse|total non recourse debt|current portion of debt and finance leases|debt and finance leases net of current portion|current portion of long term debt net|long term debt net of current portion|long term debt excluding current portion|other short term debt|debt)$"
@@ -94,6 +100,44 @@ def fmt_value(v: Optional[float], unit: str) -> str:
 
 
 _MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def _ending_at(text: str, start: int, end: int, size: int = 300) -> str:
+    """A quote of text[start:end] that keeps its end (the figure): when longer than `size`, its opening words give way
+    to "..." (the validator requires the printed figure in the quote)."""
+    a = start
+    if end - start > size:
+        a = text.find(" ", end - size)
+        a = a + 1 if 0 <= a < end else end - size
+    return ("..." if a > start else "") + re.sub(r"\s+", " ", text[a:end]).strip()
+
+
+_LOOSE_GAP = r"[\s\u00a0\u200b-\u200d\u2060\ufeff]*"
+
+
+def _find_loose(body: str, excerpt: str) -> int:
+    """Where a table row's text is in the document when only its spacing differs; -1 when it is not there."""
+    toks = re.sub(r"[\u200b-\u200d\u2060\ufeff]", " ", excerpt or "").split()[:8]
+    if len(toks) < 3:
+        return -1
+    m = re.search(_LOOSE_GAP.join(re.escape(t) for t in toks), body)
+    return m.start() if m else -1
+
+
+def _duration_kind(start: Optional[str], end: str) -> str:
+    """Q, 6M, 9M or FY for an inline XBRL duration, from its length in days: a calendar year (Jan 1 to Dec 31) and a
+    52/53-week year (Dec 28 to Dec 27) are both a year. No start date: a year, as the statements' columns are."""
+    if not start:
+        return "FY"
+    from datetime import date
+    try:
+        days = (date.fromisoformat(end) - date.fromisoformat(start)).days
+    except ValueError:
+        return "unknown"
+    for kind, lo, hi in (("Q", 80, 100), ("6M", 170, 194), ("9M", 260, 287), ("FY", 350, 380)):
+        if lo <= days <= hi:
+            return kind
+    return "unknown"
 
 
 def _exact(v: float, unit: str) -> str:
@@ -136,6 +180,17 @@ def _scope_label(r: dict) -> str:
     return "Consolidated" if r.get("statement", "other") != "other" else "As labeled in the source table"
 
 
+_DEFINITION = ("common", "preferred", "noncontrolling", "tangible")
+# a section of a table about other entities: Simon's "Reconciliation of NOI of unconsolidated entities:" (their net income)
+_OTHER_HEADING = re.compile(r"\b(?:of|from|for) (?:the |our )?(?:unconsolidated|joint ventures?|equity[- ]method|affiliates?)\b", re.I)
+
+
+def _defined_apart(a: str, b: str) -> bool:
+    """Two row labels of different definitions: one says common, preferred, noncontrolling or tangible and the other not."""
+    words = lambda k: {w for w in _DEFINITION if re.search(rf"\b{w}\b", k)}
+    return words(a) != words(b)
+
+
 def _core(r: dict) -> bool:
     """A row of one of the company's own primary statements."""
     return r.get("statement", "other") != "other" and not _scoped(r)
@@ -146,10 +201,11 @@ def _pkey(p: dict) -> tuple:
 
 
 def _match(rows: list, pats: list, with_pattern: bool = False):
-    """Rows whose label matches; the first pattern that matches anything wins."""
+    """Rows whose label matches, with or without the company's own name in front ("Wells Fargo net income");
+    the first pattern that matches anything wins."""
     for pat in pats:
         rx = re.compile(pat)
-        hit = [r for r in rows if rx.search(r["key"])]
+        hit = [r for r in rows if rx.search(r["key"]) or (r.get("key_co") and rx.search(r["key_co"]))]
         if hit:
             return (hit, pat) if with_pattern else hit
     return ([], None) if with_pattern else []
@@ -189,6 +245,13 @@ class FactBook:
         }
 
     def extract(self):
+        # the company's own name in front of a statement label: "Wells Fargo net income" is its net income
+        co = re.sub(r"[^a-z ]", " ", ((getattr(self.doc, "dei", None) or {}).get("EntityRegistrantName") or "").lower().split("/")[0])
+        co = re.sub(r"\s+(?:company|corporation|corp|incorporated|inc|co|ltd|plc|holdings|group|the)\b.*$", "", " ".join(co.split()))
+        if len(co) >= 3:
+            for r in self.rows:
+                if r["statement"] != "other" and r["key"].startswith(co + " "):
+                    r["key_co"] = r["key"][len(co) + 1:]
         for mkey, name, stmt, pkind, pats, unit in METRICS:
             # only rows of the metric's unit compete, so "Basic" in a share
             # count table cannot shadow "Basic net income attributable to ..."
@@ -201,15 +264,19 @@ class FactBook:
             if not hits:
                 hits, used = _match(prim, pats, True)
             secondary = False
-            if not hits and mkey in ("total_assets", "total_liabilities", "equity", "liab_and_equity"):
-                continue                 # a balance total from a note table is another entity's (VIE, affiliate, held for sale)
+            if not hits and mkey in ("total_assets", "total_liabilities", "equity", "liab_and_equity", "gross_profit", "cost_of_revenue"):
+                continue                 # a balance total from a note table is another entity's (VIE, affiliate, held for sale); so is a
+                                         # gross profit or cost of sales (Pfizer's Note 4: a collaboration's), when the statement prints none
             if not hits:
                 h2, used = _match(self.rows, pats, True)
                 hits = [r for r in h2 if r["unit"] == unit and r["statement"] in (stmt, "other") and not _scoped(r)
-                        and not re.search(r"segment|geograph", (r["table_title"] + " " + r["heading"]).lower())]
+                        and not re.search(r"segment|geograph", (r["table_title"] + " " + r["heading"]).lower())
+                        and not (unit == "USD" and r["scale"] in ("K", "M", "B") and all(re.search(r"\.\d\d\)?$", x) for x in r["raw"] if x))]
                 secondary = bool(hits)
             if not hits:
                 continue
+            if mkey == "dividends":
+                hits = sorted(hits, key=lambda r: bool(re.search(r"\bpreferred\b", (r["heading"] + " " + r["full_label"]).lower())))
             row = hits[0]
             periods = []
             for i in range(len(row["values"])):
@@ -268,6 +335,9 @@ class FactBook:
                 f["reasons"].append(f"Matches the inline XBRL tag {x['concept']} for the same period.")
                 if f["status"] == "Source matched":
                     f["status"] = "Cross-checked"
+            elif m == "interest_expense" and x["concept"] == "us-gaap:InterestExpense" and re.search(r"\bnet\b", (f["source"].get("row_label") or "").lower()):
+                f["reasons"].append(f"The inline XBRL tag {x['concept']} ({_exact(x['value'], f['unit'])}) is interest expense before interest income; "
+                                    "the cited row is net of it, so the two are not compared.")
             else:
                 f["conflicts"].append({"value": x["value"], "display": fmt_value(x["value"], f["unit"]), "xbrl_concept": x["concept"], "anchor": x["anchor"]})
                 f["status"] = "Needs review"
@@ -284,14 +354,15 @@ class FactBook:
             ids = []
             for e in ends:
                 x = next(c for c in cands if c["end"] == e)
-                t = "instant" if x["instant"] else {3: "Q", 6: "6M", 9: "9M", 12: "FY"}.get(
-                    (int(e[:4]) - int(x["start"][:4])) * 12 + int(e[5:7]) - int(x["start"][5:7]) if x["start"] else 12, "unknown")
+                t = "instant" if x["instant"] else _duration_kind(x["start"], e)
                 y, mo, dd = e.split("-")
                 col = {"type": t, "end": e, "year": y, "label": f"{_MON[int(mo) - 1]} {int(dd)}, {y}"}
                 per = _period(col, "instant" if t == "instant" else "")
                 fid = f"{mkey}:{t}:{e}"
                 val = -abs(x["value"]) if mkey in ("capex", "buybacks", "dividends") else x["value"]    # tagged as positive payments; shown as outflows like the statement
                 pos = self.doc.body.find(x["excerpt"][:60]) if x.get("excerpt") and len(x["excerpt"]) >= 20 else -1
+                if pos < 0 and x.get("excerpt") and len(x["excerpt"]) >= 20:
+                    pos = _find_loose(self.doc.body, x["excerpt"])    # the row's spacing differs from the tag's text ("67,589  64,809")
                 pg = self.doc.page_at(pos) if pos >= 0 else None
                 self.facts[fid] = {"id": fid, "metric": mkey, "name": name, "kind": "reported", "value": val, "display": fmt_value(val, unit),
                                    "unit": unit, "currency": "USD" if unit.startswith("USD") else None, "scale": "units", "period": per, "scope": "Consolidated",
@@ -321,6 +392,10 @@ class FactBook:
             for i, c in enumerate(r["cols"]):
                 if c.get("year") != f["period"]["year"]:
                     continue
+                if c.get("end") and f["period"].get("end") and c["end"] != f["period"]["end"]:
+                    continue             # another date in the same year (Coca-Cola's cash note: June 27, 2025 beside Dec 31, 2025)
+                if f["period"]["type"] == "instant" and f["period"].get("end") and not c.get("end"):
+                    continue             # a column of the year with no date (Wells Fargo: the year's average beside its year-end balance)
                 ct = c.get("type") or ""
                 if ct and f["period"]["type"] not in ("unknown", ct) and not (f["period"]["type"] == "instant"):
                     continue
@@ -328,8 +403,10 @@ class FactBook:
                 v = r["values"][i] * mult
                 if abs(v - f["value"]) <= max(1e-9, abs(f["value"]) * 0.0005):
                     f["also_reported"].append({"pdf_page": r["pdf_page"], "printed_page": r["printed_page"], "table_title": r["table_title"] or "untitled table", "row_label": r["full_label"]})
-                elif _scoped(r):
-                    continue             # a segment's or affiliate's own table: a different scope
+                elif _scoped(r) or _OTHER_HEADING.search(r.get("heading") or ""):
+                    continue             # a segment's or affiliate's own table or section: a different scope
+                elif _defined_apart(f"{r['heading'].lower()} {r['key']}", f"{own['heading'].lower()} {own['key']}"):
+                    continue             # a different definition: Wells Fargo's common equity against its total equity, its preferred dividend
                 elif ((r["statement"] == own["statement"] and _core(r)) or
                       ((r["statement"] == "other" or not _core(r) and r["statement"] == own["statement"])
                        and abs(v - f["value"]) <= abs(f["value"]) * 0.15)):
@@ -592,20 +669,22 @@ class FactBook:
         self._sum_statement_components("gains_on_dispositions", "Gains on asset dispositions", comp)
 
     def _narrative(self):
-        """Cover-page facts that live in sentences, not tables."""
+        """Cover-page facts that live in sentences, not tables. The market value sentence can carry a long aside before
+        the figure (Coca-Cola: "(assuming for these purposes, but without conceding, that all executive officers ...)");
+        it never crosses a full stop or another dollar sign."""
         head = self.doc.body[:20000]
-        m = re.search(r"aggregate market value of the (?:voting and non-voting )?(?:common )?(?:stock|equity)[^.$]{0,240}?\$\s?([\d,]+(?:\.\d+)?)\s*(billion|million|thousand)?", head, re.I | re.S)
+        m = re.search(r"aggregate market value of (?:the )?(?:[\w\u2019'-]+[ \t]+){0,4}?(?:stock|equity|shares)\b[^.$]{0,400}?\$\s?([\d,]+(?:\.\d+)?)\s*(billion|million|thousand)?", head, re.I | re.S)
         if m:
             v = float(m.group(1).replace(",", "")) * {"billion": 1e9, "million": 1e6, "thousand": 1e3}.get((m.group(2) or "").lower(), 1)
             sent_start = head.rfind("\n", 0, m.start()) + 1
-            dm = re.search(r"as of ([A-Z][a-z]+ \d{1,2}, \d{4})", head[m.start() - 300 if m.start() > 300 else 0:m.end()])
+            dm = re.search(r"(?:as of|on|at) ([A-Z][a-z]+ \d{1,2}, \d{4})", head[m.start() - 300 if m.start() > 300 else 0:m.end()])
             loc = self.doc.location(m.start())
             self.facts["market_value_nonaffiliates"] = {
                 "id": "market_value_nonaffiliates", "metric": "market_value_nonaffiliates", "name": "Market value of equity held by non-affiliates",
                 "kind": "reported", "value": v, "display": fmt_value(v, "USD"), "unit": "USD", "currency": "USD",
                 "period": {"type": "instant", "end": None, "year": None, "label": f"As of {dm.group(1)}" if dm else "Date as stated on the cover"},
                 "scope": "Non-affiliate holders only",
-                "source": {"doc_sha256": self.doc.sha256, **loc, "excerpt": re.sub(r"\s+", " ", head[sent_start:m.end() + 40])[:300], "raw": m.group(0)[-40:], "offset": m.start()},
+                "source": {"doc_sha256": self.doc.sha256, **loc, "excerpt": _ending_at(head, sent_start, m.end() + 40), "raw": m.group(0)[-40:], "offset": m.start()},
                 "method": "Cover page sentence", "status": "Source matched",
                 "reasons": ["Historical figure from the cover page at the stated date. It is not the current market capitalization and excludes affiliate holdings."],
                 "also_reported": [], "conflicts": []}
@@ -667,8 +746,12 @@ class FactBook:
                 if _pkey(ni["period"]) == _pkey(sh["period"]) == _pkey(eps["period"]):
                     implied = ni["value"] / sh["value"]
                     ok = abs(implied - eps["value"]) <= max(0.02, abs(eps["value"]) * 0.02)
+                    common = None if ok else self._common_income(eps["period"])
+                    if common is not None and abs(common / sh["value"] - eps["value"]) <= max(0.02, abs(eps["value"]) * 0.02):
+                        implied, ok = common / sh["value"], True
                     self.checks.append({"name": "Diluted EPS close to Net income / Diluted shares", "period": eps["period"]["label"], "passed": ok,
-                                        "detail": f"{eps['display']} vs implied ${implied:.2f}", "facts": [eps["id"], ni["id"], sh["id"]]})
+                                        "detail": f"{eps['display']} vs implied ${implied:.2f}" + (" (net income applicable to common stock)" if common is not None and ok else ""),
+                                        "facts": [eps["id"], ni["id"], sh["id"]]})
                     if ok:
                         eps["reasons"].append(f"Consistent with Net income / Diluted shares (implied ${implied:.2f}).")
                         if eps["status"] == "Source matched":
@@ -676,6 +759,18 @@ class FactBook:
                     else:
                         eps["status"] = "Needs review"
                         eps["reasons"].append(f"Net income / diluted shares gives ${implied:.2f}; differs from the printed EPS (attribution or share class differences can explain this).")
+
+    def _common_income(self, per: dict):
+        """Net income applicable to common stock for the period, from the company's own income statement, or None:
+        Wells Fargo takes preferred dividends off net income before EPS ($20,285 million of its $21,338 million)."""
+        rx = re.compile(r"\bnet (?:income|earnings)(?: loss)? (?:applicable|available|attributable) to common\b")
+        for r in self.rows:
+            if r["statement"] != "income" or not _core(r) or r["unit"] != "USD" or not rx.search(r["key"]):
+                continue
+            for i, c in enumerate(r["cols"]):
+                if _pkey(_period(c, "flow")) == _pkey(per):
+                    return r["values"][i] * SCALE.get(r["scale"], 1.0)
+        return None
 
     # ------------------------------------------------------------------
     def calc(self, cid: str, name: str, formula: str, inputs: list, fn, unit: str, note: str = "") -> dict:

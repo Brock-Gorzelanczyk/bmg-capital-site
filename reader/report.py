@@ -23,6 +23,51 @@ _LISTED = re.compile(r"(?<![\w&'’.\-])((?:[A-Z][\w&'’.\-]*,?[ \t]+(?:&[ \t]+
                      r"(?:NYSE American|NYSE MKT|NYSE|NASDAQ|Nasdaq|AMEX|TSX)[ \t]*:[ \t]*([A-Z]{1,5}(?:\.[A-Z])?)\)")
 
 
+# a release with no listing mark names itself in its dateline: "ATLANTA, July 28, 2026 – The Coca-Cola Company today reported",
+# "INDIANAPOLIS, August 10, 2026 – Simon(R), a real estate investment trust engaged in ..., dining, ..., today reported"
+_DATELINE_NAME = re.compile(r"(?m)^[ \t]*[A-Z][A-Za-z.' \-]{2,40},(?:[ \t][A-Z][A-Za-z.]+,)?[ \t](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?[ \t]"
+                            r"\d{1,2},?[ \t](?:19|20)\d\d[ \t]*(?:/[^/\n]{2,40}/)?[ \t]*[\u2013\u2014\-]+[ \t]*"
+                            r"((?:The[ \t]+)?[A-Z][\w&'\u2019.\-]*(?:,?[ \t]+(?:&[ \t]+)?[A-Z][\w&'\u2019.\-]*){0,5})[\u00ae\u2122]?(?:,[^\n]{2,200}?,)?[ \t]+"
+                            r"(?:today|reported|announced|reports|announces)\b")
+# and its quarter in its own words: "Coca-Cola Reports Second Quarter 2026 Results", "Caterpillar Reports Second-Quarter 2026
+# Results", "Fourth-Quarter and Full-Year 2025 Results" (never a quarter named later in the text, which may be the prior year's)
+_RELEASE_PERIOD = re.compile(r"(?i)\b(?:reports?|reported|announces?|announced)\b[^.\n]{0,40}?\b(first|second|third|fourth|march|june|september|december)[ \t\-\u2010\u2011]+quarter(?P<fy>\s+and\s+(?P<fyw>full|fiscal)[ \t\-\u2010\u2011]+year)?\s+"
+                             r"(?:of[ \t]+)?(fiscal[ \t]+(?:year[ \t]+)?|FY[ \t]?)?((?:19|20)\d\d)\b")
+# "Adobe Reports Record Q3 Results ... its third quarter FY2026", "Q4 and FY2025"
+_RELEASE_Q = re.compile(r"(?i)\b(?:reports?|reported|announces?|announced)\b[^.\n]{0,40}?\bQ([1-4])[ \t]+(?P<qfy>and[ \t]+)?(FY[ \t]?|fiscal[ \t]+)?((?:19|20)\d\d)\b")
+# the year first: "GATX Corporation Reports 2026 Second-Quarter Results", Apple's "results for its fiscal 2026 third quarter"
+_RELEASE_YQ = re.compile(r"(?i)\b(?:reports?|reported|announces?|announced)\b(?:[^.\n]|\.(?=\d)){0,60}?\b(fiscal[ \t]+)?((?:19|20)\d\d)[ \t\-\u2010\u2011]+"
+                         r"(first|second|third|fourth)[ \t\-\u2010\u2011]+quarter\b")
+# the quarter by its end: Goldman Sachs "today reported net revenues of $18.68 billion ... for the third quarter ended September 30, 2026"
+_RELEASE_ENDED = re.compile(r"(?i)\b(?:reports?|reported|announces?|announced)\b(?:[^.\n]|\.(?=\d)|\n(?=[a-z$\d])){0,200}?\bfor (?:the|its) (first|second|third|fourth)[ \t]+quarter[ \t]+"
+                            r"ended[ \t]+((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?[ \t]+\d{1,2},[ \t]+(?:19|20)\d\d)")
+
+
+def _release_period(head: str):
+    """A release's quarter in its own words, from the earliest statement of it in the head: (label, match) or (None, None)."""
+    found = [m for m in (_RELEASE_PERIOD.search(head), _RELEASE_Q.search(head), _RELEASE_YQ.search(head), _RELEASE_ENDED.search(head)) if m]
+    if not found:
+        return None, None
+    m = min(found, key=lambda x: x.start())
+    if m.re is _RELEASE_PERIOD:
+        fy = f"and {m.group('fyw').lower()} year " if m.group("fy") else ""
+        return f"{_ORDINAL.get(m.group(1), m.group(1).capitalize())} quarter {fy}{'fiscal ' if m.group(4) else ''}{m.group(5)}", m
+    if m.re is _RELEASE_Q:
+        both = "and fiscal year " if m.group("qfy") and m.group(3) else "fiscal " if m.group(3) else ""
+        return f"{_ORDINAL[m.group(1)]} quarter {both}{m.group(4)}", m
+    if m.re is _RELEASE_YQ:
+        return f"{m.group(3).capitalize()} quarter {'fiscal ' if m.group(1) else ''}{m.group(2)}", m
+    ended = " ".join(m.group(2).split())
+    return f"{m.group(1).capitalize()} quarter ended {ended}", m
+
+
+_TITLE_NAME = re.compile(r"(?m)(?:^|\|)[ \t]*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?[ \t]+\d{1,2},[ \t]+(?:19|20)\d\d[ \t]+)?"
+                         r"((?:[A-Z][\w&'\u2019.\-]*[ \t]+){0,4}?[A-Z][\w&'\u2019.\-]*)[\u00ae\u2122]?[ \t]+(?i:reports|announces|reported|announced)[ \t]+"
+                         r"(?i:record[ \t]+)?(?i:(?:first|second|third|fourth)[ \t\-\u2010\u2011]+quarter|Q[1-4]\b|(?:march|june|september|december)[ \t]+quarter|(?:19|20)\d\d|fiscal|full[ \t\-]year|results|earnings)")
+_EXCHANGE_NAME = re.compile(r"(?i)stock exchange|stock market|^(?:the )?(?:nyse|nasdaq)\b")
+_ORDINAL = {"1": "First", "2": "Second", "3": "Third", "4": "Fourth"}
+
+
 def _company(doc) -> dict:
     head = doc.body[:15000]
     dei = getattr(doc, "dei", None) or {}
@@ -44,15 +89,24 @@ def _company(doc) -> dict:
     form = (form_m.group(1) or form_m.group(2)).upper() if form_m else None
     # no registrant cover (an earnings release, a call): the name the document gives with its listing,
     # "GATX Corporation (NYSE: GATX) today reported", "PepsiCo, Inc. (NASDAQ: PEP)"
-    listed_m = None if (name_m or dei.get("EntityRegistrantName")) else _LISTED.search(head[:6000])
+    # the company with its listing, never the exchange ("listed on the New York Stock Exchange (NYSE: HD)")
+    listed_any = None if (name_m or dei.get("EntityRegistrantName")) else _LISTED.search(head[:6000])
+    listed_m = listed_any and next((m for m in _LISTED.finditer(head[:6000]) if not _EXCHANGE_NAME.search(m.group(1).strip())), None)
+    line_m = None if (name_m or dei.get("EntityRegistrantName") or listed_m) else _DATELINE_NAME.search(head[:6000])
+    title_m = None if (name_m or dei.get("EntityRegistrantName") or listed_m or line_m) else next(
+        (m for m in _TITLE_NAME.finditer(head[:6000]) if m.group(1).strip().lower() not in ("company", "the company")), None)
+    rel_label, rel_m = (None, None) if (per_m or form_m) else _release_period(head[:4000])
     return {
         "name": dei.get("EntityRegistrantName") or (re.sub(r"\s+", " ", name_m.group(1)).strip() if name_m else None)
-                or (re.sub(r"\s+", " ", listed_m.group(1)).strip(" ,") if listed_m else None),
-        "ticker": tick or (dei.get("TradingSymbol") or None) or (listed_m.group(2) if listed_m else None), "form": form or (dei.get("DocumentType") or None), "amendment": bool(form and form.endswith("/A")),
-        "period": ((("Fiscal year ended " if per_m.group(1).lower() == "fiscal year" else "Quarter ended ") + re.sub(r"\s+", " ", per_m.group(2))) if per_m else None),
+                or (re.sub(r"\s+", " ", listed_m.group(1)).strip(" ,") if listed_m else None)
+                or (re.sub(r"\s+", " ", line_m.group(1)).strip(" ,") if line_m else None)
+                or (re.sub(r"\s+", " ", title_m.group(1)).strip(" ,") if title_m else None),
+        "ticker": tick or (dei.get("TradingSymbol") or None) or ((listed_m or listed_any).group(2) if (listed_m or listed_any) else None), "form": form or (dei.get("DocumentType") or None), "amendment": bool(form and form.endswith("/A")),
+        "period": ((("Fiscal year ended " if per_m.group(1).lower() == "fiscal year" else "Quarter ended ") + re.sub(r"\s+", " ", per_m.group(2))) if per_m
+                   else rel_label),
         "exchange": exch_m.group(1) if exch_m else None,
         "signature_date": sig.group(1) if sig else None,
-        "evidence": {"name": loc(name_m or listed_m), "form": loc(form_m), "period": loc(per_m), "signature_date": loc(sig)},
+        "evidence": {"name": loc(name_m or listed_m or line_m or title_m), "form": loc(form_m), "period": loc(per_m or rel_m), "signature_date": loc(sig)},
     }
 
 
@@ -121,7 +175,12 @@ def calculations(fb, bank: bool = False) -> None:
         sfx = "cur" if which == 0 else "prior"
         rev, gp, oi, ni = fb.get("revenue", which), fb.get("gross_profit", which), fb.get("operating_income", which), fb.get("net_income", which)
         if not bank:
-            calcs.append(fb.calc(f"gross_margin:{sfx}", "Gross margin", "Gross profit / Revenue", [("Gross profit", gp), ("Revenue", rev)], F.ratio, "percent"))
+            cost = fb.get("cost_of_revenue", which)
+            if not gp and cost and rev:          # no gross profit line (Pfizer): from the statement's own revenue and cost of sales
+                calcs.append(fb.calc(f"gross_margin:{sfx}", "Gross margin", "(Revenue - |Cost of revenue|) / Revenue", [("Revenue", rev), ("Cost of revenue", cost)],
+                                     lambda r, c: F.ratio(r - abs(c), r), "percent"))
+            else:
+                calcs.append(fb.calc(f"gross_margin:{sfx}", "Gross margin", "Gross profit / Revenue", [("Gross profit", gp), ("Revenue", rev)], F.ratio, "percent"))
         calcs.append(fb.calc(f"operating_margin:{sfx}", "Operating margin", "Operating income / Revenue", [("Operating income", oi), ("Revenue", rev)], F.ratio, "percent"))
         calcs.append(fb.calc(f"net_margin:{sfx}", "Net margin", "Net income / Revenue", [("Net income", ni), ("Revenue", rev)], F.ratio, "percent"))
         if not bank:
@@ -262,6 +321,13 @@ def build(doc, rows: list, fb: "F.FactBook", claims: Optional[list] = None, anal
                            "message": f"The {'income statement' if k == 'income' else 'balance sheet' if k == 'balance' else 'cash flow statement'} "
                                       f"was located on {'PDF ' if doc.kind == 'pdf' else ''}page {pg} but its table could not be read; "
                                       "its figures are missing from this report rather than estimated."})
+    # a 10-K that incorporates its statements by reference from its annual report (Wells Fargo: exhibit 13): say where they are
+    if not any(stm.values()) and re.search(r"(?is)incorporated\s+(?:herein\s+)?by\s+reference.{0,600}?annual\s+report\s+to\s+(?:share|stock)holders"
+                                           r"|annual\s+report\s+to\s+(?:share|stock)holders.{0,600}?incorporated\s+(?:herein\s+)?by\s+reference", doc.body[:60000]):
+        issues.append({"type": "incorporated_by_reference",
+                       "message": "This 10-K incorporates its financial statements by reference from the Annual Report to Shareholders, which is filed as "
+                                  "a separate document (exhibit 13); they are not in this file. Load the filing by ticker in the Crawler, which reads exhibit 13 "
+                                  "when it holds the annual report, or open exhibit 13 from the filing's index on SEC EDGAR."})
     limited = len(published) < 4
     status = "Partial" if (not all(stm.values()) or limited or any(i["type"] == "unreadable_statement" for i in issues) or doc.warnings and any(w["code"] == "incomplete" or (w["code"] == "truncated" and not _body_complete(doc)) or (w["code"] == "empty_pages" and len(_body_pages(doc, w.get("pages", []))) > max(3, len(doc.pages) * 0.05))
                                     for w in doc.warnings)) else "Complete for the items listed"

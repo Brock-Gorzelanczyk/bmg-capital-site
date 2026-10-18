@@ -112,6 +112,18 @@ def run(data: bytes, kind: str, title: str, ticker: Optional[str] = None,
     if company and not rep["company"].get("name"):
         rep["company"]["name_hint"] = company          # SEC EDGAR's name for the ticker; the document itself did not name the company
     rep = schema.validate(rep)
+    # Altman Z, Piotroski F and Beneish M from this filing's own statement lines (withdrawn figures are not used)
+    from . import scores as _scores
+    try:
+        rep["scores"] = _scores.build(fb, rows, prof, doc)
+    except Exception as e:                   # never lose a finished report to the extra analysis
+        rep["scores"] = {"status": "not computed", "reason": f"The scores could not be computed ({e.__class__.__name__})."}
+    # segment revenue and profit (and the other lines tagged by segment) from the filing's inline XBRL, with the KPIs by period
+    from . import segments as _segments
+    try:
+        rep["segments"] = _segments.build(doc, rep)
+    except Exception as e:
+        rep["segments"] = {"source": None, "segments": [], "products": [], "regions": [], "kpis": [], "note": f"Segment tables could not be built ({e.__class__.__name__})."}
     # optional second check (Claude re-reads each statement figure on its page); off without ANTHROPIC_API_KEY
     from . import verify as _verify
     rep["second_check"] = _verify.run(rep, doc.body, doc.page_starts)
@@ -135,4 +147,5 @@ def run(data: bytes, kind: str, title: str, ticker: Optional[str] = None,
          second_check=sc["status"], **({"checked": sc["checked"], **sc["counts"]} if sc["status"] == "done" else {}))
 
     return {"report": rep, "text": doc.body, "page_starts": doc.page_starts, "sha256": doc.sha256,
-            "title": title, "kind": kind, "pages": len(doc.pages), "insights": ins}
+            "title": title, "kind": kind, "pages": len(doc.pages), "insights": ins,
+            "sections": [{"item": s.item, "title": s.title, "offset": s.offset, "page": s.page} for s in doc.sections]}
