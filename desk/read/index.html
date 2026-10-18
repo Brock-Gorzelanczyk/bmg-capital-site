@@ -4510,7 +4510,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     state.doneHook = () => done(res);
     setStatus("presenting results: each finding is highlighted where the server found it");
     skipBtn.hidden = false;
-    state.jumpPage = fname.endsWith(".pdf") ? statementsPage(rp) : null;
+    // PDFs and HTML filings (everything loaded by ticker from EDGAR) both get Jump to statements
+    state.jumpPage = fname.endsWith(".pdf") || /\.html?$/.test(fname) ? statementsPage(rp) : null;
+    state.jumpEl = null;
     if (jumpBtn) jumpBtn.hidden = !state.jumpPage;
     const ok = await loadDocAndWalk({type: "document", doc_id: "job-" + res.sha256, host: res.title, title: res.title,
       doc_type: (res.kind || "").toUpperCase(), ticker: co.ticker || "", has_text: true, fetched_at: new Date().toISOString()});
@@ -4969,10 +4971,37 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // The events stream then reports "cancelled" (or "done" if it finished first).
   });
   skipBtn.addEventListener("click", skipWalk);
-  // Jump the walk to the first page of the consolidated statements (PDFs):
+  // Jump the walk to the first page of the consolidated statements (PDFs and HTML filings):
   // the camera moves there and the spider rides along; everything passed on
   // the way is still listed in the panel.
   const jumpBtn = document.getElementById("read-jump");
+  // The first word of a page of an HTML filing, with pages numbered the way the server numbers them
+  // (reader/htmltext.py): a page ends at an element styled page-break-before (before it) or
+  // page-break-after (after it), and a stretch with no text is not counted as a page.
+  const PAGE_BREAK = /page-break-(before|after)\s*:\s*always|break-(before|after)\s*:\s*page/i;
+  function htmlPageStart(root, page){
+    let n = 1, hasText = false, found = null;
+    const close = () => { if (hasText){ n++; hasText = false; } };
+    (function walk(el){
+      for (const k of el.children){
+        if (found) return;
+        const m = (k.getAttribute("style") || "").match(PAGE_BREAK), side = m ? (m[1] || m[2] || "").toLowerCase() : "";
+        if (side === "before") close();
+        if (k.classList.contains("w")){
+          if (k.textContent.trim()){ if (!hasText && n === page){ found = k; return; } hasText = true; }
+        } else if (k.children.length) walk(k);
+        if (side === "after") close();
+      }
+    })(root);
+    return found;
+  }
+  function jumpTarget(){
+    if (!state.jumpPage) return null;
+    const pg = docBody.querySelectorAll(".pdfpage")[state.jumpPage - 1];
+    if (pg) return pg;
+    const h = docBody.querySelector(".htmldoc");
+    return h ? (state.jumpEl && state.jumpEl.isConnected ? state.jumpEl : (state.jumpEl = htmlPageStart(h, state.jumpPage))) : null;
+  }
   function statementsPage(rep){
     const pages = Object.values(rep.evidence.facts).filter(f => f.source && f.source.pdf_page && ["income", "balance", "cashflow"].includes(f.source.statement)
       && /^(condensed )?consolidated/i.test(f.source.table_title || "")).map(f => f.source.pdf_page);
@@ -4982,10 +5011,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     jumpBtn.hidden = true;
     // apply once the walk is running (the camera owns the scroll position then)
     const token = state.loadToken;          // a new run cancels a pending jump
+    let tries = 0;
     const go = () => {
       if (token !== state.loadToken || state.walkSkipped) return;
-      const pg = state.jumpPage && docBody.querySelectorAll(".pdfpage")[state.jumpPage - 1];
-      if (!pg){ setTimeout(go, 300); return; }               // pages are still being laid out
+      const pg = jumpTarget();
+      if (!pg){ if (++tries < 100) setTimeout(go, 300); return; }   // pages are still being laid out
       if (state.walkState && state.walkState.done && state.rows) return;
       if (!state.walkState || state.walkState.done || state.scrollPos == null){ setTimeout(go, 150); return; }
       // land with the first statement page just below the reading line, so every row is read in view
