@@ -5003,8 +5003,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     return h ? (state.jumpEl && state.jumpEl.isConnected ? state.jumpEl : (state.jumpEl = htmlPageStart(h, state.jumpPage))) : null;
   }
   function statementsPage(rep){
-    const pages = Object.values(rep.evidence.facts).filter(f => f.source && f.source.pdf_page && ["income", "balance", "cashflow"].includes(f.source.statement)
-      && /^(condensed )?consolidated/i.test(f.source.table_title || "")).map(f => f.source.pdf_page);
+    const prim = Object.values(rep.evidence.facts).filter(f => f.source && f.source.pdf_page && ["income", "balance", "cashflow"].includes(f.source.statement));
+    // "Consolidated ..." titles first; some filers title them plainly ("INCOME STATEMENTS", "BALANCE SHEETS")
+    const cons = prim.filter(f => /^(condensed )?consolidated/i.test(f.source.table_title || ""));
+    const pages = (cons.length ? cons : prim).map(f => f.source.pdf_page);
     return pages.length ? Math.min(...pages) : null;
   }
   if (jumpBtn) jumpBtn.addEventListener("click", () => {
