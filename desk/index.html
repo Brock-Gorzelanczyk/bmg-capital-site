@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/site.187e1258.css">
+<link rel="stylesheet" href="../site.187e1258.css">
 <style>
 /* /desk-specific layout rules (house CSS only, no new fonts, no animations). */
 .desk-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
@@ -35,34 +35,34 @@
   .desk-strip, .desk-timeline, .rail-panel { grid-template-columns: 1fr; }
 }
 </style>
-<!-- bmg-theme --><link rel="stylesheet" href="/assets/theme.css"><script>try{if(localStorage.getItem("bmg-theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script><script src="/assets/theme.js" defer></script>
+<!-- bmg-theme --><link rel="stylesheet" href="../assets/theme.css"><script>try{if(localStorage.getItem("bmg-theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script><script src="../assets/theme.js" defer></script>
 </head>
 <body>
 <header class="site-header">
   <div class="site-header-inner">
-    <a class="brand" href="/" aria-label="BMG Capital home">
+    <a class="brand" href="../" aria-label="BMG Capital home">
       <span class="brand-mark">
         <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden="true"><polyline points="5,23 12,15 18,19 27,8" fill="none" stroke="#3ddc84" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"></polyline></svg>
       </span>
       <span class="brand-wm">BMG CAPITAL</span>
     </a>
     <nav aria-label="Main" class="site-nav">
-      <a href="/">Home</a>
-      <a href="/tool/">Research tool</a>
-  <a href="/desk/read/">Crawler</a>
-      <a href="/desk/" aria-current="page">Desk</a>
-      <a href="/desk/live/">Desk live</a>
-      <a href="/research.html">Research</a>
+      <a href="../">Home</a>
+      <a href="../tool/">Research tool</a>
+  <a href="../desk/read/">Crawler</a>
+      <a href="../desk/" aria-current="page">Desk</a>
+      <a href="../desk/live/">Desk live</a>
+      <a href="../research.html">Research</a>
     </nav>
   </div>
 </header>
 <main class="container">
-  <h1>The Desk <a href="/desk/live/" style="font-size: 0.6em; font-weight: normal; margin-left: 1rem;">Watch it work -&gt;</a></h1>
+  <h1>The Desk <a href="../desk/live/" style="font-size: 0.6em; font-weight: normal; margin-left: 1rem;">Watch it work -&gt;</a></h1>
   <p class="subtle">Live research intake. Every item below is a real row from <code>/desk/feed</code> with a real link. No animations, no fake activity, no article bodies, no paywalled sources.</p>
 
   <section id="ticker-strip" aria-label="Covered tickers">
     <div class="desk-strip" id="strip-cards">
-      <div class="desk-card" data-ticker="GATX">
+      <div class="desk-card" data-ticker="GATX" data-kpi="1">
         <h3>GATX <span class="meta">NYSE: GATX</span></h3>
         <div class="meta">Price <span data-field="price">$162.78</span> &middot; <span data-field="price_date">2026-10-08</span></div>
         <div class="meta">Rating <span data-field="rating" class="hold">HOLD</span> &middot; Target <span data-field="target">$161.99</span></div>
@@ -135,7 +135,7 @@
   }
 
   async function loadKpi(ticker) {
-    const url = "/data/" + ticker.toLowerCase() + "-kpis.json";
+    const url = "../data/" + ticker.toLowerCase() + "-kpis.json";
     try {
       const r = await fetch(url, { cache: "no-store" });
       if (!r.ok) return null;
@@ -145,26 +145,30 @@
     }
   }
 
+  // A line is crossed when the latest value is past it: under a "below" line, over an "above" line
+  // (monitoring/THRESHOLDS.md, operator lt or gt). Only kill lines ("Kill line: ...") set the light;
+  // a crossed watch line (a signpost) is named in the note, never red.
   function killLight(kpi) {
     if (!kpi || !kpi.kpis) return { cls: "kill-unknown", note: "kill criteria data not available" };
-    let anyFired = false, anyNear = false;
+    const fired = [], near = [], watch = [];
     for (const k of kpi.kpis) {
       if (k.line == null) continue;
       const vals = (k.values || []).filter(v => v !== null && v !== undefined);
       if (!vals.length) continue;
       const latest = vals[vals.length - 1];
-      const dir = (k.line_rule === "below") ? -1 : 1;
-      const diff = dir * (latest - k.line);
-      if (diff <= 0) anyFired = true;
-      else if (Math.abs(latest - k.line) / Math.abs(k.line) < 0.10) anyNear = true;
+      const room = k.line_rule === "above" ? k.line - latest : latest - k.line;
+      if (!/^kill/i.test(k.line_label || "")) { if (room < 0) watch.push(k.name); continue; }
+      if (room < 0) fired.push(k.name);
+      else if (room / Math.abs(k.line) < 0.10) near.push(k.name);
     }
-    if (anyFired) return { cls: "kill-red", note: "kill criterion fired" };
-    if (anyNear) return { cls: "kill-amber", note: "within 10% of a kill trigger" };
-    return { cls: "kill-green", note: "all kill triggers > 10% away" };
+    const w = watch.length ? "; watch line crossed: " + watch.join(", ") : "";
+    if (fired.length) return { cls: "kill-red", note: "kill criterion fired: " + fired.join(", ") + w };
+    if (near.length) return { cls: "kill-amber", note: "within 10% of a kill trigger: " + near.join(", ") + w };
+    return { cls: "kill-green", note: "all kill triggers > 10% away" + w };
   }
 
   async function updateStrip() {
-    for (const card of document.querySelectorAll("#strip-cards .desk-card")) {
+    for (const card of document.querySelectorAll("#strip-cards .desk-card[data-kpi]")) {
       const t = card.dataset.ticker;
       const kpi = await loadKpi(t);
       if (kpi) {
@@ -195,7 +199,7 @@
       const html = items.length ? items.map(it => {
         const fetched = new Date(it.fetched_at);
         const isNew = (now - fetched.getTime()) < 24*3600*1000;
-        const docLink = it.text_path ? '<a href="/desk/doc/' + it.id + '">text</a>' : '';
+        const docLink = it.text_path ? '<a href="../desk/doc/' + it.id + '">text</a>' : '';
         const src = it.source_url ? '<a href="' + it.source_url + '" rel="noopener">source</a>' : '';
         return '<div class="desk-item"><span class="badge">' + badgeFor(it.type) + '</span>' + (isNew ? '<span class="badge badge-new">new</span>' : '') + ' ' + (it.title||"(no title)") + ' <span class="meta">' + fmtDate(it.published_at||it.fetched_at) + '</span> ' + src + ' ' + docLink + '</div>';
       }).join("") : '<div class="desk-item subtle">no items in last 90 days</div>';

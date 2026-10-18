@@ -6582,7 +6582,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     return `<h2 id="rp-peers">Peers</h2>
       <p class="rp-note">${esc(j.company || t)} files under SEC industry code ${esc(j.sic || "n/a")}${j.sic_name ? ` (${esc(j.sic_name)})` : ""}. Suggested: companies with that code that filed a 10-K in the last 18 months, nearest in revenue first. Click one to add it, or type any tickers.</p>
       <div class="rt-sug">${sug.map(s => `<button type="button" data-peer="${esc(s.ticker)}" title="${esc(s.company)}${s.revenue ? " · revenue " + fmtUSD(s.revenue) + " in " + s.revenue_year : ""}">${esc(s.ticker)}<small>${esc(s.company.slice(0, 28))}</small></button>`).join("") || '<span class="muted">No suggestions for this industry code.</span>'}</div>
-      <div class="rt-peerform"><input type="text" class="rt-peers-in" value="${esc(D.peersIn != null ? D.peersIn : sug.slice(0, 5).map(s => s.ticker).join(", "))}" aria-label="Peer tickers, separated by commas" placeholder="Peer tickers, for example TRN, GBX"><button type="button" class="rt-peers-go">Compare</button></div>
+      <div class="rt-peerform"><input type="text" class="rt-peers-in" value="${esc(D.peersIn != null ? D.peersIn : sug.slice(0, 5).map(s => s.ticker).join(", "))}" aria-label="Peer tickers, separated by commas" placeholder="Peer tickers, for example LOW, FND"><button type="button" class="rt-peers-go">Compare</button></div>
       <div class="rt-peers-out">${D.peersOut || ""}</div>`;
   }
   function wirePeers(box){
