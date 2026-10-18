@@ -137,13 +137,20 @@ def _fact(F: dict, C: dict, rid: Optional[str]) -> Optional[dict]:
     return x if x and x.get("value") is not None and x.get("status") != "Unavailable" else None
 
 
+def _when(per: dict) -> str:
+    """A figure's period for a caption: a quarter or year to date in words ("six months ended jun 30, 2026"), since "6m ended"
+    reads as six million to the number check (Simon's release, 2026-10-18); a year and a date as the report shows them."""
+    per = per or {}
+    words = per.get("label") if per.get("type") in ("Q", "6M", "9M") else None
+    return (words or per.get("short") or per.get("label") or "").lower()
+
+
 def _src(x: dict, doc: str) -> dict:
     s = x.get("source") or {}
     page = s.get("pdf_page")
     printed = s.get("printed_page")
     where = f"{doc}, p.{page}" + (f" (printed {printed})" if printed and str(printed) != str(page) else "") if page else doc
-    per = x.get("period") or {}
-    return {"where": where, "page": page, "raw": s.get("raw"), "quote": (s.get("excerpt") or "")[:240], "period": (per.get("short") or per.get("label") or "").lower()}
+    return {"where": where, "page": page, "raw": s.get("raw"), "quote": (s.get("excerpt") or "")[:240], "period": _when(x.get("period"))}
 
 
 def ideas_from_read(entry: dict, result: dict) -> list:
@@ -173,7 +180,7 @@ def ideas_from_read(entry: dict, result: dict) -> list:
     out = []
     rev, rev0 = pair("revenue")
     ni, ni0 = pair("net_income")
-    period = ((rev or ni or {}).get("period") or {}).get("short") or ((rev or ni or {}).get("period") or {}).get("label") or ""
+    period = _when((rev or ni or {}).get("period"))
     # 1. contradiction: sales and profit moved in opposite directions
     if rev and rev0 and ni and ni0 and rev0["value"] > 0 and ni0["value"] > 0 and ni["value"] > 0:
         dr, dn = rev["value"] / rev0["value"] - 1, ni["value"] / ni0["value"] - 1

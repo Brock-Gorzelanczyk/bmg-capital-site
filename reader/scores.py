@@ -33,9 +33,9 @@ SCALE = {"": 1.0, "K": 1e3, "M": 1e6, "B": 1e9}
 LINES = {
     "current_assets": ("balance", [r"^total current assets$"]),
     "current_liabilities": ("balance", [r"^total current liabilities$"]),
-    "receivables": ("balance", [r"^(accounts|trade) receivables?( net)?( of allowances?[a-z0-9 ,.$]*)?$", r"^receivables?( net)?$",
+    "receivables": ("balance", [r"^(accounts|trade) receivables?( net)?( of (an |the )?allowances?[a-z0-9 ,.$]*)?$", r"^receivables?( net)?$",
                                 r"^(accounts|trade) receivables? less allowances?[a-z0-9 ,.$]*$", r"^accounts and notes receivable( net)?$"]),
-    "ppe": ("balance", [r"^(total )?property plant and equipment( net)?( of accumulated depreciation[a-z0-9 ,.$]*)?$",
+    "ppe": ("balance", [r"^(total )?propert(y|ies) plant and equipment( net)?( of accumulated depreciation[a-z0-9 ,.$]*)?$",   # Chevron: "Properties, plant ..."
                         r"^(total )?property and equipment( net)?( of accumulated depreciation[a-z0-9 ,.$]*)?$",
                         r"^net property plant and equipment$", r"^net property and equipment$", r"^property plant and equipment at cost net$"]),
     "retained_earnings": ("balance", [r"^retained earnings( accumulated deficit)?$", r"^accumulated deficit$", r"^(accumulated deficit|retained earnings) (accumulated deficit|retained earnings)$",
@@ -131,11 +131,11 @@ def _line(rows: list, key: str, end: Optional[str]) -> Optional[dict]:
     return None
 
 
-def _xbrl_line(doc, key: str, end: Optional[str], instant: bool, near_page: Optional[int] = None) -> Optional[dict]:
+def _xbrl_line(doc, key: str, end: Optional[str], instant: bool, near_page: Optional[int] = None, concept_only: Optional[str] = None) -> Optional[dict]:
     """The line as the filer tagged it (consolidated, no dimensions), with the page where its table row is printed."""
     if not doc or not getattr(doc, "xbrl", None) or not end:
         return None
-    for concept in XBRL.get(key, []):
+    for concept in ([concept_only] if concept_only else XBRL.get(key, [])):
         cands = [f for f in doc.xbrl if f["concept"] == concept and not f["dims"] and f["instant"] == instant and _near(f["end"], end)]
         cands.sort(key=lambda f: f["end"] != end)          # the exact date first
         for f in cands:
@@ -148,6 +148,20 @@ def _xbrl_line(doc, key: str, end: Optional[str], instant: bool, near_page: Opti
             return {"value": f["value"], "display": fmt_value(f["value"], "USD"), "end": f["end"], "page": page, "printed_page": doc.printed_page(page) if page else None,
                     "raw": f.get("raw"), "quote": ex[:240], "xbrl": concept, "anchor": f.get("anchor")}
     return None
+
+
+def _xbrl_pair(doc, key: str, now_end: Optional[str], before_end: Optional[str], instant: bool, near_page: Optional[int] = None):
+    """This year's and last year's line from the same tag, the first tagged for both: Chevron tags its trade receivables (a
+    note's sentence) for 2025 only, so 2025 came from that tag and 2024 from "accounts and notes receivable", two definitions
+    in one index. A tag for this year only when none has both."""
+    first = None
+    for concept in XBRL.get(key, []):
+        cn = _xbrl_line(doc, key, now_end, instant, near_page, concept)
+        cb = _xbrl_line(doc, key, before_end, instant, near_page, concept) if cn else None
+        if cn and cb:
+            return cn, cb
+        first = first or cn
+    return first, None
 
 
 def _div(a: Optional[float], b: Optional[float]) -> Optional[float]:
@@ -189,7 +203,7 @@ def build(fb, rows: list, profile: str = "", doc=None) -> dict:
         if not now or not before:                 # an HTML filing's own tags fill a line its table rows did not give
             anchor = {"balance": "total_assets", "income": "revenue", "cashflow": "cfo"}[stmt]
             hint = (((inputs.get(anchor) or {}).get("now")) or {}).get("page")
-            xn, xb = _xbrl_line(doc, key, a, stmt == "balance", hint), _xbrl_line(doc, key, b, stmt == "balance", hint)
+            xn, xb = _xbrl_pair(doc, key, a, b, stmt == "balance", hint)
             if xn and (not now or (xb and not before)):
                 now, before, basis = xn, xb, "inline XBRL tag"
         if now:

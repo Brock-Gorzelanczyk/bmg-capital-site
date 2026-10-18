@@ -440,6 +440,10 @@ def parse(doc) -> list[dict]:
         if not s:
             continue
         ctx = " ".join(prev[-2:])
+        if len(prev) >= 3 and re.match(r"(?i)ended\b", prev[-2]) and re.search(r"(?i)\b(?:months|quarters?|weeks|years?)\s*$", prev[-3]):
+            # a period phrase broken before "Ended" over three lines (Simon's release: "For the Three Months" / "Ended June 30,
+            # For the Six Months" / "Ended June 30,"): the two lines above lost the first period, so every column was six months
+            ctx = f"{prev[-3]} {ctx}"
         prev.append(s)
         if len(s) > 60 and (_OTHER_ENTITY.search(s) or _AFFILIATE_SUMMARY.search(s)):
             other_at, other_text = len(prev) - 1, s
@@ -522,6 +526,15 @@ def parse(doc) -> list[dict]:
               and (parts[k + 1] == "$" or re.search(r"[.,]", toks[1]))):
             toks = toks[1:]                 # a bare footnote digit: "Profit 1  $ 8,884", "Diluted 2  472.3" (Caterpillar)
             label += f" {parts[k]}"
+        if len(toks) > n and label and not hdr.get("slots") and not hdr["change_cols"]:
+            # amounts inside the label, set off from the columns by the wide gap: "Property and equipment, net of accumulated
+            # depreciation and amortization of $24,719 and $23,228  39,743  37,595" (Delta): the row was dropped
+            segs = [x for x in re.split(r"\s{2,}", s.strip()) if x]
+            vals = _cells(" ".join(segs[1:]).replace("$", " $ ").split(), False) if len(segs) > 1 else []
+            if (len(vals) == n and (re.search(r"(?i)\b(?:of|and)\s+\$?\s?\d[\d,.]*", segs[0]) or re.search(r"\([^()]*\d[^()]*\)\s*$", segs[0]))
+                    and all(_CELL.fullmatch(x) for x in " ".join(segs[1:]).replace("$", " $ ").split())):
+                label, toks = segs[0].strip(" :"), vals       # also a closing bracket of amounts: Chevron's "Accounts and notes
+                                                             # receivable (less allowance: 2025 - $176; 2024 - $259)  18,075  20,684"
         if hdr.get("slots") and len(toks) == len(hdr["slots"]):
             toks = [t for t, kind in zip(toks, hdr["slots"]) if kind == "p"]       # a change column after each group of periods
         if hdr["change_cols"] and len(toks) > n:
@@ -581,8 +594,9 @@ def parse(doc) -> list[dict]:
         label_head = None
         label = re.sub(r"\s*\((?:\d|[a-z])\)$", "", label).strip()          # footnote marker
         footnote = bool(re.search(r"\((?:\d|[a-z])\)$", " ".join(parts[:k])))
-        # "Earnings per share: Basic" -> heading "Earnings per share", label "Basic"
-        if ":" in label:
+        # "Earnings per share: Basic" -> heading "Earnings per share", label "Basic"; not a colon inside brackets
+        # (Chevron: "Accounts and notes receivable (less allowance: 2025 - $176; 2024 - $259)")
+        if ":" in label and label.rsplit(":", 1)[0].count("(") <= label.rsplit(":", 1)[0].count(")"):
             h2, label = [x.strip() for x in label.rsplit(":", 1)]
             if label:
                 heading = h2
