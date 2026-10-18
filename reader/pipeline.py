@@ -50,7 +50,7 @@ def _claims(doc) -> list[dict]:
 
 def run(data: bytes, kind: str, title: str, ticker: Optional[str] = None,
         progress: Callable[[str, dict], None] = lambda s, d: None,
-        cancelled: Callable[[], bool] = lambda: False) -> dict:
+        cancelled: Callable[[], bool] = lambda: False, company: Optional[str] = None) -> dict:
     timings = {}
 
     def stage(name: str):
@@ -109,6 +109,8 @@ def run(data: bytes, kind: str, title: str, ticker: Optional[str] = None,
     rep = report.build(doc, rows, fb, claims, analysis={"brief": br, "signals": sigs})
     if ticker and not rep["company"].get("ticker"):
         rep["company"]["ticker_hint"] = ticker
+    if company and not rep["company"].get("name"):
+        rep["company"]["name_hint"] = company          # SEC EDGAR's name for the ticker; the document itself did not name the company
     rep = schema.validate(rep)
     # optional second check (Claude re-reads each statement figure on its page); off without ANTHROPIC_API_KEY
     from . import verify as _verify
@@ -119,10 +121,18 @@ def run(data: bytes, kind: str, title: str, ticker: Optional[str] = None,
                                   "labelled each one; it cannot change a value. Its results are a review aid, not part of the extraction.")
     from . import live as _live
     rep["live"] = _live.plan(rep)            # built after validation: nothing withdrawn can appear
+    # guidance, red flags, a call's speakers and questions, the section map: quoted sentences, kept beside the report
+    from . import insights as _insights
+    t_ins = time.monotonic()
+    try:
+        ins = _insights.build(doc, rep, title)
+    except Exception as e:                   # never lose a finished report to the extra analysis
+        ins = {"version": 1, "kind": "other", "label": "Document", "errors": [f"insights: {e.__class__.__name__}"]}
+    timings["Insights"] = round(time.monotonic() - t_ins, 2)
     rep["timings"] = timings
     sc = rep["second_check"]
     done("Build report", t, findings=len(rep["findings"]), validation_passed=rep["validation"]["passed"],
          second_check=sc["status"], **({"checked": sc["checked"], **sc["counts"]} if sc["status"] == "done" else {}))
 
     return {"report": rep, "text": doc.body, "page_starts": doc.page_starts, "sha256": doc.sha256,
-            "title": title, "kind": kind, "pages": len(doc.pages)}
+            "title": title, "kind": kind, "pages": len(doc.pages), "insights": ins}

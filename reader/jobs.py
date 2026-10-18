@@ -41,13 +41,14 @@ def _owner_key(token: str) -> str:
 
 
 class Job:
-    def __init__(self, owner: str, sha: str, title: str, kind: str, ticker: Optional[str]):
+    def __init__(self, owner: str, sha: str, title: str, kind: str, ticker: Optional[str], company: Optional[str] = None):
         self.id = secrets.token_urlsafe(16)
         self.owner = owner
         self.sha256 = sha
         self.title = title
         self.kind = kind
         self.ticker = ticker
+        self.company = company            # the SEC's name for the ticker, when the filing was loaded from EDGAR
         self.created = time.time()
         self.updated = self.created
         self.started: Optional[float] = None
@@ -100,7 +101,8 @@ class JobManager:
     def busy(self) -> int:
         return sum(1 for j in self.jobs.values() if j.state in ("queued", "running"))
 
-    def submit(self, owner_token: str, data: bytes, kind: str, title: str, ticker: Optional[str]) -> tuple[Job, bool]:
+    def submit(self, owner_token: str, data: bytes, kind: str, title: str, ticker: Optional[str],
+               company: Optional[str] = None) -> tuple[Job, bool]:
         self._sweep()
         owner = _owner_key(owner_token)
         sha = hashlib.sha256(data).hexdigest()
@@ -110,7 +112,7 @@ class JobManager:
                     return j, True
             if self.busy() >= MAX_RUNNING * 4:
                 raise ReadError(503, "The reader is busy. Try again in a minute.")
-            job = Job(owner, sha, title, kind, ticker)
+            job = Job(owner, sha, title, kind, ticker, company)
             self.jobs[job.id] = job
         saved = None
         if self.library:
@@ -170,7 +172,7 @@ class JobManager:
             return job.cancel_flag.is_set()
 
         try:
-            res = pipeline.run(data, job.kind, job.title, job.ticker, progress=progress, cancelled=cancelled)
+            res = pipeline.run(data, job.kind, job.title, job.ticker, progress=progress, cancelled=cancelled, company=job.company)
             self._finish(job, res)
             if self.library:
                 try:

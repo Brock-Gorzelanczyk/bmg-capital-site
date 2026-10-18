@@ -603,6 +603,157 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
 @keyframes highlight-ending-in{from{opacity:0}to{opacity:1}}
 .rec-highlight-ending{animation:highlight-ending-in .4s ease-out}
 @media(prefers-reduced-motion:reduce){.rec-highlight-ending{animation:none}}
+
+/* ---- One search bar: a ticker or a file ---- */
+.read-form.omni{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin:0 0 12px;padding:14px;border:1px solid #d9ddd8;border-radius:14px;background:#fff;box-shadow:0 2px 12px rgba(16,24,20,.05)}
+.omni.dragging{outline:3px dashed #0f7d47;outline-offset:3px;background:#f3faf6}
+.omni-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.omni-ico{width:22px;height:22px;color:#5d6862;flex:none}
+.omni-field{display:flex;flex:2 1 320px;gap:8px;min-width:240px}.omni-field[hidden]{display:none}
+.omni #edgar-ticker{flex:1;width:auto;height:50px;font:600 19px 'IBM Plex Mono',monospace;border:1.5px solid #c9cfca;border-radius:10px;padding:0 14px}
+.omni #edgar-ticker:focus{outline:none;border-color:#0f7d47;box-shadow:0 0 0 3px rgba(15,125,71,.15)}
+.omni #edgar-find{height:50px;padding:0 20px;border-radius:10px;font-size:15px}
+.omni #read-drop{flex:1 1 230px;display:flex;flex-direction:column;justify-content:center;min-height:50px;box-sizing:border-box;padding:6px 14px;text-align:left;border-width:1.5px;border-radius:10px}
+.omni #read-drop b{font-size:14px;margin:0}.omni #read-drop span{font-size:12px}
+.omni.local #read-ticker{display:none}
+.omni #read-ticker,.omni #read-run,.omni #read-recmode{height:50px;border-radius:10px}
+.omni-recent{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:#6b6f76}.omni-recent[hidden]{display:none}
+.omni-recent button{font:600 12px 'IBM Plex Mono',monospace;border:1px solid #d6dbd7;background:#f6f8f6;color:#141414;border-radius:14px;padding:4px 10px;cursor:pointer}
+.omni-recent button:hover{border-color:#0f7d47;color:#0f7d47}
+.omni-picks{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}.omni-picks[hidden]{display:none}
+.omni-picks button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:10px 12px;border:1px solid #cfe3d6;border-radius:10px;background:#f6fbf8;color:#141414;cursor:pointer;font:600 14px 'IBM Plex Sans',sans-serif}
+.omni-picks button small{font:400 12px 'IBM Plex Sans',sans-serif;color:#5d6862}.omni-picks button:hover{border-color:#0f7d47;background:#eef8f2}
+.omni-picks button:disabled{opacity:.5;cursor:default}
+.omni #edgar-status{font-size:13px;color:#5d6862}.omni #edgar-status:empty{display:none}
+.omni-funds{border-top:1px dashed #e3e3dc;padding-top:10px;display:flex;flex-direction:column;gap:8px}.omni-funds[hidden]{display:none}
+.omni-funds .of-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.omni-funds select,.omni-funds input{height:38px;border:1px solid #d6d6cf;border-radius:8px;padding:0 10px;font:14px 'IBM Plex Sans',sans-serif}
+.omni-funds button{height:38px;padding:0 14px;border-radius:8px;border:1px solid #0f7d47;background:#fff;color:#0f7d47;font-weight:600;cursor:pointer}
+.of-holders{list-style:none;margin:0;padding:0;display:grid;gap:6px}.of-holders li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 12px;border:1px solid #e6e8e4;border-radius:8px;font-size:13.5px}
+.of-holders li small{display:block;color:#6b6f76;font:12px 'IBM Plex Mono',monospace}.of-holders li.no{opacity:.6}
+details.omni-more{margin:0 0 16px;border:1px solid #e3e3dc;border-radius:12px;background:#fbfbf9;padding:0}
+details.omni-more>summary{cursor:pointer;padding:10px 14px;font:600 13.5px 'IBM Plex Sans',sans-serif;color:#3a3a3a}
+.omni-more-in{display:flex;flex-direction:column;gap:12px;padding:0 14px 14px}
+.omni-paste textarea{width:100%;min-height:90px;margin-top:6px;font:13px 'IBM Plex Mono',monospace;border:1px solid #c9c9c4;border-radius:8px;padding:10px;box-sizing:border-box}
+.re-watchbox h2{margin:0}.wl-sub{margin:0;font-size:12.5px;color:#5d6862}
+#wl-add{height:38px;width:150px;border:1px solid #d6d6cf;border-radius:8px;padding:0 10px;font:15px 'IBM Plex Mono',monospace;text-transform:uppercase}
+#wl-add-btn,#wl-toggle{height:38px;padding:0 14px;border-radius:8px;border:1px solid #0f7d47;background:#fff;color:#0f7d47;font-weight:600;cursor:pointer}
+#wl-toggle.on{background:#0f7d47;color:#fff}
+.wl-chips{display:flex;flex-wrap:wrap;gap:6px}.wl-chips span{display:inline-flex;align-items:center;gap:4px;font:600 12px 'IBM Plex Mono',monospace;background:#fff;border:1px solid #d6dbd7;border-radius:14px;padding:3px 4px 3px 10px}
+.wl-chips button{border:0;background:none;cursor:pointer;color:#8a9099;font-size:14px;line-height:1;padding:0 4px}
+#wl-status{font-size:12.5px;color:#5d6862}.wl-log{margin:0;padding-left:18px;font-size:12.5px;color:#3a3a3a}.wl-log:empty{display:none}
+
+/* ---- Control bar at the bottom of the document (the former top strip) ---- */
+.stage .strip{position:sticky;top:auto;bottom:0;height:auto;min-height:56px;flex-wrap:wrap;gap:8px 10px;padding:9px 12px;border-top:1px solid #d5dad5;border-bottom:0;border-radius:0 0 10px 10px;background:#fff}
+.stage .strip .btn{height:36px;padding:0 13px;border-radius:9px;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.stage .strip .ctl-main{min-width:96px;background:#141414;color:#fff;border-color:#141414}
+.stage .strip .ctl-main.on{background:#0f7d47;border-color:#0f7d47}
+.stage .strip .ctl-main:disabled{background:#e9ebe8;border-color:#e9ebe8;color:#8a9099;cursor:default}
+.ctl-speeds{display:inline-flex;border:1px solid #c9c9c4;border-radius:9px;overflow:hidden;flex:none}
+.ctl-speeds button{height:36px;border:0;background:#fff;padding:0 11px;font:600 12px 'IBM Plex Mono',monospace;cursor:pointer;color:#141414}
+.ctl-speeds button+button{border-left:1px solid #e3e3dc}.ctl-speeds button.on{background:#141414;color:#fff}
+.ctl-speed-sel{position:absolute!important;width:1px!important;height:1px!important;opacity:0;pointer-events:none;overflow:hidden}
+.ctl-go{position:relative;display:inline-flex}.ctl-go [hidden]{display:none}
+.ctl-menu{position:absolute;bottom:calc(100% + 8px);left:0;min-width:230px;max-height:50vh;overflow:auto;display:flex;flex-direction:column;background:#fff;border:1px solid #d9ddd8;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.16);padding:6px;z-index:45}
+.ctl-menu button{text-align:left;border:0;background:none;padding:8px 10px;border-radius:7px;font:500 13.5px 'IBM Plex Sans',sans-serif;cursor:pointer;color:#141414;display:flex;justify-content:space-between;gap:12px}
+.ctl-menu button small{color:#8a9099;font:12px 'IBM Plex Mono',monospace}.ctl-menu button:hover,.ctl-menu button:focus-visible{background:#f1f5f2;outline:none}
+.ctl-ask{display:flex;gap:6px;flex:1 1 240px;min-width:190px}.ctl-ask[hidden]{display:none}
+.ctl-ask input{flex:1;min-width:0;height:36px;border:1px solid #c9c9c4;border-radius:9px;padding:0 11px;font:14px 'IBM Plex Sans',sans-serif}
+.ctl-ask input:focus{outline:none;border-color:#0f7d47;box-shadow:0 0 0 3px rgba(15,125,71,.14)}
+.stage .strip .status{flex:1 1 150px;font-size:12px;order:9}
+.stage .strip .ctl-keys{order:10;width:36px;padding:0;flex:none}
+.ctl-pop{position:absolute;bottom:calc(100% + 10px);right:12px;width:min(560px,calc(100% - 24px));max-height:min(62vh,560px);overflow:auto;background:#fff;color:#141414;border:1px solid #d9ddd8;border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.2);padding:12px 14px;z-index:45;font:13.5px/1.4 'IBM Plex Sans',sans-serif}
+.ctl-pop[hidden]{display:none}.ctl-keys-pop{width:260px}.ctl-keys-pop ul{margin:6px 0 0;padding:0;list-style:none}.ctl-keys-pop li{margin:3px 0}
+kbd{font:600 11px 'IBM Plex Mono',monospace;border:1px solid #c9c9c4;border-bottom-width:2px;border-radius:4px;padding:0 5px;background:#f6f6f3}
+.ask-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:0 0 8px}.ask-h b{font-size:14px}.ask-h small{color:#6b6f76}
+.ask-a{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.ask-a li{border-left:3px solid #0f7d47;background:#f7faf8;border-radius:0 8px 8px 0;padding:7px 10px;display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:start}
+.ask-a li.fact{border-left-color:#1f5fd6;background:#f4f7fd}.ask-a li.fact b{font:600 15px 'IBM Plex Mono',monospace}
+.ask-a li small{grid-column:1;color:#6b6f76;font:11.5px 'IBM Plex Mono',monospace}
+.ask-a li button{grid-row:1/span 2;grid-column:2;height:32px;padding:0 12px;border-radius:8px;border:1px solid #0f7d47;background:#0f7d47;color:#fff;font-weight:600;cursor:pointer}
+.ask-note{margin:8px 0 0;color:#6b6f76;font-size:12px}
+.fmap{position:fixed;top:84px;bottom:96px;width:14px;z-index:28;pointer-events:auto}.fmap[hidden]{display:none}
+.fmap-track{position:absolute;inset:0;border-radius:7px;background:#2a2f2c}
+.fmap-mark{position:absolute;left:-3px;right:-3px;height:4px;margin-top:-2px;border:0;padding:0;border-radius:3px;background:#0f7d47;cursor:pointer}
+.fmap-mark::after{content:attr(data-label);position:absolute;right:calc(100% + 8px);top:50%;transform:translateY(-50%);white-space:nowrap;font:600 11px 'IBM Plex Sans',sans-serif;color:#fff;background:rgba(20,24,22,.86);border-radius:6px;padding:3px 7px;opacity:0;pointer-events:none;transition:opacity .15s}
+.fmap:hover .fmap-mark::after,.fmap-mark:focus-visible::after{opacity:1}
+.fmap-mark.flag{background:#e5484d}.fmap-mark.guide{background:#e8920c}
+.fmap-dot{position:absolute;left:50%;top:0;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--crawler-main,#27c8ff);box-shadow:0 0 0 2px #fff;pointer-events:none}
+@media (max-width:900px){.stage .strip{position:fixed;left:8px;right:8px;bottom:calc(46vh + 8px);border-radius:12px;z-index:41}body:has(.read-side.collapsed) .stage .strip{bottom:54px}.fmap{display:none}
+  .stage .strip .status{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* while reading, the sheet is 28vh tall (it holds that height, so the bar sits right on it) and the page can
+     scroll the end of the filing above the bar */
+  body.readerfx .read-side:not(.collapsed){height:28vh}body.readerfx .stage .strip{bottom:calc(28vh + 8px)}body.readerfx .read-grid{padding-bottom:calc(30vh + 150px)}}
+/* a phone: the bar stays a compact block of two or three rows over the reading; the status line and the
+   keyboard help (no keyboard) give way, the progress pill above the bar shows how far the read has got */
+@media (max-width:600px){.stage .strip{left:6px;right:6px;gap:6px;padding:7px 8px}
+  .stage .strip .btn{height:32px;padding:0 10px;font-size:12px}.stage .strip .ctl-main{min-width:72px}
+  .ctl-speeds button{height:32px;padding:0 8px}.ctl-ask{flex-basis:100%}.ctl-ask input{height:32px;font-size:13px}
+  .stage .strip .status,.stage .strip .ctl-keys{display:none}}
+body.readerfx.rec-dark .stage .strip{background:#fff}
+
+/* ---- Red flags tab and the insight sections of the live report ---- */
+.tab-n{display:inline-block;min-width:16px;margin-left:3px;font:700 10px/16px 'IBM Plex Mono',monospace;border-radius:8px;background:#e5484d;color:#fff;padding:0 4px;text-align:center}.tab-n:empty{display:none}.tab-n.zero{background:#9aa0a8}
+.fl{font-size:12.5px;line-height:1.4}.fl h4{margin:12px 0 6px;font:600 11px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.06em;color:#141414}
+.fl-intro{margin:0 0 8px;color:#5d6862;font-size:12px}
+.fl-list{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.fl-list li{border-left:4px solid var(--c,#9aa0a8);background:#fbfbf9;border-radius:0 8px 8px 0;padding:7px 10px}
+.fl-list li.reported{--c:#e5484d;background:#fff6f6}.fl-list li.mentioned{--c:#e8920c;background:#fffaf1}.fl-list li.clear{--c:#12a150;background:#f4fbf6}
+.fl-list li b{display:block;font-size:13px}.fl-list li .fl-why{display:block;color:#5d6862;font-size:11.5px;margin:1px 0 4px}
+.fl-list li q{display:block;color:#2a2a2a;font-size:12px;quotes:none;border-left:2px solid #e3e3dc;padding-left:7px}
+.fl-list li .fl-go{margin-top:5px;display:flex;gap:8px;align-items:center}.fl-list li .fl-go small{color:#8a9099;font:11px 'IBM Plex Mono',monospace}
+.fl-list li .fl-go button,.lr-ins button.go{height:26px;padding:0 10px;border-radius:7px;border:1px solid #0f7d47;background:#fff;color:#0f7d47;font:600 11.5px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.fl-st{display:inline-block;font:700 9.5px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.05em;border-radius:9px;padding:1px 7px;color:#fff;background:var(--c,#9aa0a8);margin-right:6px;vertical-align:1px}
+.fl-none{color:#8a9099;font-size:12px}
+.lr-ins{list-style:none;margin:0;padding:0}
+.lr-ins li{border-top:1px solid #f0f0ec;padding:5px 2px;display:grid;grid-template-columns:1fr auto;gap:2px 8px}
+.lr-ins li.pending{display:none}.lr-ins li.arrived{animation:report-row-in .42s cubic-bezier(.2,.8,.2,1)}
+.lr-ins li q{grid-column:1;quotes:none;color:#2a2a2a;font-size:12px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.lr-ins li small{grid-column:1;color:#9aa0a8;font:10px 'IBM Plex Mono',monospace}
+.lr-ins li .go{grid-column:2;grid-row:1/span 2;align-self:center}
+.lr-ins li b{font-size:12.5px}
+.dir{display:inline-block;font:700 9px 'IBM Plex Mono',monospace;text-transform:uppercase;border-radius:3px;padding:0 4px;margin-right:4px;background:#eef0ec;color:#5d6862;vertical-align:1px}
+.dir.raised{background:#e3f6ea;color:#0f7d47}.dir.lowered{background:#fde8e8;color:#b42318}.dir.reaffirmed,.dir.unchanged{background:#e7efff;color:#1f5fd6}.dir.updated,.dir.narrowed{background:#fff1e0;color:#a35d00}
+.lr-sum{margin:2px 0 6px;color:#3a3a3a;font-size:12px}
+body.rec #pane-flags{display:none!important}
+
+/* ---- Number cards: a big, sourced figure when the spider zaps one ---- */
+#num-cards{position:fixed;left:50%;top:76px;transform:translateX(-50%);z-index:58;pointer-events:none;display:flex;flex-direction:column;gap:8px;align-items:center;width:min(92vw,560px)}
+.num-card{background:rgba(6,10,16,.94);color:#f2f6fa;border:1.5px solid var(--crawler-main,#6ff4ff);border-radius:16px;padding:12px 18px;box-shadow:0 0 24px color-mix(in srgb,var(--crawler-main,#6ff4ff) 45%,transparent),0 16px 40px rgba(0,0,0,.45);text-align:center;animation:numin .5s cubic-bezier(.2,1.4,.4,1) both;font-family:'IBM Plex Sans',sans-serif}
+.num-card span{display:block;font:700 12px 'IBM Plex Mono',monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--crawler-main,#6ff4ff)}
+.num-card b{display:block;font:800 40px/1.05 'IBM Plex Sans',sans-serif;letter-spacing:-.02em;margin:3px 0}
+.num-card em{font-style:normal;font-weight:700;font-size:16px}.num-card em.up{color:#2fdc74}.num-card em.down{color:#ff4d6d}
+.num-card small{display:block;color:#8fa0b3;font:11px 'IBM Plex Mono',monospace;margin-top:3px}
+.num-card.out{opacity:0;transform:translateY(-10px) scale(.96);transition:opacity .35s,transform .35s}
+body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11vw}body.recmode .num-card span{font-size:3.2vw}body.recmode .num-card small{font-size:2.6vw}body.recmode .num-card em{font-size:4.2vw}
+@keyframes numin{0%{opacity:0;transform:scale(.7) translateY(14px)}100%{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.num-card{animation:none}}
+
+/* ---- The report: tabs ---- */
+.rp-trades td:first-child{width:26%}.rp-trades td:nth-child(2){min-width:150px}.rp-trades td small{white-space:nowrap}
+.rp-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-right:auto}
+@media (max-width:600px){.rp-bar.tabbed{flex-wrap:wrap}.rp-bar.tabbed .rp-tabs{order:3;flex:1 0 100%;flex-wrap:nowrap;overflow-x:auto;margin:6px 0 0;scrollbar-width:none}
+  .rp-tabs button{flex:none}.rp-bar.tabbed .rp-pdf{margin-left:auto}}
+.rp-tabs button{height:34px;padding:0 12px;border-radius:8px;border:1px solid transparent;background:none;font:600 13px 'IBM Plex Sans',sans-serif;color:#5d6862;cursor:pointer}
+.rp-tabs button[aria-selected=true]{background:#141414;color:#fff}
+.rp-tabs button:focus-visible{outline:2px solid #0f7d47;outline-offset:1px}
+#bmg-report .rp-bar.tabbed::before{display:none}
+.rp-doc .rp-tab[hidden]{display:none}
+@media print{.rp-doc .rp-tab[hidden]{display:block!important}}
+.yoy-t td:first-child{width:auto}.yoy-new li{margin:0 0 8px}.rp-flags li{margin:0 0 10px}
+
+/* ---- Record mode: today's ideas ---- */
+.ideas-box{border:1px solid #2a3442;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.ideas-box legend{font-weight:700;padding:0 4px}
+.ideas-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto}
+.ideas-list li{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;background:#0c121a;border:1px solid #243041;border-radius:8px;padding:7px 9px;font-size:13px}
+.ideas-list li.on{border-color:#2fdc74}.ideas-list li.done{opacity:.5}
+.ideas-list li small{grid-column:1;color:#8fa0b3;font-size:11px}
+.ideas-list li button{grid-row:1/span 2;grid-column:2;font:600 12px sans-serif;padding:6px 10px;border-radius:7px;border:0;background:#2fdc74;color:#04130a;cursor:pointer}
+.ideas-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.ideas-row button{font:600 13px sans-serif;padding:7px 12px;border-radius:8px;border:1px solid #3a4656;background:#0c121a;color:#e8edf2;cursor:pointer}
+.ideas-st{font-size:12px;color:#9aa4b1}
+.rf .rf-clip,.lr-clip{margin-left:6px;height:22px;padding:0 7px;border-radius:6px;border:1px solid #d6d6cf;background:#fff;color:#141414;font:600 10.5px 'IBM Plex Sans',sans-serif;cursor:pointer;vertical-align:1px}
+.rf .rf-clip:hover,.lr-clip:hover{border-color:#ff2bd6;color:#c2189f}
 </style>
 <!-- bmg-theme --><link rel="stylesheet" href="/assets/theme.css"><script>try{if(localStorage.getItem("bmg-theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script><script src="/assets/theme.js" defer></script>
 </head>
@@ -629,43 +780,78 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
 <main class="container read-page">
 <a class="back" href="/">&larr; Back to BMG Capital</a>
 <h1 class="rp">Crawler</h1>
-<p class="lede">Drop in a 10-K or 10-Q and click Run. The server reads the filing, extracts the statements, checks the arithmetic and builds a BMG Capital company report in which every figure cites its page. The spider then shows each finding where it sits in the document.</p>
-<section class="read-edgar" id="read-edgar" hidden aria-labelledby="edgar-h">
-  <h2 id="edgar-h">Load from SEC EDGAR</h2>
-  <div class="re-row"><input id="edgar-ticker" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="Ticker, e.g. AMZN" aria-label="Ticker to look up on SEC EDGAR"><button id="edgar-find" type="button">Find filings</button><span id="edgar-status" role="status"></span></div>
-  <ol id="edgar-list"></ol>
-  <div class="re-row re-watch" id="edgar-watch-row" hidden>
-    <button id="edgar-watch" type="button">Watch for the next filing</button>
-    <label class="re-since">Also count filings since <input id="edgar-since" type="date"></label>
-    <span id="edgar-watch-st" role="status"></span>
+<p class="lede">Type a ticker or drop in a document: a 10-K, 10-Q, earnings release, call transcript, insider trades or a fund's holdings. The server reads it, checks the arithmetic and builds a BMG Capital report in which every figure cites its page. The spider then shows each finding where it sits in the document.</p>
+<!-- One search bar: a ticker (looked up on SEC EDGAR on this Mac) or a file. "read-form" keeps the video scripts' hiding rules working. -->
+<section class="read-form omni" id="omni" aria-label="Read a filing">
+  <div class="omni-bar" id="omni-bar">
+    <svg class="omni-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><line x1="15.5" y1="15.5" x2="21" y2="21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    <span class="omni-field" id="read-edgar" hidden><input id="edgar-ticker" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="Ticker, e.g. AAPL" aria-label="Ticker to look up on SEC EDGAR"><button id="edgar-find" type="button">Find</button></span>
+    <label id="read-drop"><input type="file" id="read-file" hidden accept=".pdf,.docx,.pptx,.htm,.html,.txt,.md"><b>Drop a file here or click to choose</b><span id="read-drop-name">10-K, 10-Q, release, call transcript: PDF, DOCX, HTML or text, up to <span id="read-max">10</span> MB.</span></label>
+    <input id="read-ticker" type="text" maxlength="6" autocomplete="off" spellcheck="false" placeholder="Ticker (optional)" aria-label="Ticker for the dropped file (optional)">
+    <button id="read-run" type="button">Run</button>
+    <button id="read-recmode" type="button" title="Open the reader in a phone-shaped window formatted for screen recording">Record mode</button>
   </div>
+  <div class="omni-recent" id="omni-recent" hidden aria-label="Recent companies"></div>
+  <span id="edgar-status" role="status"></span>
+  <div class="omni-picks" id="omni-picks" hidden></div>
+  <ol id="edgar-list"></ol>
+  <div class="omni-funds" id="omni-funds" hidden></div>
 </section>
+<!-- Everything else stays one click away. "paste" keeps the video scripts' hiding rules working. -->
+<details class="paste omni-more" id="omni-more"><summary>More: My reads, watchlist, earnings watch, paste text, appearance</summary>
+<div class="omni-more-in">
 <section class="read-library" id="read-library" hidden aria-labelledby="lib-h">
   <div class="rl-head"><h2 id="lib-h">My reads</h2><span id="lib-count"></span></div>
   <div class="rl-wrap"><table class="rl-t"><thead><tr><th>Filing</th><th>Figures</th><th>Checks</th><th>Saved</th><th></th></tr></thead><tbody id="lib-rows"></tbody></table></div>
   <p id="lib-status" role="status"></p>
 </section>
-<div class="read-form">
-  <label id="read-drop"><input type="file" id="read-file" hidden accept=".pdf,.docx,.pptx,.htm,.html,.txt,.md"><b>Drop a file here or click to choose</b><span id="read-drop-name">PDF, DOCX, PPTX, HTML or text, up to <span id="read-max">10</span> MB.</span></label>
-  <input id="read-ticker" type="text" maxlength="6" autocomplete="off" spellcheck="false" placeholder="Ticker (optional)" aria-label="Ticker (optional)">
-  <button id="read-run" type="button">Run</button>
-  <button id="read-recmode" type="button" title="Open the reader in a phone-shaped window formatted for screen recording">Record mode</button>
+<section class="read-edgar re-watchbox" id="read-watchlist" hidden aria-labelledby="wl-h">
+  <h2 id="wl-h">Watchlist autopilot</h2>
+  <p class="wl-sub">Add tickers. While this page is open, autopilot checks SEC EDGAR every minute; a new 10-K, 10-Q or earnings release is read by itself (one at a time), saved in My reads, and its headline numbers are queued as a clip idea for Record mode.</p>
+  <div class="re-row"><input id="wl-add" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="Add a ticker" aria-label="Add a ticker to the watchlist"><button id="wl-add-btn" type="button">Add</button>
+    <button id="wl-toggle" type="button">Start autopilot</button><label class="re-since"><input id="wl-autoread" type="checkbox" checked> read new filings by itself</label></div>
+  <div class="wl-chips" id="wl-chips"></div>
+  <span id="wl-status" role="status"></span>
+  <ol class="wl-log" id="wl-log"></ol>
+</section>
+<div class="re-row re-watch" id="edgar-watch-row" hidden>
+  <button id="edgar-watch" type="button">Watch for the next filing</button>
+  <label class="re-since">Also count filings since <input id="edgar-since" type="date"></label>
+  <span id="edgar-watch-st" role="status"></span>
 </div>
+<div class="omni-paste"><b>Or paste text</b><textarea id="read-paste" placeholder="Paste text to read (a transcript, a release, notes)"></textarea></div>
+<div id="appearance-slot"></div>
 <p class="read-privacy">Your file is not saved. While it uploads, a large file may be buffered in a temporary file that is deleted when the upload request ends; the server then reads it in memory. The finished report is kept in memory for up to one hour so you can reopen it or download the PDF, then discarded; a server restart clears it sooner. Nothing is saved to the vault unless the owner presses Save with the owner key.</p>
-<details class="paste"><summary>Or paste text</summary><textarea id="read-paste" placeholder="Paste text to read"></textarea></details>
+</div>
+</details>
 <div id="read-error" hidden role="alert"></div>
 <ol id="read-stages" class="rd-stages" hidden aria-label="Processing stages" aria-live="polite"></ol>
 <div id="read-ctl" class="rd-ctl" hidden><button type="button" id="read-cancel">Cancel</button><span class="muted">Cancel stops the server job. Once the report is built, Pause and Skip only affect the animation.</span></div>
 <div class="read-grid" id="read-stage" hidden>
   <div class="stage">
-    <div class="strip"><button class="btn" id="ctl-pause" type="button">Pause</button><select id="ctl-speed" aria-label="Speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option></select><button class="btn" id="read-jump" type="button" hidden>Jump to statements</button><button class="btn" id="read-skip" type="button" hidden>Skip to results</button><span class="status" id="status" role="status">idle</span></div>
     <div class="doc" id="doc">
       <svg class="spider" id="spider"></svg>
       <h1 id="doc-h1"></h1>
       <div id="docbody"></div>
     </div>
+    <!-- The control bar sits at the bottom of the screen while the document is in view. It stays the "strip", so
+         record mode and the video scripts hide it (and the filing map inside it) as they always did. -->
+    <div class="strip" id="ctl-bar" role="toolbar" aria-label="Reading controls">
+      <button class="btn ctl-main" id="ctl-pause" type="button" title="Pause or resume (Space)">Pause</button>
+      <span class="ctl-speeds" id="ctl-speeds" role="group" aria-label="Speed"><button type="button" data-speed="0.5" title="1">0.5x</button><button type="button" data-speed="1" class="on" title="2">1x</button><button type="button" data-speed="2" title="3">2x</button><button type="button" data-speed="4" title="4">4x</button></span>
+      <select id="ctl-speed" class="ctl-speed-sel" aria-label="Speed" tabindex="-1"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option></select>
+      <button class="btn" id="read-jump" type="button" hidden title="Jump to statements (J)">Jump to statements</button>
+      <span class="ctl-go"><button class="btn" id="ctl-go" type="button" aria-haspopup="menu" aria-expanded="false" hidden title="Go to a section (G)">Go to &#9662;</button><span class="ctl-menu" id="ctl-menu" role="menu" hidden></span></span>
+      <button class="btn" id="read-skip" type="button" hidden title="Skip to results (S)">Skip to results</button>
+      <form class="ctl-ask" id="ask-form" hidden><input id="ask-q" type="search" maxlength="300" autocomplete="off" placeholder="Ask this document (/)" aria-label="Ask a question about this document"><button class="btn" type="submit">Ask</button></form>
+      <span class="status" id="status" role="status">idle</span>
+      <button class="btn ctl-keys" id="ctl-keys" type="button" aria-label="Keyboard shortcuts" aria-expanded="false" title="Keyboard shortcuts (?)">?</button>
+      <div class="ctl-pop" id="ask-pop" hidden role="region" aria-label="Answers" aria-live="polite"></div>
+      <div class="ctl-pop ctl-keys-pop" id="keys-pop" hidden><b>Keyboard</b><ul><li><kbd>Space</kbd> pause or resume</li><li><kbd>1</kbd>&ndash;<kbd>4</kbd> speed 0.5x, 1x, 2x, 4x</li><li><kbd>J</kbd> jump to statements</li><li><kbd>G</kbd> go to a section</li><li><kbd>S</kbd> skip to results</li><li><kbd>/</kbd> ask a question</li><li><kbd>F</kbd> red flags</li><li><kbd>Esc</kbd> close</li></ul></div>
+      <div class="fmap" id="fmap" hidden aria-label="Filing map"><div class="fmap-track" id="fmap-track"></div><i class="fmap-dot" id="fmap-dot" aria-hidden="true"></i></div>
+    </div>
   </div>
-  <aside class="read-side" aria-label="Report and findings"><div class="rs-tabs" role="tablist"><button type="button" role="tab" id="tab-live" aria-controls="read-live" aria-selected="true">Report</button><button type="button" role="tab" id="tab-found" aria-controls="pane-found" aria-selected="false" tabindex="-1">Found</button><button type="button" class="rs-sheet" id="rs-sheet" aria-expanded="true">Hide</button></div><section id="read-live" class="lr" role="tabpanel" aria-labelledby="tab-live" aria-live="off"><p class="muted lr-empty">The BMG Capital report builds here as the spider reaches each figure.</p></section><div id="pane-found" role="tabpanel" aria-labelledby="tab-found" hidden><div id="read-brief" class="bf" hidden aria-live="polite"></div><div class="rs-head"><h2>Found</h2><div id="read-count">0 found</div></div><div id="read-scope"></div><section id="read-signals" class="sg-group" hidden><h4><i></i>Signals <span class="n">0</span></h4><ol></ol></section><div id="read-chips"></div><div id="read-findings"></div></div></aside>
+  <aside class="read-side" aria-label="Report and findings"><div class="rs-tabs" role="tablist"><button type="button" role="tab" id="tab-live" aria-controls="read-live" aria-selected="true">Report</button><button type="button" role="tab" id="tab-found" aria-controls="pane-found" aria-selected="false" tabindex="-1">Found</button><button type="button" role="tab" id="tab-flags" aria-controls="pane-flags" aria-selected="false" tabindex="-1" hidden>Red flags <b class="tab-n" id="flags-n"></b></button><button type="button" class="rs-sheet" id="rs-sheet" aria-expanded="true">Hide</button></div><section id="read-live" class="lr" role="tabpanel" aria-labelledby="tab-live" aria-live="off"><p class="muted lr-empty">The BMG Capital report builds here as the spider reaches each figure.</p></section><div id="pane-found" role="tabpanel" aria-labelledby="tab-found" hidden><div id="read-brief" class="bf" hidden aria-live="polite"></div><div class="rs-head"><h2>Found</h2><div id="read-count">0 found</div></div><div id="read-scope"></div><section id="read-signals" class="sg-group" hidden><h4><i></i>Signals <span class="n">0</span></h4><ol></ol></section><div id="read-chips"></div><div id="read-findings"></div></div><div id="pane-flags" class="fl" role="tabpanel" aria-labelledby="tab-flags" hidden></div></aside>
 </div>
 <section id="read-summary" hidden></section>
 </main>
@@ -1084,7 +1270,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const rising = (state.boostTarget || 1) > (state.boost || 1);
     state.boost = (state.boost || 1) + ((state.boostTarget || 1) - (state.boost || 1)) * Math.min(1, dt * (rising ? 3.2 : 1.6));
     if (state.recordCamera) state.scrollPos = state.recordCamera(dt);
-    else state.scrollPos += SCROLL_SPEED * U * (state.speedMul || 1) * state.boost * dt;
+    else if (!(state.camHoldUntil > now)) state.scrollPos += SCROLL_SPEED * U * (state.speedMul || 1) * state.boost * dt;   // a Go landing holds a moment
     let maxS = Math.max(0, docGeo().sh - innerHeight);
     if (state.scrollPos > maxS){ geo = null; maxS = Math.max(0, docGeo().sh - innerHeight); }   // page grew since it was measured
     state.scrollPos = Math.min(state.scrollPos, maxS);
@@ -1996,6 +2182,16 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       pb.classList.toggle("on", state.paused);
     });
     if (sp) sp.addEventListener("change", () => { state.speedMul = parseFloat(sp.value) || 1; });
+    // the speed buttons drive the same select (scripts set the select directly), so both stay in step
+    const segs = document.getElementById("ctl-speeds");
+    if (segs && sp){
+      const mark = () => segs.querySelectorAll("button").forEach(b => b.classList.toggle("on", +b.dataset.speed === +sp.value));
+      segs.addEventListener("click", e => {
+        const b = e.target.closest("button[data-speed]"); if (!b) return;
+        sp.value = b.dataset.speed; sp.dispatchEvent(new Event("change"));
+      });
+      sp.addEventListener("change", mark); mark();
+    }
   })();
 
   function walking(){return !!(state.currentDocId && state.walkState && !state.walkState.done);}
@@ -2150,6 +2346,17 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       return best;
     }
     let readIdx = 0;
+    // Sent back up the document (filing map, Go to, an answer): reading resumes at the line now under the
+    // reading line, so the rows below it are read again as the page scrolls. A jump forward needs nothing here:
+    // the rows passed on the way are read at once, as Jump to statements always did.
+    state.walkSeek = (toScroll) => {
+      if (state.walkState.docId !== doc_id || state.walkState.done) return;
+      const ry = innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5 - (docGeo().absTop - toScroll);
+      let lo = 0, hi = rows.length;
+      while (lo < hi){ const m = (lo + hi) >> 1; if (rowY(m) < ry - 20) lo = m + 1; else hi = m; }
+      readIdx = lo; state.walkState.lineIdx = lo;
+      state.crawlTarget = null; state.nextFocus = null;
+    };
     function step(){
       if (state.walkState.docId !== doc_id || state.walkState.done) return;
       if (state.paused){ state.walkTimer = setTimeout(step, 150); return; }
@@ -2586,8 +2793,26 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         const n = a.name.toLowerCase();
         if (n.startsWith("on") || ((n === "href" || n === "src" || n === "xlink:href") && /^\s*javascript:/i.test(a.value))) e.removeAttribute(a.name);
       }
-      if (e.tagName === "A"){ e.setAttribute("target", "_blank"); e.setAttribute("rel", "noopener"); }
+      // The filing's classes and ids share the reader page's namespace: a filing paragraph of class "note" took
+      // the page's fixed footer style. Its stylesheets are gone, so its classes style nothing of its own; its ids
+      // (and the links to them) get a prefix so getElementById still finds the page's elements.
+      if (e.hasAttribute("class")) e.removeAttribute("class");
+      if (e.id) e.id = "f-" + e.id;
+      if (e.tagName === "A"){
+        const h = e.getAttribute("href");
+        if (h && h.length > 1 && h[0] === "#") e.setAttribute("href", "#f-" + h.slice(1));
+        e.setAttribute("target", "_blank"); e.setAttribute("rel", "noopener");
+      }
     });
+    // An exhibit made of slide images (UnitedHealth's earnings release) carries its text as white 1pt type under
+    // each image. The images are not shown here, so when most of the text is that hidden type, it is the
+    // document: shown at reading size in the reader's colors. A few hidden spacers in an ordinary filing stay hidden.
+    const tiny = [...d.body.querySelectorAll("[style]")].filter(e => /font-size\s*:\s*[0-2](?:\.\d+)?pt/i.test(e.getAttribute("style")));
+    if (tiny.length){
+      const chars = e => e.textContent.replace(/\s+/g, "").length;
+      const hidden = tiny.filter(e => !tiny.some(o => o !== e && o.contains(e))).reduce((n, e) => n + chars(e), 0);
+      if (hidden > 0.5 * Math.max(1, chars(d.body))) tiny.forEach(e => { e.style.fontSize = ""; e.style.color = ""; e.removeAttribute("size"); });
+    }
     const tw = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT);
     const nodes = []; while (tw.nextNode()) if (tw.currentNode.nodeValue.trim()) nodes.push(tw.currentNode);
     for (const t of nodes){
@@ -2811,6 +3036,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const privacy = document.querySelector(".read-privacy");
       if (privacy) privacy.textContent = "On this Mac, the crawler saves each completed file and report in My reads so you can reopen them after a reload or server restart. Saved reads stay on this Mac; the app does not automatically delete them. Nothing is saved to the vault unless the owner presses Save with the owner key.";
       document.getElementById("read-edgar").hidden = false; loadLibrary();
+      document.getElementById("omni")?.classList.add("local");
+      const wl = document.getElementById("read-watchlist"); if (wl) wl.hidden = false;
+      document.dispatchEvent(new CustomEvent("bmg-local"));
     }
   }).catch(() => {});
   const errBox = document.getElementById("read-error");
@@ -2882,8 +3110,10 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         const j = await r.json();
         if (!r.ok){ say(j.error || "SEC EDGAR lookup failed.", true); return; }
         found = j;
+        remember(j.ticker);
+        drawPicks(j);
         if (!j.filings.length){ say(`${j.company} has no 10-K or 10-Q in its recent filings.`, true); return; }
-        say(`${j.company} · CIK ${j.cik}`);
+        say(`${j.company} · CIK ${j.cik} · choose what to read, or pick a filing below`);
         watchRow.hidden = false;
         list.innerHTML = j.filings.map((f, i) => `<li${i >= 6 ? " hidden" : ""}><span><b>${esc(f.form)}</b>${f.period && !/^8-K/.test(f.form) ? " · period ended " + esc(f.period) : ""}<small>filed ${esc(f.filed)} · ${esc(f.accession)}</small></span><button type="button" data-i="${i}">Read</button></li>`).join("")
           + (j.filings.length > 6 ? `<li class="re-more"><button type="button" data-more="1">Show ${j.filings.length - 6} older</button></li>` : "");
@@ -2892,6 +3122,106 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     }
     find.addEventListener("click", lookup);
     tick.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); lookup(); } });
+
+    // ---- the search bar: recent companies, what to read for a ticker, insider trades, big funds ----
+    const RECENT_LS = "bmg-recent-tickers", recentEl = document.getElementById("omni-recent");
+    const picksEl = document.getElementById("omni-picks"), fundsEl = document.getElementById("omni-funds");
+    const recent = () => { try { return JSON.parse(localStorage.getItem(RECENT_LS) || "[]").filter(t => /^[A-Z0-9.\-]{1,10}$/.test(t)); } catch (e) { return []; } };
+    function drawRecent(){
+      const r = recent();
+      recentEl.hidden = !r.length;
+      recentEl.innerHTML = r.length ? `<span>Recent:</span>` + r.map(t => `<button type="button" data-t="${esc(t)}">${esc(t)}</button>`).join("") : "";
+    }
+    function remember(t){ try { localStorage.setItem(RECENT_LS, JSON.stringify([t, ...recent().filter(x => x !== t)].slice(0, 10))); } catch (e) {} drawRecent(); }
+    recentEl.addEventListener("click", e => { const b = e.target.closest("button[data-t]"); if (!b) return; tick.value = b.dataset.t; lookup(); });
+    state.edgarRemember = remember;
+    drawRecent();
+    function drawPicks(j){
+      const fl = j.filings || [], first = form => fl.find(f => f.form.replace("/A", "") === form);
+      const k = first("10-K") || first("20-F") || first("40-F"), q = first("10-Q"), rel = fl.find(f => /^8-K/.test(f.form));
+      const btn = (act, title, sub, ok = true) => `<button type="button" data-act="${act}"${ok ? "" : " disabled"}><span>${esc(title)}</span><small>${esc(sub)}</small></button>`;
+      picksEl.hidden = false; fundsEl.hidden = true;
+      picksEl.innerHTML = btn("k", `Latest ${k ? k.form : "10-K"}`, k ? `period ended ${k.period}, filed ${k.filed}` : "none in the recent filings", !!k)
+        + btn("q", "Latest 10-Q", q ? `period ended ${q.period}, filed ${q.filed}` : "none in the recent filings", !!q)
+        + btn("rel", "Latest earnings release", rel ? `8-K exhibit 99.1, filed ${rel.filed}` : "none in the recent filings", !!rel)
+        + btn("ins", "Insider trades", "Form 4 filings, the last 12 months")
+        + btn("funds", "Big funds", "13F holdings: who owns it, and each fund's portfolio");
+      picksEl.dataset.k = k ? fl.indexOf(k) : ""; picksEl.dataset.q = q ? fl.indexOf(q) : ""; picksEl.dataset.rel = rel ? fl.indexOf(rel) : "";
+    }
+    picksEl.addEventListener("click", e => {
+      const b = e.target.closest("button[data-act]"); if (!b || !found) return;
+      const act = b.dataset.act;
+      if (act === "ins") return readGenerated(`/api/edgar/insiders.html?ticker=${encodeURIComponent(found.ticker)}`, found.ticker, `Collecting ${found.ticker}'s Form 4 filings from SEC EDGAR (the first time takes up to a minute)...`);
+      if (act === "funds") return showFunds(found);
+      const i = picksEl.dataset[act];
+      if (i !== "" && i != null) readFiling(found.filings[+i]);
+    });
+    // a document this server writes from EDGAR data (insider trades, a fund's 13F), then read like any other
+    async function readGenerated(url, ticker, msg){
+      say(msg);
+      picksEl.querySelectorAll("button").forEach(x => { x.disabled = true; });
+      try {
+        const r = await fetch(url, {cache: "no-store"});
+        if (!r.ok){ let m = "SEC EDGAR did not return it."; try { m = (await r.json()).error || m; } catch (x){} say(m, true); return; }
+        const name = r.headers.get("X-Doc-Name") || "document.htm";
+        pick(new File([await r.blob()], name, {type: "text/html"}));
+        const tk = document.getElementById("read-ticker"); if (tk) tk.value = ticker || "";
+        say(`Loaded ${name.replace(/\.htm$/, "")}. Reading...`);
+        list.innerHTML = "";
+        runRead.click();
+      } catch (x){ say("Could not reach the local server.", true); }
+      finally { if (found) drawPicks(found); }
+    }
+    async function showFunds(j){
+      fundsEl.hidden = false;
+      fundsEl.innerHTML = `<div class="of-row"><b>Big funds and ${esc(j.ticker)}</b><button type="button" data-act="holders">Which funds hold ${esc(j.ticker)}?</button></div>
+        <ol class="of-holders" id="of-holders"></ol>
+        <div class="of-row"><select id="of-pick" aria-label="A fund"><option value="">Loading funds...</option></select><button type="button" data-act="read13f">Read this fund's 13F</button>
+          <input id="of-q" type="search" placeholder="Or search a fund by name" aria-label="Search a fund by name"><button type="button" data-act="search">Search</button></div>
+        <span class="omni-note" id="of-st" role="status"></span>`;
+      const sel = fundsEl.querySelector("#of-pick");
+      try {
+        const r = await fetch("/api/edgar/funds", {cache: "no-store"}); const d = await r.json();
+        sel.innerHTML = (d.funds || []).map(f => `<option value="${f.cik}">${esc(f.name)}</option>`).join("");
+      } catch (e){ sel.innerHTML = `<option value="">Funds unavailable</option>`; }
+    }
+    fundsEl.addEventListener("click", async e => {
+      const b = e.target.closest("button[data-act]"); if (!b || !found) return;
+      const st = fundsEl.querySelector("#of-st"), act = b.dataset.act;
+      if (act === "read13f" || act === "fund"){
+        const cik = act === "fund" ? b.dataset.cik : fundsEl.querySelector("#of-pick").value;
+        if (!cik) return;
+        return readGenerated(`/api/edgar/fund.html?cik=${encodeURIComponent(cik)}&ticker=${encodeURIComponent(found.ticker)}`, "", "Collecting the fund's 13F from SEC EDGAR...");
+      }
+      if (act === "search"){
+        const q = fundsEl.querySelector("#of-q").value.trim(); if (!q) return;
+        st.textContent = "Searching SEC EDGAR...";
+        const r = await fetch("/api/edgar/funds?q=" + encodeURIComponent(q), {cache: "no-store"}); const d = await r.json();
+        if (!r.ok){ st.textContent = d.error || "Search failed."; return; }
+        const sel = fundsEl.querySelector("#of-pick");
+        sel.innerHTML = (d.funds || []).map(f => `<option value="${f.cik}">${esc(f.name)} (CIK ${f.cik})</option>`).join("") || `<option value="">No match</option>`;
+        st.textContent = d.funds.length ? "Pick one, then Read this fund's 13F. A filer that does not file 13F has no holdings to show." : "No SEC filer matched.";
+        return;
+      }
+      if (act === "holders"){
+        const ol = fundsEl.querySelector("#of-holders");
+        st.textContent = `Checking each fund's latest 13F for ${found.ticker} (the first time downloads each filing; up to a few minutes)...`;
+        b.disabled = true;
+        try {
+          const r = await fetch("/api/edgar/holders?ticker=" + encodeURIComponent(found.ticker), {cache: "no-store"}); const d = await r.json();
+          if (!r.ok){ st.textContent = d.error || "Could not check the funds."; return; }
+          const held = d.funds.filter(f => f.held), not = d.funds.filter(f => f.held === false);
+          const usd = v => v >= 1e9 ? `$${(v / 1e9).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} billion` : `$${(v / 1e6).toLocaleString(undefined, {maximumFractionDigits: 1})} million`;
+          ol.innerHTML = held.map(f => f.positions.map(p => `<li><span><b>${esc(f.fund)}</b><small>${Math.round(p.shares).toLocaleString()} shares · ${usd(p.value)} · ${p.weight}% of the fund · rank ${p.rank}${p.new ? " · new this quarter" : p.prior_shares != null ? ` · ${p.shares > p.prior_shares ? "up" : p.shares < p.prior_shares ? "down" : "unchanged"} from ${Math.round(p.prior_shares).toLocaleString()}` : ""} · quarter ended ${esc(f.period)}</small></span>
+            <button type="button" data-act="fund" data-cik="${f.cik}">Read 13F</button></li>`).join("")).join("")
+            + (not.length ? `<li class="no"><span><b>Not in their latest 13F</b><small>${esc(not.map(f => f.fund).join(" · "))}</small></span></li>` : "");
+          const co = String(d.company || found.ticker).replace(/\.$/, "");
+          st.textContent = held.length ? `${held.length} of ${d.funds.length} funds reported holding ${co}. ${d.note}` : `None of the ${d.funds.length} funds reported holding ${co}. ${d.note}`;
+        } catch (x){ st.textContent = "Could not reach the local server."; }
+        finally { b.disabled = false; }
+      }
+    });
+    state.readEdgarFiling = (j, f) => { found = j; return readFiling(f); };
     list.addEventListener("click", async e => {
       if (e.target.closest("button[data-more]")){ list.querySelectorAll("li[hidden]").forEach(li => { li.hidden = false; }); e.target.closest("li").remove(); return; }
       const b = e.target.closest("button[data-i]"); if (!b || !found) return;
@@ -2908,7 +3238,9 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         const ext = (f.document.match(/\.(\w+)$/) || ["", "htm"])[1];
         // the file name carries the filing's identity into the report's source line
         const name = `${found.ticker} ${f.form.replace("/", "-")} ${f.period || f.filed} filed ${f.filed} ${f.accession}.${ext}`;
-        pick(new File([blob], name, {type: blob.type || "text/html"}));
+        const file = new File([blob], name, {type: blob.type || "text/html"});
+        pick(file);
+        state.companyHint = {file, name: found.company || ""};     // a release that never names its company is still labeled
         const tk = document.getElementById("read-ticker"); if (tk) tk.value = found.ticker;
         say(`Loaded ${f.form} for the period ended ${f.period || f.filed} (filed ${f.filed}). Reading...`);
         list.innerHTML = "";                                   // the choice is made; keep the page short
@@ -2969,6 +3301,28 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   ["dragenter","dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
   ["dragleave","drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
   drop.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) pick(f); });
+  // One search bar: the whole bar takes a dropped file, and a chosen or dropped file is read at once (on this Mac
+  // the ticker typed in the bar goes with it). Record mode keeps its own Start button.
+  const omni = document.getElementById("omni");
+  const autoRun = () => {
+    if (document.body.classList.contains("recmode") || !chosen || runRead.disabled) return;
+    const et = document.getElementById("edgar-ticker"), t = et ? et.value.trim() : "";
+    if (READ_MAX.local && t && /^[A-Za-z][A-Za-z0-9.\-]{0,9}$/.test(t) && !tickerIn.value.trim()) tickerIn.value = t.toUpperCase();
+    runRead.click();
+  };
+  fileIn.addEventListener("change", () => { if (fileIn.files[0]) setTimeout(autoRun, 0); });
+  if (omni){
+    const hasFiles = e => !!(e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files"));
+    ["dragenter", "dragover"].forEach(t => omni.addEventListener(t, e => { if (hasFiles(e)){ e.preventDefault(); omni.classList.add("dragging"); } }));
+    omni.addEventListener("dragleave", e => { if (!omni.contains(e.relatedTarget)) omni.classList.remove("dragging"); });
+    omni.addEventListener("drop", e => {
+      omni.classList.remove("dragging");
+      const f = e.dataTransfer && e.dataTransfer.files[0]; if (!f) return;
+      e.preventDefault();
+      if (!e.target.closest("#read-drop")) pick(f);          // the drop zone itself already took it
+      setTimeout(autoRun, 0);
+    });
+  }
 
   // ---- findings panel: grouped, deduplicated, linked to the highlight ----
   const GROUPS = ["Financials", "Operating metrics", "Risks", "Other figures"];
@@ -3021,6 +3375,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     return w ? w[0] : (f.value || "");
   }
   function scrollToFinding(f){
+    if (f._el && f._el.isConnected && state.walkState && !state.walkState.done && !state.walkSkipped){ seekTo(f._el, {page: f.pdf_page, n: 1}); return; }
     if (f._el && f._el.isConnected){
       const r = f._el.getBoundingClientRect();
       window.scrollTo({top: r.top + window.scrollY - innerHeight / 2, behavior: REDUCED ? "auto" : "smooth"});
@@ -3036,12 +3391,15 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     li.className = "rf"; li.dataset.cat = cat; li.tabIndex = 0;
     const st = f.status ? `<span class="rf-tag ${STATUS_CLS[f.status] || ""}">${esc(f.status)}</span>` : "";
     const meta = [f.group === "Risks" ? "" : f.period, pageTxt(f.pdf_page, f.printed_page)].filter(Boolean);
-    li.innerHTML = `<div class="rf-top"><span class="rf-lab">${esc(f.label)}</span>${st}</div>` +
+    li.innerHTML = `<div class="rf-top"><span class="rf-lab">${esc(f.label)}</span>${st}${f.value ? `<button type="button" class="rf-clip" title="Make a clip of this figure">Clip</button>` : ""}</div>` +
       (f.value ? `<b class="rf-val">${esc(f.value)}</b>` : `<span class="rf-risk">${esc(f.period || f.text || "")}</span>`) +
       (meta.length ? `<span class="rf-meta">${esc(meta.join(" · "))}</span>` : "") +
       (f.value ? `<span class="rf-snip">${snipHTML(f)}</span>` : "");
     li.setAttribute("aria-label", `${f.label} ${f.value || ""} ${pageTxt(f.pdf_page, f.printed_page)}`);
-    li.addEventListener("click", () => scrollToFinding(f));
+    li.addEventListener("click", e => {
+      if (e.target.closest(".rf-clip")){ e.stopPropagation(); makeClip({label: f.label, value: f.value, raw: f.raw, page: f.pdf_page, period: f.period, text: f.excerpt}); return; }
+      scrollToFinding(f);
+    });
     li.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); scrollToFinding(f); } });
     const g = groupFor(cat);
     g.querySelector("ol").appendChild(li);
@@ -3218,6 +3576,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         setTimeout(() => row.classList.remove("lr-row-enter"), 450);
       }
       follow = td;
+      if (ch.op === "show" && ch.via === "walk" && ch.state !== "withdrawn") cardForCell(ch.id);
       td.classList.toggle("is-w", ch.state === "withdrawn");
       td.classList.add("flash"); setTimeout(() => td.classList.remove("flash"), 1400);
     }
@@ -3401,11 +3760,16 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       <h2>Record mode</h2>
       <p>Choose a 10-K or 10-Q PDF and press Start. ${canRecord ? "With “Record this window” on, Chrome asks you to share this tab, and the finished clip downloads at the end." : "Use your Mac's screen recorder (Shift-Command-5, Record Selected Portion) on this window."}</p>
       <div id="rec-file-slot"></div>
+      <fieldset class="clip-idea ideas-box" id="ideas-box"><legend>Today's ideas</legend>
+        <p>From your ideas list (the vault's social/ideas.md) and the watchlist autopilot. Use one to fill in the idea clip below; Next idea moves down the list.</p>
+        <ul class="ideas-list" id="ideas-list"><li><span>Loading...</span></li></ul>
+        <div class="ideas-row"><button type="button" id="ideas-next">Next idea</button><span class="ideas-st" id="ideas-st" role="status"></span></div>
+      </fieldset>
       <fieldset class="clip-idea" id="clip-idea-box"><legend>Idea clip</legend>
         <p>Paste an idea from your ideas panel (or type the hook and the numbers). The clip opens on your hook for 2 seconds, then the spider lands where those numbers are in the filing and reads at clip speed.</p>
         <textarea id="clip-paste" rows="3" placeholder="Paste the idea line here"></textarea>
         <label class="opt">Hook <input id="clip-hook" type="text" maxlength="90" placeholder="jpmorgan made $156 million a day in 2025"></label>
-        <label class="opt">Ticker <span><input id="clip-ticker" type="text" maxlength="10" placeholder="JPM"> <select id="clip-form"><option>10-K</option><option>10-Q</option></select></span></label>
+        <label class="opt">Ticker <span><input id="clip-ticker" type="text" maxlength="10" placeholder="JPM"> <select id="clip-form"><option>10-K</option><option>10-Q</option><option value="8-K">8-K earnings release</option></select></span></label>
         <label class="opt">Numbers to find <input id="clip-find" type="text" placeholder="57,048, 58,471"></label>
         <label class="opt">Intro big number <span><input id="clip-big" type="text" maxlength="14" placeholder="$156m"> <input id="clip-small" type="text" maxlength="40" placeholder="/ day · on average"></span></label>
         <label class="opt">Intro picture (optional) <input id="clip-pic" type="file" accept="image/*"></label>
@@ -3426,6 +3790,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       <label class="opt">Crawler colors <select id="rec-palette">${Object.entries(palettes).map(([id, p]) => `<option value="${id}">${p.name}</option>`).join("")}</select></label>
       <div class="rec-palette-preview" id="rec-palette-preview" aria-label="Crawler color preview"></div>
       <label class="opt">Dark page <input type="checkbox" id="rec-dark" checked></label>
+      <label class="opt">Number cards (a big sourced figure as the spider reads a headline number) <input type="checkbox" id="rec-cards" checked></label>
       ${canRecord ? `<label class="opt">Video quality <select id="rec-quality"><option value="high" selected>High Quality · 1080 × 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label><p>High Quality requests portrait Full HD at 32 Mbps. Chrome may supply a lower resolution or frame rate. Actual capture details appear with the download.</p>` : ""}
       ${canRecord ? `<label class="opt">Record this window (downloads a video) <input type="checkbox" id="rec-capture" checked></label>` : ""}
       ${canRecord && window.showSaveFilePicker ? `<label class="opt">Save to disk while recording (long takes use no extra memory) <input type="checkbox" id="rec-disk" checked></label>` : ""}
@@ -3443,9 +3808,13 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const colors = setup.querySelector("#rec-palette").closest("label");
       const preview = setup.querySelector("#rec-palette-preview");
       const dark = setup.querySelector("#rec-dark").closest("label");
-      setup.replaceChildren(colors, preview, dark);
+      const cards = document.createElement("label"); cards.className = "opt";
+      cards.innerHTML = `Number cards <input type="checkbox" id="num-cards-on">`;
+      cards.title = "A big card with the figure, its change and its page when the spider reads a headline number";
+      setup.replaceChildren(colors, preview, dark, cards);
       setup.id = "reader-appearance";
-      document.querySelector(".read-form").after(setup);
+      const slot = document.getElementById("appearance-slot");
+      if (slot) slot.appendChild(setup); else document.querySelector(".read-form").after(setup);
     }
     if (isRecord){
       const format = setup.querySelector("#rec-format");
@@ -3460,9 +3829,69 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       };
       format.addEventListener("change", syncFormat); syncFormat();
       ideaSetup(format);
+      ideasSetup(format);
+      prefillSetup(format);
+    }
+    // ---- Today's ideas: the autopilot's queued ideas, then the newest days of social/ideas.md; Use fills the idea clip ----
+    async function ideasSetup(format){
+      const q = id => setup.querySelector("#" + id), listEl = q("ideas-list"), st = q("ideas-st");
+      let ideas = [], at = -1;
+      try { ideas = JSON.parse(localStorage.getItem("bmg-clip-queue") || "[]").filter(x => x && x.hook).slice(0, 6).map(x => ({...x, src: "autopilot"})); } catch (e) {}
+      try {
+        const r = await fetch("/api/social/ideas", {cache: "no-store"}), j = await r.json();
+        if (r.ok){ (j.days || []).slice(0, 2).forEach(d => d.ideas.forEach(i => ideas.push({...i, day: d.day, src: "ideas"}))); st.textContent = `From ${j.source}`; }
+        else st.textContent = j.error || "The ideas list is not available.";
+      } catch (e){ st.textContent = "The ideas list is not available (local crawler only)."; }
+      ideas = ideas.filter(i => !i.done).concat(ideas.filter(i => i.done));
+      const draw = () => {
+        listEl.innerHTML = ideas.length ? ideas.map((i, k) => `<li class="${k === at ? "on" : ""}${i.done ? " done" : ""}"><span>${esc(i.hook)}</span><small>${esc(i.src === "autopilot" ? `autopilot · ${i.source || ""}` : `${i.day}${i.done ? " · posted or dropped" : ""} · ${(i.format || "").slice(0, 60)}`)}</small><button type="button" data-k="${k}">Use</button></li>`).join("")
+          : `<li><span>No ideas yet. Paste one below, or add tickers to the watchlist autopilot.</span></li>`;
+      };
+      const use = k => {
+        const i = ideas[k]; if (!i) return;
+        at = k; draw();
+        if (i.src === "autopilot"){
+          for (const [id, v] of [["clip-hook", i.hook], ["clip-ticker", i.ticker], ["clip-find", (i.find || []).join(", ")], ["clip-big", i.big], ["clip-small", i.small]]) q(id).value = v || "";
+          q("clip-form").value = i.form || "10-K"; clipFiled = i.filed || "";
+          format.value = "idea"; format.dispatchEvent(new Event("change"));
+          q("clip-st").textContent = `Filled in from the autopilot (${i.source}). Check the hook, then Start.`;
+          q("clip-hook").dispatchEvent(new Event("input"));
+        } else { q("clip-paste").value = i.raw; q("clip-paste").dispatchEvent(new Event("input")); }
+        q("clip-idea-box").scrollIntoView({block: "nearest", behavior: "smooth"});
+      };
+      listEl.addEventListener("click", e => { const b = e.target.closest("button[data-k]"); if (b) use(+b.dataset.k); });
+      q("ideas-next").addEventListener("click", () => {
+        if (!ideas.length) return;
+        let k = at;
+        do { k = (k + 1) % ideas.length; } while (ideas[k].done && ideas.some(i => !i.done) && k !== at);
+        use(k);
+      });
+      draw();
+    }
+    // ---- One-click clip: a finding in the reader opened this window with the idea filled in and the same document ----
+    function prefillSetup(format){
+      if (!/[?&]prefill=1\b/.test(location.search)) return;
+      const q = id => setup.querySelector("#" + id);
+      let x = null;
+      try { x = JSON.parse(localStorage.getItem("bmg-clip-prefill") || "null"); } catch (e) {}
+      if (x && Date.now() - (x.at || 0) < 15 * 60 * 1000){
+        for (const [id, v] of [["clip-hook", x.hook], ["clip-ticker", x.ticker], ["clip-find", (x.find || []).join(", ")], ["clip-big", x.big], ["clip-small", x.small]]) q(id).value = v || "";
+        if ([...q("clip-form").options].some(o => o.value === x.form)) q("clip-form").value = x.form;
+        format.value = "idea"; format.dispatchEvent(new Event("change"));
+        q("clip-st").textContent = `Filled in from ${x.source}. Write the hook in your words, check the numbers, then Start.`;
+        q("clip-hook").dispatchEvent(new Event("input"));
+      }
+      // the reader sends the document it read, so the clip reads the same file
+      addEventListener("message", e => {
+        if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-clip-file" || !(e.data.file instanceof File)) return;
+        const dt = new DataTransfer(); dt.items.add(e.data.file);
+        fileIn.files = dt.files; fileIn.dispatchEvent(new Event("change"));
+        q("clip-st").textContent += " The same document is loaded.";
+      });
+      if (window.opener) window.opener.postMessage({type: "bmg-record-ready"}, location.origin);
     }
     // ---- Idea clip: a pasted idea fills the hook, ticker, numbers and intro; Start loads the filing itself ----
-    const NAME_TICKERS = {"jpmorgan": "JPM", "jp morgan": "JPM", "chase": "JPM", "costco": "COST", "amazon": "AMZN", "apple": "AAPL", "microsoft": "MSFT",
+    const NAME_TICKERS = {"unitedhealth": "UNH", "united health": "UNH", "pepsico": "PEP", "pepsi": "PEP", "goldman sachs": "GS", "jpmorgan": "JPM", "jp morgan": "JPM", "chase": "JPM", "costco": "COST", "amazon": "AMZN", "apple": "AAPL", "microsoft": "MSFT",
       "j&j": "JNJ", "johnson & johnson": "JNJ", "coinbase": "COIN", "oracle": "ORCL", "gatx": "GATX", "trinity": "TRN", "tesla": "TSLA", "nvidia": "NVDA",
       "alphabet": "GOOGL", "google": "GOOGL", "meta": "META", "netflix": "NFLX", "walmart": "WMT", "prologis": "PLD", "nextera": "NEE", "amd": "AMD",
       "micron": "MU", "nike": "NKE", "starbucks": "SBUX", "disney": "DIS", "mcdonald": "MCD", "coca-cola": "KO", "pepsico": "PEP", "visa": "V",
@@ -3475,13 +3904,15 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const low = (txt.match(/\(([^)]*10-[KQ][^)]*)\)/i) || [, nums])[1].toLowerCase() + " " + hook.toLowerCase();
       let ticker = (txt.match(/\b(?:ticker|nyse|nasdaq)\s*[:=]?\s*([A-Z]{1,5})\b/) || [])[1] || "";
       if (!ticker){ for (const [n, tk] of Object.entries(NAME_TICKERS)) if (new RegExp("\\b" + n.replace(/[&]/g, "\\&") + "\\b").test(low)){ ticker = tk; break; } }
-      const form = /10-q/i.test(nums) ? "10-Q" : "10-K";
+      const form = /10-q/i.test(nums) ? "10-Q" : /\b8-k\b|ex-99|\brelease\b/i.test(nums) ? "8-K" : "10-K";
+      const filed = (nums.match(/\bfiled (\d{4}-\d\d-\d\d)/i) || [])[1] || "";
       const find = [...new Set((nums.match(/\d{1,3}(?:,\d{3})+(?:\.\d+)?/g) || []))].slice(0, 6);
       const big = (hook.match(/\$\s?[\d.,]+\s*(?:billion|million|thousand|[bmk])?/i) || [""])[0]
         .replace(/\s*billion/i, "b").replace(/\s*million/i, "m").replace(/\s*thousand/i, "k").replace(/\s+/g, "");
       const per = (hook.match(/\b(a day|a week|a month|a year|an hour|per day|per year)\b/i) || [""])[0].replace(/^(a|an|per)\s/i, "/ ");
-      return {hook, ticker, form, find, big, small: per ? per + (/day|hour|week|month/.test(per) ? " · on average" : "") : ""};
+      return {hook, ticker, form, filed, find, big, small: per ? per + (/day|hour|week|month/.test(per) ? " · on average" : "") : ""};
     }
+    let clipFiled = "";
     let clipPicUrl = "";
     function ideaSetup(format){
       const q = id => setup.querySelector("#" + id), st = q("clip-st");
@@ -3492,7 +3923,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       q("clip-paste").addEventListener("input", () => {
         const v = parseIdea(q("clip-paste").value);
         for (const [id, val] of [["clip-hook", v.hook], ["clip-ticker", v.ticker], ["clip-find", v.find.join(", ")], ["clip-big", v.big], ["clip-small", v.small]]) if (val) q(id).value = val;
-        q("clip-form").value = v.form;
+        q("clip-form").value = v.form; clipFiled = v.filed || "";
         format.value = "idea"; format.dispatchEvent(new Event("change"));
         st.classList.remove("err");
         st.textContent = v.ticker ? `Filled in from the idea. Check the fields, then Start.` : "Filled in from the idea. Add the ticker.";
@@ -3503,12 +3934,16 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       format.addEventListener("change", ready);
       fileIn.addEventListener("change", ready);
     }
-    async function loadClipFiling(ticker, form){
-      const r = await fetch("/api/edgar/filings?ticker=" + encodeURIComponent(ticker), {cache: "no-store"});
+    async function loadClipFiling(ticker, form, filed){
+      const rel = form === "8-K";
+      const r = await fetch("/api/edgar/filings?ticker=" + encodeURIComponent(ticker) + (rel ? "&earnings=1" : ""), {cache: "no-store"});
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "SEC EDGAR lookup failed.");
-      const f = (j.filings || []).find(x => x.form === form) || (j.filings || []).find(x => /^10-[KQ]/.test(x.form));
-      if (!f) throw new Error(`${j.company || ticker} has no ${form} in its recent filings.`);
+      const pool = j.filings || [], same = x => !filed || x.filed === filed;
+      // the filing the idea names (by its filing date), else the latest of that form
+      const f = rel ? (pool.find(x => /^8-K/.test(x.form) && same(x)) || pool.find(x => /^8-K/.test(x.form)))
+                    : (pool.find(x => x.form === form && same(x)) || pool.find(x => x.form === form) || pool.find(x => /^10-[KQ]/.test(x.form)));
+      if (!f) throw new Error(`${j.company || ticker} has no ${rel ? "earnings release" : form} in its recent filings.`);
       const q = new URLSearchParams({cik: j.cik, accession: f.accession, document: f.document});
       const d = await fetch("/api/edgar/document?" + q, {cache: "no-store"});
       if (!d.ok){ let m = "Download failed."; try { m = (await d.json()).error || m; } catch (x){} throw new Error(m); }
@@ -3534,18 +3969,54 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         }
         return false;
       };
+      // a number in hidden type (a filing's 1pt white text) is no place to land: checked only for the matches
+      const shown = i => !(parseFloat(getComputedStyle(ws[i]).fontSize) < 5);
       let best = null, bestScore = -1;
       keys.forEach((k, i) => {
-        if (k !== want[0]) return;
+        if (k !== want[0] || !shown(i)) return;
         const hits = [i];
-        for (const v of want.slice(1)){ for (let j = Math.max(0, i - 300); j < Math.min(ws.length, i + 300); j++) if (keys[j] === v){ hits.push(j); break; } }
+        for (const v of want.slice(1)){ for (let j = Math.max(0, i - 300); j < Math.min(ws.length, i + 300); j++) if (keys[j] === v && shown(j)){ hits.push(j); break; } }
         const score = hits.length * 2 + (underStatement(i) ? 1 : 0);
         if (score > bestScore){ best = hits; bestScore = score; }
       });
       if (!best){                                            // the first number is not there: take any of the others
-        for (const v of want.slice(1)){ const i = keys.indexOf(v); if (i >= 0){ best = [i]; break; } }
+        for (const v of want.slice(1)){ const i = keys.findIndex((k, j) => k === v && shown(j)); if (i >= 0){ best = [i]; break; } }
       }
       return best ? best.map(i => ws[i]) : null;
+    }
+    // One card per line of the filing the clip's numbers sit on: the first number big, the next one on the
+    // same line beside it ("vs 113,161", last year's column), the words before them on that line as the label.
+    // Lines come from the word positions the walk measured (an HTML filing's walk rows are whole blocks).
+    let cardedLines = [];
+    function clipCards(els){
+      const L = wordList(), lines = [], near = (r, y) => Math.abs(r.y + r.h / 2 - y) <= Math.max(4, r.h * 0.6);
+      for (const el of els){
+        const r = wordRect(el), y = r.y + r.h / 2;
+        let line = lines.find(l => near(r, l.y));
+        if (!line) lines.push(line = {y, els: []});
+        line.els.push(el);
+      }
+      for (const line of lines){
+        if (cardedLines.some(y => Math.abs(y - line.y) < 6)) continue;
+        cardedLines.push(line.y);
+        line.els.sort((a, b) => L.idx.get(a) - L.idx.get(b));
+        const el = line.els[0], before = [];
+        let k = L.idx.get(el) - 1;
+        for (; k >= 0 && before.length < 6; k--){
+          const w = L.els[k], t = w.textContent.trim();
+          if (!near(wordRect(w), line.y) || (/\d/.test(t) && !/[A-Za-z]/.test(t))) break;     // the start of the line, or the figure before
+          if (/[A-Za-z]/.test(t)) before.unshift(t);
+        }
+        // nothing before it on its line (text that flows, as in a slide's text): the label words that end the line above
+        for (; !before.length && k >= 0 && L.idx.get(el) - k < 40; k--){
+          const t = L.els[k].textContent.trim();
+          if (/\d/.test(t) && !/[A-Za-z]/.test(t)) break;
+          if (/[A-Za-z]/.test(t)){ for (let j = k; j >= 0 && before.length < 4; j--){ const u = L.els[j].textContent.trim(); if (/\d/.test(u) && !/[A-Za-z]/.test(u)) break; if (/[A-Za-z]/.test(u)) before.unshift(u); } break; }
+        }
+        const pg = el.closest(".pdfpage"), page = pg ? [...docBody.querySelectorAll(".pdfpage")].indexOf(pg) + 1 : htmlPageOf(el);
+        numberCard({label: before.join(" ") || "From the filing", value: el.textContent.trim(), page,
+          sub: line.els[1] ? "vs " + line.els[1].textContent.trim() : "as printed", clip: true});
+      }
     }
     function clipIntro(hook, big, small, name){
       const el = document.createElement("div");
@@ -3921,10 +4392,13 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const EYE_CONE = false;
     function startOverlays(){
       if (EYE_CONE) startEyeScanner();
+      const bar = document.getElementById("ctl-bar");          // the control bar at the bottom: measured once, and on resize
+      state.barH = bar && !isRecord ? bar.offsetHeight + 6 : 0;
       hud = document.createElement("div"); hud.id = "rec-hud";     // (the full-width scan line was removed at the owner's request)
       B.append(hud);
       const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
-      const tag = [co.ticker || co.ticker_hint, co.form].filter(Boolean).join(" ");
+      const callCo = (((state.readRes || {}).insights || {}).call || {}).company || {};       // a transcript names its company itself
+      const tag = [co.ticker || co.ticker_hint || callCo.ticker || (co.name ? "" : (callCo.name || "").replace(/,? (?:Inc|Corp|Co|Ltd)\.?$/, "").slice(0, 24)), co.form].filter(Boolean).join(" ");
       hudTimer = setInterval(() => {
         // scoped lookups: a whole-document query walks every word span (180,000 in JPMorgan's HTML 10-K)
         const figs = liveEl ? liveEl.querySelectorAll(".lr-c .lr-v").length : 0;
@@ -3934,7 +4408,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         const g = docGeo(), top = docTop();
         if (!isRecord){
           const {p: side, fixed} = sidePanel();
-          const limit = fixed ? side.top : innerHeight, bottom = top + g.height;
+          const limit = (fixed ? side.top : innerHeight) - (state.barH || 0), bottom = top + g.height;
           hud.style.top = Math.max(8, Math.min(limit - 40, bottom - 40)) + "px";
           hud.style.left = (g.left + g.width / 2) + "px";
           hud.hidden = bottom < 0 || top > innerHeight;
@@ -4238,13 +4712,14 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       const keySecs = Math.max(0, +setup.querySelector("#rec-keys").value || 0);
       const oneSecs = Math.max(0, +setup.querySelector("#rec-one").value || 0);
       state.recordRenderWidth = setup.querySelector("#rec-quality")?.value === "standard" ? 0 : 1080;
+      state.recCards = !!setup.querySelector("#rec-cards")?.checked;
       state.captureQuality = null;
       const capture = setup.querySelector("#rec-capture");
       if (clip && clip.ticker && !fileIn.files[0]){
         // the filing is fetched before the screen-share prompt, so a bad ticker never starts a recording
         const st = setup.querySelector("#clip-st");
         st.classList.remove("err"); st.textContent = `Loading the latest ${clip.form} for ${clip.ticker} from SEC EDGAR...`; startBtn.disabled = true;
-        try { clip.filing = await loadClipFiling(clip.ticker, clip.form); }
+        try { clip.filing = await loadClipFiling(clip.ticker, clip.form, clipFiled); }
         catch (e){ st.classList.add("err"); st.textContent = e.message || "Could not load the filing."; startBtn.disabled = false; return; }
         st.textContent = "";
       }
@@ -4262,6 +4737,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
         const jb = vis("read-jump");
         const targets = clip ? findClipTargets(clip.find) : null;
         if (targets){
+          htmlPageOf(targets[0]);     // an HTML filing's pages counted now, under the curtain, so a number card never waits on it
           // land a few lines above the first number so it is read, and zapped, a second or two after the intro
           const top = targets[0].getBoundingClientRect().top;
           const ws = [...docBody.getElementsByClassName("w")];
@@ -4302,8 +4778,11 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
           state.paused = false;
           // the numbers asked for are lit as the spider reaches them (the zap only fires within its reach)
           const pending = new Set(targets || []);
+          cardedLines = [];
           clipWatch = setInterval(() => {
-            for (const el of pending) if (zapTo(el, true, true)){ el.classList.add("found", "pink", "hl-zap"); pending.delete(el); }
+            const hit = [];
+            for (const el of pending) if (zapTo(el, true, true)){ el.classList.add("found", "pink", "hl-zap"); pending.delete(el); hit.push(el); }
+            if (hit.length) clipCards(hit);
             if (!pending.size) clearInterval(clipWatch);
           }, 100);
         }
@@ -4489,6 +4968,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     countEl.textContent = `0 of ${state.readTotal} shown`;
     const co = res.report.company || {};
     scopeEl.innerHTML = `${esc(co.name || res.title)}${co.form ? " · " + esc(co.form) : ""}${co.period ? " · " + esc(co.period) : ""}`;
+    toolsStart(res);
     const f = state.chosenForJob;
     const canDraw = f && f.size && state.chosenSha === res.sha256;
     if (!canDraw){
@@ -4517,6 +4997,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     const ok = await loadDocAndWalk({type: "document", doc_id: "job-" + res.sha256, host: res.title, title: res.title,
       doc_type: (res.kind || "").toUpperCase(), ticker: co.ticker || "", has_text: true, fetched_at: new Date().toISOString()});
     if (!ok){ if (state.doneHook){ state.doneHook = null; done(res); } return; }
+    toolsDocReady();
     // Skip (or reduced motion) while the document was still drawing: the
     // walk is queued to start just after this; stop it as it starts.
     if (REDUCED || state.walkSkipped){ state.walkSkipped = true; setTimeout(() => { skipWalk(); setStatus(`ready \u00b7 ${state.panelIds.size} findings`); }, 120); }
@@ -4550,6 +5031,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     // signals with no anchor in the document still belong in the list
     Object.values(state.sigById || {}).forEach(sg => { if (!sg._shown){ sg._shown = true; addSignalCard(sg); } });
     if (res.report.brief) drawBrief(res.report.brief, false);
+    toolsDone();
     setStatus(`ready · ${state.panelIds.size} findings`);
     liveProgress(true);
     showFinish(res);
@@ -4570,18 +5052,50 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     let card = document.getElementById("read-report-ready");
     if (!card){ card = document.createElement("div"); card.id = "read-report-ready"; card.className = "rp-ready"; }
     sumEl.innerHTML = ""; sumEl.appendChild(card); sumEl.hidden = false;
-    const co = rep.company, iss = issuesOf(rep);
+    const co = rep.company, ins = res.insights || {};
+    // insider trades, a fund's holdings and a call have no statements: no statement coverage, issues or competitor
+    const docOnly = ins.kind === "insider" || ins.kind === "holdings" || ins.kind === "transcript";
+    const callCo = (ins.kind === "transcript" && (ins.call || {}).company) || {};
+    const iss = docOnly ? (rep.coverage.warnings || []).map(w => w.message) : issuesOf(rep);
     const counts = GROUPS.map(g => [g, res.findings.filter(f => f.group === g).length]).filter(x => x[1]);
+    const pl = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+    const what = ins.kind === "insider" ? `${pl((ins.trades || []).length, "transaction")}, ${(ins.trades || []).filter(x => x.code === "P" || x.code === "S").length} open-market`
+      : ins.kind === "holdings" ? `${pl((ins.holdings || []).length, "position")} listed`
+      : ins.kind === "transcript" ? `${pl(((ins.call || {}).speakers || []).length, "speaker")}, ${pl(((ins.call || {}).questions || []).length, "analyst question")}` : "";
     card.innerHTML = `<div class="rp-ready-brand">BMG Capital ${BMG_LINE}</div>
-      <div class="rp-ready-txt"><b>Your BMG Capital report is ready</b><span>${esc(co.name || res.title)}${co.period ? " &middot; " + esc(co.period) : ""}</span>
-      <span class="cov">Coverage: <b>${esc(rep.coverage.status)}</b> &middot; ${counts.map(([g, n]) => `${n} ${esc(g.toLowerCase())}`).join(", ")} &middot; validation ${rep.validation.passed ? "passed" : "withdrew " + rep.validation.withdrawn.length + " item(s)"}</span></div>
-      <div class="rp-actions"><button type="button" class="rp-view">View report</button><button type="button" class="rp-dl">Download PDF</button><button type="button" class="rp-srcs">Review sources</button></div>
-      ${iss.length ? `<div class="rp-issues"><b>Unresolved (${iss.length})</b><ul>${iss.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : `<div class="rp-issues ok">No unresolved issues were recorded for the items in the report.</div>`}`;
+      <div class="rp-ready-txt"><b>Your BMG Capital report is ready</b><span>${esc(co.name || callCo.name || co.name_hint || res.title)}${co.period ? " &middot; " + esc(co.period) : ""}</span>
+      ${docOnly ? `<span class="cov">${esc(ins.label || "")} &middot; ${esc(what)}</span></div>`
+      : `<span class="cov">Coverage: <b>${esc(rep.coverage.status)}</b> &middot; ${counts.map(([g, n]) => `${n} ${esc(g.toLowerCase())}`).join(", ")} &middot; validation ${rep.validation.passed ? "passed" : "withdrew " + rep.validation.withdrawn.length + " item(s)"}</span></div>`}
+      <div class="rp-actions"><button type="button" class="rp-view">View report</button><button type="button" class="rp-dl">Download PDF</button><button type="button" class="rp-srcs">Review sources</button>${READ_MAX.local && ["annual", "quarterly"].includes((state.ins || {}).kind) ? `<button type="button" class="rp-srcs rp-yoy">This year vs last year</button>` : ""}<button type="button" class="rp-srcs rp-mkclip" title="Open Record mode with this filing's headline number filled in">Make a clip</button></div>
+      ${iss.length ? `<div class="rp-issues"><b>Unresolved (${iss.length})</b><ul>${iss.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : docOnly ? "" : `<div class="rp-issues ok">No unresolved issues were recorded for the items in the report.</div>`}`;
     card.querySelector(".rp-view").onclick = () => openReport();
     card.querySelector(".rp-dl").onclick = (e) => downloadPdf(e.currentTarget);
     card.querySelector(".rp-srcs").onclick = () => openReport("rp-sources");
-    compareBox(card);
+    const yb = card.querySelector(".rp-yoy"); if (yb) yb.onclick = () => runYoy(yb);
+    card.querySelector(".rp-mkclip").onclick = () => {
+      if (docOnly){ makeClip(clipSubject(ins, res) || {label: "", value: "", text: ""}); return; }
+      const perf = rep.financials.performance || [], F = rep.evidence.facts;
+      const row = ["net_income", "revenue", "eps_diluted"].map(m => perf.find(r => r.metric === m && F[r.current])).find(Boolean);
+      const x = row && F[row.current];
+      if (x) makeClip({label: x.name, value: x.display, raw: (x.source || {}).raw, page: (x.source || {}).pdf_page, period: x.period.short || x.period.label, text: (x.source || {}).excerpt});
+      else makeClip({label: "", value: "", text: ""});
+    };
+    if (!docOnly) compareBox(card);
     saveRun(false);
+  }
+  // ---- this year vs last year: last year's filing from SEC EDGAR, the risk-factor changes, the figures that moved ----
+  async function runYoy(btn){
+    if (!state.jobId) return;
+    if (state.yoy){ openReport("rp-yoy"); return; }
+    const t = btn.textContent; btn.disabled = true; btn.textContent = "Reading last year's filing...";
+    try {
+      const {r, j} = await api(`/api/read/jobs/${encodeURIComponent(state.jobId)}/yoy`);
+      if (r.status === 404 && !j){ jobGone(); return; }
+      if (!r.ok){ showErr((j && (j.error || j.detail)) || "Last year's filing could not be compared."); return; }
+      state.yoy = j;
+      openReport("rp-yoy");
+    } catch (e){ showErr("Could not reach the local server."); }
+    finally { btn.disabled = false; btn.textContent = t; }
   }
   // ---- compare with a competitor: a second job, then both reports side by side ----
   function compareBox(card){
@@ -4748,58 +5262,79 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       ${(sr.read || []).length ? `<p class="rp-note">Read: ${esc(sr.read.join("; "))}.</p>` : ""}
       ${(sr.not_read || []).length ? `<p class="rp-note">Not read or out of scope: ${esc(sr.not_read.join("; "))}.</p>` : ""}
       ${(sr.failed || []).map(x => `<p class="rp-note"><b>Could not read:</b> ${esc(x)}</p>`).join("")}`;
-    const body = `
-      <header class="rp-head"><div class="rp-brand"><span>BMG Capital</span>${BMG_LINE}</div><div class="rp-kind">Company Report</div></header>
-      <h1>${esc(co.name || "Company not identified")} <span class="rp-tk">${esc(co.ticker || co.ticker_hint || "")}</span></h1>
-      <p class="rp-sub">${[co.form, co.period, co.exchange].filter(Boolean).map(esc).join(" &middot; ")}${co.amendment ? " &middot; Amendment" : ""}</p>
-      <p class="rp-meta">Generated ${esc(new Date(rep.generated_at).toLocaleString())} from <b>${esc(rep.source.name)}</b> (${rep.source.pages} pages). ${esc(rep.review)}</p>
-      <p class="rp-cov">Coverage: <b>${esc(rep.coverage.status)}</b> &middot; ${rep.coverage.facts_published} headline figures &middot; ${rep.coverage.checks_run} checks, ${rep.coverage.checks_failed} failed &middot; validation ${rep.validation.passed ? "passed" : "withdrew " + rep.validation.withdrawn.length + " item(s)"}</p>
+    // The report in five tabs (all of them print): what it says, the statements, the ratios and screens, the
+    // observations (risks, red flags, guidance, the call), and where every figure comes from.
+    const T = {summary: [], statements: [], ratios: [], observations: [], sources: []};
+    const ins = res.insights || {};
+    const docOnly = ins.kind === "insider" || ins.kind === "holdings" || ins.kind === "transcript";
+    const callCo = (ins.kind === "transcript" && (ins.call || {}).company) || {};    // named in the transcript itself
+    const pagesWord = `${rep.source.pages} page${rep.source.pages === 1 ? "" : "s"}`;
+    const kindName = {release: "Earnings Release", transcript: "Earnings Call", insider: "Insider Trades", holdings: "Fund Holdings", quarterly: "Company Report", annual: "Company Report"}[ins.kind] || "Company Report";
+    const head = `
+      <header class="rp-head"><div class="rp-brand"><span>BMG Capital</span>${BMG_LINE}</div><div class="rp-kind">${esc(kindName)}</div></header>
+      <h1>${esc(co.name || callCo.name || co.name_hint || (ins.kind === "insider" || ins.kind === "holdings" ? res.title.replace(/\.htm$/, "") : "Company not identified"))} <span class="rp-tk">${esc(co.ticker || co.ticker_hint || callCo.ticker || "")}</span></h1>
+      <p class="rp-sub">${[co.form, co.period, co.exchange, co.amendment ? "Amendment" : "", ins.label && ins.kind !== "annual" && ins.kind !== "quarterly" ? ins.label : ""].filter(Boolean).map(esc).join(" &middot; ")}</p>`;
+    T.summary.push(`
+      <p class="rp-meta">Generated ${esc(new Date(rep.generated_at).toLocaleString())} from <b>${esc(rep.source.name)}</b> (${pagesWord}). ${esc(rep.review)}</p>
+      ${!co.name && callCo.name ? `<p class="rp-note">${esc(callCo.name)} is named in the transcript's ${esc(callCo.how)} <a class="rp-src" href="#" data-page="${callCo.page}" data-q="${esc(callCo.name)}" data-off="${callCo.offset != null ? callCo.offset : ""}">p. ${callCo.page}</a>.</p>`
+        : !co.name && co.name_hint ? `<p class="rp-note">The document does not name the company in a form the reader recognizes; ${esc(co.name_hint)} is SEC EDGAR's name for ${esc(co.ticker || co.ticker_hint || "the ticker")}, the filer it was downloaded from.</p>` : ""}
+      ${docOnly ? "" : `<p class="rp-cov">Coverage: <b>${esc(rep.coverage.status)}</b> &middot; ${rep.coverage.facts_published} headline figures &middot; ${rep.coverage.checks_run} checks, ${rep.coverage.checks_failed} failed &middot; validation ${rep.validation.passed ? "passed" : "withdrew " + rep.validation.withdrawn.length + " item(s)"}</p>
       ${secondCheck(rep.second_check)}
-      <section class="rp-tiles">${tile("revenue", "Revenue")}${tile("net_income", "Net income")}${tile("eps_diluted", "Diluted EPS")}${tile("fcf", "Free cash flow")}</section>
+      <section class="rp-tiles">${tile("revenue", "Revenue")}${tile("net_income", "Net income")}${tile("eps_diluted", "Diluted EPS")}${tile("fcf", "Free cash flow")}</section>`}`);
+    const insight = insightsHTML(ins, state.yoy, srcOf);
+    T.summary.push(...insight.lead);
+    if (!docOnly){                            // insider trades, a fund's holdings and a call have no statements to report
+    T.summary.push(`
       <h2 id="rp-overview">Business overview</h2>
       ${desc}
       ${sg.text ? `<p><b>Segments.</b> ${esc(sg.text)} ${srcOf(sg)}</p>` : ""}
       ${bz.revenue_mix ? `<p><b>Revenue mix.</b> ${esc(bz.revenue_mix.text)} ${srcOf(bz.revenue_mix)} <span class="rp-basis">${esc(bz.revenue_mix.basis || "")}</span></p>` : ""}
       <p class="rp-note">Read as <b>${esc(bz.profile || op.profile || "")}</b>.${(bz.drivers || []).length ? ` Operating measures found: ${esc(bz.drivers.join("; "))}.` : ""}</p>
-      ${ov.market_value_note ? `<p class="rp-note">${esc(ov.market_value_note.text)} ${srcOf(ev(ov.market_value_note.fact))}</p>` : ""}
-      <h2 id="rp-analysis">Executive findings</h2>
+      ${ov.market_value_note ? `<p class="rp-note">${esc(ov.market_value_note.text)} ${srcOf(ev(ov.market_value_note.fact))}</p>` : ""}`,
+      `<h2 id="rp-analysis">Executive findings</h2>
       ${(rep.exec_findings || []).length ? `<ul class="rp-sigs">${rep.exec_findings.map(x => `<li class="s-${x.severity}"><span class="sev s-${x.severity}">${SEV[x.severity].l}</span><b>${esc(x.headline)}</b> ${srcOf(...(x.refs || []).map(ev)) || (x.source ? srcOf({source: x.source}) : "")}<p>${esc(x.text)}</p><small>Why it may matter (BMG interpretation): ${esc(x.why || "")}</small></li>`).join("")}</ul>
-      <p class="rp-note">Flag and Watch mean a value is beyond a stated screen for this kind of business (screens ${esc(rep.screens_version || "")}); Observation means no screen applies. None of these is a rating or a recommendation.</p>` : `<p class="muted">No findings could be supported by the extracted figures.</p>`}
+      <p class="rp-note">Flag and Watch mean a value is beyond a stated screen for this kind of business (screens ${esc(rep.screens_version || "")}); Observation means no screen applies. None of these is a rating or a recommendation.</p>` : `<p class="muted">No findings could be supported by the extracted figures.</p>`}`);
+    T.statements.push(`
       <h2 id="rp-financials">Financial performance</h2>
       ${p3.length ? `<div class="rp-tw"><table class="rp-table"><tr><th>Metric</th>${p3[0].ids.map(i => `<th class="num">${esc(per(ev(i)))}</th>`).join("")}<th class="num">Change (latest)</th><th>Source</th></tr>
         ${p3.map(r => { const v = r.ids.map(ev); const a = v[0], b = v[1];
           const ch = a && b && b.value != null && b.value !== 0 ? (b.value > 0 && a.value >= 0 ? `${((a.value / b.value - 1) * 100) >= 0 ? "+" : ""}${((a.value / b.value - 1) * 100).toFixed(1)}%` : "n.m. (negative base)") : "";
           return `<tr><td>${esc(r.name)}</td>${p3[0].ids.map((_, k) => `<td class="num">${v[k] ? esc(v[k].display) : ""}</td>`).join("")}<td class="num">${esc(ch)}</td><td>${srcOf(a)}</td></tr>`; }).join("")}</table></div>
         <p class="rp-note">Growth is shown only between periods of the same length; a zero or negative base shows n.m. ${esc(rep.performance3.note || "")}</p>` : ftable(rep.financials.performance)}
-      <h3>Margins and other calculations</h3>
-      ${ftable(rep.financials.calculated)}
       ${bd}
-      <p class="rp-note">${esc(rep.financials.period_note)}</p>
+      <p class="rp-note">${esc(rep.financials.period_note)}</p>`);
+    T.ratios.push(`
+      <h2 id="rp-margins">Margins and other calculations</h2>
+      ${ftable(rep.financials.calculated)}`);
+    T.statements.push(`
       <h2 id="rp-earnings">Earnings and cash generation</h2>
       ${ecNI && ecCF ? `<p>Net income of ${esc(ecNI.display)} (${esc(ecNI.name.toLowerCase())}) against operating cash flow of ${esc(ecCF.display)}, ${esc(ecCF.period.label)}. ${srcOf(ecNI, ecCF)}</p>
         ${(ec.items || []).length ? `<div class="rp-tw"><table class="rp-table"><tr><th>Reconciling line (cash flow statement)</th><th class="num">Amount</th><th>Source</th></tr>${ec.items.map(ev).filter(Boolean).map(f => `<tr><td>${esc(f.name)}</td><td class="num">${esc(f.display)}</td><td>${srcOf(f)}</td></tr>`).join("")}</table></div><p class="rp-note">${esc(ec.note || "")}</p>` : ""}
         ${sigById("cash_conversion") ? `<p class="rp-note">${esc(sigById("cash_conversion").text)} ${esc(sigById("cash_conversion").rule)}</p>` : ""}`
-        : `<p class="muted">Net income or operating cash flow was not found, so earnings and cash cannot be compared.</p>`}
-      <h2 id="rp-position">Financial position and capital allocation</h2>
+        : `<p class="muted">Net income or operating cash flow was not found, so earnings and cash cannot be compared.</p>`}`,
+      `<h2 id="rp-position">Financial position and capital allocation</h2>
       ${ftable(rep.position.rows)}
       ${cap.debt_definition ? `<p class="rp-note">Total debt: ${esc(cap.debt_definition)}</p>` : ""}
       ${(cap.capex_lines || []).length ? `<h3>Capital expenditure lines</h3><div class="rp-tw"><table class="rp-table"><tr><th>Line</th><th class="num">Amount</th><th>Source</th></tr>${cap.capex_lines.map(ev).filter(Boolean).map(f => `<tr><td>${esc(f.name)}</td><td class="num">${esc(f.display)}<small>${esc(per(f))}</small></td><td>${srcOf(f)}</td></tr>`).join("")}</table></div>` : ""}
       ${[cap.fcf_signal, cap.payout_signal].map(sigById).filter(Boolean).map(x => `<p><b>${esc(x.headline)}.</b> ${esc(x.text)} ${srcOf(...(x.inputs || []).map(ev))}</p>`).join("")}
-      ${cap.maturities ? `<p><b>Scheduled debt maturities (principal).</b> ${esc(cap.maturities.text)} ${srcOf(cap.maturities)}</p>` : `<p class="muted">No debt maturity schedule was read from this filing.</p>`}
-      <h2 id="rp-operating">Business-specific operating metrics <span class="muted">${esc(op.profile)}</span></h2>
-      ${kp ? `<div class="rp-tw"><table class="rp-table"><tr><th>Metric</th><th class="num">Current</th><th class="num">Prior</th><th>Status</th><th>Source</th></tr>${kp}</table></div><p class="rp-note">Similarly named measures from different companies are defined by each company and are not directly comparable.</p>` : `<p class="muted">No company-specific operating metrics were found.</p>`}
+      ${cap.maturities ? `<p><b>Scheduled debt maturities (principal).</b> ${esc(cap.maturities.text)} ${srcOf(cap.maturities)}</p>` : `<p class="muted">No debt maturity schedule was read from this filing.</p>`}`,
+      `<h2 id="rp-operating">Business-specific operating metrics <span class="muted">${esc(op.profile)}</span></h2>
+      ${kp ? `<div class="rp-tw"><table class="rp-table"><tr><th>Metric</th><th class="num">Current</th><th class="num">Prior</th><th>Status</th><th>Source</th></tr>${kp}</table></div><p class="rp-note">Similarly named measures from different companies are defined by each company and are not directly comparable.</p>` : `<p class="muted">No company-specific operating metrics were found.</p>`}`);
+    }
+    T.observations.push(...insight.obs);
+    if (!docOnly) T.observations.push(`
       <h2 id="rp-risks">Risks and watch items</h2>
       ${watch ? `<h3>Disclosed items</h3><p class="rp-note">From the notes, Item 3 and management's discussion.</p><ul class="rp-risks">${watch}</ul>` : ""}
       <h3>Risk factors</h3><p class="rp-note">Possible events the company describes, not disclosed events.</p>
       ${risks ? `<ul class="rp-risks">${risks}</ul>` : `<p class="muted">${esc(rep.risks.note || "No risk factors were found.")}</p>`}
       ${(rep.risks.followups || []).length ? `<h3>Follow up</h3><ul class="rp-follow">${rep.risks.followups.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
-      ${(rep.questions || []).length ? `<h2 id="rp-questions">Questions for further research</h2><ul class="rp-follow">${rep.questions.map(q => `<li>${esc(q.q)} <span class="rp-basis">${esc(q.basis)}</span> ${srcOf(...(q.refs || []).map(ev))}</li>`).join("")}</ul><p class="rp-note">One filing cannot answer everything; these are where this report stops.</p>` : ""}
-      ${(rep.signals || []).length || rep.brief ? `<h2 id="rp-screens">All screens and observations</h2>
+      ${(rep.questions || []).length ? `<h2 id="rp-questions">Questions for further research</h2><ul class="rp-follow">${rep.questions.map(q => `<li>${esc(q.q)} <span class="rp-basis">${esc(q.basis)}</span> ${srcOf(...(q.refs || []).map(ev))}</li>`).join("")}</ul><p class="rp-note">One filing cannot answer everything; these are where this report stops.</p>` : ""}`);
+    if (!docOnly && ((rep.signals || []).length || rep.brief)) T.ratios.push(`<h2 id="rp-screens">All screens and observations</h2>
       ${rep.brief ? `<p class="rp-note">Read as <b>${esc(rep.brief.profile)}</b>. ${esc(rep.brief.why)}</p>` : ""}
       <ul class="rp-sigs">${[...(rep.signals || [])].sort((x, y) => ["flag", "watch", "observation"].indexOf(x.severity) - ["flag", "watch", "observation"].indexOf(y.severity)).map(sg =>
         `<li class="s-${sg.severity}"><span class="sev s-${sg.severity}">${SEV[sg.severity].l}</span><b>${esc(sg.headline)}</b> ${srcOf(...(sg.inputs || []).map(ev)) || (sg.source && sg.source.pdf_page ? srcOf({source: sg.source}) : "")}<p>${esc(sg.text)}</p>${sg.definition ? `<small>${esc(sg.definition.formula || "")}${sg.definition.numerator ? " · Numerator: " + esc(sg.definition.numerator) : ""}${sg.definition.denominator ? " · Denominator: " + esc(sg.definition.denominator) : ""}</small>` : ""}<small>BMG interpretation · ${esc(sg.rule)}</small></li>`).join("")}</ul>
-      ${rep.brief ? `<h3>What we looked for</h3><div class="rp-tw"><table class="rp-table"><tr><th>Measure</th><th>Why it matters</th><th>Result</th></tr>${rep.brief.items.map(it => `<tr${it.status === "found" ? "" : ' class="nf"'}><td>${it.industry ? "<b>" + esc(it.title) + "</b>" : esc(it.title)}</td><td class="muted">${esc(it.why)}</td><td>${esc(it.answer || it.note || NF)}</td></tr>`).join("")}</table></div>` : ""}` : ""}
-      ${srTxt}
+      ${rep.brief ? `<h3>What we looked for</h3><div class="rp-tw"><table class="rp-table"><tr><th>Measure</th><th>Why it matters</th><th>Result</th></tr>${rep.brief.items.map(it => `<tr${it.status === "found" ? "" : ' class="nf"'}><td>${it.industry ? "<b>" + esc(it.title) + "</b>" : esc(it.title)}</td><td class="muted">${esc(it.why)}</td><td>${esc(it.answer || it.note || NF)}</td></tr>`).join("")}</table></div>` : ""}`);
+    if (!docOnly) T.sources.push(srTxt, `
       <h2 id="rp-sources">Methodology, limitations and sources</h2>
       <ul class="rp-method">${rep.methodology.map(m => `<li>${esc(m)}</li>`).join("")}</ul>
       <h3>Checks</h3>
@@ -4808,23 +5343,85 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
       ${iss.length ? `<ul class="rp-follow">${iss.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="muted">None recorded.</p>`}
       <p class="rp-note">${esc(rep.coverage.note)} Searched for: ${esc((rep.coverage.searched_for || []).join(", "))}.</p>
       <h3>Source document</h3>
-      <p class="rp-note">${esc(rep.source.name)} &middot; ${esc((rep.source.kind || "").toUpperCase())} &middot; ${rep.source.pages} pages &middot; sha256 <code>${esc(rep.source.sha256)}</code></p>`;
+      <p class="rp-note">${esc(rep.source.name)} &middot; ${esc((rep.source.kind || "").toUpperCase())} &middot; ${pagesWord} &middot; sha256 <code>${esc(rep.source.sha256)}</code></p>`);
+    else T.sources.push(`<h2 id="rp-sources">Source</h2>
+      <p>${ins.kind === "transcript" ? "The call transcript as provided. Speakers, questions, guidance and claims are quoted from it with their page; nothing is turned into a figure." : "Written by this server from SEC EDGAR data: every row comes from a filing the document names and links. Totals in its summary are sums of those rows."}</p>
+      <p class="rp-note">${esc(rep.source.name)} &middot; ${esc((rep.source.kind || "").toUpperCase())} &middot; ${pagesWord} &middot; sha256 <code>${esc(rep.source.sha256)}</code></p>`);
     const evid = [...used].map(id => F[id]).filter(Boolean).map(x => `<tr><td>${esc(x.name)}<small>${esc(x.method || "")}</small></td><td class="num">${esc(x.display)}<small>${esc(per(x))}</small></td><td>${srcOf(x)}<small>${esc((x.source || {}).table_title || "")}</small></td><td class="muted"><q>${esc((x.source || {}).excerpt || "")}</q></td><td>${stat(x.status)}</td></tr>`).join("");
-    return `<article class="rp-doc">${body}
-      ${evid ? `<h3>Evidence for the figures above</h3><div class="rp-tw"><table class="rp-table rp-ev"><tr><th>Fact</th><th class="num">Value</th><th>Location</th><th>Excerpt</th><th>Status</th></tr>${evid}</table></div>` : ""}
-      <footer class="rp-foot"><span>BMG Capital</span>${BMG_LINE}<span class="muted">Company report &middot; automatically generated, not reviewed by an analyst &middot; not investment advice</span></footer>
+    if (evid) T.sources.push(`<h3 id="rp-evidence">Evidence for the figures above</h3><div class="rp-tw"><table class="rp-table rp-ev"><tr><th>Fact</th><th class="num">Value</th><th>Location</th><th>Excerpt</th><th>Status</th></tr>${evid}</table></div>`);
+    const TABS = [["summary", "Summary"], ["statements", "Statements"], ["ratios", "Ratios"], ["observations", "Observations"], ["sources", "Sources"]];
+    return `<article class="rp-doc">${head}
+      ${TABS.map(([k, l]) => `<section class="rp-tab" data-tab="${k}" data-label="${l}">${T[k].join("")}</section>`).join("")}
+      <footer class="rp-foot"><span>BMG Capital</span>${BMG_LINE}<span class="muted">${esc(kindName)} &middot; automatically generated, not reviewed by an analyst &middot; not investment advice</span></footer>
     </article>`;
   }
-  function jumpToSource(page, val){
-    const pg = docBody.querySelectorAll(".pdfpage")[page - 1];
-    if (!pg) return false;
-    closeReport();
-    let target = pg;
-    if (val){
-      const digits = String(val).replace(/[^\d.]/g, "");
-      const w = [...pg.querySelectorAll(".w")].find(x => digits && x.textContent.replace(/[^\d.]/g, "") === digits);
-      if (w) target = w;
+  // The insight sections of the report: quotes with their page, never paraphrased into numbers.
+  function insightsHTML(ins, yoy, srcOf){
+    const lead = [], obs = [];
+    const qchip = (q, label) => q && q.page ? `<a class="rp-src" href="#" data-page="${q.page}" data-q="${esc((q.text || "").slice(0, 160))}" data-off="${q.offset != null ? q.offset : ""}">${esc(label || "p. " + q.page)}</a>` : "";
+    const guide = ins.kind === "transcript" ? ((ins.call || {}).guidance || []) : (ins.guidance || []);
+    if (guide.length){
+      const html = `<h2 id="rp-guidance">Guidance</h2><p class="rp-note">Forward-looking sentences that give a number and a period, quoted as written${ins.kind === "transcript" ? ", by the company's speakers" : ""}. Safe-harbor text is left out. Guidance is a check, not a forecast by BMG.</p>
+        <ul class="rp-risks">${guide.map(g => `<li>${g.direction && g.direction !== "stated" ? `<span class="rp-rk">${esc(g.direction)}</span>` : ""}${g.speaker ? `<b>${esc(g.speaker)}</b> ` : ""}${qchip(g)}<blockquote>${esc(g.text)}</blockquote>${g.table ? `<p class="rp-note">From the table under "${esc(g.table)}".</p>` : ""}</li>`).join("")}</ul>`;
+      (ins.kind === "release" || ins.kind === "transcript" ? lead : obs).push(html);
     }
+    const fl = ins.red_flags || [];
+    if (fl.length){
+      const by = st => fl.filter(f => f.status === st);
+      const li = f => `<li><span class="rp-rk">${esc(({reported: "Reported", mentioned: "Mentioned", clear: "Clear"})[f.status])}</span><b>${esc(f.title)}</b> ${f.quotes.map(q => qchip(q)).join(" ")}<p class="rp-why"><span>Why it matters</span> ${esc(f.why)}</p>${f.quotes[0] ? `<blockquote>${esc(f.quotes[0].text)}</blockquote>` : ""}</li>`;
+      obs.push(`<h2 id="rp-flags">Red-flag checklist</h2><p class="rp-note">A fixed checklist read from the text. Reported: the document states it. Mentioned: discussed as a possibility (a risk factor, a policy). Clear: the document states the opposite. Not found is not proof that it is absent.</p>
+        ${by("reported").length ? `<h3>Reported</h3><ul class="rp-risks rp-flags">${by("reported").map(li).join("")}</ul>` : `<p>Nothing on the checklist is reported as a fact in this document.</p>`}
+        ${by("mentioned").length ? `<h3>Mentioned</h3><ul class="rp-risks rp-flags">${by("mentioned").map(li).join("")}</ul>` : ""}
+        ${by("clear").length ? `<h3>Clear</h3><ul class="rp-risks rp-flags">${by("clear").map(li).join("")}</ul>` : ""}
+        ${by("none").length ? `<p class="rp-note">Checked, not found: ${esc(by("none").map(f => f.title).join("; "))}.</p>` : ""}`);
+      const rep = by("reported");
+      if (rep.length) lead.push(`<p class="rp-cov"><b>Red flags reported:</b> ${esc(rep.map(f => f.title).join("; "))}. See Observations.</p>`);
+    }
+    if (ins.kind === "transcript" && ins.call){
+      const c = ins.call, sp = c.speakers || [];
+      lead.push(`<h2 id="rp-call">The call</h2><div class="rp-tw"><table class="rp-table"><tr><th>Speaker</th><th>Side</th><th>Role or firm</th><th class="num">Turns</th><th class="num">Words</th></tr>
+          ${sp.map(s => `<tr><td>${esc(s.name)}</td><td>${esc(s.side)}</td><td class="muted">${esc([s.role, s.firm].filter(Boolean).join(" · "))}</td><td class="num">${s.turns}</td><td class="num">${s.words.toLocaleString()}</td></tr>`).join("")}</table></div>
+        <p class="rp-note">${c.qa_page ? `Questions start on p.${c.qa_page}.` : "The start of the questions was not marked."} Speakers come from the participant list and the speaker labels; an unlisted name is placed by where it speaks and whether it asks questions.</p>
+        ${(c.questions || []).length ? `<h3>Analyst questions</h3><ul class="rp-risks">${c.questions.map(q => `<li><b>${esc(q.analyst)}</b>${q.firm ? ` <span class="muted">${esc(q.firm)}</span>` : ""} ${qchip(q)}<blockquote>${esc(q.text)}</blockquote></li>`).join("")}</ul>` : ""}
+        ${(c.claims || []).length ? `<h3>Management claims with numbers</h3><ul class="rp-risks">${c.claims.map(x => `<li><b>${esc(x.speaker)}</b> ${qchip(x)}<blockquote>${esc(x.text)}</blockquote></li>`).join("")}</ul><p class="rp-note">As said on the call; check each against the filed statements.</p>` : ""}`);
+    }
+    if (ins.kind === "insider"){
+      const t = ins.trades || [], ps = t.filter(x => x.code === "P" || x.code === "S");
+      lead.push(`<h2 id="rp-trades">Open-market trades</h2><p class="rp-note">${t.length} transactions in the document; ${ps.length} are open-market buys or sales. Totals are in the summary at the top of the document.</p>
+        <div class="rp-tw"><table class="rp-table rp-trades"><tr><th>Insider</th><th>Trade</th><th class="num">Shares</th><th class="num">Price</th><th class="num">Value</th><th>Filing</th></tr>
+        ${ps.slice(0, 60).map(x => `<tr><td>${esc(x.insider)}<small>${esc(x.title || "")}</small></td><td>${esc(x.action)}<small>${esc(x.date)}</small></td><td class="num">${esc(x.shares)}</td><td class="num">${esc(x.price)}</td><td class="num">${esc(x.value)}</td><td>${qchip({...x, text: tradeCells(x)}, x.accession)}<small>filed ${esc(x.filed)}</small></td></tr>`).join("")}</table></div>`);
+    }
+    if (ins.kind === "holdings"){
+      const hs = ins.holdings || [];
+      lead.push(`<h2 id="rp-holdings">Largest positions</h2><div class="rp-tw"><table class="rp-table"><tr><th>Issuer</th><th class="num">Value</th><th class="num">Shares</th><th class="num">Weight</th><th>Change</th><th>Row</th></tr>
+        ${hs.slice(0, 50).map(x => `<tr><td>${x.rank}. ${esc(x.issuer)}${x.class ? `<small>${esc(x.class)}</small>` : ""}</td><td class="num">${esc(x.value)}</td><td class="num">${esc(x.shares)}</td><td class="num">${esc(x.weight)}</td><td>${esc(x.change)}</td><td>${qchip({...x, text: holdingCells(x)})}</td></tr>`).join("")}</table></div>`);
+    }
+    if (yoy && yoy.risks){
+      const r = yoy.risks, pr = yoy.prior || {};
+      obs.unshift(`<h2 id="rp-yoy">This year vs last year</h2>
+        <p class="rp-note">Compared with the ${esc(pr.form || "")} for the period ended ${esc(pr.period || "")} (filed ${esc(pr.filed || "")}, <a href="${esc(pr.url || "#")}" target="_blank" rel="noopener">${esc(pr.accession || "")}</a>), read from SEC EDGAR. ${esc(yoy.note || "")}</p>
+        ${(yoy.moved || []).length ? `<h3>Figures that moved most</h3><div class="rp-tw"><table class="rp-table yoy-t"><tr><th>Measure</th><th class="num">Before</th><th class="num">Now</th><th class="num">Change</th><th>Source</th></tr>
+          ${yoy.moved.map(m => `<tr><td>${esc(m.name)}<small>${esc(m.period || "")}</small></td><td class="num">${esc(m.before)}</td><td class="num">${esc(m.now)}</td><td class="num ${m.pct >= 0 ? "up" : "down"}">${esc(m.change)}</td><td>${m.page ? `<a class="rp-src" href="#" data-page="${m.page}" data-val="${esc(m.raw || "")}">p. ${m.page}</a>` : ""}</td></tr>`).join("")}</table></div>` : ""}
+        <h3>Risk-factor headings new this year (${r.new.length})</h3>${r.new.length ? `<ul class="rp-risks yoy-new">${r.new.map(x => `<li>${qchip({page: x.page, text: x.title, offset: x.offset})}<blockquote>${esc(x.title)}</blockquote></li>`).join("")}</ul>` : `<p class="muted">None: every heading this year matches a heading or a sentence of last year's risk factors.</p>`}
+        <h3>No longer listed (${r.removed.length})</h3>${r.removed.length ? `<ul class="rp-risks">${r.removed.map(x => `<li><blockquote>${esc(x.title)}</blockquote><p class="rp-note">Last year p.${esc(x.page || "")}</p></li>`).join("")}</ul>` : `<p class="muted">None.</p>`}
+        ${r.reworded.length ? `<h3>Reworded (${r.reworded.length})</h3><ul class="rp-risks">${r.reworded.map(x => `<li><p class="rp-note">Now${x.now.page ? ` (p.${x.now.page})` : ""}</p><blockquote>${esc(x.now.title || "")}</blockquote><p class="rp-note">Last year</p><blockquote>${esc(x.before.title || "")}</blockquote></li>`).join("")}</ul>` : ""}
+        <p class="rp-note">Risk factors ${r.counts.now} this year, ${r.counts.before} last year${r.text_checked ? "; each new or missing heading was checked against the other year's full risk-factor text" : ""}.</p>`);
+    }
+    return {lead, obs};
+  }
+  // A cited page (and the printed value on it): the spider goes there while it reads, the page scrolls there after.
+  // PDFs by their page boxes, HTML filings by their page breaks, text by its position.
+  function jumpToSource(page, val){
+    if (!docBody.querySelector(".w")) return false;
+    let target = locate(page, null, null, val || null);
+    if (!target && val){
+      const pg = docBody.querySelectorAll(".pdfpage")[page - 1];
+      const digits = String(val).replace(/[^\d.]/g, "");
+      target = pg && [...pg.querySelectorAll(".w")].find(x => digits && x.textContent.replace(/[^\d.]/g, "") === digits) || pg || null;
+    }
+    if (!target) return false;
+    closeReport();
+    if (state.walkState && !state.walkState.done && !state.walkSkipped) return seekTo(target, {page, n: 1});
     const r = target.getBoundingClientRect();
     window.scrollTo({top: r.top + window.scrollY - innerHeight * 0.4, behavior: REDUCED ? "auto" : "smooth"});
     if (target.classList.contains("w")){ target.classList.add("hl-bping"); setTimeout(() => target.classList.remove("hl-bping"), 2400); }
@@ -4842,14 +5439,29 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     if (!o){
       o = document.createElement("div"); o.id = "bmg-report";
       o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-label", "BMG Capital company report");
-      o.innerHTML = `<div class="rp-bar"><button type="button" class="rp-pdf">Download PDF</button><button type="button" class="rp-close">Close</button></div><div class="rp-scroll"></div>`;
+      o.innerHTML = `<div class="rp-bar"><div class="rp-tabs" role="tablist" aria-label="Report sections"></div><button type="button" class="rp-pdf">Download PDF</button><button type="button" class="rp-close">Close</button></div><div class="rp-scroll"></div>`;
       document.body.appendChild(o);
       o.querySelector(".rp-close").onclick = closeReport;
       o.querySelector(".rp-pdf").onclick = (e) => (o.dataset.mode === "compare" ? downloadComparePdf : downloadPdf)(e.currentTarget);
       o.addEventListener("click", e => {
+        const tb = e.target.closest(".rp-tabs [role=tab]");
+        if (tb){ showReportTab(o, tb.dataset.tab); return; }
         const a = e.target.closest("a.rp-src");
+        if (a && a.dataset.q !== undefined){         // a quote: the spider goes to its sentence
+          e.preventDefault();
+          const x = {page: +a.dataset.page || null, text: a.dataset.q, offset: a.dataset.off ? +a.dataset.off : null};
+          const el = x.page || x.offset != null ? locate(x.page, x.text, x.offset) : null;
+          if (el){ closeReport(); seekTo(el, {page: x.page, n: 14}); } else a.classList.add("rp-nodoc");
+          return;
+        }
         if (a){ e.preventDefault(); if (!jumpToSource(+a.dataset.page, a.dataset.val)) a.classList.add("rp-nodoc"); }
         if (e.target === o) closeReport();
+      });
+      o.querySelector(".rp-tabs").addEventListener("keydown", e => {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        const ts = [...o.querySelectorAll(".rp-tabs [role=tab]")], i = ts.indexOf(document.activeElement);
+        if (i < 0) return;
+        const n = ts[(i + (e.key === "ArrowRight" ? 1 : ts.length - 1)) % ts.length]; showReportTab(o, n.dataset.tab); n.focus();
       });
       addEventListener("keydown", e => {
         if (e.key === "Escape") closeReport();
@@ -4865,11 +5477,23 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     o.dataset.mode = mode || "report";
     o.setAttribute("aria-label", mode === "compare" ? "BMG Capital company comparison" : "BMG Capital company report");
     o.querySelector(".rp-scroll").innerHTML = mode === "compare" ? compareHTML(state.compare) : reportHTML(res.report, res);
+    // the tabs: one per section that has content (the comparison has none)
+    const bar = o.querySelector(".rp-bar"), tabsEl = o.querySelector(".rp-tabs");
+    const secs = [...o.querySelectorAll(".rp-tab")].filter(x => x.textContent.trim());
+    o.querySelectorAll(".rp-tab").forEach(x => { if (!x.textContent.trim()) x.remove(); });
+    tabsEl.innerHTML = secs.map(x => `<button type="button" role="tab" data-tab="${x.dataset.tab}" aria-selected="false" tabindex="-1">${esc(x.dataset.label)}</button>`).join("");
+    bar.classList.toggle("tabbed", secs.length > 0);
     o.hidden = false; document.body.classList.add("rp-open");
     const sc = o.querySelector(".rp-scroll");
     const t = anchor ? sc.querySelector("#" + anchor) : null;
+    if (secs.length) showReportTab(o, t && t.closest(".rp-tab") ? t.closest(".rp-tab").dataset.tab : secs[0].dataset.tab);
     sc.scrollTop = t ? t.offsetTop - 10 : 0;
     o.querySelector(".rp-close").focus();
+  }
+  function showReportTab(o, tab){
+    o.querySelectorAll(".rp-tab").forEach(x => { x.hidden = x.dataset.tab !== tab; });
+    o.querySelectorAll(".rp-tabs [role=tab]").forEach(b => { const on = b.dataset.tab === tab; b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1; });
+    const sc = o.querySelector(".rp-scroll"); if (sc) sc.scrollTop = 0;
   }
 
   // Save the finished report to the vault on GitHub (free storage). Owner
@@ -4915,6 +5539,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   }
   function resetView(){
     stopWalk(); state.loadToken++; clearSpider(); docBody.innerHTML = ""; h1.textContent = "";
+    toolsReset();
     listEl.innerHTML = ""; chipsEl.innerHTML = ""; scopeEl.innerHTML = ""; catFilter = ""; sumEl.hidden = true; sumEl.innerHTML = "";
     if (briefEl){ briefEl.hidden = true; briefEl.innerHTML = ""; }
     if (liveEl){ liveEl.innerHTML = `<p class="muted lr-empty">The BMG Capital report builds here as the spider reaches each figure.</p>`; }
@@ -4938,6 +5563,7 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     else { showErr("Choose a file or paste text first."); return; }
     const tk = (tickerIn.value || "").trim().toUpperCase();
     if (tk) fd.append("ticker", tk);
+    if (chosen && state.companyHint && state.companyHint.file === chosen && state.companyHint.name) fd.append("company", state.companyHint.name);
     state.mode = "read";
     stopLive(); clearTimeout(state.tickTimer);
     document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.remove("on"));
@@ -4979,6 +5605,29 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
   // (reader/htmltext.py): a page ends at an element styled page-break-before (before it) or
   // page-break-after (after it), and a stretch with no text is not counted as a page.
   const PAGE_BREAK = /page-break-(before|after)\s*:\s*always|break-(before|after)\s*:\s*page/i;
+  // the page (counted as the server counts an HTML filing's pages) that holds a word: one walk per document
+  function htmlPageOf(el){
+    const h = docBody.querySelector(".htmldoc"), L = wordList(), i = L.idx.get(el);
+    if (!h || i == null) return null;
+    if (!state.htmlPages || state.htmlPages.token !== state.loadToken){
+      const firsts = [];
+      let n = 1, hasText = false;
+      const close = () => { if (hasText){ n++; hasText = false; } };
+      (function walk(e){
+        for (const k of e.children){
+          const m = (k.getAttribute("style") || "").match(PAGE_BREAK), side = m ? (m[1] || m[2] || "").toLowerCase() : "";
+          if (side === "before") close();
+          if (k.classList.contains("w")){ if (k.textContent.trim()){ if (!hasText) firsts[n - 1] = L.idx.get(k); hasText = true; } }
+          else if (k.children.length) walk(k);
+          if (side === "after") close();
+        }
+      })(h);
+      state.htmlPages = {token: state.loadToken, firsts};
+    }
+    let p = null;
+    state.htmlPages.firsts.forEach((f, k) => { if (f != null && f <= i) p = k + 1; });
+    return p;
+  }
   function htmlPageStart(root, page){
     let n = 1, hasText = false, found = null;
     const close = () => { if (hasText){ n++; hasText = false; } };
@@ -5046,6 +5695,523 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     return true;
   };
 
+  // ---- Crawler tools: where a quote sits, sending the spider there, the filing map, Go to, Ask, red flags,
+  // the guidance, call, trades and holdings panels, number cards and one-click clips ----
+  const goBtn = document.getElementById("ctl-go"), goMenu = document.getElementById("ctl-menu");
+  const askForm = document.getElementById("ask-form"), askIn = document.getElementById("ask-q"), askPop = document.getElementById("ask-pop");
+  const keysBtn = document.getElementById("ctl-keys"), keysPop = document.getElementById("keys-pop");
+  const fmap = document.getElementById("fmap"), fmapTrack = document.getElementById("fmap-track"), fmapDot = document.getElementById("fmap-dot");
+  const flagsTab = document.getElementById("tab-flags"), flagsPane = document.getElementById("pane-flags"), flagsN = document.getElementById("flags-n");
+  const stageCol = document.querySelector("#read-stage .stage");
+  const KIND_WORD = {annual: "10-K", quarterly: "10-Q", release: "earnings release", transcript: "call transcript", insider: "insider trades", holdings: "fund holdings", current: "8-K", other: "document"};
+  let insTargets = new Map(), insItems = [], mapEntries = [];
+
+  // Every word of the document once, normalized, with its position: quotes are found by their opening words.
+  const normW = s => String(s || "").toLowerCase().replace(/[‘’“”"]/g, "").replace(/[^a-z0-9$%.,'\-]/g, "").replace(/[.,;:]+$/, "");
+  function wordList(){
+    const all = docBody.getElementsByClassName("w");
+    if (state.wl && state.wl.n === all.length && state.wl.token === state.loadToken) return state.wl;
+    const els = Array.from(all);
+    state.wl = {n: all.length, token: state.loadToken, els, norm: els.map(w => normW(w.textContent)), idx: new Map(els.map((e, i) => [e, i]))};
+    return state.wl;
+  }
+  function firstIndexIn(box){ const w = box && box.getElementsByClassName("w")[0]; return w ? wordList().idx.get(w) : null; }
+  // The element where a quoted sentence (or a printed number) starts: on its page (a PDF page box, or the HTML
+  // filing's page counted as the server counts it), the first run of words matching its opening words.
+  function locate(page, text, offset, raw){
+    const L = wordList(), n = L.els.length;
+    if (!n) return null;
+    let a = 0, b = n, base = null;
+    const pages = docBody.querySelectorAll(".pdfpage"), h = docBody.querySelector(".htmldoc");
+    if (pages.length){
+      if (!page || !pages[page - 1]) return null;
+      base = pages[page - 1];
+      const s = firstIndexIn(pages[Math.max(0, page - 2)]), e = firstIndexIn(pages[page + 1]);
+      a = s != null ? s : 0; b = e != null ? e : n;
+    } else if (h && page){
+      const el = htmlPageStart(h, page);
+      if (el){ base = el; const i = L.idx.get(el); a = Math.max(0, i - 600); b = Math.min(n, i + 30000); }
+    } else if (offset != null && offset >= 0 && state.readRes && state.readRes.text){
+      const mid = Math.floor(offset / Math.max(1, state.readRes.text.length) * n);
+      a = Math.max(0, mid - 6000); b = Math.min(n, mid + 6000);
+    }
+    if (raw){                                    // a printed number: the word that holds it
+      const v = numOf(raw);
+      for (let i = a; i < b; i++){ const w = L.els[i]; if (v !== null ? (w._num !== undefined ? w._num : (w._num = numOf(w.textContent))) === v && w.textContent.replace(/[\d,.$()%\-\s]/g, "").length <= 3 : w.textContent.includes(raw)) return w; }
+    }
+    const want = String(text || "").split(/\s+/).map(normW).filter(Boolean).slice(0, 6);
+    for (const k of [Math.min(5, want.length), Math.min(3, want.length)]){
+      if (k < 2 && want.length >= 2) continue;
+      for (let i = a; i < b - k + 1; i++){
+        if (L.norm[i] !== want[0]) continue;
+        let ok = true;
+        for (let j = 1; j < k; j++) if (L.norm[i + j] !== want[j]){ ok = false; break; }
+        if (ok) return L.els[i];
+      }
+    }
+    return base;
+  }
+  // Send the spider to an element. While the walk runs, the camera moves there (forward or back) and the walk
+  // reads on from that line; once the walk is over, the page scrolls there. The words light up either way.
+  function seekTo(el, opts = {}){
+    if (!el || !el.isConnected) return false;
+    const running = state.walkState && !state.walkState.done && state.scrollPos != null && !state.walkSkipped;
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    if (running){
+      const maxS = Math.max(0, docGeo().sh - innerHeight);
+      const target = Math.max(0, Math.min(maxS, top - innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5 + 40));
+      if (target > state.scrollPos && opts.page && state.live){
+        // facts before the landing page were read by the server, not shown in this walk (as Jump to statements)
+        const offs = Object.entries(state.live.plan.fact_pages || {}).filter(([f, p]) => p >= opts.page).map(([f]) => state.live.plan.fact_offsets[f]).filter(x => x != null);
+        if (offs.length) applyLive(state.live.markEarlier(Math.min(...offs)));
+      }
+      if (target < state.scrollPos && state.walkSeek) state.walkSeek(target);
+      state.scrollPos = target;
+      state.camHoldUntil = performance.now() + 2600;     // the page holds still a moment so the place can be read, then reading goes on
+      if (state.paused){ window.scrollTo(0, target); state.sy = target; }
+      if (state.readerJumpSettled) state.readerJumpSettled();
+    } else window.scrollTo({top: top - innerHeight * 0.4, behavior: REDUCED ? "auto" : "smooth"});
+    if (opts.light !== false && el.classList.contains("w")){
+      const L = wordList(), i = L.idx.get(el), ws = i == null ? [el] : L.els.slice(i, i + (opts.n || 8));
+      ws.forEach(w => w.classList.add("hl-zap"));
+      setTimeout(() => ws.forEach(w => w.classList.remove("hl-zap")), 2800);
+      setTimeout(() => zapTo(el, !!opts.pink, true), running ? 1100 : 500);
+    }
+    return true;
+  }
+  function goTo(x, opts = {}){
+    const el = x._el && x._el.isConnected ? x._el : (x._el = locate(x.page, x.text, x.offset, opts.raw));
+    if (!el){ setStatus(x.page ? `p. ${x.page} is not part of the document on screen` : "That place was not found in the document on screen"); return false; }
+    return seekTo(el, {page: x.page, n: opts.n, pink: opts.pink});
+  }
+
+  // ---- the filing map beside the document and the Go to menu ----
+  function mapFrom(ins){
+    const out = (ins.map || []).map(m => ({key: m.key, label: m.label, page: m.page, text: m.excerpt, offset: m.offset, kind: "sec"}));
+    if (state.jumpPage && !out.some(m => m.key === "statements")) out.push({key: "statements", label: "Statements", page: state.jumpPage, kind: "sec"});
+    for (const f of ins.red_flags || []) if (f.status === "reported" && f.quotes[0]) out.push({key: "flag:" + f.key, label: "Red flag: " + f.title, page: f.quotes[0].page, text: f.quotes[0].text, offset: f.quotes[0].offset, kind: "flag"});
+    for (const g of (ins.guidance || []).slice(0, 6)) out.push({key: "guide", label: "Guidance", page: g.page, text: g.text.replace(/^[^:]{1,90}:\s/, (s) => g.table ? "" : s), offset: g.offset, kind: "guide", raw: g.table ? (g.numbers || [])[0] : null});
+    return out;
+  }
+  function drawGoMenu(){
+    const secs = mapEntries.filter(m => m.kind === "sec");
+    goBtn.hidden = !secs.length;
+    goMenu.innerHTML = secs.map((m, i) => `<button type="button" role="menuitem" data-i="${mapEntries.indexOf(m)}">${esc(m.label)}<small>${m.page ? "p." + m.page : ""}</small></button>`).join("");
+  }
+  function placeMap(){
+    if (!fmap || !stageCol || !mapEntries.length || document.body.classList.contains("rec")){ if (fmap) fmap.hidden = true; return; }
+    const g = docGeo(), H = g.height || 1, pages = pdfOpen ? pdfOpen.pages : null;
+    fmapTrack.innerHTML = mapEntries.map((m, i) => {
+      let y = null;
+      if (pages && m.page && pages[m.page - 1] && m.kind === "sec") y = pages[m.page - 1].docY;
+      else { const el = m._el && m._el.isConnected ? m._el : (m._el = locate(m.page, m.text, m.offset, m.raw)); if (el) y = docSpaceCenter(el).y; }
+      if (y == null) return "";
+      return `<button type="button" class="fmap-mark ${m.kind === "sec" ? "" : m.kind}" data-i="${i}" data-label="${esc(m.label)}${m.page ? " · p." + m.page : ""}" style="top:${(Math.max(0, Math.min(1, y / H)) * 100).toFixed(2)}%" aria-label="${esc(m.label)}"></button>`;
+    }).join("");
+    const r = stageCol.getBoundingClientRect();
+    fmap.style.left = Math.round(r.right - 21) + "px";
+    fmap.hidden = !fmapTrack.children.length;
+    state.fmapH = fmap.clientHeight;
+  }
+  // the spider's place on the map, and the map kept within the document on screen: from the cached document
+  // geometry and the scroll, no layout reads
+  const mapNarrow = matchMedia("(max-width:900px)");          // the map is not shown on a narrow screen
+  function mapTick(){
+    if (!fmap || fmap.hidden || !state.readRes || mapNarrow.matches) return;
+    const g = docGeo(), H = g.height || 1, y = state.sy != null && walking() ? state.sy : scrollY;
+    const docT = g.absTop - y, docB = docT + H;
+    const t = Math.max(84, docT + 12), bot = Math.max((state.barH || 100) + 10, innerHeight - docB + 12), h = innerHeight - t - bot;   // clear of the control bar
+    if (h < 140){ if (fmap.style.visibility !== "hidden") fmap.style.visibility = "hidden"; return; }
+    if (fmap.style.visibility) fmap.style.visibility = "";
+    if (state.fmapT !== t || state.fmapB !== bot){ state.fmapT = t; state.fmapB = bot; fmap.style.top = t + "px"; fmap.style.bottom = bot + "px"; state.fmapH = h; }
+    const mid = y - g.absTop + innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5;
+    const dot = Math.round(Math.max(0, Math.min(1, mid / H)) * h);
+    if (state.fmapDotY !== dot){ state.fmapDotY = dot; fmapDot.style.transform = `translateY(${dot}px)`; }    // a style write only when the dot moves
+  }
+  setInterval(mapTick, 200);
+  // once the walk is over the reader scrolls the page: the map follows each scroll at once, not 200 ms late
+  let mapTickQueued = false;
+  addEventListener("scroll", () => { if (mapTickQueued || walking()) return; mapTickQueued = true; requestAnimationFrame(() => { mapTickQueued = false; mapTick(); }); }, {passive: true});
+  let mapResize = 0;
+  addEventListener("resize", () => { clearTimeout(mapResize); mapResize = setTimeout(() => { mapEntries.forEach(m => { m._el = m._el && m._el.isConnected ? m._el : null; }); if (state.readRes) placeMap(); }, 450); });
+  if (fmapTrack) fmapTrack.addEventListener("click", e => { const b = e.target.closest(".fmap-mark"); if (b) goTo(mapEntries[+b.dataset.i], {raw: mapEntries[+b.dataset.i].raw}); });
+  const closeMenus = () => { goMenu.hidden = true; goBtn.setAttribute("aria-expanded", "false"); keysPop.hidden = true; keysBtn.setAttribute("aria-expanded", "false"); };
+  if (goBtn) goBtn.addEventListener("click", e => { e.stopPropagation(); const open = goMenu.hidden; closeMenus(); goMenu.hidden = !open; goBtn.setAttribute("aria-expanded", String(open)); if (open) goMenu.querySelector("button")?.focus(); });
+  if (goMenu) goMenu.addEventListener("click", e => { const b = e.target.closest("button[data-i]"); if (!b) return; closeMenus(); goTo(mapEntries[+b.dataset.i]); });
+  if (keysBtn) keysBtn.addEventListener("click", e => { e.stopPropagation(); const open = keysPop.hidden; closeMenus(); keysPop.hidden = !open; keysBtn.setAttribute("aria-expanded", String(open)); });
+  document.addEventListener("click", e => { if (!e.target.closest(".ctl-go,#ctl-keys,#keys-pop")) closeMenus(); if (!e.target.closest("#ask-pop,#ask-form")) askPop.hidden = true; });
+
+  // ---- Ask: answers from the document, and the spider goes to them ----
+  if (askForm) askForm.addEventListener("submit", async e => {
+    e.preventDefault();
+    const q = askIn.value.trim(); if (!q) return;
+    if (!state.jobId){ askPop.hidden = false; askPop.innerHTML = `<p class="ask-note">Run a document first; answers come only from the document that was read.</p>`; return; }
+    askPop.hidden = false; askPop.innerHTML = `<p class="ask-note">Looking in the document...</p>`;
+    const {r, j} = await api(`/api/read/jobs/${encodeURIComponent(state.jobId)}/ask?q=${encodeURIComponent(q)}`);
+    if (!r.ok){ askPop.innerHTML = `<p class="ask-note">${esc((j && (j.error || j.detail)) || "The question could not be answered.")}</p>`; return; }
+    state.answers = j.answers || [];
+    askPop.innerHTML = `<div class="ask-h"><b>${esc(j.question)}</b><small>from this document only</small></div>` + (state.answers.length
+      ? `<ol class="ask-a">${state.answers.map((a, i) => a.kind === "fact"
+          ? `<li class="fact"><span><b>${esc(a.value)}</b> ${esc(a.label || "")}</span><small>${esc(a.period || "")}${a.page ? " · p." + a.page : ""}${a.formula ? " · " + esc(a.formula) : ""}</small><button type="button" data-a="${i}">Go</button></li>`
+          : `<li><span>${esc(a.text)}</span><small>${a.page ? "p." + a.page : ""}</small><button type="button" data-a="${i}">Go</button></li>`).join("")}</ol>`
+      : `<p class="ask-note">${esc(j.note || "Not found in this document.")}</p>`)
+      + `<p class="ask-note">Figures come from the report; sentences are the closest matches in the text. Go sends the spider there.</p>`;
+    const first = askPop.querySelector("button[data-a]"); if (first) first.focus();
+  });
+  if (askPop) askPop.addEventListener("click", e => {
+    const b = e.target.closest("button[data-a]"); if (!b) return;
+    const a = state.answers[+b.dataset.a]; if (!a) return;
+    goTo({page: a.page, text: a.kind === "fact" ? a.excerpt : a.text, offset: a.offset}, {raw: a.kind === "fact" ? a.raw : null, n: a.kind === "fact" ? 1 : 12, pink: a.kind === "fact"});
+    askPop.hidden = true;                     // out of the way, so the spider can be seen arriving
+  });
+  if (askIn) askIn.addEventListener("focus", () => { if (state.answers && state.answers.length && askPop.innerHTML) askPop.hidden = false; });
+
+  // ---- keyboard: the bar's controls without the mouse ----
+  addEventListener("keydown", e => {
+    if (document.body.classList.contains("recmode") || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === "Escape"){ closeMenus(); askPop.hidden = true; return; }
+    if (e.target.closest("input,textarea,select,[contenteditable]") || document.body.classList.contains("rp-open")) return;
+    if (document.getElementById("read-stage").hidden) return;
+    const k = e.key.toLowerCase(), click = id => { const b = document.getElementById(id); if (b && !b.hidden && !b.disabled){ b.click(); return true; } return false; };
+    if (e.key === " "){ if (click("ctl-pause")) e.preventDefault(); }
+    else if ("1234".includes(e.key) && e.key.length === 1){ const sp = document.getElementById("ctl-speed"); sp.value = ["0.5", "1", "2", "4"][+e.key - 1]; sp.dispatchEvent(new Event("change")); }
+    else if (k === "j") click("read-jump");
+    else if (k === "s") click("read-skip");
+    else if (k === "g"){ if (!goBtn.hidden){ e.preventDefault(); goBtn.click(); } }
+    else if (k === "f"){ if (!flagsTab.hidden) flagsTab.click(); }
+    else if (e.key === "/" || e.key === "?"){ e.preventDefault(); if (e.key === "?") keysBtn.click(); else if (!askForm.hidden) askIn.focus(); }
+  });
+
+  // ---- red flags: the checklist, reported first ----
+  const FL_LABEL = {reported: "Reported", mentioned: "Mentioned", clear: "Clear", none: "Not found"};
+  function renderFlags(ins){
+    const fl = ins.red_flags || [];
+    flagsTab.hidden = !fl.length;
+    if (!fl.length){ flagsPane.innerHTML = ""; return; }
+    const rep = fl.filter(f => f.status === "reported"), men = fl.filter(f => f.status === "mentioned"), clr = fl.filter(f => f.status === "clear"), none = fl.filter(f => f.status === "none");
+    flagsN.textContent = String(rep.length); flagsN.classList.toggle("zero", !rep.length);
+    const item = f => { const q = f.quotes[0] || {}; const i = fl.indexOf(f);
+      return `<li class="${f.status}"><b><span class="fl-st">${FL_LABEL[f.status]}</span>${esc(f.title)}</b><span class="fl-why">${esc(f.why)}</span>${q.text ? `<q>${esc(q.text.slice(0, 320))}${q.text.length > 320 ? "..." : ""}</q>` : ""}
+        <span class="fl-go">${q.text ? `<button type="button" data-f="${i}">Go</button><button type="button" class="lr-clip" data-fclip="${i}" title="Make a clip of this">Clip</button>` : ""}<small>${q.page ? "p." + q.page : ""}${q.section ? " · " + esc(q.section.slice(0, 40)) : ""}${f.count > 1 ? ` · ${f.count} places` : ""}</small></span></li>`; };
+    flagsPane.innerHTML = `<p class="fl-intro">A fixed checklist read from the text. <b>Reported</b>: the document states it. <b>Mentioned</b>: discussed as a possibility (a risk factor, a policy). <b>Clear</b>: the document states the opposite. <b>Not found</b> is not proof it is absent.</p>
+      ${rep.length ? `<h4>Reported (${rep.length})</h4><ol class="fl-list">${rep.map(item).join("")}</ol>` : `<p class="fl-none">Nothing on the checklist is reported as a fact in this document.</p>`}
+      ${men.length ? `<h4>Mentioned (${men.length})</h4><ol class="fl-list">${men.map(item).join("")}</ol>` : ""}
+      ${clr.length ? `<h4>Clear (${clr.length})</h4><ol class="fl-list">${clr.map(item).join("")}</ol>` : ""}
+      ${none.length ? `<h4>Checked, not found (${none.length})</h4><p class="fl-none">${none.map(f => esc(f.title)).join(" · ")}</p>` : ""}`;
+  }
+  if (flagsPane) flagsPane.addEventListener("click", e => {
+    const fl = (state.ins || {}).red_flags || [];
+    const g = e.target.closest("button[data-f]"); if (g){ const q = fl[+g.dataset.f].quotes[0]; goTo(q, {n: 14}); return; }
+    const c = e.target.closest("button[data-fclip]"); if (c){ const f = fl[+c.dataset.fclip], q = f.quotes[0]; makeClip({label: f.title, value: "", text: q.text, page: q.page}); }
+  });
+
+  // ---- guidance, the call, insider trades and holdings: sections of the live report that fill as the spider reads ----
+  const dirBadge = d => d && d !== "stated" ? `<span class="dir ${esc(d)}">${esc(d)}</span>` : "";
+  function insSection(id, title, sub, items, summary){
+    if (!items.length && !summary) return "";
+    return `<section class="lr-sec lr-insec" data-ins="${id}"><h4>${esc(title)} <small>${esc(sub)}</small></h4>${summary ? `<p class="lr-sum">${summary}</p>` : ""}<ol class="lr-ins" id="lr-${id}">${items.join("")}</ol></section>`;
+  }
+  // A trade or a holding is found by the run of cells only its own table row has (a share count alone also
+  // appears in the summary paragraphs above the table).
+  const tradeCells = x => [x.shares, x.price, x.value, x.owned_after].join(" ");
+  const holdingCells = x => [x.value, x.shares, x.weight].join(" ");
+  function insLi(x, html){
+    const i = insItems.push(x) - 1;
+    return `<li class="pending" data-x="${i}">${html}<small>${x.page ? "p." + x.page : ""}${x.who ? " · " + esc(x.who) : ""}</small><button type="button" class="go" data-x="${i}">Go</button></li>`;
+  }
+  function liveInsights(ins){
+    insItems = [];
+    if (!liveEl) return;
+    liveEl.querySelectorAll(".lr-insec").forEach(s => s.remove());
+    const parts = [];
+    const guid = (ins.kind === "transcript" ? ((ins.call || {}).guidance || []) : (ins.guidance || []));
+    parts.push(insSection("guid", "Guidance", "forward-looking numbers the document gives, quoted",
+      guid.map(g => insLi({...g, kind: "guide", raw: g.table ? (g.numbers || [])[0] : null, who: g.speaker}, `<q>${dirBadge(g.direction)}${esc(g.text)}</q>`))));
+    if (ins.kind === "transcript" && ins.call){
+      const c = ins.call, sp = c.speakers || [];
+      const co = sp.filter(s => s.side === "company"), an = sp.filter(s => s.side === "analyst");
+      const sum = `${co.length} from the company (${esc(co.map(s => s.name + (s.role ? ", " + s.role.split(",")[0] : "")).join("; "))}), ${an.length} analyst${an.length === 1 ? "" : "s"}; ${(c.questions || []).length} questions${c.qa_page ? `, from p.${c.qa_page}` : ""}.`;
+      parts.push(insSection("qs", "Analyst questions", "who asked what, quoted", (c.questions || []).map(q => insLi({...q, kind: "question", who: q.analyst + (q.firm ? " (" + q.firm + ")" : "")}, `<q>${esc(q.text)}</q>`)), sum));
+      parts.push(insSection("claims", "Management claims", "statements with numbers, quoted", (c.claims || []).slice(0, 12).map(x => insLi({...x, kind: "claim", who: x.speaker}, `<q>${esc(x.text)}</q>`))));
+    }
+    if (ins.kind === "insider"){
+      const t = ins.trades || [], buys = t.filter(x => x.code === "P"), sells = t.filter(x => x.code === "S");
+      const sum = `${t.length} transactions: ${buys.length} open-market buy${buys.length === 1 ? "" : "s"}, ${sells.length} open-market sale${sells.length === 1 ? "" : "s"}; the rest are grants, tax withholding, exercises and gifts. The summary at the top of the document gives the totals.`;
+      parts.push(insSection("trades", "Open-market trades", "buys and sales, as filed", buys.concat(sells).slice(0, 40).map(x => insLi({...x, kind: "trade", raw: null, text: tradeCells(x), who: x.insider},
+        `<b>${esc(x.action)}</b> <q>${esc(x.shares)} shares${x.price && x.price !== "n/a" ? " at " + esc(x.price) : ""}${x.value && x.value !== "n/a" ? ", " + esc(x.value) : ""} on ${esc(x.date)}</q>`)), sum));
+    }
+    if (ins.kind === "holdings"){
+      const hs = ins.holdings || [];
+      parts.push(insSection("holds", "Largest positions", "as reported in the 13F", hs.slice(0, 15).map(x => insLi({...x, kind: "holding", raw: null, text: holdingCells(x)},
+        `<b>${esc(x.rank)}. ${esc(x.issuer)}</b> <q>${esc(x.value)} · ${esc(x.weight)} · ${esc(x.change)}</q>`))));
+    }
+    const html = parts.filter(Boolean).join("");
+    if (!html) return;
+    const obs = liveEl.querySelector(".lr-obs"), foot = document.getElementById("lr-foot");
+    (obs || foot) ? (obs || foot).insertAdjacentHTML(obs ? "afterend" : "beforebegin", html) : liveEl.insertAdjacentHTML("beforeend", html);
+  }
+  function revealIns(i, quiet){
+    const li = liveEl && liveEl.querySelector(`.lr-ins li[data-x="${i}"]`);
+    if (!li || !li.classList.contains("pending")) return;
+    li.classList.remove("pending");
+    if (!quiet){ li.classList.add("arrived"); setTimeout(() => li.classList.remove("arrived"), 500); liveFollow(li); }
+    else li.querySelector("small").insertAdjacentText("beforeend", " · full read");
+    const x = insItems[i];
+    if (!quiet && x && x.kind === "guide" && (x.numbers || []).length) numberCard({label: "Guidance" + (x.direction && x.direction !== "stated" ? " · " + x.direction : ""), value: x.numbers.slice(0, 2).join(" to "), page: x.page, sub: (x.table || "").slice(0, 60)});
+  }
+  if (liveEl) liveEl.addEventListener("click", e => {
+    const b = e.target.closest(".lr-ins button.go"); if (!b) return;
+    const x = insItems[+b.dataset.x]; if (x) goTo(x, {raw: x.raw, n: x.kind === "trade" || x.kind === "holding" ? 10 : 14});
+  });
+  // the spider reaches a quote: its row in the report appears
+  const baseOnRow = state.onRow;
+  state.onRow = (els) => {
+    baseOnRow(els);
+    if (!insTargets.size) return;
+    for (const w of els){
+      const list = insTargets.get(w);
+      if (!list) continue;
+      insTargets.delete(w);
+      list.forEach(i => revealIns(i));
+      zapTo(w, false, true);
+    }
+  };
+
+  // ---- number cards: a big, sourced figure as the spider reads a headline number ----
+  const NUM_CARD_LS = "bmg-num-cards";
+  let numCardsOn = (() => { try { return localStorage.getItem(NUM_CARD_LS) === "1"; } catch (e) { return false; } })();
+  const ncb = document.getElementById("num-cards-on");
+  if (ncb){ ncb.checked = numCardsOn; ncb.addEventListener("change", () => { numCardsOn = ncb.checked; try { localStorage.setItem(NUM_CARD_LS, numCardsOn ? "1" : "0"); } catch (e) {} }); }
+  const cardQ = []; let cardBusy = false;
+  function numberCard(c){
+    const rec = document.body.classList.contains("recmode");
+    if (!(rec ? state.recCards !== false : numCardsOn) || REDUCED) return;
+    // nothing under the opening curtain or the clip's hook, and an idea clip's cards are its own numbers
+    if (rec && (document.querySelector("#rec-curtain:not(.out),#clip-intro:not(.out)") || (document.body.classList.contains("clip-zoom") && !c.clip))) return;
+    cardQ.push(c); if (cardQ.length > (c.clip ? 6 : 3)) cardQ.shift();
+    if (!cardBusy) nextCard();
+  }
+  function nextCard(){
+    const c = cardQ.shift(); if (!c){ cardBusy = false; return; }
+    cardBusy = true;
+    let box = document.getElementById("num-cards");
+    if (!box){ box = document.createElement("div"); box.id = "num-cards"; box.setAttribute("aria-hidden", "true"); document.body.appendChild(box); }
+    const el = document.createElement("div"); el.className = "num-card";
+    el.innerHTML = `<span>${esc(c.label)}</span><b>${esc(c.value)}</b>${c.change ? `<em class="${c.up == null ? "" : c.up ? "up" : "down"}">${esc(c.change)}</em>` : ""}<small>${esc([c.sub, c.page ? "p." + c.page : ""].filter(Boolean).join(" · "))}</small>`;
+    box.appendChild(el);
+    const life = 2300 / Math.max(0.75, Math.sqrt(state.speedMul || 1));
+    setTimeout(() => { el.classList.add("out"); setTimeout(() => { el.remove(); nextCard(); }, 380); }, life);
+  }
+  const CARD_METRICS = {revenue: "Revenue", net_income: "Net income", eps_diluted: "Diluted EPS", operating_income: "Operating income", fcf: "Free cash flow", cfo: "Operating cash flow", gross_profit: "Gross profit"};
+  function cardForCell(id){
+    const rep = state.readRes && state.readRes.report; if (!rep) return;
+    const row = (rep.financials.performance || []).concat(rep.financials.calculated || []).find(r => r.current === id && CARD_METRICS[r.metric]);
+    if (!row) return;
+    const cell = state.live.plan.cells[id] || {}, ch = row.change || {};
+    const pct = ch.pct != null ? ch.pct : ch.pp;
+    numberCard({label: CARD_METRICS[row.metric], value: cell.display, change: ch.display ? ch.display + " vs a year earlier" : "", up: pct == null ? null : pct >= 0, page: cell.page, sub: cell.period});
+  }
+
+  // ---- one-click clip: a finding opens Record mode with the idea clip filled in, and the same document ----
+  const PREFILL_LS = "bmg-clip-prefill";
+  // What a clip of insider trades, a fund's holdings or a call shows: the largest open-market trade, the largest
+  // position, or the first guidance (else claim) management gave, each with its row or sentence in the document.
+  const usdOf = v => { const m = /\$\s?([\d,.]+)\s*(billion|million)?/i.exec(v || ""); return m ? parseFloat(m[1].replace(/,/g, "")) * ({billion: 1e9, million: 1e6}[(m[2] || "").toLowerCase()] || 1) : 0; };
+  // the number a guidance sentence gives: a range first ("$80 million to $90 million"), then the first figure after
+  // a guidance word, then the first figure ("we have achieved $75 million of savings, on track toward a target range of ...")
+  const FIG = String.raw`\$\s?[\d,.]+(?:\s*(?:billion|million))?|\d[\d,.]*%`;
+  function guideNumber(t){
+    const range = new RegExp(`(?:${FIG})\\s*(?:to|-|\\u2013)\\s*(?:${FIG})`, "i").exec(t);
+    if (range) return range[0];
+    const after = new RegExp(`\\b(?:expect\\w*|target\\w*|outlook|guidance|forecast\\w*|range|anticipat\\w*|project\\w*)\\b[^.]*?(${FIG})`, "i").exec(t);
+    return after ? after[1] : (new RegExp(FIG, "i").exec(t) || [])[0];
+  }
+  function clipSubject(ins, res){
+    if (ins.kind === "insider"){
+      const t = (ins.trades || []).filter(x => x.code === "P" || x.code === "S").sort((a, b) => usdOf(b.value) - usdOf(a.value))[0];
+      return t && {label: t.code === "P" ? "insider buy" : "insider sale", value: t.value, raw: t.shares, page: t.page, period: t.date,
+        text: `${t.insider}${t.title ? " (" + t.title + ")" : ""}: ${t.action}, ${t.shares} shares at ${t.price} on ${t.date}, filing ${t.accession}`};
+    }
+    if (ins.kind === "holdings"){
+      const h = (ins.holdings || [])[0];
+      return h && {who: res.title.replace(/ 13F holdings.*$/, ""), label: "largest holding " + h.issuer, value: h.value, raw: h.shares, page: h.page, period: h.weight + " of the reported value",
+        text: `${h.rank}. ${h.issuer} (${h.class}): ${h.value}, ${h.shares} shares, ${h.weight}, ${h.change}`};
+    }
+    if (ins.kind === "transcript"){
+      const c = ins.call || {}, g = (c.guidance || [])[0] || (c.claims || [])[0];
+      const num = g && guideNumber(g.text);
+      return g && {who: (c.company || {}).name, label: (c.guidance || [])[0] ? "guidance" : "on the call", value: num || "", find: num ? num.match(/\d[\d,.]*/g) : [],
+        page: g.page, period: g.speaker || "", text: g.text};
+    }
+    return null;
+  }
+  function makeClip(x){
+    const res = state.readRes; if (!res) return;
+    const co = res.report.company || {}, ins = state.ins || {};
+    const ticker = (co.ticker || co.ticker_hint || ((ins.call || {}).company || {}).ticker || (document.getElementById("read-ticker") || {}).value || "").toUpperCase();
+    const who = (x.who || co.name || co.name_hint || ticker || "").replace(/,?\s+(inc|corp|corporation|co|company|ltd|plc)\.?$/i, "");
+    const docOnly = ins.kind === "insider" || ins.kind === "holdings" || ins.kind === "transcript";
+    const idea = {at: Date.now(), hook: [who, (x.label || "").toLowerCase(), x.value || ""].filter(Boolean).join(" ").slice(0, 90),
+      ticker, form: docOnly ? "" : ins.kind === "release" ? "8-K" : (co.form || "").startsWith("10-Q") ? "10-Q" : "10-K",     // a generated document or a call comes with its file
+      find: x.find || (x.raw ? [String(x.raw)] : []), big: x.value || "", small: x.period || "", page: x.page || null,
+      source: `${res.title}${x.page ? ", p." + x.page : ""}`, quote: (x.text || "").slice(0, 300)};
+    try { localStorage.setItem(PREFILL_LS, JSON.stringify(idea)); } catch (e) {}
+    state.clipFile = state.chosenForJob && state.chosenSha === res.sha256 ? state.chosenForJob : null;
+    const h = Math.min(960, (screen.availHeight || 900) - 60), w = Math.round(h * 9 / 16);
+    const win = window.open("/desk/read/?layout=record&mode=rec&prefill=1", "bmg-record", `popup=yes,width=${w},height=${h}`);
+    state.clipWin = win;
+    if (!win) setStatus("The Record mode window was blocked; allow pop-ups for this page.");
+  }
+  // the Record mode window says it is ready: it gets the document that was read, so the clip reads the same file
+  addEventListener("message", e => {
+    if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-record-ready" || !state.clipWin || e.source !== state.clipWin) return;
+    if (state.clipFile) state.clipWin.postMessage({type: "bmg-clip-file", file: state.clipFile}, location.origin);
+  });
+
+  // ---- watchlist autopilot: several tickers checked every minute; a new filing is read by itself (one at a time),
+  // saved in My reads by the local server, and its headline numbers are queued as a clip idea for Record mode ----
+  const WL_LS = "bmg-watchlist", CLIPQ_LS = "bmg-clip-queue";
+  (function watchlist(){
+    const box = document.getElementById("read-watchlist"); if (!box) return;
+    const addIn = document.getElementById("wl-add"), addBtn = document.getElementById("wl-add-btn"), tog = document.getElementById("wl-toggle");
+    const auto = document.getElementById("wl-autoread"), chips = document.getElementById("wl-chips"), st = document.getElementById("wl-status"), logEl = document.getElementById("wl-log");
+    let W = {tickers: [], on: false, autoread: true, seen: {}};
+    try { W = {...W, ...JSON.parse(localStorage.getItem(WL_LS) || "{}")}; } catch (e) {}
+    const save = () => { try { localStorage.setItem(WL_LS, JSON.stringify(W)); } catch (e) {} };
+    const say = t => { st.textContent = t; };
+    const log = t => { const li = document.createElement("li"); li.textContent = `${new Date().toLocaleTimeString()} ${t}`; logEl.prepend(li); while (logEl.children.length > 12) logEl.lastChild.remove(); };
+    let timer = null, queue = [], busy = false;
+    function draw(){
+      chips.innerHTML = W.tickers.map(t => `<span>${esc(t)}<button type="button" data-rm="${esc(t)}" aria-label="Remove ${esc(t)}">&times;</button></span>`).join("");
+      tog.textContent = W.on ? "Stop autopilot" : "Start autopilot"; tog.classList.toggle("on", W.on);
+      auto.checked = W.autoread !== false;
+    }
+    function add(){
+      const t = addIn.value.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g, "");
+      if (!t || W.tickers.includes(t)) return;
+      W.tickers.push(t); addIn.value = ""; save(); draw();
+      if (W.on) check(t, true);
+    }
+    addBtn.addEventListener("click", add);
+    addIn.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); add(); } });
+    chips.addEventListener("click", e => { const b = e.target.closest("button[data-rm]"); if (!b) return; W.tickers = W.tickers.filter(t => t !== b.dataset.rm); delete W.seen[b.dataset.rm]; save(); draw(); });
+    auto.addEventListener("change", () => { W.autoread = auto.checked; save(); });
+    tog.addEventListener("click", () => { W.on = !W.on; save(); draw(); W.on ? start() : stop("Autopilot stopped."); });
+    function alarm(text){
+      try { if (window.Notification && Notification.permission === "granted") new Notification("BMG Crawler: new filing", {body: text}); } catch (e) {}
+      try {
+        const ac = new (window.AudioContext || window.webkitAudioContext)();
+        [0, 0.22].forEach(t0 => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 988; g.gain.value = 0.12; o.connect(g); g.connect(ac.destination); o.start(ac.currentTime + t0); o.stop(ac.currentTime + t0 + 0.14); });
+      } catch (e) {}
+    }
+    // one ticker: the first look only records what is already filed; anything after that is new
+    async function check(t, first){
+      try {
+        const r = await fetch(`/api/edgar/filings?fresh=1&earnings=1&ticker=${encodeURIComponent(t)}`, {cache: "no-store"});
+        const j = await r.json();
+        if (!r.ok){ log(`${t}: ${j.error || "SEC EDGAR did not answer"}`); return; }
+        const seen = new Set(W.seen[t] || []);
+        if (first || !W.seen[t]){ W.seen[t] = j.filings.map(f => f.accession); save(); return; }
+        const fresh = j.filings.filter(f => !seen.has(f.accession));
+        if (!fresh.length) return;
+        fresh.forEach(f => seen.add(f.accession));
+        W.seen[t] = [...seen].slice(-60); save();
+        for (const f of fresh.reverse()){
+          log(`New: ${j.ticker} ${f.form} filed ${f.filed}${W.autoread !== false ? " (queued to read)" : ""}`);
+          alarm(`${j.ticker} ${f.form} filed ${f.filed}`);
+          if (W.autoread !== false) queue.push({j, f});
+        }
+        pump();
+      } catch (e){ log(`${t}: the local server did not answer`); }
+    }
+    async function tick(){
+      say(`Watching ${W.tickers.join(", ") || "nothing yet"} · checked ${new Date().toLocaleTimeString()} · every minute while this page is open and the Mac is awake`);
+      for (const t of W.tickers) await check(t, false);
+    }
+    function start(){
+      if (timer) return;
+      try { if (window.Notification && Notification.permission === "default") Notification.requestPermission(); } catch (e) {}
+      W.tickers.forEach(t => { if (!W.seen[t]) check(t, true); });
+      timer = setInterval(tick, 60000); tick();
+    }
+    function stop(msg){ clearInterval(timer); timer = null; if (msg) say(msg); }
+    // read the queue one filing at a time, only while nothing else is being read
+    function idle(){ return !runRead.disabled && !walking(); }
+    function pump(){
+      if (busy || !queue.length || !idle()) return;
+      const {j, f} = queue.shift();
+      busy = true; state.autopilotRead = {ticker: j.ticker, form: f.form, filed: f.filed};
+      log(`Reading ${j.ticker} ${f.form} filed ${f.filed}`);
+      if (state.readEdgarFiling) state.readEdgarFiling(j, f);
+    }
+    setInterval(() => { if (!busy) pump(); }, 5000);
+    // a finished autopilot read: its headline numbers become a clip idea in Record mode's list
+    document.addEventListener("bmg-read-done", () => {
+      const a = state.autopilotRead; if (!a || !busy) return;
+      const rep = state.readRes && state.readRes.report; if (!rep) return;
+      busy = false; state.autopilotRead = null;
+      const F = rep.evidence.facts, co = rep.company || {};
+      const row = ["net_income", "revenue", "eps_diluted"].map(m => (rep.financials.performance || []).find(r => r.metric === m && F[r.current])).find(Boolean);
+      if (row){
+        const x = F[row.current], p = F[row.prior], src = x.source || {};
+        const idea = {at: Date.now(), from: "autopilot", ticker: a.ticker, form: /^8-K/.test(a.form) ? "8-K" : a.form.replace("/A", ""), filed: a.filed,
+          hook: `${(co.name || a.ticker).replace(/,?\s+(inc|corp|corporation|co|company|ltd|plc)\.?$/i, "")} ${x.name.toLowerCase()} ${x.display}${p ? " vs " + p.display : ""}`.slice(0, 90),
+          find: [src.raw, p && (p.source || {}).raw].filter(Boolean), big: x.display, small: x.period.short || x.period.label,
+          source: `${a.ticker} ${a.form} filed ${a.filed}, p.${src.pdf_page || ""}`};
+        try { const q = JSON.parse(localStorage.getItem(CLIPQ_LS) || "[]"); q.unshift(idea); localStorage.setItem(CLIPQ_LS, JSON.stringify(q.slice(0, 20))); } catch (e) {}
+        log(`Read ${a.ticker} ${a.form}: ${x.name} ${x.display}${row.change && row.change.display ? " (" + row.change.display + ")" : ""}, p.${src.pdf_page || ""}. Saved in My reads; clip idea queued for Record mode.`);
+      } else log(`Read ${a.ticker} ${a.form}; no headline figure to queue as a clip.`);
+      setTimeout(pump, 3000);
+    });
+    draw();
+    document.addEventListener("bmg-local", () => { if (W.on) start(); });
+  })();
+
+  // ---- wiring into a read: start, the document on screen, the end ----
+  function toolsReset(){
+    insTargets = new Map(); insItems = []; mapEntries = []; state.ins = null; state.wl = null; state.yoy = null; state.answers = [];
+    pauseIdle(false);
+    if (fmap){ fmap.hidden = true; fmapTrack.innerHTML = ""; }
+    if (goBtn){ goBtn.hidden = true; goMenu.innerHTML = ""; }
+    if (askForm) askForm.hidden = true;
+    if (askPop) askPop.hidden = true;
+    if (flagsTab){ flagsTab.hidden = true; flagsPane.innerHTML = ""; flagsN.textContent = ""; }
+    if (flagsTab && flagsTab.getAttribute("aria-selected") === "true") selectTab("tab-live");
+    document.getElementById("num-cards")?.remove(); cardQ.length = 0; cardBusy = false;
+  }
+  function toolsStart(res){
+    const ins = res.insights || {kind: "other", map: [], guidance: [], red_flags: []};
+    state.ins = ins;
+    pauseIdle(false);
+    renderFlags(ins);
+    liveInsights(ins);
+    if (askForm) askForm.hidden = false;
+    mapEntries = mapFrom(ins);
+    drawGoMenu();
+    const co = (res.report && res.report.company) || {};
+    if (ins.kind && ins.kind !== "annual" && ins.kind !== "quarterly") scopeEl.insertAdjacentHTML("beforeend", ` · <b>${esc(ins.label || KIND_WORD[ins.kind] || "")}</b>`);
+  }
+  // the document is drawn: each quote is matched to its words, so its row appears when the spider reads them
+  function toolsDocReady(){
+    insTargets = new Map();
+    insItems.forEach((x, i) => {
+      const el = locate(x.page, x.text, x.offset, x.raw);
+      if (!el || !el.classList.contains("w")) return;
+      const list = insTargets.get(el) || []; list.push(i); insTargets.set(el, list);
+    });
+    setTimeout(placeMap, 400);                // after the walk has measured the words
+  }
+  function toolsDone(){
+    insItems.forEach((x, i) => revealIns(i, true));
+    insTargets.clear();
+    pauseIdle(true);
+  }
+  function pauseIdle(over){                    // nothing to pause once the walk is over; a new read starts unpaused
+    const pb = document.getElementById("ctl-pause"); if (!pb) return;
+    if (state.paused) pb.click();
+    pb.disabled = over;
+  }
+
   // Back after a reload: reattach to the last job if the server still has it.
   (async function resume(){
     const sj = savedJob(); if (!sj || !sj.id || !document.getElementById("read-stages")) return;
@@ -5060,6 +6226,12 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
     follow(sj.id);
   })();
   window.addEventListener("resize", sizeSvg);
+  // the bar's height (it wraps to more rows on a narrow screen, and its buttons come and go): measured after
+  // each layout that changes it, never by a forced layout
+  (function barSize(){
+    const bar = document.getElementById("ctl-bar"); if (!bar || !window.ResizeObserver) return;
+    new ResizeObserver(es => { if (!document.body.classList.contains("recmode")) state.barH = Math.round(es[es.length - 1].borderBoxSize?.[0]?.blockSize ?? bar.offsetHeight) + 6; }).observe(bar);
+  })();
 })();
 </script>
 </body>

@@ -119,9 +119,30 @@ def _paragraphs(text: str, base: int) -> list[tuple[int, str, bool]]:
 
 
 def risk_factors(doc) -> tuple[list[dict], str]:
-    st, en = _section_text(doc, "1A")
+    st, _ = _section_text(doc, "1A")
     if st < 0:
         return [], "The Risk Factors section (Item 1A) was not located in the extracted text."
+    found = headings(doc)
+    order = list(range(len(found)))          # filing order: filers tend to put the most important first
+    chosen, per = [], {}
+    for i in order:
+        c = found[i]["category"]
+        if per.get(c, 0) >= 2:
+            continue
+        per[c] = per.get(c, 0) + 1
+        chosen.append(i)
+        if len(chosen) >= 8:
+            break
+    note = (f"{len(found)} risk-factor headings were identified in Item 1A; {len(chosen)} are summarised, taken in filing order with at most "
+            f"two per category. Read the full section for completeness.")
+    return [found[i] for i in sorted(chosen)], note
+
+
+def headings(doc) -> list[dict]:
+    """Every risk-factor heading in Item 1A with its first sentences, in filing order."""
+    st, en = _section_text(doc, "1A")
+    if st < 0:
+        return []
     nl = doc.body.find("\n", st, en)       # skip the "Item 1A. Risk Factors" heading line itself
     if nl > 0:
         st = nl + 1
@@ -151,19 +172,7 @@ def risk_factors(doc) -> tuple[list[dict], str]:
             "why_it_may_matter": WHY.get(cat, WHY["Other"]), "kind": "reported", "basis": "Risk factor (a possible event, not a disclosed one)",
             "source": {**doc.location(off), "excerpt": p[:300], "offset": off},
         })
-    order = list(range(len(found)))          # filing order: filers tend to put the most important first
-    chosen, per = [], {}
-    for i in order:
-        c = found[i]["category"]
-        if per.get(c, 0) >= 2:
-            continue
-        per[c] = per.get(c, 0) + 1
-        chosen.append(i)
-        if len(chosen) >= 8:
-            break
-    note = (f"{len(found)} risk-factor headings were identified in Item 1A; {len(chosen)} are summarised, taken in filing order with at most "
-            f"two per category. Read the full section for completeness.")
-    return [found[i] for i in sorted(chosen)], note
+    return found
 
 
 def watch_items(doc, rows: list) -> tuple[list[dict], list[str]]:

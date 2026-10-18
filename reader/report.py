@@ -19,6 +19,10 @@ SCHEMA = "bmg.company_report/1"
 NF = "Not found in the reviewed filing"
 
 
+_LISTED = re.compile(r"(?<![\w&'’.\-])((?:[A-Z][\w&'’.\-]*,?[ \t]+(?:&[ \t]+)?){0,5}[A-Z][\w&'’.\-]*)[ \t]*\("
+                     r"(?:NYSE American|NYSE MKT|NYSE|NASDAQ|Nasdaq|AMEX|TSX)[ \t]*:[ \t]*([A-Z]{1,5}(?:\.[A-Z])?)\)")
+
+
 def _company(doc) -> dict:
     head = doc.body[:15000]
     dei = getattr(doc, "dei", None) or {}
@@ -26,7 +30,9 @@ def _company(doc) -> dict:
     name_m = re.search(r"\n([^\n]{2,90})\n\s*\(Exact name of (?:registrant|Registrant)", "\n" + head)
     if name_m and re.search(r"commission file|file number|^\s*\(|form 10|securities and exchange", name_m.group(1), re.I):
         name_m = None
-    form_m = re.search(r"FORM\s+(10-K(?:/A)?|10-Q(?:/A)?|20-F|40-F)", head, re.I)
+    # the cover's own form line ("FORM 10-K", alone or folded in with the cover's other short lines), not a mention:
+    # a call transcript or an earnings release refers to "our Form 10-K" in its safe-harbor text
+    form_m = re.search(r"(?m)(?:^|(?<=  ))[ \t\u00a0]*(?:FORM[ \t\u00a0]+(10-K(?:/A)?|10-Q(?:/A)?|20-F|40-F)\b|Form[ \t\u00a0]+(10-K(?:/A)?|10-Q(?:/A)?|20-F|40-F)[ \t\u00a0]*$)", head)
     per_m = re.search(r"for the (fiscal year|quarterly period) ended\s+([A-Z][a-z]+\s+\d{1,2},\s+\d{4})", head, re.I)
     exch_m = re.search(r"(The Nasdaq Stock Market LLC|Nasdaq Global Select Market|New York Stock Exchange|NYSE American|NYSE)", head)
     tick = None
@@ -35,14 +41,18 @@ def _company(doc) -> dict:
             tick = m.group(1)
             break
     sig = re.search(r"SIGNATURES[\s\S]{0,4000}?Date:\s*([A-Z][a-z]+ \d{1,2}, \d{4})", doc.body)
-    form = form_m.group(1).upper() if form_m else None
+    form = (form_m.group(1) or form_m.group(2)).upper() if form_m else None
+    # no registrant cover (an earnings release, a call): the name the document gives with its listing,
+    # "GATX Corporation (NYSE: GATX) today reported", "PepsiCo, Inc. (NASDAQ: PEP)"
+    listed_m = None if (name_m or dei.get("EntityRegistrantName")) else _LISTED.search(head[:6000])
     return {
-        "name": dei.get("EntityRegistrantName") or (re.sub(r"\s+", " ", name_m.group(1)).strip() if name_m else None),
-        "ticker": tick or (dei.get("TradingSymbol") or None), "form": form or (dei.get("DocumentType") or None), "amendment": bool(form and form.endswith("/A")),
+        "name": dei.get("EntityRegistrantName") or (re.sub(r"\s+", " ", name_m.group(1)).strip() if name_m else None)
+                or (re.sub(r"\s+", " ", listed_m.group(1)).strip(" ,") if listed_m else None),
+        "ticker": tick or (dei.get("TradingSymbol") or None) or (listed_m.group(2) if listed_m else None), "form": form or (dei.get("DocumentType") or None), "amendment": bool(form and form.endswith("/A")),
         "period": ((("Fiscal year ended " if per_m.group(1).lower() == "fiscal year" else "Quarter ended ") + re.sub(r"\s+", " ", per_m.group(2))) if per_m else None),
         "exchange": exch_m.group(1) if exch_m else None,
         "signature_date": sig.group(1) if sig else None,
-        "evidence": {"name": loc(name_m), "form": loc(form_m), "period": loc(per_m), "signature_date": loc(sig)},
+        "evidence": {"name": loc(name_m or listed_m), "form": loc(form_m), "period": loc(per_m), "signature_date": loc(sig)},
     }
 
 

@@ -2011,11 +2011,55 @@ def _edgar_denied() -> Optional[JSONResponse]:
 
 TTL_SUBMISSIONS_WATCH = 60    # earnings watch: the filing list is at most a minute old
 TTL_FILING_INDEX = 30 * 86400 # a filing's file list never changes once filed
-EX99_1 = re.compile(r"ex[-_]?99[-_.]?0?1\b|ex[-_]?991|ex99[-_]?1", re.I)
+EX99_1 = re.compile(r"ex[-_]?99[-_.]?0?1\b|ex[-_]?991|ex99[-_]?1|exhibit[-_]?99[-_.]?0?1", re.I)
+
+
+async def _sec_fetch_text(url: str, ttl: int, client: httpx.AsyncClient) -> Optional[str]:
+    """A text page from SEC EDGAR through the same file cache and rate limit as the JSON feeds."""
+    cached = _cache_read(url, ttl)
+    if cached is not None:
+        return cached
+    await SEC_LIMITER.acquire()
+    r = await client.get(url, headers={"User-Agent": SEC_USER_AGENT})
+    if r.status_code == 404:
+        return None
+    r.raise_for_status()
+    _cache_write(url, r.text)
+    return r.text
+
+
+async def _filing_index(client, cik: int, acc: str) -> dict:
+    """One filing's index page: every document with its EDGAR type ("EX-99.1", "INFORMATION TABLE", ...) and the
+    period of report. The type is what the filer declared, so an exhibit is found whatever its file is called."""
+    url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/{acc}-index.htm"
+    html = await _sec_fetch_text(url, TTL_FILING_INDEX, client) or ""
+    per = re.search(r"(?is)Period of Report</div>\s*<div class=\"info\">\s*([\d-]{10})", html)
+    return {"docs": _index_rows(html), "period": per.group(1) if per else ""}
+
+
+def _index_rows(html: str) -> list[dict]:
+    out = []
+    for tr in re.findall(r"(?is)<tr[^>]*>(.*?)</tr>", html or ""):
+        cells = re.findall(r"(?is)<td[^>]*>(.*?)</td>", tr)
+        if len(cells) < 4:
+            continue
+        link = re.search(r'href="([^"]+)"', cells[2])
+        if not link:
+            continue
+        clean = lambda c: re.sub(r"\s+", " ", re.sub(r"<[^>]+>|&nbsp;", " ", c)).strip()
+        out.append({"type": clean(cells[3]).upper(), "document": link.group(1).rsplit("/", 1)[-1], "description": clean(cells[1])})
+    return out
 
 
 async def _earnings_exhibit(client, cik: int, acc: str, primary: str) -> str:
     """The press release (exhibit 99.1) of an earnings 8-K; the 8-K itself if none is found."""
+    try:
+        docs = (await _filing_index(client, cik, acc))["docs"]
+    except httpx.HTTPError:
+        docs = []
+    typed = [d["document"] for d in docs if d["type"] in ("EX-99.1", "EX-99", "EX-99.01") and re.search(r"\.html?$", d["document"], re.I)]
+    if typed:
+        return typed[0]
     idx = await _sec_fetch_json(f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/index.json", TTL_FILING_INDEX, client)
     names = [i.get("name", "") for i in (((idx or {}).get("directory") or {}).get("item") or [])]
     hits = [n for n in names if re.search(r"\.html?$", n, re.I) and EX99_1.search(n)]
@@ -2023,10 +2067,13 @@ async def _earnings_exhibit(client, cik: int, acc: str, primary: str) -> str:
 
 
 @app.get("/api/edgar/filings")
-async def edgar_filings(ticker: str = Query(..., max_length=12), fresh: bool = False, earnings: bool = False):
+async def edgar_filings(ticker: str = Query(..., max_length=12), fresh: bool = False, earnings: bool = False,
+                        forms: str = Query("", max_length=60), limit: int = Query(12, ge=1, le=40)):
     """Recent 10-K and 10-Q filings for a ticker, newest first, from the SEC's submissions feed.
     earnings=1 adds earnings releases (8-K item 2.02, the exhibit 99.1 press release); fresh=1 is the earnings
-    watch, which checks the list at most once a minute instead of using the six-hour cache."""
+    watch, which checks the list at most once a minute instead of using the six-hour cache. forms=10-K lists
+    only those forms (a 10-K/A counts as a 10-K), up to limit of them."""
+    only = {f.strip().upper() for f in forms.split(",") if f.strip()}
     denied = _edgar_denied()
     if denied:
         return denied
@@ -2047,6 +2094,8 @@ async def edgar_filings(ticker: str = Query(..., max_length=12), fresh: bool = F
         out = []
         for i, form in enumerate(recent.get("form", [])):
             acc, doc = recent["accessionNumber"][i], recent["primaryDocument"][i]
+            if only and form.replace("/A", "") not in only:
+                continue
             if form in EDGAR_FORMS:
                 label = form
             elif earnings and form == "8-K" and "2.02" in (items[i] or ""):
@@ -2056,8 +2105,29 @@ async def edgar_filings(ticker: str = Query(..., max_length=12), fresh: bool = F
             out.append({"form": label, "filed": recent["filingDate"][i], "period": (recent.get("reportDate") or [""] * (i + 1))[i],
                         "accession": acc, "document": doc,
                         "url": f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/{doc}"})
-            if len(out) >= 12:
+            if len(out) >= limit:
                 break
+        # A large filer's "recent" block can cover only a year (JPMorgan files thousands of prospectuses), so a
+        # request for one form also asks EDGAR's company feed for that form: last year's 10-K is still listed.
+        for form in sorted(f for f in only if f in EDGAR_FORMS) if len(out) < limit else []:
+            have = {o["accession"] for o in out}
+            feed = await _sec_fetch_text(f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik:010d}&type={form}"
+                                         f"&dateb=&owner=include&count=40&output=atom", TTL_SUBMISSIONS, client) or ""
+            for ent in re.findall(r"(?s)<entry>(.*?)</entry>", feed):
+                acc = (re.search(r"<accession-number>([\d-]+)</accession-number>", ent) or [None, None])[1]
+                typ = (re.search(r"<filing-type>([^<]+)</filing-type>", ent) or [None, ""])[1]
+                filed = (re.search(r"<filing-date>([\d-]+)</filing-date>", ent) or [None, ""])[1]
+                if not acc or acc in have or typ.replace("/A", "") != form:
+                    continue
+                idx = await _filing_index(client, cik, acc)
+                doc = next((d["document"] for d in idx["docs"] if d["type"] == typ and re.search(r"\.(?:htm|html|txt|pdf)$", d["document"], re.I)), None)
+                if not doc:
+                    continue
+                out.append({"form": typ, "filed": filed, "period": idx.get("period") or "", "accession": acc, "document": doc,
+                            "url": f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/{doc}"})
+                if len(out) >= limit:
+                    break
+        out.sort(key=lambda o: o["filed"], reverse=True)
     except httpx.HTTPError as e:
         return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not answer ({type(e).__name__}). Try again in a minute."})
     return {"ticker": t, "cik": cik, "company": (sub or {}).get("name") or row.get("title"), "filings": out,
@@ -2091,6 +2161,392 @@ async def edgar_document(cik: int, accession: str, document: str):
         path.write_bytes(data)
     kind = "application/pdf" if document.lower().endswith(".pdf") else "text/plain" if document.lower().endswith(".txt") else "text/html; charset=utf-8"
     return Response(content=data, media_type=kind, headers={"Cache-Control": "no-store"})
+
+
+# ----------------------------------------------------------------------
+# Crawler: insider trades (Form 4) and fund holdings (13F) from SEC EDGAR, as documents the spider reads
+# ----------------------------------------------------------------------
+# Funds offered by name in the Crawler. Each CIK was checked against SEC EDGAR's submissions feed on 2026-10-18:
+# the EDGAR name below is the filer's own name there, and each files Form 13F-HR (latest for 2026).
+FUND_PRESETS = [
+    ("Berkshire Hathaway (Warren Buffett)", 1067983, "BERKSHIRE HATHAWAY INC"),
+    ("Pershing Square (Bill Ackman)", 1336528, "Pershing Square Capital Management, L.P."),
+    ("Bridgewater Associates (Ray Dalio's firm)", 1350694, "Bridgewater Associates, LP"),
+    ("ARK Investment Management (Cathie Wood)", 1697748, "ARK Investment Management LLC"),
+    ("Duquesne Family Office (Stanley Druckenmiller)", 1536411, "Duquesne Family Office LLC"),
+    ("Appaloosa (David Tepper)", 1656456, "Appaloosa LP"),
+    ("Third Point (Dan Loeb)", 1040273, "Third Point LLC"),
+    ("Baupost Group (Seth Klarman)", 1061768, "BAUPOST GROUP LLC/MA"),
+    ("Tiger Global Management", 1167483, "TIGER GLOBAL MANAGEMENT LLC"),
+    ("Soros Fund Management", 1029160, "SOROS FUND MANAGEMENT LLC"),
+    ("Coatue Management", 1135730, "COATUE MANAGEMENT LLC"),
+    ("Elliott Investment Management", 1791786, "Elliott Investment Management L.P."),
+    ("Icahn (Carl Icahn)", 921669, "ICAHN CARL C"),
+    ("Gates Foundation Trust", 1166559, "GATES FOUNDATION TRUST"),
+    ("Renaissance Technologies", 1037389, "RENAISSANCE TECHNOLOGIES LLC"),
+    ("Citadel Advisors", 1423053, "CITADEL ADVISORS LLC"),
+]
+OWNERSHIP_MAX_BYTES = 40 * 1024 * 1024
+_13F_CACHE: dict = {}
+
+
+async def _edgar_bytes(client, cik: int, accession: str, document: str):
+    """A filing document from SEC EDGAR, kept in the local EDGAR cache (a filed document never changes)."""
+    path = EDGAR_DOC_DIR / f"{cik}-{accession}-{document.replace('/', '_')}"
+    if path.exists():
+        return path.read_bytes()
+    url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession.replace('-', '')}/{document}"
+    await SEC_LIMITER.acquire()
+    r = await client.get(url, headers={"User-Agent": SEC_USER_AGENT}, timeout=90.0)
+    r.raise_for_status()
+    data = r.content
+    if len(data) > OWNERSHIP_MAX_BYTES:
+        raise ValueError(f"{document} is {len(data) / 1e6:.0f} MB")
+    EDGAR_DOC_DIR.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return data
+
+
+def _html_doc(text: str, name: str) -> Response:
+    return Response(content=text.encode("utf-8"), media_type="text/html; charset=utf-8",
+                    headers={"Cache-Control": "no-store", "X-Doc-Name": re.sub(r"[^\w .()\-]", "_", name, flags=re.ASCII)[:160]})
+
+
+@app.get("/api/edgar/insiders.html")
+async def edgar_insiders(ticker: str = Query(..., max_length=12), months: int = Query(12, ge=1, le=36)):
+    """The company's Form 4 filings from the last `months` months (at most 60), as one document: a row per
+    transaction (insider, role, code, shares, price, value, shares owned after, the filing it comes from) under a
+    summary of open-market buys and sales. Read like any other document."""
+    denied = _edgar_denied()
+    if denied:
+        return denied
+    from reader import ownership as _own
+    t = re.sub(r"[^A-Z0-9.\-]", "", ticker.upper())
+    client = HTTP_CLIENT or httpx.AsyncClient(timeout=30.0, follow_redirects=True)
+    try:
+        tmap = await _ticker_map(client)
+        row = tmap.get(t) or tmap.get(t.replace(".", "-"))
+        if not row:
+            return JSONResponse(status_code=404, content={"error": f"No SEC filer has the ticker {t}."})
+        cik = int(row["cik_str"])
+        sub = await _sec_fetch_json(f"https://data.sec.gov/submissions/CIK{cik:010d}.json", TTL_SUBMISSIONS, client) or {}
+        rec = (sub.get("filings") or {}).get("recent") or {}
+        cutoff = time.strftime("%Y-%m-%d", time.gmtime(time.time() - months * 30.5 * 86400))
+        picks = [i for i, f in enumerate(rec.get("form", [])) if f in ("4", "4/A") and rec["filingDate"][i] >= cutoff][:60]
+        sem = asyncio.Semaphore(4)
+
+        async def one(i):
+            acc, doc = rec["accessionNumber"][i], rec["primaryDocument"][i]
+            raw = doc.rsplit("/", 1)[-1]                       # "xslF345X06/form4.xml" is the rendered view of "form4.xml"
+            async with sem:
+                try:
+                    data = await _edgar_bytes(client, cik, acc, raw)
+                    parsed = _own.parse_form4(data.decode("utf-8", errors="replace"))
+                except (httpx.HTTPError, ValueError, Exception):
+                    return None
+            return {"filed": rec["filingDate"][i], "accession": acc, "parsed": parsed,
+                    "url": f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/{doc}"}
+        filings = [x for x in await asyncio.gather(*(one(i) for i in picks)) if x]
+    except httpx.HTTPError as e:
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not answer ({type(e).__name__}). Try again in a minute."})
+    if not filings:
+        return JSONResponse(status_code=404, content={"error": f"{sub.get('name') or t} has no Form 4 filings in the last {months} months."})
+    company = sub.get("name") or row.get("title") or t
+    return _html_doc(_own.form4_document(company, t, cik, filings, months), f"{t} Form 4 insider trades {filings[-1]['filed']} to {filings[0]['filed']}.htm")
+
+
+@app.get("/api/edgar/funds")
+async def edgar_funds(q: str = Query("", max_length=60)):
+    """Funds that file 13F: the checked presets, or EDGAR's company search for a name."""
+    denied = _edgar_denied()
+    if denied:
+        return denied
+    if not q.strip():
+        return {"funds": [{"name": n, "cik": c, "edgar_name": e} for n, c, e in FUND_PRESETS]}
+    client = HTTP_CLIENT or httpx.AsyncClient(timeout=20.0, follow_redirects=True)
+    try:
+        await SEC_LIMITER.acquire()
+        r = await client.get("https://efts.sec.gov/LATEST/search-index", params={"keysTyped": q.strip()}, headers={"User-Agent": SEC_USER_AGENT})
+        r.raise_for_status()
+        hits = (r.json().get("hits") or {}).get("hits") or []
+    except (httpx.HTTPError, ValueError) as e:
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR search did not answer ({type(e).__name__})."})
+    return {"funds": [{"name": (h.get("_source") or {}).get("entity", ""), "cik": int(h["_id"]), "edgar_name": (h.get("_source") or {}).get("entity", "")}
+                      for h in hits[:12] if str(h.get("_id", "")).isdigit()]}
+
+
+async def _latest_13f(client, cik: int, n: int = 2) -> tuple[str, list]:
+    """The fund's EDGAR name and its last n quarters of 13F-HR holdings: [{period, filed, accession, url, rows}]."""
+    from reader import ownership as _own
+    sub = await _sec_fetch_json(f"https://data.sec.gov/submissions/CIK{cik:010d}.json", TTL_SUBMISSIONS, client) or {}
+    rec = (sub.get("filings") or {}).get("recent") or {}
+    out, seen = [], set()
+    for i, f in enumerate(rec.get("form", [])):
+        if f != "13F-HR" or rec["reportDate"][i] in seen:
+            continue
+        acc = rec["accessionNumber"][i]
+        key = (cik, acc)
+        if key not in _13F_CACHE:
+            idx = await _filing_index(client, cik, acc)
+            doc = next((d["document"] for d in idx["docs"] if "INFORMATION TABLE" in d["type"] and d["document"].lower().endswith(".xml")), None)
+            if not doc:
+                continue
+            data = await _edgar_bytes(client, cik, acc, doc)
+            _13F_CACHE[key] = {"period": rec["reportDate"][i], "filed": rec["filingDate"][i], "accession": acc,
+                               "url": f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/{acc}-index.htm",
+                               "rows": _own.parse_13f(data.decode("utf-8", errors="replace"))}
+        out.append(_13F_CACHE[key])
+        seen.add(rec["reportDate"][i])
+        if len(out) >= n:
+            break
+    return sub.get("name") or str(cik), out
+
+
+@app.get("/api/edgar/fund.html")
+async def edgar_fund(cik: int = Query(..., ge=1, le=9999999999), ticker: str = Query("", max_length=12)):
+    """A fund's latest 13F-HR as one document: the 50 largest positions with weight and the change from the
+    quarter before, new and exited positions, and, when a ticker is given, where that company sits."""
+    denied = _edgar_denied()
+    if denied:
+        return denied
+    from reader import ownership as _own
+    client = HTTP_CLIENT or httpx.AsyncClient(timeout=60.0, follow_redirects=True)
+    highlight = None
+    try:
+        if ticker.strip():
+            tmap = await _ticker_map(client)
+            row = tmap.get(re.sub(r"[^A-Z0-9.\-]", "", ticker.upper()))
+            highlight = row.get("title") if row else None
+        name, qs = await _latest_13f(client, cik)
+    except (httpx.HTTPError, ValueError) as e:
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return the 13F ({type(e).__name__}: {e})."})
+    if not qs:
+        return JSONResponse(status_code=404, content={"error": f"{name} has no 13F-HR holdings report in its recent filings."})
+    cur = qs[0]
+    prior = {"period": qs[1]["period"], "rows": qs[1]["rows"]} if len(qs) > 1 else None
+    return _html_doc(_own.holdings_document(name, cik, cur, cur["rows"], prior, highlight), f"{name} 13F holdings {cur['period']}.htm")
+
+
+@app.get("/api/edgar/holders")
+async def edgar_holders(ticker: str = Query(..., max_length=12)):
+    """Which of the preset funds reported holding this company in their latest 13F (matched by issuer name)."""
+    denied = _edgar_denied()
+    if denied:
+        return denied
+    from reader import ownership as _own
+    client = HTTP_CLIENT or httpx.AsyncClient(timeout=60.0, follow_redirects=True)
+    t = re.sub(r"[^A-Z0-9.\-]", "", ticker.upper())
+    tmap = await _ticker_map(client)
+    row = tmap.get(t)
+    if not row:
+        return JSONResponse(status_code=404, content={"error": f"No SEC filer has the ticker {t}."})
+    company = row.get("title") or t
+    sem = asyncio.Semaphore(3)
+
+    async def one(label, cik, edgar_name):
+        async with sem:
+            try:
+                name, qs = await _latest_13f(client, cik)
+            except Exception as e:
+                return {"fund": label, "cik": cik, "error": e.__class__.__name__}
+        if not qs:
+            return None
+        cur = qs[0]
+        hits = [r for r in cur["rows"] if _own.same_company(r["issuer"], company)]
+        if not hits:
+            return {"fund": label, "cik": cik, "period": cur["period"], "held": False}
+        prior = {(r["cusip"], r["put_call"], r["class"]): r for r in (qs[1]["rows"] if len(qs) > 1 else [])}
+        total = sum(r["value"] for r in cur["rows"]) or 1
+        out = []
+        for r in hits:
+            p = prior.get((r["cusip"], r["put_call"], r["class"]))
+            out.append({"issuer": r["issuer"], "class": r["class"], "put_call": r["put_call"], "shares": r["shares"], "value": r["value"],
+                        "weight": round(r["value"] / total * 100, 2), "rank": cur["rows"].index(r) + 1,
+                        "prior_shares": p["shares"] if p else None, "new": bool(len(qs) > 1 and not p)})
+        return {"fund": label, "cik": cik, "period": cur["period"], "filed": cur["filed"], "accession": cur["accession"], "url": cur["url"], "held": True, "positions": out}
+    res = [x for x in await asyncio.gather(*(one(*p) for p in FUND_PRESETS)) if x]
+    return {"ticker": t, "company": company, "funds": res,
+            "note": "Matched by issuer name in each fund's latest Form 13F-HR; a 13F shows U.S.-listed holdings at the quarter end, filed up to 45 days later."}
+
+
+# ----------------------------------------------------------------------
+# Crawler: this year vs last year, and questions answered from the document
+# ----------------------------------------------------------------------
+@app.get("/api/read/jobs/{job_id}/ask")
+async def reader_job_ask(request: Request, job_id: str, q: str = Query(..., min_length=1, max_length=300)) -> JSONResponse:
+    """Answers from the document that was read: report figures that match the question, then the sentences that
+    best match it (BM25 over the document's sentences). Each answer carries its page and offset."""
+    j = _job_or_404(request, job_id, None)
+    if j.state != "done":
+        return JSONResponse(status_code=409, content={"error": f"The job is {j.state}."})
+    from reader import insights as _ins
+    r = j.result
+    idx = getattr(j, "_index", None)
+    if idx is None:
+        spans = _ins.spans_from_map((r.get("insights") or {}).get("map"), len(r["text"]))
+        idx = await asyncio.to_thread(_ins.Index, r["text"], r.get("page_starts") or [], spans)
+        j._index = idx
+    return JSONResponse(content=_ins.ask(q, r["report"], idx))
+
+
+_TITLE_RE = re.compile(r"^([A-Z][A-Z0-9.\-]{0,9}) (10-[KQ](?:-A)?|20-F|40-F) ((?:19|20)\d\d-\d\d-\d\d) filed ((?:19|20)\d\d-\d\d-\d\d) (\d{10}-\d\d-\d{6})")
+
+
+@app.get("/api/read/jobs/{job_id}/yoy")
+async def reader_job_yoy(request: Request, job_id: str) -> JSONResponse:
+    """This year against last year for a 10-K or 10-Q read: the same form a year earlier is fetched from SEC EDGAR,
+    its risk-factor headings are compared with this filing's (new, no longer listed, reworded), and the figures
+    that moved most are taken from this filing's own current and prior-year columns."""
+    j = _job_or_404(request, job_id, None)
+    if j.state != "done":
+        return JSONResponse(status_code=409, content={"error": f"The job is {j.state}."})
+    cached = getattr(j, "_yoy", None)
+    if cached:
+        return JSONResponse(content=cached)
+    denied = _edgar_denied()
+    if denied:
+        return denied
+    from reader import document as _doc, insights as _ins
+    r = j.result
+    ins = r.get("insights") or {}
+    if ins.get("kind") not in ("annual", "quarterly"):
+        return JSONResponse(status_code=409, content={"error": "This year against last year works for a 10-K or 10-Q."})
+    rep = r["report"]
+    co = rep.get("company") or {}
+    m = _TITLE_RE.match(j.title or "")
+    t = (m.group(1) if m else (co.get("ticker") or co.get("ticker_hint") or j.ticker or "")).upper()
+    if not t:
+        return JSONResponse(status_code=409, content={"error": "The company's ticker is not known for this read. Load the filing by ticker, or run it with the ticker filled in."})
+    form = "10-K" if ins["kind"] == "annual" else "10-Q"
+    listing = await edgar_filings(ticker=t, fresh=False, earnings=False, forms=form, limit=10)
+    if isinstance(listing, JSONResponse):
+        return listing
+    fl = [f for f in listing["filings"] if not f["form"].endswith("/A")]
+    prior = None
+    if m:
+        acc = m.group(5)
+        k = next((i for i, f in enumerate(fl) if f["accession"] == acc), None)
+        if k is not None and k + 1 < len(fl):
+            # the same form about a year before (a 10-Q: the same quarter of the year before)
+            want = _dt.strptime(fl[k]["period"] or fl[k]["filed"], "%Y-%m-%d").toordinal() - 365
+            cands = [f for f in fl[k + 1:] if f["period"]]
+            prior = min(cands, key=lambda f: abs(_dt.strptime(f["period"], "%Y-%m-%d").toordinal() - want)) if cands else None
+    if prior is None:
+        per = re.search(r"((?:19|20)\d\d)", co.get("period") or "")
+        cur_year = int(per.group(1)) if per else None
+        cands = [f for f in fl if f["period"] and cur_year and f["period"][:4] == str(cur_year - 1)]
+        prior = cands[0] if cands else None
+    if prior is None:
+        return JSONResponse(status_code=404, content={"error": f"Last year's {form} for {t} was not found on SEC EDGAR."})
+    client = HTTP_CLIENT or httpx.AsyncClient(timeout=90.0, follow_redirects=True)
+    try:
+        data = await _edgar_bytes(client, listing["cik"], prior["accession"], prior["document"])
+    except (httpx.HTTPError, ValueError) as e:
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return last year's {form} ({type(e).__name__})."})
+    kind = "pdf" if prior["document"].lower().endswith(".pdf") else "html"
+    try:
+        pdoc = await asyncio.to_thread(_doc.load, data, kind, prior["document"])
+    except _ReaderError as e:
+        return JSONResponse(status_code=422, content={"error": e.msg})
+    prior_items = _ins.risk_items(pdoc)
+    secs = {sec.item: k for k, sec in enumerate(pdoc.sections)}
+    p_span = None
+    if "1A" in secs:
+        k = secs["1A"]
+        p_span = (pdoc.sections[k].offset, pdoc.sections[k + 1].offset if k + 1 < len(pdoc.sections) else len(pdoc.body))
+    cmap = sorted((x["offset"], x["key"]) for x in ins.get("map") or [])
+    c_span = next(((o, cmap[k + 1][0] if k + 1 < len(cmap) else len(r["text"])) for k, (o, key) in enumerate(cmap) if key == "risks"), None)
+    diff = _ins.risk_diff(ins.get("risk_items") or [], prior_items, r["text"], pdoc.body, c_span, p_span)
+    F, C = rep["evidence"]["facts"], rep["evidence"]["calcs"]
+    moved = []
+    for row in rep["financials"]["performance"] + rep["position"]["rows"]:
+        cur, pri = F.get(row.get("current")) or C.get(row.get("current")), F.get(row.get("prior")) or C.get(row.get("prior"))
+        ch = row.get("change") or {}
+        if not cur or not pri or ch.get("pct") is None:
+            continue
+        src = cur.get("source") or {}
+        moved.append({"metric": row["metric"], "name": row.get("name") or cur.get("name"), "now": cur["display"], "before": pri["display"],
+                      "change": ch.get("display"), "pct": ch["pct"], "page": src.get("pdf_page"), "raw": src.get("raw"),
+                      "period": (cur.get("period") or {}).get("label"), "prior_period": (pri.get("period") or {}).get("label")})
+    moved.sort(key=lambda x: -abs(x["pct"]))
+    out = {"ticker": t, "form": form, "current": {"title": j.title, "period": co.get("period")},
+           "prior": {**prior, "url": f"https://www.sec.gov/Archives/edgar/data/{listing['cik']}/{prior['accession'].replace('-', '')}/{prior['document']}"},
+           "risks": diff, "moved": moved[:10],
+           "note": "Risk-factor headings are matched by shared words (half or more counts as the same risk); a heading reworded beyond that is listed as new, "
+                   "and its older wording as no longer listed. The figures that moved come from this filing's own current and prior-year columns."}
+    j._yoy = out
+    return JSONResponse(content=out)
+
+
+# ----------------------------------------------------------------------
+# Crawler: today's video ideas (the vault's social/ideas.md on the ideas branch), for Record mode
+# ----------------------------------------------------------------------
+_IDEAS_FETCHED = {"at": 0.0}
+
+
+def _vault_repo() -> Optional[Path]:
+    env = os.environ.get("BMG_VAULT_REPO")
+    for p in ([Path(env).expanduser()] if env else []) + [Path.home() / "Documents" / "BMG-Capital-Vault", Path.home() / "BMG-Capital-Vault"]:
+        if (p / ".git").exists():
+            return p
+    return None
+
+
+def parse_ideas(text: str) -> list[dict]:
+    days, cur = [], None
+    for line in (text or "").splitlines():
+        h = re.match(r"^##\s+(Day of\s+(\d{4}-\d\d-\d\d).*)$", line.strip())
+        if h:
+            cur = {"title": h.group(1).strip(), "day": h.group(2), "ideas": []}
+            days.append(cur)
+            continue
+        it = re.match(r"^\s*-\s+\[( |x|X)\]\s+(.*)$", line)
+        if it and cur is not None:
+            fields = {}
+            for part in it.group(2).split(" | "):
+                fm = re.match(r"\*\*([a-z ]+):\*\*\s*(.*)$", part.strip(), re.I)
+                if fm:
+                    fields[fm.group(1).strip().lower()] = fm.group(2).strip()
+            if fields.get("hook"):
+                cur["ideas"].append({"done": it.group(1).lower() == "x", "hook": fields.get("hook", ""), "format": fields.get("format", ""),
+                                     "why": fields.get("why now", ""), "numbers": fields.get("numbers", ""), "platform": fields.get("platform", ""),
+                                     "raw": line.strip()})
+    return days
+
+
+@app.get("/api/social/ideas")
+async def social_ideas():
+    """The current video ideas from the vault (social/ideas.md on the ideas branch), newest day first. Read only:
+    the vault is fetched at most every ten minutes and never changed."""
+    if os.environ.get("BMG_LOCAL") != "1":
+        return JSONResponse(status_code=403, content={"error": "Ideas are available on the local crawler only."})
+    repo = _vault_repo()
+    if not repo:
+        return JSONResponse(status_code=404, content={"error": "The vault folder was not found. Set BMG_VAULT_REPO to the vault's folder (for example ~/Documents/BMG-Capital-Vault)."})
+    branch = os.environ.get("BMG_IDEAS_BRANCH", "claude/social-ideas")
+
+    def git(*args, timeout=20):
+        return __import__("subprocess").run(["git", "-C", str(repo), *args], capture_output=True, text=True, timeout=timeout)
+    if time.time() - _IDEAS_FETCHED["at"] > 600:
+        _IDEAS_FETCHED["at"] = time.time()
+        try:
+            await asyncio.to_thread(git, "fetch", "--quiet", "origin", branch)
+        except Exception:
+            pass                       # offline: use what the vault already has
+    text, source = None, ""
+    for ref in (f"origin/{branch}", branch):
+        try:
+            res = await asyncio.to_thread(git, "show", f"{ref}:social/ideas.md")
+        except Exception:
+            continue
+        if res.returncode == 0 and res.stdout.strip():
+            text, source = res.stdout, f"{ref}:social/ideas.md"
+            break
+    if text is None and (repo / "social" / "ideas.md").exists():
+        text, source = (repo / "social" / "ideas.md").read_text(encoding="utf-8"), "social/ideas.md (working copy)"
+    if text is None:
+        return JSONResponse(status_code=404, content={"error": f"social/ideas.md was not found on {branch} in {repo}."})
+    return {"source": source, "repo": str(repo), "days": parse_ideas(text)}
 
 
 # ----------------------------------------------------------------------
@@ -2379,7 +2835,8 @@ async def reader_job_create(request: Request,
                             file: Optional[UploadFile] = File(None),
                             text: Optional[str] = Form(None),
                             ticker: Optional[str] = Form(None),
-                            owner: Optional[str] = Form(None)) -> JSONResponse:
+                            owner: Optional[str] = Form(None),
+                            company: Optional[str] = Form(None)) -> JSONResponse:
     tok = _owner(request, owner)
     if not tok:
         return JSONResponse(status_code=400, content={"error": "missing reader owner token"})
@@ -2403,7 +2860,8 @@ async def reader_job_create(request: Request,
     if len(data) > CHECK_MAX_BYTES:
         return JSONResponse(status_code=413, content={"error": f"The file is {len(data) / 1e6:.1f} MB; the limit is {CHECK_MAX_BYTES // (1024 * 1024)} MB."})
     try:
-        job, reused = _reader_jobs.MANAGER.submit(tok, data, kind, title, _validate_ticker(ticker) if ticker else None)
+        name = re.sub(r"[\x00-\x1f<>]", "", " ".join((company or "").split()))[:120] or None     # the SEC's name for an EDGAR filing
+        job, reused = _reader_jobs.MANAGER.submit(tok, data, kind, title, _validate_ticker(ticker) if ticker else None, name)
     except _ReaderError as e:
         return JSONResponse(status_code=e.status, content={"error": e.msg})
     return JSONResponse(status_code=200 if reused else 202, content={**job.public(), "reused": reused})
@@ -2429,7 +2887,8 @@ async def reader_job_result(request: Request, job_id: str) -> JSONResponse:
         return JSONResponse(status_code=409, content={"error": f"The job is {j.state}.", **j.public()})
     r = j.result
     return JSONResponse(content={"job": j.public(), "report": r["report"], "findings": r["report"]["findings"],
-                                 "text": r["text"], "title": r["title"], "kind": r["kind"], "sha256": r["sha256"], "pages": r["pages"]})
+                                 "text": r["text"], "title": r["title"], "kind": r["kind"], "sha256": r["sha256"], "pages": r["pages"],
+                                 "insights": r.get("insights")})
 
 
 @app.get("/api/read/jobs/{job_id}/report.pdf")
