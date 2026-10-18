@@ -115,7 +115,7 @@ svg.spider .knee{fill:#ff3d9a}
 .pdftext .w.found.org{background:rgba(255,159,28,.4)}
 .pdftext .w.found.blue,.pdftext .w.cyanfill{background:rgba(39,200,255,.38)}
 .pdftext .w.salmon{background:rgba(255,138,106,.42)}
-.htmldoc{background:#fff;color:#000;font:13px/1.35 'Times New Roman',Times,serif;overflow-x:auto}
+.htmldoc{background:#fff;color:#000;font:13px/1.35 'Times New Roman',Times,serif;overflow-x:auto;padding:12px 0;border:solid transparent;border-width:0 clamp(14px,3.4vw,34px)}   /* the page margin, as borders the page's color shows through: many filings set none, and their text ran into the edges */
 .htmldoc p{margin:revert}
 .htmldoc table{border-collapse:collapse}
 .htmldoc .w.found{color:#000}
@@ -299,6 +299,7 @@ body.recmode[data-rec-palette] #rec-end h3,body.recmode[data-rec-palette] .rk-on
 .clip-idea textarea,.clip-idea input[type=text]{width:100%;box-sizing:border-box;padding:7px;border:1px solid #cad2d8;border-radius:6px;font:inherit;color:#111;background:#fff}
 .clip-idea .opt span{display:flex;gap:6px}.clip-st{min-height:1em}.clip-st.err{color:#d93025;opacity:1}
 body.recmode.rec-dark .htmldoc{background:#000}
+body.recmode .htmldoc{border-width:0}   /* Record mode keeps its framing: no page edge shows there, and its clips are sized to the full width */
 body.recmode.rec-dark .htmldoc *:not(.w){background-color:transparent!important}
 body.recmode.rec-dark .htmldoc *{color:#e8e8e8!important;border-color:#5a5a5a!important}
 body.recmode.rec-dark .htmldoc .w:is(.found,.cyanfill,.fillbox,.salmon){color:#001a22!important}
@@ -3210,10 +3211,13 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   // spider measures any word, and again on resize.
   function fitHtml(wrap){
     if (!wrap || !wrap.isConnected) return;
-    wrap.style.zoom = "";
-    const avail = wrap.clientWidth, natural = wrap.scrollWidth;
+    wrap.style.zoom = ""; wrap.style.borderLeftWidth = wrap.style.borderRightWidth = "";
+    // inside the page margin (borders, outside the scroll width, so the filing's own width is measured as before)
+    const avail = wrap.clientWidth, natural = wrap.scrollWidth, margin = parseFloat(getComputedStyle(wrap).borderLeftWidth) || 0;
     const z = natural > avail + 1 ? Math.max(0.15, avail / natural) : 1;
     wrap.style.zoom = z === 1 ? "" : z.toFixed(4);
+    // the margin keeps its size on screen when a wide filing is zoomed out to fit
+    if (z !== 1) wrap.style.borderLeftWidth = wrap.style.borderRightWidth = (margin / z).toFixed(2) + "px";
     wrap.dataset.fit = z.toFixed(3);
   }
   let rehold = 0;
