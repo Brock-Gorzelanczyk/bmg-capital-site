@@ -509,7 +509,9 @@ function injectCSS(){
 .so i[data-h=size]{left:100%;top:100%;cursor:nwse-resize}
 .st-guides i{position:absolute;background:#ff3da6;display:none;pointer-events:none;z-index:3}.st-guides i.on{display:block}
 .st-guides .gv{left:50%;top:0;bottom:0;width:1px}.st-guides .gh{top:50%;left:0;right:0;height:1px}
-.st-safe{position:absolute;left:5%;right:13%;top:7%;bottom:21%;border:1.5px dashed rgba(255,210,63,.9);border-radius:6px;pointer-events:none;z-index:3}
+/* TikTok's top bar, right-hand buttons and caption on a 1080 x 1920 video: about 108, 120 and 320 px (SAFE below;
+   third-party safe-zone guides, as TikTok publishes none). On the preview only: the export never reads the page */
+.st-safe{position:absolute;left:5.56%;right:11.11%;top:5.63%;bottom:16.67%;border:1.5px dashed rgba(255,210,63,.9);border-radius:6px;pointer-events:none;z-index:3}
 .st-safe span{position:absolute;right:4px;bottom:3px;font:600 10px 'IBM Plex Mono',monospace;color:#ffd23f;background:rgba(0,0,0,.6);padding:1px 4px;border-radius:3px}.st-safe[hidden]{display:none}
 /* the bin is under the video, over the play controls, while a picture or text is dragged: on the video it covered
    its top, where nothing could be put */
@@ -627,7 +629,7 @@ const TEMPLATE = `
         <video class="st-video" playsinline preload="auto" hidden></video>
         <div class="st-items"></div>
         <div class="st-guides"><i class="gv"></i><i class="gh"></i></div>
-        <div class="st-safe" hidden><span>TikTok buttons and caption sit outside this line</span></div>
+        <div class="st-safe" hidden><span>TikTok's buttons and caption cover what is outside this line</span></div>
         <div class="st-big"><b></b></div>
         <div class="st-flash"></div>
       </div>
@@ -637,7 +639,7 @@ const TEMPLATE = `
         <button type="button" class="st-ib st-play" data-a="play" title="Play or pause (Space)">Play</button>
         <button type="button" class="st-ib" data-a="fwd" title="Forward 1 second (right arrow; Shift: 5 seconds)">+1s</button>
         <span class="st-time">0:00.0 / 0:00.0</span>
-        <label><input type="checkbox" data-a="safe"> TikTok safe area</label>
+        <label><input type="checkbox" data-in="safe"> TikTok safe area (preview only)</label>
       </div>
     </div>
     <div class="st-right">
@@ -749,6 +751,9 @@ function mount(root, opts){
   root.innerHTML = TEMPLATE;
   const st = root.querySelector(".st");
   const $ = s => st.querySelector(s), $$ = s => [...st.querySelectorAll(s)];
+  // the TikTok safe-area guide, on or off as last left (preview only)
+  const SAFE_LS = "bmg-studio-safe";
+  { let on = false; try { on = localStorage.getItem(SAFE_LS) === "1"; } catch (e) {} $(".st-safe").hidden = !on; $('[data-in="safe"]').checked = on; }
   const stage = $(".st-stage"), video = $(".st-video"), itemsEl = $(".st-items"), mock = $(".st-mock");
   const tlScroll = $(".st-tl-scroll"), inner = $(".st-tl-inner"), ruler = $(".st-ruler"), tracks = $(".st-tracks"), labels = $(".st-tl-labels"), ph = $(".st-ph");
   let P = newProject();
@@ -1133,6 +1138,15 @@ function mount(root, opts){
     pause();
     P = Object.assign(newProject(), {fit: P.fit, fps: P.fps, origVol: P.origVol, take: P.take, segs: P.segs});
     selected = null; textCache.clear();
+  }
+  // a Make a clip take carries the hook written there: it goes on as a text item in a white box at the top, inside
+  // TikTok's safe area (its right side clear of the buttons), for the whole video, and stays editable like any text
+  function hookItem(){
+    const h = P.take && P.take.meta && String(P.take.meta.hook || "").trim();
+    if (!h || P.items.some(x => x.kind === "text" && x.text === h)) return;
+    P.items.push(Object.assign({id: "i-" + uid(), kind: "text", text: h, wrap: 0.76, x: 0.4722, y: 0.115, rot: 0, t0: 0, t1: editDur(), whole: true},
+      textDefaults, {bg: "box", color: "#ffffff", size: 0.05}));
+    renderItems(); drawTimeline(); panels(); commit(); renderAt();
   }
   async function addVideoFile(file){
     if (!file || !/^video\//.test(file.type) && !/\.(mp4|mov|m4v|webm)$/i.test(file.name)){ note("takes", "That is not a video file.", true); return; }
@@ -1717,6 +1731,7 @@ function mount(root, opts){
     else if (k === "pics"){ addPictures([...e.target.files]); e.target.value = ""; }
     else if (k === "quick"){ addQuick([...e.target.files]); e.target.value = ""; }
     else if (k === "bginside") bgDraw();
+    else if (k === "safe"){ $(".st-safe").hidden = !e.target.checked; try { localStorage.setItem(SAFE_LS, e.target.checked ? "1" : "0"); } catch (x) {} }
     else if (k === "music"){ const f = e.target.files[0]; e.target.value = ""; if (f) addSong(f); }
   });
   // files dropped on the drop boxes, or straight on the preview
@@ -2411,7 +2426,7 @@ function mount(root, opts){
   return {
     show(){ shown = true; ready.then(() => { zoomFit(); renderItems(); drawWave(); listTakes(); }); st.focus({preventScroll: true}); },
     hide(){ shown = false; pause(); if (listenNode) listen($('[data-a="listen"]')); },
-    async openTake(id, o = {}){ await ready; if (o.clean) cleanEdit(); showTab(o.tab || "takes", true); await openTake(id, o.note); },
+    async openTake(id, o = {}){ await ready; if (o.clean) cleanEdit(); showTab(o.tab || "takes", true); await openTake(id, o.note); if (o.clean) hookItem(); },
     async takeArrived(id){ await ready; const all = await listTakes(); if (!P.take && all && all.some(t => t.id === id)) await openTake(id); else flash("A new take is in Takes."); },
     // the page waits before loading a new version: an export (from its click), an edit not yet saved, a video not
     // downloaded or still downloading, the edit or a song playing
