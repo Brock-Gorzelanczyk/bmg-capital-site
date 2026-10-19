@@ -324,13 +324,65 @@ function shrinkImage(file){
     img.onload = () => {
       const s = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
       const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(img.naturalWidth * s)); c.height = Math.max(1, Math.round(img.naturalHeight * s));
-      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
-      const png = /png|gif|webp|svg/.test(file.type);
-      c.toBlob(b => b ? res({blob: b, w: c.width, h: c.height}) : rej(new Error("not an image")), png ? "image/png" : "image/jpeg", 0.92);
+      const g = c.getContext("2d", {willReadFrequently: true});
+      g.drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      // a picture with any see-through pixel stays a PNG whatever its type says (a JPEG has no transparency: its
+      // clear parts came out solid); only a fully solid photo becomes a JPEG
+      let clear = /png|gif|webp|svg/.test(file.type);
+      if (!clear){ const d = g.getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < d.length; i += 4) if (d[i] < 255){ clear = true; break; } }
+      c.toBlob(b => b ? res({blob: b, w: c.width, h: c.height}) : rej(new Error("not an image")), clear ? "image/png" : "image/jpeg", 0.92);
     };
     img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("not an image")); };
     img.src = url;
   });
+}
+// Transparent background: the color around a picture's edges (a logo on white, a screenshot on a plain color) is
+// made see-through. px: RGBA bytes (changed in place). The background is the commonest color on the border, and a
+// second one when it covers a fifth of the border too (the gray and white squares baked into a "transparent" logo
+// saved from an image search); a pixel within tol (0 to 1 of the largest color difference) of one goes clear where it
+// touches the border through other such pixels, or anywhere with inside (the holes in an "O"). The pixels just past
+// tol next to a cleared one fade, so the edge has no halo. Returns {bg: [r, g, b] or null when the border is already
+// clear, bgs: every background color, cleared: pixels made clear}.
+function clearBackground(px, w, h, tol, inside){
+  const n = w * h, buckets = new Map();
+  const border = [];
+  for (let x = 0; x < w; x++){ border.push(x, (h - 1) * w + x); }
+  for (let y = 1; y < h - 1; y++){ border.push(y * w, y * w + w - 1); }
+  let clear = 0;
+  for (const i of border){
+    const o = i * 4;
+    if (px[o + 3] < 16){ clear++; continue; }
+    const k = (px[o] >> 4) << 8 | (px[o + 1] >> 4) << 4 | px[o + 2] >> 4;
+    const b = buckets.get(k) || [0, 0, 0, 0]; b[0]++; b[1] += px[o]; b[2] += px[o + 1]; b[3] += px[o + 2]; buckets.set(k, b);
+  }
+  const ranked = [...buckets.values()].sort((a, b) => b[0] - a[0]);
+  if (!ranked.length || clear > border.length / 2) return {bg: null, bgs: [], cleared: 0};
+  const bgs = ranked.slice(0, 2).filter((b, k) => k === 0 || b[0] >= border.length / 5).map(b => [b[1] / b[0], b[2] / b[0], b[3] / b[0]]);
+  const bg = bgs[0];
+  const far = 441.7, lim = tol * far, soft = Math.max(8, lim * 0.6);
+  const dist = i => { const o = i * 4; let d = Infinity; for (const c of bgs) d = Math.min(d, Math.hypot(px[o] - c[0], px[o + 1] - c[1], px[o + 2] - c[2])); return d; };
+  const gone = new Uint8Array(n);
+  const near = i => px[i * 4 + 3] < 16 || dist(i) <= lim;
+  if (inside){ for (let i = 0; i < n; i++) if (near(i)) gone[i] = 1; }
+  else {
+    const q = new Int32Array(n); let head = 0, tail = 0;
+    for (const i of border) if (!gone[i] && near(i)){ gone[i] = 1; q[tail++] = i; }
+    while (head < tail){
+      const i = q[head++], x = i % w;
+      for (const j of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, i - w, i + w]) if (j >= 0 && j < n && !gone[j] && near(j)){ gone[j] = 1; q[tail++] = j; }
+    }
+  }
+  let cleared = 0;
+  for (let i = 0; i < n; i++){
+    const o = i * 4;
+    if (gone[i]){ if (px[o + 3]) cleared++; px[o + 3] = 0; continue; }
+    const x = i % w;
+    if ((x > 0 && gone[i - 1]) || (x < w - 1 && gone[i + 1]) || (i >= w && gone[i - w]) || (i + w < n && gone[i + w])){
+      const a = Math.min(1, Math.max(0, (dist(i) - lim) / soft));
+      px[o + 3] = Math.round(px[o + 3] * (0.25 + 0.75 * a));
+    }
+  }
+  return {bg: bg.map(Math.round), bgs: bgs.map(c => c.map(Math.round)), cleared};
 }
 function loadImg(url){
   return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("picture")); i.src = url; });
@@ -480,7 +532,22 @@ function injectCSS(){
 .st-list{list-style:none;margin:8px 0 0;padding:0}
 .st-list li{display:flex;gap:10px;align-items:center;padding:7px 0;border-top:1px solid #f0f0ec}
 .st-list li.on{background:#f3faf6}.st-list .th{width:34px;height:60px;border-radius:5px;background:#1b2430;flex:none;object-fit:cover;overflow:hidden}
-.st-list .th.pic{width:48px;height:48px;object-fit:contain;background:#eceee9}
+.st-list .th.pic{width:48px;height:48px;object-fit:contain;background:repeating-conic-gradient(#e3e5e0 0 25%,#fff 0 50%) 0 0/10px 10px}
+.st-quick{margin:0 0 12px}.st-qh{margin:0 0 6px;font-size:13.5px;color:#141414}.st-qh small{font-size:12.5px;color:#6b6f76}
+.st-qrow{display:flex;flex-wrap:wrap;gap:8px}.st-q{position:relative}
+.st-qpic,.st-qnew{display:grid;place-items:center;width:64px;height:64px;box-sizing:border-box;border:1px solid #c9cfca;border-radius:10px;background:repeating-conic-gradient(#e3e5e0 0 25%,#fff 0 50%) 0 0/10px 10px;padding:4px;cursor:pointer}
+.st-qpic img{max-width:100%;max-height:100%;object-fit:contain;display:block}.st-qpic:hover,.st-qnew:hover{border-color:var(--g);box-shadow:0 0 0 2px var(--g)}
+.st-qnew{background:#fafaf7;border-style:dashed;font-size:12px;color:#3a3a3a;align-content:center;gap:0}.st-qnew b{font-size:20px;line-height:1;color:#141414}
+.st-qx{position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;border:1px solid #c9cfca;background:#fff;color:#3a3a3a;font-size:14px;line-height:1;cursor:pointer;padding:0}
+.st-qx:hover{border-color:#b42318;color:#b42318}
+.st-list .st-ib[data-keep][aria-pressed=true]{border-color:var(--g);color:var(--g)}
+.st-bgx{margin:12px 0 0;padding:12px;border:1px solid #e3e3dc;border-radius:12px;background:#fafaf7}
+.st-bgx-row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.st-bgx-pv{display:grid;place-items:center;width:180px;height:180px;flex:none;border-radius:10px;overflow:hidden;
+  background:repeating-conic-gradient(#d9dcd6 0 25%,#fff 0 50%) 0 0/16px 16px}
+.st-bgx-pv img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.st-bgx-set{display:flex;flex-direction:column;gap:8px;flex:1;min-width:220px;font-size:13px;color:#3a3a3a}
+.st-bgx-set label{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.st-bgx-set input[type=range]{flex:1;min-width:120px}
 .st-list .nm{flex:1;min-width:0}.st-list .nm b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st-list .nm small{display:block;font-size:12px;color:var(--mute)}
 .st-list .ac{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end}
@@ -575,10 +642,20 @@ const TEMPLATE = `
         <ul class="st-list st-takes"></ul>
       </section>
       <section class="st-panel" data-p="pics" role="tabpanel" hidden>
+        <div class="st-quick" role="group" aria-label="Quick add"><p class="st-qh"><b>Quick add</b> <small>Pictures you use a lot, kept in this browser for every video: click one to put it on the video.</small></p><div class="st-qrow"></div></div>
         <label class="st-drop" data-drop="pics"><input type="file" accept="image/*" multiple data-in="pics" hidden><b>Drop pictures here or click to choose</b>You can also paste one (Cmd+V).</label>
         <p class="st-note">Drag a picture on the preview to move it, the corner to resize it, the round handle to turn it, and drop it on the bin at the top to remove it. Its purple bar under the video sets when it shows: drag the bar, or its ends.</p>
         <p class="st-msg" data-m="pics" role="status"></p>
         <ul class="st-list st-pics"></ul>
+        <div class="st-bgx" hidden>
+          <p class="st-qh"><b>Transparent background</b> <small class="st-bgx-nm"></small></p>
+          <div class="st-bgx-row"><span class="st-bgx-pv"><img alt="The picture with its background removed"></span>
+            <span class="st-bgx-set"><label>How close a color counts as background <input type="range" min="1" max="45" value="12" data-in="bgtol"><output>12%</output></label>
+              <label><input type="checkbox" data-in="bginside"> Also inside the picture (the holes in letters like O and A)</label>
+              <span class="st-note st-bgx-st" role="status"></span>
+              <span class="st-row"><button type="button" class="st-btn" data-a="bgok">Use it</button><button type="button" class="st-ib" data-a="bgno">Cancel</button></span></span></div>
+          <p class="st-note">It clears the color around the picture's edges: best for a logo or a picture on a plain background (a photo's background is not one color). The original is kept: Undo brings it back.</p>
+        </div>
       </section>
       <section class="st-panel" data-p="text" role="tabpanel" hidden>
         <textarea rows="3" data-in="text" placeholder="Type your text"></textarea>
@@ -731,10 +808,100 @@ function mount(root, opts){
     media.set(id, m);
     return m;
   }
-  async function addMedia(blob, name, kind){
+  async function addMedia(blob, name, kind, extra){
     const id = "m-" + uid();
-    await db.put("media", {id, blob, name, kind, added: Date.now()});
+    await db.put("media", Object.assign({id, blob, name, kind, added: Date.now()}, extra));
     return loadMedia(id);
+  }
+
+  // ---------------- Quick add: pictures kept for every video (a logo, a headshot) ----------------
+  // a picture's own media record carries quick: the time it was kept; taking it off the shelf keeps the record
+  // (a video may still use it)
+  let quick = [];
+  async function loadQuick(){
+    let all = [];
+    try { all = (await db.all("media")).filter(r => r.quick && r.blob && /^image\//.test(r.blob.type)).sort((a, b) => a.quick - b.quick); } catch (e) {}
+    quick = [];
+    for (const r of all){ const m = await loadMedia(r.id).catch(() => null); if (m) quick.push(m); }
+    drawQuick();
+  }
+  function drawQuick(){
+    $(".st-qrow").innerHTML = quick.map(m => `<span class="st-q"><button type="button" class="st-qpic" data-qadd="${esc(m.id)}" title="Put ${esc(m.name)} on the video"><img src="${esc(m.url)}" alt="${esc(m.name)}"></button><button type="button" class="st-qx" data-qrm="${esc(m.id)}" title="Take ${esc(m.name)} off Quick add" aria-label="Take ${esc(m.name)} off Quick add">&times;</button></span>`).join("")
+      + `<label class="st-qnew" title="Add pictures to Quick add"><input type="file" accept="image/*" multiple data-in="quick" hidden><b>+</b>Add</label>`;
+  }
+  async function keepQuick(id, on){
+    try { const rec = await db.get("media", id); if (!rec) return; rec.quick = on ? Date.now() : 0; await db.put("media", rec); } catch (e) { flash("This browser could not keep it (storage full?)."); return; }
+    await loadQuick(); panels();
+    if (on) flash("Kept in Quick add, for every video.");
+  }
+  // ---------------- Transparent background (the Pictures tab) ----------------
+  let bgx = null;                         // {id: the picture on the video, src: its pixels, blob: the result}
+  async function bgOpen(id){
+    const it = itemById(id), m = it && media.get(it.media); if (!m || !m.img) return;
+    const c = document.createElement("canvas"); c.width = m.img.naturalWidth; c.height = m.img.naturalHeight;
+    const g = c.getContext("2d", {willReadFrequently: true}); g.drawImage(m.img, 0, 0);
+    bgx = {id, media: m.id, w: c.width, h: c.height, src: g.getImageData(0, 0, c.width, c.height), blob: null, url: null};
+    $(".st-bgx-nm").textContent = m.name;
+    $(".st-bgx").hidden = false;
+    select(id, true);
+    bgDraw();
+    $(".st-bgx").scrollIntoView({block: "nearest", behavior: "smooth"});
+  }
+  function bgDraw(){
+    if (!bgx) return;
+    const tol = +$('[data-in="bgtol"]').value / 100, inside = $('[data-in="bginside"]').checked;
+    $('[data-in="bgtol"]').nextElementSibling.textContent = Math.round(tol * 100) + "%";
+    const out = new ImageData(new Uint8ClampedArray(bgx.src.data), bgx.w, bgx.h);
+    const r = clearBackground(out.data, bgx.w, bgx.h, tol, inside);
+    const st = $(".st-bgx-st"), ok = $('[data-a="bgok"]');
+    if (!r.bg){ st.textContent = "Its edges are already see-through: there is no background color to clear."; ok.disabled = true; return; }
+    const pct = Math.round(r.cleared / (bgx.w * bgx.h) * 100);
+    st.textContent = (r.bgs.length > 1 ? `Background: two colors, rgb(${r.bgs[0].join(", ")}) and rgb(${r.bgs[1].join(", ")}) (squares saved into the picture). ` : `Background rgb(${r.bg.join(", ")}). `)
+      + `${pct}% of the picture cleared.` + (pct > 85 ? " That is nearly all of it: lower the slider." : "");
+    ok.disabled = !r.cleared;
+    const c = document.createElement("canvas"); c.width = bgx.w; c.height = bgx.h; c.getContext("2d").putImageData(out, 0, 0);
+    const mine = bgx;
+    c.toBlob(b => {
+      if (bgx !== mine || !b) return;
+      if (mine.url) URL.revokeObjectURL(mine.url);
+      mine.blob = b; mine.url = URL.createObjectURL(b);
+      $(".st-bgx-pv img").src = mine.url;
+    }, "image/png");
+  }
+  function bgClose(){
+    if (bgx && bgx.url) URL.revokeObjectURL(bgx.url);
+    bgx = null; $(".st-bgx").hidden = true; $(".st-bgx-pv img").removeAttribute("src");
+  }
+  async function bgUse(){
+    const x = bgx, it = x && itemById(x.id); if (!x || !x.blob || !it) return;
+    const old = media.get(x.media), name = (old ? old.name : "Picture").replace(/\.[^.]+$/, "") + " (transparent).png";
+    const kept = quick.some(q => q.id === x.media);
+    let m;
+    try { m = await addMedia(x.blob, name, "picture", kept ? {quick: Date.now()} : undefined); } catch (e) { m = null; }
+    if (!m){ flash("This browser could not keep it (storage full?)."); return; }
+    it.media = m.id;
+    bgClose();
+    if (kept){ try { const rec = await db.get("media", x.media); if (rec){ rec.quick = 0; await db.put("media", rec); } } catch (e) {} await loadQuick(); }
+    renderItems(); drawTimeline(); panels(); commit();
+    flash(kept ? "Background cleared. Quick add has the clear one now." : "Background cleared. Keep puts it in Quick add.");
+  }
+  // a picture whose edges are one or two solid colors that clear well: its background is not see-through
+  function plainBackground(img){
+    if (!img) return false;
+    const s = Math.min(1, 160 / Math.max(img.naturalWidth, img.naturalHeight)), w = Math.max(2, Math.round(img.naturalWidth * s)), h = Math.max(2, Math.round(img.naturalHeight * s));
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const g = c.getContext("2d", {willReadFrequently: true}); g.drawImage(img, 0, 0, w, h);
+    const r = clearBackground(g.getImageData(0, 0, w, h).data, w, h, 0.12, false), share = r.cleared / (w * h);
+    return !!r.bg && share > 0.08 && share < 0.9;
+  }
+  async function addQuick(files){
+    let n = 0;
+    for (const f of files){
+      if (!/^image\//.test(f.type)) continue;
+      try { const im = await shrinkImage(f); if (await addMedia(im.blob, f.name || "Picture", "picture", {quick: Date.now() + n})) n++; }
+      catch (e) { flash(`${f.name || "That file"} is not a picture the browser can read.`); }
+    }
+    if (n){ await loadQuick(); flash(n === 1 ? "Added to Quick add. Click it to put it on the video." : `${n} pictures added to Quick add.`); }
   }
 
   // ---------------- takes ----------------
@@ -1273,7 +1440,7 @@ function mount(root, opts){
     const pics = P.items.filter(x => x.kind === "pic");
     $(".st-pics").innerHTML = pics.length ? pics.map(it => { const m = media.get(it.media);
       return `<li class="${selected === it.id ? "on" : ""}"><img class="th pic" src="${m ? esc(m.url) : ""}" alt=""><span class="nm"><b>${esc(m ? m.name : "Picture")}</b><small>${it.whole ? "Whole video" : `${fmt(it.t0, true)} to ${fmt(it.t1, true)}`}</small></span>
-        <span class="ac"><button type="button" class="st-ib" data-pick="${it.id}">Select</button><button type="button" class="st-ib" data-front="${it.id}">To front</button><button type="button" class="st-ib" data-rmi="${it.id}">Remove</button></span></li>`; }).join("")
+        <span class="ac"><button type="button" class="st-ib" data-bgx="${it.id}" title="Make this picture's background see-through">Transparent</button><button type="button" class="st-ib" data-keep="${esc(it.media)}" aria-pressed="${quick.some(q => q.id === it.media)}" title="Keep this picture in Quick add, for every video">${quick.some(q => q.id === it.media) ? "Kept" : "Keep"}</button><button type="button" class="st-ib" data-pick="${it.id}">Select</button><button type="button" class="st-ib" data-front="${it.id}">To front</button><button type="button" class="st-ib" data-rmi="${it.id}">Remove</button></span></li>`; }).join("")
       : `<li><span class="nm"><small>No pictures on this video yet.</small></span></li>`;
     // text: the selected text, else what the next one will look like
     const t = itemById(selected), tx = t && t.kind === "text" ? t : null, v = tx || textDefaults;
@@ -1330,6 +1497,17 @@ function mount(root, opts){
       listTakes(); return;
     }
     if (b.dataset.pick){ select(b.dataset.pick); return; }
+    if (b.dataset.qadd){
+      const m = media.get(b.dataset.qadd); if (!m) return;
+      const it = picItem(m, m.ratio || 1, null, P.items.filter(x => x.kind === "pic").length);
+      P.items.push(it); selected = it.id; renderItems(); drawTimeline(); panels(); commit();
+      flash("Drag it where you want it. The corner resizes, the round handle turns it."); return;
+    }
+    if (b.dataset.qrm){ keepQuick(b.dataset.qrm, false); return; }
+    if (b.dataset.bgx){ bgOpen(b.dataset.bgx); return; }
+    if (a === "bgok"){ bgUse(); return; }
+    if (a === "bgno"){ bgClose(); return; }
+    if (b.dataset.keep){ keepQuick(b.dataset.keep, !quick.some(m => m.id === b.dataset.keep)); return; }
     if (b.dataset.rmi){ removeItem(b.dataset.rmi); return; }
     if (b.dataset.front){ const i = P.items.findIndex(x => x.id === b.dataset.front); if (i >= 0){ P.items.push(P.items.splice(i, 1)[0]); renderItems(); drawTimeline(); commit(); } return; }
     const set = b.parentElement && b.parentElement.dataset.set;
@@ -1345,6 +1523,7 @@ function mount(root, opts){
   });
   st.addEventListener("input", e => {
     const k = e.target.dataset.in; if (!k) return;
+    if (k === "bgtol"){ clearTimeout(st._bt); st._bt = setTimeout(bgDraw, 60); return; }
     const it = itemById(selected);
     if (k === "text" && it && it.kind === "text"){ it.text = e.target.value || " "; placeItem(it); drawTimeline(); clearTimeout(st._tt); st._tt = setTimeout(commit, 500); return; }
     if (k === "tsize"){
@@ -1371,6 +1550,8 @@ function mount(root, opts){
     const k = e.target.dataset.in; if (!k) return;
     if (k === "video"){ const f = e.target.files[0]; e.target.value = ""; if (f) addVideoFile(f); }
     else if (k === "pics"){ addPictures([...e.target.files]); e.target.value = ""; }
+    else if (k === "quick"){ addQuick([...e.target.files]); e.target.value = ""; }
+    else if (k === "bginside") bgDraw();
     else if (k === "music"){ const f = e.target.files[0]; e.target.value = ""; if (f) addSong(f); }
   });
   // files dropped on the drop boxes, or straight on the preview
@@ -1395,6 +1576,10 @@ function mount(root, opts){
     if (imgs.length){ e.preventDefault(); addPictures(imgs); }
   });
 
+  const picItem = (m, ratio, at, n) => {
+    const w = ratio > 1.4 ? 0.42 : ratio > 0.8 ? 0.5 : 0.72;
+    return {id: "i-" + uid(), kind: "pic", media: m.id, ratio, x: at ? at.x : 0.5 + (n % 3 - 1) * 0.06, y: at ? at.y : 0.4 + (n % 3) * 0.05, w, rot: 0, t0: 0, t1: editDur(), whole: true};
+  };
   async function addPictures(files, at){
     let n = P.items.filter(x => x.kind === "pic").length, added = null;
     for (const f of files){
@@ -1403,13 +1588,14 @@ function mount(root, opts){
         const im = await shrinkImage(f);
         const m = await addMedia(im.blob, f.name || "Picture", "picture");
         if (!m) continue;
-        const ratio = im.h / im.w, w = ratio > 1.4 ? 0.42 : ratio > 0.8 ? 0.5 : 0.72;
-        const it = {id: "i-" + uid(), kind: "pic", media: m.id, ratio, x: at ? at.x : 0.5 + (n % 3 - 1) * 0.06, y: at ? at.y : 0.4 + (n % 3) * 0.05, w, rot: 0, t0: 0, t1: editDur(), whole: true};
+        const it = picItem(m, im.h / im.w, at, n);
         P.items.push(it); added = it; n++;
       } catch (e) { flash(`${f.name || "That file"} is not a picture the browser can read.`); }
     }
     if (!added) return;
     selected = added.id; renderItems(); drawTimeline(); panels(); commit(); showTab("pics", true);
+    const m = media.get(added.media);
+    if (m && plainBackground(m.img)) note("pics", `${m.name} has a solid background (it is not see-through). Transparent, next to it in the list, clears it.`);
     flash("Drag it where you want it. The corner resizes, the round handle turns it.");
   }
   function addText(){
@@ -1965,6 +2151,7 @@ function mount(root, opts){
     P.items = P.items.filter(x => x.kind !== "pic" || media.has(x.media));
     if (P.music && !media.has(P.music.media)) P.music = null;
     if (P.take) await showTake(P.take.id, false);
+    await loadQuick();
     let wanted = null;
     try { wanted = localStorage.getItem("bmg-studio-open"); localStorage.removeItem("bmg-studio-open"); } catch (e) {}
     const all = await listTakes();

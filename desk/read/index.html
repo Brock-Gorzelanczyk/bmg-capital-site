@@ -942,7 +942,15 @@ body.av-open{overflow:hidden}
 .mk-custom{display:inline-flex;align-items:center;gap:4px;font-size:13px;color:#3a3a3a}.mk-custom input{width:66px;height:34px;box-sizing:border-box;border:1px solid #c9cfca;border-radius:17px;padding:0 8px;font:600 13px 'IBM Plex Sans',sans-serif}
 .mk-custom.on input{border-color:#141414;box-shadow:0 0 0 1px #141414}
 .mk-picked{margin:0;font-size:14px}.mk-quick{margin:8px 0 0}
-.mk-look summary{cursor:pointer;font-weight:600;color:#3a3a3a;font-size:13.5px;margin:0 0 8px}.mk-look .mk-row{margin:0 0 12px}
+.mk-lbl{margin:4px 0 6px;font:600 13px 'IBM Plex Sans',sans-serif;color:#3a3a3a}
+.mk-pals{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin:0 0 10px}
+.mk-pal{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 6px 7px;border:1px solid #c9cfca;border-radius:10px;background:#fff;cursor:pointer;font:12px/1.2 'IBM Plex Sans',sans-serif;color:#3a3a3a;text-align:center}
+.mk-pal:hover{border-color:#0f7d47}.mk-pal[aria-checked=true]{border-color:#0f7d47;box-shadow:0 0 0 2px #0f7d47;background:#f3fbf6}
+.mk-sw{display:block;width:100%;height:52px;border-radius:7px;background:#05070c}.mk-sw svg{display:block;width:100%;height:100%;padding:5px 0;box-sizing:border-box}
+.mk-pals.light .mk-sw{background:#fff;box-shadow:inset 0 0 0 1px #e3e3dc}
+html[data-theme="dark"] .mk-sw{filter:invert(1) hue-rotate(180deg)}   /* the view is inverted in dark mode: the colors shown are the real ones */
+.mk-pgs .av-seg[aria-checked=true]{background:#141414;border-color:#141414;color:#fff}
+@media (max-width:520px){.mk-pals{grid-template-columns:repeat(3,1fr);gap:6px}.mk-sw{height:40px}.mk-pal small{font-size:11px}}
 .mk-go{height:44px;padding:0 26px;font-size:16px}
 /* the record window is open (it can be behind this window): one click brings it back */
 #rec-chip{position:fixed;right:16px;bottom:16px;z-index:3100;display:flex;align-items:center;gap:8px;padding:5px 5px 5px 12px;border-radius:999px;background:#0c121a;color:#e8edf2;font:600 13px 'IBM Plex Sans',sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.28)}
@@ -2124,10 +2132,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           if (!o.solid){ o.d.style.background = ""; }
         }
       }
+      if (state.recBig === false) sc = 1;             // Record mode's "Enlarged words" off: a mark the words' own size
     } else if (o.kind === "strip"){
       sc = 0.85 + 0.3 * activation;
       const u = Math.min(1, Math.max(0, (o.age - 120) / 1600));
       rot = o.angle * (u * u * (3 - 2 * u));
+      if (state.recBig === false){ sc = 1; rot = 0; }
     } else if (o.kind === "fill"){
       sc = 0.85 + 0.2 * activation;
     } else {
@@ -4110,7 +4120,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     }
     // A clip planned in Posting (Make a clip, see planSetup): read before the setup is built, which uses it
     const PLAN_LS = "bmg-clip-plan", PLAN_KEYS = 3.5, PLAN_ONE = 5, PLAN_ENDING = 11;     // the ending: about 11 seconds
-    let plan = null, planMissing = [], planSay = () => {};
+    let plan = null, planMissing = [], planBefore = [], planSay = () => {};
     if (isRecord && /[?&]plan=1\b/.test(location.search)){
       try { plan = JSON.parse(localStorage.getItem(PLAN_LS) || "null"); } catch (e) {}
       if (!plan || !(Date.now() - (plan.at || 0) < 12 * 3600e3)) plan = null;
@@ -4185,6 +4195,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       <div class="rec-palette-preview" id="rec-palette-preview" aria-label="Crawler color preview"></div>
       <label class="opt">Dark page <input type="checkbox" id="rec-dark" checked></label>
       <label class="opt">Number cards (a big sourced figure as the spider reads a headline number) <input type="checkbox" id="rec-cards" checked></label>
+      <label class="opt">Enlarged words (headings and figures grow to 2 to 3 times their size for a moment) <input type="checkbox" id="rec-big" checked></label>
       ${canRecord ? `<label class="opt">Video quality <select id="rec-quality"><option value="high" selected>High Quality · 1080 × 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label><p>High Quality requests portrait Full HD at 32 Mbps. Chrome may supply a lower resolution or frame rate. Actual capture details appear with the download.</p>` : ""}
       ${canRecord ? `<label class="opt">Record this window (downloads a video) <input type="checkbox" id="rec-capture" checked></label>` : ""}
       ${canRecord && window.showSaveFilePicker ? `<label class="opt">Save to disk while recording (long takes use no extra memory) <input type="checkbox" id="rec-disk" checked></label>` : ""}
@@ -4297,7 +4308,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         else if (el.tagName !== "SELECT" || [...el.options].some(o => o.value === String(v))) el.value = v;
         el.dispatchEvent(new Event("change"));
       };
-      set("rec-palette", lk.palette); set("rec-dark", lk.dark); set("rec-cards", lk.cards); set("rec-quality", lk.quality); set("rec-disk", lk.disk); set("rec-capture", true);
+      set("rec-palette", lk.palette); set("rec-dark", lk.dark); set("rec-cards", !!lk.pops); set("rec-big", !!lk.pops); set("rec-quality", lk.quality); set("rec-disk", lk.disk); set("rec-capture", true);
       const opt = document.createElement("option"); opt.value = "plan"; opt.textContent = "Planned in Posting (Make a clip)";
       format.appendChild(opt); format.value = "plan"; format.dispatchEvent(new Event("change"));
       const secs = s => s < 60 ? `${s} seconds` : s % 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s / 60} minute${s === 60 ? "" : "s"}`;
@@ -4364,10 +4375,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const stemW = w => w.length > 4 ? w.replace(/(es|s)$/, "") : w;
     const wordsOf = q => String(q).toLowerCase().replace(/[‘’“”"?!]/g, "").split(/\s+/).map(w => w.replace(/^[^a-z0-9$]+|[^a-z0-9%]+$/g, "")).filter(w => w && !STOP.has(w));
     const namesAll = (text, ws) => { const t = String(text || "").toLowerCase(); return ws.length > 0 && ws.every(w => t.includes(stemW(w))); };
-    // a table line whose label is exactly these words, then (past a "$" or a dash) its first figure
-    function lineFigure(ws){
+    // a table line whose label is exactly these words, then (past a "$" or a dash) its first figure; only a line the
+    // clip reaches (inClip), and a percentage only when no line gives an amount: the MD&A's table of each line as a
+    // percentage of revenue prints "Research and development 8.6 9.9" before the statements' amounts (one decimal, or
+    // a "%" after it, is a percentage; amounts in millions have none, per-share amounts have two)
+    function lineFigure(ws, inClip = () => true){
       const L = wordList(), n = L.els.length, k = ws.length;
       if (!k) return null;
+      let share = null;
       for (let i = 0; i + k <= n; i++){
         let ok = true;
         for (let j = 0; j < k && ok; j++) ok = L.norm[i + j] === ws[j] || stemW(L.norm[i + j]) === stemW(ws[j]);
@@ -4376,52 +4391,58 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           const t = L.els[j].textContent.trim();
           if (/^[$(\u2014\u2013\-]+$/.test(t) || /^\(\d\)$/.test(t)) continue;           // "$", a dash, a footnote mark
           const digits = t.replace(/[^\d]/g, "");
-          if (/^\(?\$?[\d,.]+\)?$/.test(t) && digits.length >= 2 && !/^(19|20)\d\d$/.test(t)) return L.els[j];
+          if (/^\(?\$?[\d,.]+\)?$/.test(t) && digits.length >= 2 && !/^(19|20)\d\d$/.test(t)){
+            if (!inClip(L.els[j])) break;
+            if (/^\(?\d{1,3}\.\d\)?$/.test(t) || /^\)?%/.test(((L.els[j + 1] || {}).textContent || "").trim())){ share = share || L.els[j]; break; }
+            return L.els[j];
+          }
           break;                                                                  // a word follows: a sentence, not a row label
         }
       }
-      return null;
+      return share;
     }
     async function planTargets(curtain){
       const items = (plan.find || []).slice(0, 8), hits = [];
-      planMissing = [];
+      planMissing = []; planBefore = [];
       if (!items.length) return hits;
       const note = document.createElement("p"); note.className = "rc-note"; curtain.appendChild(note);
       const taken = el => hits.some(h => h.el === el);
-      const placeOf = a => {
-        const w = a && locate(a.page, a.kind === "fact" ? a.excerpt : a.text, a.offset, a.kind === "fact" ? a.raw : null);
-        return w && w.classList && w.classList.contains("w") && !taken(w) ? w : null;
+      // the clip shows the page from here (the cover, or the financial statements it jumped to) to the end: a place
+      // above the first screen is never on screen, so it is not used (what is on the first screen is: it lights at
+      // the start, though the spider reads from the middle of the screen)
+      const inClip = el => el.getBoundingClientRect().top >= -2;
+      const find = (q, answers, within) => {
+        const placeOf = a => {
+          const w = a && locate(a.page, a.kind === "fact" ? a.excerpt : a.text, a.offset, a.kind === "fact" ? a.raw : null);
+          return w && w.classList && w.classList.contains("w") && !taken(w) && within(w) ? w : null;
+        };
+        if (/^\$?\(?\d[\d,]*(\.\d+)?\)?%?$/.test(q.replace(/\s+/g, ""))){
+          const t = findClipTargets([q]);
+          return t && t[0] && !taken(t[0]) && within(t[0]) ? {el: t[0], kind: "number"} : null;
+        }
+        const ws = wordsOf(q), phrase = String(q).toLowerCase().split(/\s+/).map(normW).filter(Boolean);   // the phrase keeps its "and"
+        const specific = phrase.filter(w => !GENERIC.has(w));
+        const fact = answers.find(x => x.kind === "fact" && namesAll(`${x.label || ""} ${x.excerpt || ""}`, ws) && placeOf(x));
+        if (fact) return {el: placeOf(fact), kind: "number"};
+        const el = [lineFigure(phrase, within), specific.length && specific.length < phrase.length ? lineFigure(specific, within) : null].find(x => x && !taken(x));
+        if (el) return {el, kind: "number"};
+        const sent = answers.find(x => x.kind !== "fact" && namesAll(x.text, ws) && placeOf(x));
+        if (sent) return {el: placeOf(sent), kind: "text", ws};
+        if (/\?$|^(how|what|which|who|when|where|why|is|are|does|do|did|was|were)\b/i.test(q.trim())){
+          const best = answers.find(x => placeOf(x));
+          if (best) return {el: placeOf(best), kind: best.kind === "fact" ? "number" : "text", ws};
+        }
+        return null;
       };
       for (const q of items){
         note.textContent = "Finding: " + q;
-        let hit = null;
-        if (/^\$?\(?\d[\d,]*(\.\d+)?\)?%?$/.test(q.replace(/\s+/g, ""))){
-          const t = findClipTargets([q]);
-          if (t && t[0] && !taken(t[0])) hit = {el: t[0], kind: "number"};
-        } else {
-          const ws = wordsOf(q), phrase = String(q).toLowerCase().split(/\s+/).map(normW).filter(Boolean);   // the phrase keeps its "and"
-          const specific = phrase.filter(w => !GENERIC.has(w));
-          let answers = [];
-          if (state.jobId){
-            try { const {r, j} = await api(`/api/read/jobs/${encodeURIComponent(state.jobId)}/ask?q=${encodeURIComponent(q)}`); answers = r.ok && j ? (j.answers || []) : []; }
-            catch (e) { /* no answers: the other ways below, else not found */ }
-          }
-          const fact = answers.find(x => x.kind === "fact" && namesAll(`${x.label || ""} ${x.excerpt || ""}`, ws) && placeOf(x));
-          if (fact) hit = {el: placeOf(fact), kind: "number"};
-          if (!hit){
-            const el = [lineFigure(phrase), specific.length && specific.length < phrase.length ? lineFigure(specific) : null].find(x => x && !taken(x));
-            if (el) hit = {el, kind: "number"};
-          }
-          if (!hit){
-            const sent = answers.find(x => x.kind !== "fact" && namesAll(x.text, ws) && placeOf(x));
-            if (sent) hit = {el: placeOf(sent), kind: "text", ws};
-          }
-          if (!hit && /\?$|^(how|what|which|who|when|where|why|is|are|does|do|did|was|were)\b/i.test(q.trim())){
-            const best = answers.find(x => placeOf(x));
-            if (best) hit = {el: placeOf(best), kind: best.kind === "fact" ? "number" : "text", ws};
-          }
+        let answers = [];
+        if (state.jobId && !/^\$?\(?\d[\d,]*(\.\d+)?\)?%?$/.test(q.replace(/\s+/g, ""))){
+          try { const {r, j} = await api(`/api/read/jobs/${encodeURIComponent(state.jobId)}/ask?q=${encodeURIComponent(q)}`); answers = r.ok && j ? (j.answers || []) : []; }
+          catch (e) { /* no answers: the other ways, else not found */ }
         }
-        if (!hit){ planMissing.push(q); continue; }
+        const hit = find(q, answers, inClip);
+        if (!hit){ (find(q, answers, () => true) ? planBefore : planMissing).push(q); continue; }
         hit.q = q;
         if (hit.kind === "text"){
           // the words asked for, lit inside the sentence (else the sentence's first words)
@@ -4436,7 +4457,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       // the capture sends a still page only now and then: a moment for a frame without the note, which the take
       // would otherwise open on
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 350))));
-      window.bmgRec.find = {found: hits.map(h => ({q: h.q, kind: h.kind, word: h.el.textContent})), missing: planMissing.slice(), lit: []};   // for checks
+      window.bmgRec.find = {found: hits.map(h => ({q: h.q, kind: h.kind, word: h.el.textContent})), missing: planMissing.slice(), before: planBefore.slice(), lit: []};   // for checks
       return hits.sort((a, b) => V.contentY(a.el) - V.contentY(b.el));
     }
     // The crawl. A set length moves the page on a timed path from here to the end of the filing, slower near what
@@ -4734,6 +4755,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     palettePicker.addEventListener("change", applyPalette);
     applyPalette();
     setup.querySelector("#rec-dark").addEventListener("change", e => { B.classList.toggle("rec-dark", e.target.checked); applyPalette(); if (pdfOpen) pdfOpen.redraw(); });
+    // a Make a clip plan's colors and page: planSetup set them before these were wired, and the saved colors above
+    // replaced the plan's, so the clip came out in the last colors used and always on the dark page
+    if (plan && plan.look){
+      if (palettes[plan.look.palette]){ palettePicker.value = plan.look.palette; applyPalette(); }
+      if (plan.look.dark != null){ const d = setup.querySelector("#rec-dark"); d.checked = !!plan.look.dark; d.dispatchEvent(new Event("change")); }
+    }
     if (isRecord) addEventListener("keydown", e => {
       if (e.key === "Escape") leave();
       if (e.key === " " && !setup.isConnected){ e.preventDefault(); const p = document.getElementById("ctl-pause"); if (p) p.click(); }
@@ -5216,6 +5243,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         <button type="button" id="rf-again">Record again</button><button type="button" id="rf-back">&larr; Back to reader</button>`;
       if (stopped) bar.insertAdjacentHTML("afterbegin", `<span role="alert">The clip stopped early (${esc(stopped)}).</span>`);
       if (planMissing.length) bar.insertAdjacentHTML("beforeend", `<small class="rf-miss">Not found in this filing: ${esc(planMissing.join(" · "))}</small>`);
+      if (planBefore.length) bar.insertAdjacentHTML("beforeend", `<small class="rf-miss">Only before where this clip starts: ${esc(planBefore.join(" · "))}</small>`);
       if (blob && captureDetails){
         const details = document.createElement("small"); details.id = "rec-capture-details";
         details.textContent = captureDetails; details.style.display = "block";
@@ -5359,7 +5387,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
             setTimeout(() => window.close(), 1200);
           };
           addEventListener("message", got);
-          try { o.postMessage({type: "bmg-open-take", id: take.id, file: handed, plan: true, missing: planMissing}, location.origin); } catch (e) {}
+          try { o.postMessage({type: "bmg-open-take", id: take.id, file: handed, plan: true, missing: planMissing, before: planBefore}, location.origin); } catch (e) {}
         }
       }).catch(e => { b.textContent = "Not kept for the Studio (" + ((e && e.message) || "browser storage") + "): open the downloaded file there"; });
       b.onclick = () => {
@@ -5497,6 +5525,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (planned && !fileIn.files[0]){ planSay("The filing is not loaded yet.", true); return; }
       state.recordRenderWidth = setup.querySelector("#rec-quality")?.value === "standard" ? 0 : 1080;
       state.recCards = !!setup.querySelector("#rec-cards")?.checked;
+      state.recBig = !!setup.querySelector("#rec-big")?.checked;
       state.captureQuality = null;
       const capture = setup.querySelector("#rec-capture");
       if (clip && clip.ticker && !fileIn.files[0]){
@@ -8012,7 +8041,8 @@ Who is the auditor?</textarea>
       if (d.plan){ mk.recording = false; try { e.source && e.source.postMessage({type: "bmg-take-opened", id: d.id}, location.origin); } catch (x) {} }
     });
     const takeNote = d => "Your clip is on the preview. Add pictures here: drop them in, then drag them on the video. Export (the last tab) downloads it."
-      + (d.missing && d.missing.length ? ` Not found in this filing: ${d.missing.join(", ")}.` : "");
+      + (d.missing && d.missing.length ? ` Not found in this filing: ${d.missing.join(", ")}.` : "")
+      + (d.before && d.before.length ? ` Only before where the clip starts (start from the cover page to include them): ${d.before.join(", ")}.` : "");
     try {
       new BroadcastChannel("bmg-studio").onmessage = e => {
         if (!e.data || e.data.type !== "take") return;
@@ -8125,9 +8155,17 @@ Who is the auditor?</textarea>
       if (opened.busy){ mkSay("mk-rst", "Record mode is in the middle of a take: it is in front now. Finish that take, then press Record again.", true); return; }
       mk.recording = true; recStatus("setup");
     }
+    // a little spider in a palette's colors (legs and body, knees and feet, its thread), on the page it will walk
+    const spiderSwatch = p => {
+      const feet = [[5, 3], [3, 11], [4, 21], [8, 26], [35, 3], [37, 11], [36, 21], [32, 26]], knees = [[11, 7], [9, 12], [9, 17], [12, 21], [29, 7], [31, 12], [31, 17], [28, 21]];
+      return `<span class="mk-sw" aria-hidden="true"><svg viewBox="0 0 40 28"><path d="M20 9V0" stroke="${p.trail}" stroke-width="1.2" stroke-dasharray="1.5 1.8" fill="none"/>`
+        + `<g stroke="${p.main}" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">${feet.map((f, i) => `<path d="M20 14L${knees[i][0]} ${knees[i][1]}L${f[0]} ${f[1]}"/>`).join("")}<ellipse cx="20" cy="14.5" rx="3.6" ry="4.6"/></g>`
+        + `<g fill="${p.accent}">${feet.map(f => `<circle cx="${f[0]}" cy="${f[1]}" r="1.5"/>`).join("")}${knees.map(k => `<circle cx="${k[0]}" cy="${k[1]}" r="1"/>`).join("")}</g></svg></span>`;
+    };
     function renderMake(){
       const lk = mk.look, pal = state.recPalettes || {};
       let palNow = lk.palette; try { palNow = palNow || localStorage.getItem("bmg-crawler-palette") || "default"; } catch (e) { palNow = palNow || "default"; }
+      if (!pal[palNow]) palNow = "default";
       body.innerHTML = `<div class="ps mk">${postingTabs("make")}
         <div class="av-h"><h2>Make a clip</h2><span class="av-st">Pick the filing, how long, and what to find. Record it, add pictures in the Studio, and download it.</span></div>
         <ol class="mk-steps">
@@ -8145,23 +8183,33 @@ Who is the auditor?</textarea>
         <li class="mk-step"><h3><b>4</b>Find <small>optional</small></h3>
           <textarea id="mk-find" rows="4" aria-label="What should the spider find? One per line" placeholder="One per line, for example:&#10;revenue&#10;data center revenue&#10;how much cash do they have"></textarea>
           <div class="av-chips mk-quick">${QUICK.map(t => `<button type="button" class="av-chip" data-add="${esc(t)}">+ ${esc(t)}</button>`).join("")}</div>
-          <p class="mk-note">The spider goes to each one and lights it up, and a figure gets a number card; in a clip of a set length it slows down there. Answers come only from this filing (the Crawler's Ask): anything not in it is listed as not found.</p></li>
-        <li class="mk-step"><h3><b>5</b>Record</h3>
-          <details class="mk-look"><summary>Look: colors, page, number cards, video quality</summary>
-            <div class="mk-row"><label>Crawler colors <select id="mk-pal">${Object.entries(pal).map(([k, p]) => `<option value="${esc(k)}">${esc(p.name)}</option>`).join("")}</select></label>
-              <label><input type="checkbox" id="mk-dark"> Dark page</label><label><input type="checkbox" id="mk-cards"> Number cards</label>
-              <label>Video <select id="mk-q"><option value="high">High Quality · 1080 &times; 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label>
-              ${window.showSaveFilePicker ? `<label><input type="checkbox" id="mk-disk"> Save to disk while recording (long clips use no extra memory)</label>` : ""}</div></details>
+          <p class="mk-note">The spider goes to each one and lights it up (with pop-ups on in step 5, a figure also gets a number card); in a clip of a set length it slows down there. Answers come only from this filing (the Crawler's Ask): anything not in it is listed as not found.</p></li>
+        <li class="mk-step"><h3><b>5</b>Look</h3>
+          <p class="mk-lbl">Spider colors</p>
+          <div class="mk-pals" id="mk-pals" role="radiogroup" aria-label="Spider colors">${Object.entries(pal).map(([k, p]) => `<button type="button" role="radio" class="mk-pal" data-pal="${esc(k)}" title="${esc(p.name)}">${spiderSwatch(p)}<small>${esc(p.name.replace(/ \(default\)$/, ""))}</small></button>`).join("")}</div>
+          <p class="mk-lbl">Page</p>
+          <div class="av-chips mk-pgs" role="radiogroup" aria-label="Page"><button type="button" role="radio" class="av-seg" data-dark="1">Dark page</button><button type="button" role="radio" class="av-seg" data-dark="0">Light page</button></div>
+          <div class="mk-row" style="margin-top:14px"><label><input type="checkbox" id="mk-pops"> Pop-ups: a big number card for each figure, and words that grow on the page</label></div>
+          <div class="mk-row" style="margin-top:8px"><label>Video <select id="mk-q"><option value="high">High Quality · 1080 &times; 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label>
+            ${window.showSaveFilePicker ? `<label><input type="checkbox" id="mk-disk"> Save to disk while recording (long clips use no extra memory)</label>` : ""}</div></li>
+        <li class="mk-step"><h3><b>6</b>Record</h3>
           <div class="mk-row"><button type="button" class="av-btn mk-go" id="mk-record">Record</button><span class="mk-st" id="mk-rst" role="status"></span></div>
           <p class="mk-note">The record window opens with all of this set. Press Start recording there (Chrome asks to share that tab: choose Allow). When the clip ends, the Studio opens here with it: add pictures, then Export downloads the video.</p></li>
         </ol></div>`;
       const $m = id => body.querySelector("#" + id);
       $m("mk-start").value = mk.start; $m("mk-speed").value = String(mk.speed); $m("mk-ending").checked = !!mk.ending; $m("mk-find").value = mk.find || "";
-      if ($m("mk-pal")) $m("mk-pal").value = palNow;
-      $m("mk-dark").checked = lk.dark !== false; $m("mk-cards").checked = lk.cards !== false; $m("mk-q").value = lk.quality === "standard" ? "standard" : "high";
-      if ($m("mk-disk")) $m("mk-disk").checked = lk.disk !== false;
-      const look = () => { mk.look = {palette: $m("mk-pal") ? $m("mk-pal").value : "default", dark: $m("mk-dark").checked, cards: $m("mk-cards").checked, quality: $m("mk-q").value, disk: $m("mk-disk") ? $m("mk-disk").checked : false}; saveMk(); };
-      look();
+      // the look: spider colors and the page are tiles, pop-ups (number cards, enlarged words) are off unless ticked
+      const L = mk.look = {palette: palNow, dark: lk.dark !== false, pops: !!lk.pops, quality: lk.quality === "standard" ? "standard" : "high", disk: lk.disk !== false};
+      $m("mk-pops").checked = L.pops; $m("mk-q").value = L.quality; if ($m("mk-disk")) $m("mk-disk").checked = L.disk;
+      const drawLook = () => {
+        $m("mk-pals").classList.toggle("light", !L.dark);
+        $m("mk-pals").querySelectorAll("[data-pal]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.pal === L.palette)));
+        body.querySelectorAll(".mk-pgs [data-dark]").forEach(b => b.setAttribute("aria-checked", String((b.dataset.dark === "1") === L.dark)));
+      };
+      const look = () => { L.pops = $m("mk-pops").checked; L.quality = $m("mk-q").value; L.disk = $m("mk-disk") ? $m("mk-disk").checked : false; saveMk(); };
+      look(); drawLook();
+      $m("mk-pals").addEventListener("click", e => { const b = e.target.closest("[data-pal]"); if (!b) return; L.palette = b.dataset.pal; saveMk(); drawLook(); });
+      body.querySelector(".mk-pgs").addEventListener("click", e => { const b = e.target.closest("[data-dark]"); if (!b) return; L.dark = b.dataset.dark === "1"; saveMk(); drawLook(); });
       $m("mk-tk").addEventListener("submit", e => { e.preventDefault(); findForms($m("mk-ticker").value); });
       $m("mk-file").addEventListener("change", e => {
         const f = e.target.files[0]; if (!f) return;
@@ -8191,7 +8239,7 @@ Who is the auditor?</textarea>
         if (!have.includes(b.dataset.add.toLowerCase())) ta.value = (ta.value.trim() ? ta.value.trim() + "\n" : "") + b.dataset.add;
         mk.find = ta.value; saveMk();
       });
-      for (const id of ["mk-pal", "mk-dark", "mk-cards", "mk-q", "mk-disk"]) if ($m(id)) $m(id).addEventListener("change", look);
+      for (const id of ["mk-pops", "mk-q", "mk-disk"]) if ($m(id)) $m(id).addEventListener("change", look);
       $m("mk-record").addEventListener("click", makeRecord);
       drawForms(); drawLen();
       if (mk.recording && recOpen()) recStatus(state.recPhase || "setup"); else mk.recording = false;
