@@ -357,7 +357,7 @@ body.pics-edit .rp-pic .rp-size{display:block;position:absolute;right:-10px;bott
 .rec-palette-preview .cp-swatches{display:flex;align-items:center;gap:8px}
 .rec-palette-preview i{display:inline-block;width:16px;height:16px;border-radius:50%;background:var(--swatch);box-shadow:0 0 9px var(--swatch)}
 .rec-palette-preview .cp-m{--swatch:var(--pm)}.rec-palette-preview .cp-a{--swatch:var(--pa)}.rec-palette-preview .cp-t{--swatch:var(--pt)}
-#new-version{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:#0b0d12;color:#e9eef4;border:1px solid #2fd27a;box-shadow:0 6px 24px rgba(0,0,0,.45);font:14px 'IBM Plex Sans',sans-serif;max-width:calc(100vw - 32px)}
+#new-version,#nv-done{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:#0b0d12;color:#e9eef4;border:1px solid #2fd27a;box-shadow:0 6px 24px rgba(0,0,0,.45);font:14px 'IBM Plex Sans',sans-serif;max-width:calc(100vw - 32px)}
 #new-version button{font:inherit;padding:5px 12px;border-radius:7px;border:0;background:#2fd27a;color:#05070c;cursor:pointer}#new-version .nv-later{background:transparent;color:#9aa6b1;border:1px solid #39434f}
 .cp-stage{position:relative;width:min(100%,460px);aspect-ratio:320/132;border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.08);contain:layout paint;isolation:isolate}
 .cp-layer,.cp-rig{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
@@ -3322,29 +3322,64 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   const runRead = document.getElementById("read-run");
   // The server says how big a file it takes (10 MB public, 50 MB on the owner's Mac).
   const READ_MAX = {bytes: 10 * 1024 * 1024, local: false, summary: false, mb(){ return Math.round(this.bytes / 1048576); }};
-  // On the owner's Mac, start-reader.command pulls new versions from GitHub every 2 minutes.
-  // The page picks them up by itself: it reloads when nothing is being read, and otherwise
-  // offers a Reload button so a crawl or recording in progress is never cut off.
+  // On the owner's Mac, start-reader.command pulls new versions from GitHub every 2 minutes. The page picks them up
+  // by itself: it watches every file the reader runs on (a change to the Studio alone counts) and reloads, in the
+  // same view, once nothing would be lost: no read going on, no recording, no Studio export or unsaved edit, no text
+  // box in use, no click or key for 10 s, and no finished read on screen in the Crawler (it is in My reads, but would
+  // vanish from under the reader's eyes; it waits until another tab is open). Until then a bar offers Reload.
+  // Before this, a finished read's spider stayed on the page and counted as a read going on: after one read, no
+  // new version ever loaded by itself.
   function watchForNewVersion(){
-    let tag = null, shown = false;
-    const busy = () => !!document.querySelector("svg.spider rect.body") || (document.body.classList.contains("recmode") && !document.getElementById("rec-setup")?.isConnected);
+    const NEW_VERSION_FILES = [location.pathname, "studio.js", "../../assets/theme.css", "../../assets/theme.js"];
+    let tag = null, shown = false, lastInput = Date.now(), chooser = 0, holdUntil = 0;
+    for (const t of ["pointerdown", "keydown", "wheel"]) addEventListener(t, () => { lastInput = Date.now(); }, {capture: true, passive: true});
+    addEventListener("pointermove", e => { if (e.buttons) lastInput = Date.now(); }, {capture: true, passive: true});          // a held drag
+    // a file chooser (or save dialog) is open: the page gets no events while it is, so it is marked until it closes
+    addEventListener("click", e => { if (e.target instanceof HTMLInputElement && e.target.type === "file") chooser = Date.now(); }, true);
+    for (const t of ["change", "cancel"]) addEventListener(t, e => { if (e.target instanceof HTMLInputElement && e.target.type === "file") chooser = 0; }, true);
+    // a take from the record window: two minutes to look at it before a new version may load
+    addEventListener("message", e => { if (e.origin === location.origin && e.data && /^bmg-(open-take|rec|record-ready)$/.test(e.data.type)) holdUntil = Date.now() + 120000; });
+    const typing = () => { const a = document.activeElement; return !!a && (a.isContentEditable || a.tagName === "TEXTAREA" || (a.tagName === "INPUT" && /^(text|search|number|url|email|tel|password)$/.test(a.type))); };
+    const recWinOpen = () => { try { return !!(state.recWin && !state.recWin.closed); } catch (e) { return false; } };
+    // a run from upload to its end: the file going up and the server reading it come before any walk
+    const busy = () => walking() || runRead.textContent === "Working..." || document.body.classList.contains("recmode") || recWinOpen()
+      || !!(window.bmgStudio && window.bmgStudio.busy && window.bmgStudio.busy())
+      || typing() || Date.now() - lastInput < 10000 || Date.now() < holdUntil || (chooser && Date.now() - chooser < 300000)
+      || (state.mkBusy && state.mkBusy());
+    const readOnScreen = () => !document.body.classList.contains("av-open") && !!document.querySelector("svg.spider rect.body");
+    // the theme files are kept by the browser for a long time: fetched fresh first, so the reload uses the new ones
+    const reload = async () => {
+      try { sessionStorage.setItem("bmg-updated", String(Date.now())); } catch (e) {}
+      await Promise.all(NEW_VERSION_FILES.slice(1).map(f => fetch(f, {cache: "reload"}).catch(() => null)));
+      location.reload();
+    };
     const check = async () => {
       let t = null;
-      try { const r = await fetch(location.pathname, {method: "HEAD", cache: "no-store"}); t = r.ok && r.headers.get("etag"); } catch (e) { return; }
-      if (!t) return;
+      try {
+        const rs = await Promise.all(NEW_VERSION_FILES.map(f => fetch(f, {method: "HEAD", cache: "no-store"})));
+        t = rs.map(r => r.ok ? (r.headers.get("etag") || r.headers.get("last-modified") || "?") : "-" + r.status).join("|");
+      } catch (e) { return; }
       if (tag === null){ tag = t; return; }
       if (t === tag) return;
-      if (!busy()){ location.reload(); return; }
-      if (shown) return;
+      if (!busy() && !readOnScreen()){ reload(); return; }
+      // a record window is what the video films: no bar there (it never reloads by itself; the next one opens new)
+      if (shown || document.body.classList.contains("recmode")) return;
       shown = true;
       const bar = document.createElement("div");
       bar.id = "new-version";
-      bar.innerHTML = `New version of the Crawler is ready. <button type="button">Reload</button> <button type="button" class="nv-later">Later</button>`;
-      bar.querySelector("button").addEventListener("click", () => location.reload());
+      bar.innerHTML = `A new version is ready. It loads by itself when you are not in the middle of something. <button type="button">Reload now</button> <button type="button" class="nv-later">Later</button>`;
+      bar.querySelector("button").addEventListener("click", reload);
       bar.querySelector(".nv-later").addEventListener("click", () => bar.remove());
       document.body.appendChild(bar);
     };
     check(); setInterval(check, 20000);
+    // after a reload by itself: say so for a few seconds
+    let at = 0; try { at = +sessionStorage.getItem("bmg-updated") || 0; sessionStorage.removeItem("bmg-updated"); } catch (e) {}
+    if (at && Date.now() - at < 60000){
+      const n = document.createElement("div");
+      n.id = "nv-done"; n.textContent = "Updated to the newest version.";
+      document.body.appendChild(n); setTimeout(() => n.remove(), 4000);
+    }
   }
 
   // A static copy of the site (GitHub Pages) has no Crawler server: say so instead of letting a run fail.
@@ -8176,9 +8211,11 @@ Who is the auditor?</textarea>
     // Record: the record window opens with all of it set, and the take comes back here to the Studio by itself.
     const MAKE_LS = "bmg-make-clip", LENS = [15, 30, 45, 60, 90, 120, 180];
     const QUICK = ["Revenue", "Net income", "Diluted EPS", "Cash and cash equivalents", "Share repurchases", "Guidance"];
-    const mk = {ticker: "", length: 60, speed: 1, start: "cover", ending: true, find: "", look: {}, list: null, pick: null, file: null, all: false, recording: false};
-    try { const s = JSON.parse(localStorage.getItem(MAKE_LS) || "{}"); for (const k of ["ticker", "length", "speed", "start", "ending", "find", "look"]) if (s[k] != null) mk[k] = s[k]; } catch (e) {}
-    const saveMk = () => { try { localStorage.setItem(MAKE_LS, JSON.stringify({ticker: mk.ticker, length: mk.length, speed: mk.speed, start: mk.start, ending: mk.ending, find: mk.find, look: mk.look})); } catch (e) {} };
+    const mk = {ticker: "", length: 60, speed: 1, start: "cover", ending: true, find: "", look: {}, list: null, pick: null, pickKey: null, file: null, all: false, recording: false};
+    try { const s = JSON.parse(localStorage.getItem(MAKE_LS) || "{}"); for (const k of ["ticker", "length", "speed", "start", "ending", "find", "look", "pickKey"]) if (s[k] != null) mk[k] = s[k]; } catch (e) {}
+    const saveMk = () => { try { localStorage.setItem(MAKE_LS, JSON.stringify({ticker: mk.ticker, length: mk.length, speed: mk.speed, start: mk.start, ending: mk.ending, find: mk.find, look: mk.look, pickKey: mk.pickKey})); } catch (e) {} };
+    const itemKey = it => it ? (it.accession || it.form) : null;
+    state.mkBusy = () => view === "make" && !!mk.file;      // a document chosen from this Mac cannot be kept over a reload
     const lenLabel = s => s === "whole" ? "the whole form" : s < 60 ? `${s} seconds` : s % 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s / 60} min`;
     const mdy = s => s ? new Date(s + "T12:00:00").toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"}) : "";
     const mbOf = n => n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
@@ -8199,6 +8236,7 @@ Who is the auditor?</textarea>
     async function findForms(t){
       t = String(t || "").trim().toUpperCase().replace(/^\$/, "");
       if (!/^[A-Z][A-Z0-9.\-]{0,9}$/.test(t)){ mkSay("mk-st1", "Enter a ticker, for example NVDA.", true); return; }
+      if (t !== mk.ticker) mk.pickKey = null;              // the form picked before is kept only for the same ticker
       mk.ticker = t; mk.file = null; mk.list = null; mk.pick = null; saveMk(); drawForms();
       mkSay("mk-st1", `Looking up ${t} on SEC EDGAR...`);
       const btn = body.querySelector("#mk-tk button[type=submit]"); if (btn) btn.disabled = true;
@@ -8207,6 +8245,7 @@ Who is the auditor?</textarea>
         if (!r.ok || !j) throw new Error((j && j.error) || `SEC EDGAR did not answer (HTTP ${r.status}).`);
         if (mk.ticker !== t) return;                       // another ticker was asked for meanwhile
         mk.list = {ticker: j.ticker, company: j.company, cik: j.cik, items: formItems(j)}; mk.all = false;
+        if (mk.pickKey){ const i = mk.list.items.findIndex(it => itemKey(it) === mk.pickKey); mk.pick = i >= 0 ? i : null; }
         mkSay("mk-st1", "");
       } catch (e){ if (mk.ticker === t) mkSay("mk-st1", (e && e.message) || String(e), true); }
       finally { if (btn) btn.disabled = false; }
@@ -8329,7 +8368,7 @@ Who is the auditor?</textarea>
       $m("mk-tk").addEventListener("submit", e => { e.preventDefault(); findForms($m("mk-ticker").value); });
       $m("mk-file").addEventListener("change", e => {
         const f = e.target.files[0]; if (!f) return;
-        mk.file = f; mk.pick = null;
+        mk.file = f; mk.pick = null; mk.pickKey = null; saveMk();
         const t = $m("mk-ticker").value.trim().toUpperCase(); if (/^[A-Z][A-Z0-9.\-]{0,9}$/.test(t)) mk.ticker = t;
         mkSay("mk-st1", ""); drawForms();
       });
@@ -8337,7 +8376,7 @@ Who is the auditor?</textarea>
         if (e.target.closest("[data-clearfile]")){ mk.file = null; drawForms(); return; }
         if (e.target.closest("[data-allforms]")){ mk.all = true; drawForms(); return; }
         const b = e.target.closest("button[data-f]"); if (!b) return;
-        mk.pick = +b.dataset.f;
+        mk.pick = +b.dataset.f; mk.pickKey = itemKey(mk.list && mk.list.items[mk.pick]); saveMk();
         $m("mk-forms").querySelectorAll("button[data-f]").forEach(x => x.setAttribute("aria-checked", String(x === b)));
       });
       body.querySelector(".mk-len").addEventListener("click", e => {

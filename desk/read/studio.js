@@ -786,14 +786,15 @@ function mount(root, opts){
 
   // ---------------- saving, and undo ----------------
   const savedEl = $(".st-saved");
-  let saveTimer = 0, lastSnap = null;
+  let saveTimer = 0, lastSnap = null, saving = false;
   const past = [], future = [];
   function save(){
     clearTimeout(saveTimer);
-    savedEl.textContent = "Saving...";
+    savedEl.textContent = "Saving..."; saving = true;
     saveTimer = setTimeout(async () => {
       try { await db.put("projects", {id: "current", p: P, saved: Date.now()}); savedEl.textContent = "Saved in this browser"; }
       catch (e) { savedEl.textContent = "Not saved: " + (e.message || e); }
+      saving = false;
     }, 350);
   }
   function commit(){
@@ -1844,7 +1845,12 @@ function mount(root, opts){
   // written into an MP4 here (mp4File): the song sits exactly where it plays in the preview, and no frame is dropped,
   // since the video waits while the encoder is busy. Without WebCodecs, the browser's recorder captures the edit as it
   // plays (MediaRecorder), which can place the sound up to a tenth of a second early.
+  // from the click to the end (the save dialog included, before the export itself starts) the page counts as busy
   async function runExport(download){
+    preparing = true;
+    try { await exportNow(download); } finally { preparing = !!exportJob; }
+  }
+  async function exportNow(download){
     if (exportJob) return;
     autoDownload = !!download;              // from Export & download: the file downloads by itself when it is made
     const msg = (t, err) => note("export", t, err);
@@ -1883,7 +1889,7 @@ function mount(root, opts){
     const job = exportJob = {cancel: false, away: false, onAway: null};
     const ui = on => { $$('[data-a="export"],[data-a="goexport"]').forEach(b => { b.disabled = on; }); $('[data-a="cancel"]').hidden = !on; $(".st-prog").hidden = !on; };
     const bar = $(".st-prog i"), res = $(".st-result");
-    ui(true); bar.style.width = "0%"; res.innerHTML = "";
+    ui(true); bar.style.width = "0%"; res.innerHTML = ""; unsavedResult = false;    // the last result (if any) is gone from the page
     let doing = "Exporting";
     const progress = e => { bar.style.width = (clamp(e / d, 0, 1) * 100).toFixed(1) + "%"; msg(`${doing}: ${fmt(e)} of ${fmt(d)}${job.away ? " (paused while this tab is in the background)" : ""}`); };
     // in the background the browser stops drawing frames: the export waits, and goes on when the tab is back
@@ -2333,7 +2339,7 @@ function mount(root, opts){
       if (v){ v.pause(); v.removeAttribute("src"); v.load(); }
     }
   }
-  let resultUrl = null;
+  let resultUrl = null, unsavedResult = false, holdUntil = 0, preparing = false;
   let autoDownload = false;
   function showResult(file, name, kind, onDisk, warn){
     if (resultUrl) URL.revokeObjectURL(resultUrl);
@@ -2343,7 +2349,11 @@ function mount(root, opts){
       <div class="st-row">${onDisk ? `<span class="st-note">Saved to ${esc(name)}</span>` : `<a class="st-btn" href="${resultUrl}" download="${esc(name)}">Download the video</a>`}<span class="st-note">${esc(kind)} · ${mb(file.size)}<span class="st-len"></span></span></div>
       <p class="st-note">Upload it in TikTok Studio or Instagram. Drafts of a caption, hashtags and the holdings line: <a href="./#posts" target="_blank" rel="noopener">Today's posts</a>.</p>`;
     note("export", (onDisk ? "Done: the video is saved." : autoDownload ? "Done: the video is downloading (and its link is below)." : "Done: download the video below.") + (warn ? " " + warn : ""), !!warn);
-    if (autoDownload && !onDisk){ const a = res.querySelector("a[download]"); if (a) a.click(); }
+    // a video only in this page until it is downloaded: the page does not load a new version over it, nor for 30 s
+    // after a download starts (a large file is still being written)
+    unsavedResult = !onDisk;
+    const dl = res.querySelector("a[download]"); if (dl) dl.addEventListener("click", () => { unsavedResult = false; holdUntil = Date.now() + 30000; });
+    if (autoDownload && dl) dl.click();
     autoDownload = false;
     res.scrollIntoView({block: "nearest", behavior: "smooth"});
     const pv = res.querySelector("video");
@@ -2403,6 +2413,9 @@ function mount(root, opts){
     hide(){ shown = false; pause(); if (listenNode) listen($('[data-a="listen"]')); },
     async openTake(id, o = {}){ await ready; if (o.clean) cleanEdit(); showTab(o.tab || "takes", true); await openTake(id, o.note); },
     async takeArrived(id){ await ready; const all = await listTakes(); if (!P.take && all && all.some(t => t.id === id)) await openTake(id); else flash("A new take is in Takes."); },
+    // the page waits before loading a new version: an export (from its click), an edit not yet saved, a video not
+    // downloaded or still downloading, the edit or a song playing
+    busy: () => !!exportJob || preparing || saving || unsavedResult || Date.now() < holdUntil || playing || !!listenNode,
     state: () => ({P, cur, playing, selected, pps, thumbs: thumbs.map(t => +t.t.toFixed(2)), shown})        // for checks: what the editor holds right now
   };
 }

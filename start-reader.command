@@ -9,13 +9,15 @@
 # First run sets up Python libraries in .venv inside this folder (a few minutes, one time).
 #
 # Stays up to date by itself: on start, and every 2 minutes while it runs, it pulls the branch it follows
-# from GitHub (fast-forward only, so your own uncommitted or local work is never overwritten). New Python
-# code restarts the server; a new page only needs a browser refresh.
+# from GitHub (fast-forward only). New Python code restarts the server; the open page loads a new version by
+# itself when nothing would be lost.
 # Which branch: the one this folder is on, unless ~/.bmg-reader-follow names another one, e.g.
 #   echo main > ~/.bmg-reader-follow
-# If this copy has commits GitHub does not (an old local merge), they are kept on a branch named
-# reader-backup-<date> and this copy moves to GitHub's version. Uncommitted edits are never touched:
-# while there are any, updates wait and the window says so.
+# It updates only while this folder is on that branch: another branch checked out here (an agent's codex/*
+# work, say) is never moved. Uncommitted edits are never touched: an update goes ahead past them unless it
+# changes the same file (as git pull does), and then it waits and the window says so. A copy with commits
+# GitHub does not have and nothing new from GitHub is left as it is; one that has both (an old local merge)
+# keeps its commits on a branch named reader-backup-<date> and moves to GitHub's version.
 
 cd "$(dirname "$0")" || exit 1
 PORT="${PORT:-8000}"
@@ -27,7 +29,17 @@ pause_exit() { echo; read -r -p "Press Return to close this window." _; exit "$1
 if curl -fs "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1; then
   echo "The reader is already running. Opening $URL"
   open "$URL" 2>/dev/null
-  exit 0
+  # the window that runs it checks GitHub every 2 minutes; its process number is in .local-data/updater.pid. No
+  # such window running: the reader was started some other way and is not updating itself
+  [ -d .git ] || { echo "This copy is not a git clone: it is updated by downloading it again."; exit 0; }
+  upid="$(cat .local-data/updater.pid 2>/dev/null)"
+  if [ -n "$upid" ] && kill -0 "$upid" 2>/dev/null && ps -p "$upid" -o command= 2>/dev/null | grep -q start-reader; then
+    [ -f .local-data/update.log ] && echo "It updates itself every 2 minutes. Last check: $(tail -n 1 .local-data/update.log)"
+    exit 0
+  fi
+  echo "The running reader was not started with this file, so it is not updating itself."
+  echo "Stop it (close the window that runs it, or Control-C there), then open this file again."
+  pause_exit 0
 fi
 
 # Latest version (only for a git clone; a ZIP download is updated by downloading again).
@@ -55,14 +67,25 @@ update() {   # returns 0 and sets CHANGED when new commits were pulled
   fi
   remote="$(git rev-parse FETCH_HEAD)"
   before="$(git rev-parse HEAD)"
+  # another branch checked out in this folder since the reader started: never moved
+  local on; on="$(git rev-parse --abbrev-ref HEAD)"
+  if [ "$on" != "$FOLLOW" ]; then say_once branch "Not updating: this folder is on $on, not $FOLLOW."; return 1; fi
   if [ "$before" = "$remote" ]; then ulog "up to date ${before:0:7}"; return 1; fi
-  if ! clean; then
-    say_once dirty "Updates are waiting: these files were edited on this Mac: $(git status --porcelain --untracked-files=no | awk '{print $2}' | tr '\n' ' ')(run: git stash)"
-    return 1
-  fi
+  # commits made here that GitHub does not have yet, and nothing new from GitHub: left as they are
+  if git merge-base --is-ancestor "$remote" HEAD; then say_once ahead "This copy has commits GitHub does not have yet; not updating."; return 1; fi
   if git merge-base --is-ancestor HEAD "$remote"; then
-    git merge --ff-only -q "$remote" 2>>"$ULOG" || { say_once merge "Could not fast-forward to ${remote:0:7}; see $ULOG"; return 1; }
+    # a file edited on this Mac holds the update up only when the update changes that file too (as git pull does)
+    git merge --ff-only -q "$remote" 2>>"$ULOG" || {
+      local edited; edited="$(git status --porcelain --untracked-files=no | cut -c4- | tr '\n' ' ')"
+      if [ -n "$edited" ]; then say_once merge "Updates are waiting for ${remote:0:7}: files edited on this Mac are changed by it too: ${edited}(run: git stash; details in $ULOG)"
+      else say_once merge "Could not update to ${remote:0:7}; see $ULOG"; fi
+      return 1
+    }
   else
+    if ! clean; then
+      say_once dirty "Updates are waiting: these files were edited on this Mac: $(git status --porcelain --untracked-files=no | awk '{print $2}' | tr '\n' ' ')(run: git stash)"
+      return 1
+    fi
     b="reader-backup-$(date '+%Y%m%d-%H%M%S')"
     git branch "$b" HEAD && git reset -q --hard "$remote" || return 1
     echo "  This copy had commits GitHub does not; they are kept on branch $b."
@@ -149,6 +172,7 @@ echo
 start_server() { .venv/bin/python -m uvicorn server:app --host 127.0.0.1 --port "$PORT" --log-level warning & SERVER=$!; }
 trap 'kill "$SERVER" 2>/dev/null; exit 0' INT TERM HUP
 start_server
+mkdir -p .local-data && echo $$ > .local-data/updater.pid      # for a second open of this file: updates are running
 TICK=0
 while kill -0 "$SERVER" 2>/dev/null; do
   sleep 5
