@@ -258,6 +258,19 @@ body.recmode #bmg-report .rp-bar{display:none!important}
 #rec-setup #read-drop.has{border-color:#2fdc74}
 #rec-setup label.opt{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px}
 #rec-setup input[type=number]{width:70px;padding:5px;background:#111821;color:#fff;border:1px solid #3a4656;border-radius:6px}
+#rec-setup.planned>:not(#rec-plan):not(.rec-back){display:none}
+#rec-plan{display:flex;flex-direction:column;gap:10px;background:#0c121a;border:1px solid #233041;border-radius:14px;padding:16px}
+#rec-plan .pl-k{font:600 11px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#6ff4ff}
+#rec-plan h3{margin:0;font:700 21px/1.2 'IBM Plex Sans',sans-serif;color:#fff}#rec-plan h3 span{font-weight:600;color:#9aa4b1}
+#rec-setup #rec-plan .pl-sub{margin:-4px 0 0;color:#9aa4b1}
+#rec-plan dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:2px 0;font-size:13.5px}#rec-plan dt{color:#9aa4b1}#rec-plan dd{margin:0;color:#e8edf2}
+#rec-plan #pl-start{height:50px;border:0;border-radius:11px;background:#2fdc74;color:#04130a;font:700 18px 'IBM Plex Sans',sans-serif;cursor:pointer}#rec-plan #pl-start:disabled{opacity:.5;cursor:default}
+#rec-setup #rec-plan .pl-st{color:#e8edf2;font-size:13.5px;min-height:1.4em;overflow-wrap:anywhere}#rec-setup #rec-plan .pl-st.err{color:#ff8a8a}
+#rec-plan .pl-more{align-self:flex-start;background:none;border:0;color:#6ff4ff;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer;padding:2px 0;text-decoration:underline}
+#rec-share{position:fixed;inset:0;z-index:3200;background:#05070c;display:flex;align-items:center;justify-content:center;padding:24px}
+#rec-share>div{display:flex;flex-direction:column;gap:14px;text-align:center;font:15px/1.4 'IBM Plex Sans',sans-serif;color:#e8edf2}#rec-share p{margin:0;color:#9aa4b1}
+#rec-share button{height:50px;padding:0 22px;border:0;border-radius:11px;background:#2fdc74;color:#04130a;font:700 17px 'IBM Plex Sans',sans-serif;cursor:pointer}
+#rec-curtain .rc-note{position:absolute;left:0;right:0;bottom:22%;margin:0;text-align:center;color:#8fa0b3;font:13px 'IBM Plex Sans',sans-serif}
 #rec-start{height:46px;border:0;border-radius:10px;background:#2fdc74;color:#04130a;font-weight:700;font-size:17px;cursor:pointer}
 #rec-start:disabled{opacity:.5;cursor:default}
 .rec-back{align-self:flex-start;background:none;border:1px solid #3a4656;color:#9aa4b1;border-radius:8px;padding:6px 12px;cursor:pointer;font:13px 'IBM Plex Sans',sans-serif}
@@ -396,6 +409,7 @@ body.recmode .lr-c.flash{animation:reccell 1.3s ease}@keyframes reccell{0%{backg
 #rec-final{position:absolute;left:16px;right:16px;bottom:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 #rec-final a,#rec-final button{font:600 14px 'IBM Plex Sans',sans-serif;border-radius:9px;padding:10px 14px;cursor:pointer;text-decoration:none;border:1px solid #3a4656;background:#0c121a;color:#e8edf2}
 #rec-final .rf-dl{background:#2fdc74;color:#04130a;border:0}#rec-final span{color:#8fa0b3;font-size:13px;width:100%;text-align:center}
+#rec-final .rf-miss{width:100%;text-align:center;color:#ffb86b;font-size:12.5px}
 #rec-curtain{position:fixed;inset:0;z-index:2900;background:#000;display:flex;align-items:center;justify-content:center;transition:opacity .35s ease}
 #rec-curtain.out{opacity:0;pointer-events:none}
 .read-side h2{font:600 15px 'IBM Plex Sans',sans-serif;margin:0 0 2px}
@@ -905,6 +919,38 @@ body.av-open{overflow:hidden}
 .ps-more-h{font:700 18px 'Source Serif 4',Georgia,serif;margin:22px 0 6px}.ps-group{background:#fff;border:1px solid #e3e3dc;border-radius:12px;padding:10px 14px;margin:0 0 10px}
 .ps-ideas{list-style:none;padding:0;margin:8px 0 0}.ps-idea{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:7px 0;border-top:1px solid #f0f0ec}
 .ps-idea small{display:block;font-size:12px;color:#5d6862}.ps-idea small.muted{color:#8a9099}.ps-use{display:flex;gap:4px;flex:none}.ps-use select{height:30px;border:1px solid #c9cfca;border-radius:7px;font-size:12.5px}
+/* Posting, Make a clip: ticker, form, length, what to find, then Record */
+.mk-steps{list-style:none;margin:14px 0 0;padding:0}
+.mk-step{background:#fff;border:1px solid #e3e3dc;border-radius:14px;padding:14px 16px;margin:0 0 12px}
+.mk-step h3{display:flex;align-items:center;gap:10px;margin:0 0 10px;font:700 17px 'IBM Plex Sans',sans-serif}
+.mk-step h3 b{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#141414;color:#fff;font:700 13px 'IBM Plex Mono',monospace}.mk-step h3 small{font:500 12.5px 'IBM Plex Sans',sans-serif;color:#8a9099}
+.mk-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}.mk-row label{font-size:13.5px;color:#3a3a3a}
+.mk-row input[type=text],.mk-row select{height:36px;border:1px solid #c9cfca;border-radius:8px;padding:0 10px;font:14px 'IBM Plex Sans',sans-serif;color:#141414;background:#fff}
+#mk-ticker{width:230px;max-width:100%;font:600 15px 'IBM Plex Mono',monospace;text-transform:uppercase}#mk-ticker::placeholder{text-transform:none;font:14px 'IBM Plex Sans',sans-serif;color:#8a9099}
+.mk-step textarea{display:block;width:100%;box-sizing:border-box;border:1px solid #c9cfca;border-radius:8px;padding:8px 10px;font:14px/1.45 'IBM Plex Sans',sans-serif;color:#141414;background:#fff;resize:vertical}
+.mk-step input:focus,.mk-step select:focus,.mk-step textarea:focus{outline:none;border-color:#0f7d47;box-shadow:0 0 0 3px rgba(15,125,71,.12)}
+.mk-or{color:#8a9099;font-size:13px}.mk-own{display:inline-flex;align-items:center;background:#fff;color:#0f7d47}
+.mk-st{font-size:13px;color:#4a4a4a;min-height:1.2em;margin:8px 0 0}.mk-st.err{color:#b42318}.mk-row .mk-st{margin:0}
+.mk-note{font-size:12.5px;color:#6b6f76;margin:8px 0 0}
+.mk-co{margin:0 0 8px;font-size:14px}
+.mk-flist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
+.mk-flist button{position:relative;width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:1px solid #c9cfca;border-radius:10px;background:#fff;padding:9px 12px;cursor:pointer;font:13px 'IBM Plex Sans',sans-serif;color:#3a3a3a}
+.mk-flist button b{font:700 14.5px 'IBM Plex Sans',sans-serif;color:#141414}.mk-flist button:hover{border-color:#0f7d47}
+.mk-flist button[aria-checked=true]{border-color:#0f7d47;box-shadow:0 0 0 2px #0f7d47;background:#f3fbf6}
+.mk-flist i{position:absolute;top:8px;right:10px;font:600 10px 'IBM Plex Mono',monospace;text-transform:uppercase;color:#0f7d47;font-style:normal}
+.mk-len{margin:0 0 4px}.mk-len .av-seg[aria-checked=true]{background:#141414;border-color:#141414;color:#fff}
+.mk-custom{display:inline-flex;align-items:center;gap:4px;font-size:13px;color:#3a3a3a}.mk-custom input{width:66px;height:34px;box-sizing:border-box;border:1px solid #c9cfca;border-radius:17px;padding:0 8px;font:600 13px 'IBM Plex Sans',sans-serif}
+.mk-custom.on input{border-color:#141414;box-shadow:0 0 0 1px #141414}
+.mk-picked{margin:0;font-size:14px}.mk-quick{margin:8px 0 0}
+.mk-look summary{cursor:pointer;font-weight:600;color:#3a3a3a;font-size:13.5px;margin:0 0 8px}.mk-look .mk-row{margin:0 0 12px}
+.mk-go{height:44px;padding:0 26px;font-size:16px}
+/* the record window is open (it can be behind this window): one click brings it back */
+#rec-chip{position:fixed;right:16px;bottom:16px;z-index:3100;display:flex;align-items:center;gap:8px;padding:5px 5px 5px 12px;border-radius:999px;background:#0c121a;color:#e8edf2;font:600 13px 'IBM Plex Sans',sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.28)}
+#rec-chip[hidden]{display:none}body.av-open #rec-chip{top:9px;bottom:auto}   /* News, Posting and the Studio: in their top bar's empty right side */
+#rec-chip i{width:9px;height:9px;border-radius:50%;background:#2fdc74;flex:none}#rec-chip.live i{background:#ff3b5c;animation:recchip 1.2s ease-in-out infinite}
+#rec-chip button{height:28px;padding:0 12px;border-radius:999px;border:0;background:#2fdc74;color:#04130a;font:700 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer}
+@keyframes recchip{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){#rec-chip.live i{animation:none}}
 @media (max-width:760px){.ps-caps,.ps-blocks{grid-template-columns:1fr}.av-h h2{font-size:22px}.av-bar{flex-wrap:wrap;gap:6px}.ps-idea{flex-direction:column}.ps-acts .ps-posted{margin-left:0}}
 @media print{#app-view{display:none!important}}
 /* dark mode: the News and Posting views and the ask-across-reads box turn dark like the page chrome around the Crawler */
@@ -1430,7 +1476,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const dt = Math.min(0.05, (now - (state.camT || now)) / 1000);
     state.camT = now;
     if (state.userScrolledAt && now - state.userScrolledAt < 2500){ if (TL.replay) tlStop(); state.scrollPos = null; return; }
-    if (!walking() || state.paused || !state.rows) { state.scrollPos = null; return; }
+    if (!walking() || state.paused || !state.rows) {
+      if (TL.replay && !walking()) tlStop();         // a replay ends with the reading: Record mode's hold on it is let go
+      state.scrollPos = null; return;
+    }
     if (state.scrollPos == null) state.scrollPos = TL.replay ? TL.set : state.sy;
     // another control moved the page during a replay (Go to, Jump to statements): reading goes on live from there
     if (TL.replay && Math.abs(state.scrollPos - TL.set) > 2) tlStop();
@@ -2596,7 +2645,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (state.walkState.docId !== doc_id || state.walkState.done) return;
       if (state.paused){ state.walkTimer = setTimeout(step, 150); return; }
       const ry = readLineY();
-      let atBottom = state.sy + V.h() >= docGeo().sh - 2;
+      // (not while a replay is at the bottom: the reading ends at the live point, not in a replay of it)
+      let atBottom = !TL.replay && state.sy + V.h() >= docGeo().sh - 2;
       if (atBottom){ geo = null; atBottom = state.sy + V.h() >= docGeo().sh - 2; }
       while (readIdx < rows.length && (rowY(readIdx) <= ry + 20 || atBottom)){
         if (state.onRow) state.onRow(rows[readIdx].els);
@@ -3961,6 +4011,64 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     sheetBtn.setAttribute("aria-expanded", String(!c)); sheetBtn.textContent = c ? "Show report" : "Hide";
   });
   if (/[?&]layout=record\b/.test(location.search)) document.body.classList.add("rec");
+  // ---- Record mode's window: one at a time, brought back as it is when asked for again ----
+  // It is a separate, smaller window, so a click on this one covers it. Every button that opens it used to load it
+  // afresh, which threw away the file chosen there or the take being recorded. Now an open record window comes back
+  // to the front untouched (a new clip plan loads in it only while no take is under way), and a chip here says it
+  // is open. The record window tells this one what it is doing (window.bmgRec, and a message every 2 seconds that
+  // finds this page again after a reload).
+  const REC_URL = "/desk/read/?layout=record&mode=rec";
+  state.recWin = null; state.recPhase = "";
+  const recOpen = () => { try { return !!(state.recWin && !state.recWin.closed); } catch (e) { return false; } };
+  const recPhaseNow = () => { try { return (state.recWin.bmgRec || {}).phase || state.recPhase || "setup"; } catch (e) { return state.recPhase || "setup"; } };
+  function recordWindow(url = REC_URL, replace = false){
+    let win = recOpen() ? state.recWin : null, fresh = false;
+    if (!win){
+      const h = Math.min(960, (screen.availHeight || 900) - 60), w = Math.round(h * 9 / 16);
+      win = window.open("", "bmg-record", `popup=yes,width=${w},height=${h}`);   // "" finds an open one without loading it again
+      if (!win) return null;
+      let here = "";
+      try { here = win.location.href; } catch (e) {}
+      if (!/[?&]mode=rec\b/.test(here)){
+        try { win.document.documentElement.style.background = "#05070c"; } catch (e) {}   // a new window: dark until the page comes, no white flash
+        win.location.replace(url); fresh = true;
+      }
+      state.recWin = win;
+    }
+    if (!fresh && replace && recPhaseNow() !== "busy"){ win.location.replace(url); fresh = true; }
+    try { win.focus(); } catch (e) {}
+    state.recPhase = fresh ? "setup" : recPhaseNow();
+    recChip();
+    return {win, fresh, busy: !fresh && state.recPhase === "busy"};
+  }
+  let recChipEl = null, recChipTimer = 0;
+  function recChip(){
+    if (document.body.classList.contains("rec")) return;
+    if (!recOpen()){
+      if (recChipEl) recChipEl.hidden = true;
+      clearInterval(recChipTimer); recChipTimer = 0; state.recWin = null;
+      return;
+    }
+    if (!recChipEl){
+      recChipEl = document.createElement("div"); recChipEl.id = "rec-chip"; recChipEl.setAttribute("role", "status");
+      recChipEl.innerHTML = `<i aria-hidden="true"></i><span></span><button type="button">Show it</button>`;
+      recChipEl.querySelector("button").addEventListener("click", () => { if (recOpen()) state.recWin.focus(); recChip(); });
+      document.body.appendChild(recChipEl);
+    }
+    const ph = recPhaseNow(), text = ph === "busy" ? "Record mode is recording" : ph === "done" ? "Record mode: the take is done" : "Record mode is open";
+    const sp = recChipEl.querySelector("span");
+    if (sp.textContent !== text) sp.textContent = text;
+    recChipEl.classList.toggle("live", ph === "busy");
+    recChipEl.hidden = false;
+    if (!recChipTimer) recChipTimer = setInterval(recChip, 1000);
+  }
+  addEventListener("message", e => {
+    if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-rec" || !e.source || document.body.classList.contains("rec")) return;
+    if (e.data.phase === "closed"){ if (state.recWin === e.source) state.recPhase = "closed"; }
+    else { state.recWin = e.source; state.recPhase = e.data.phase; }
+    recChip();
+    if (state.onRecPhase) state.onRecPhase(e.data.phase);
+  });
   // ---- Record mode: the TikTok format inside the page, for screen recording ----
   // The spider, the analysis and every figure are exactly what the reader produces. Record mode
   // only sets the look, adds effects around real events (a number found, a card, a counter of real
@@ -3968,8 +4076,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   (function recordMode(){
     const btn = document.getElementById("read-recmode");
     if (btn) btn.addEventListener("click", () => {
-      const h = Math.min(960, (screen.availHeight || 900) - 60), w = Math.round(h * 9 / 16);
-      const recordingWindow = window.open("/desk/read/?layout=record&mode=rec", "bmg-record", `popup=yes,width=${w},height=${h}`);
+      const opened = recordWindow(), recordingWindow = opened && opened.win;
       if (!recordingWindow || !walking() || state.paused) return;
       const pause = document.getElementById("ctl-pause"), docId = state.currentDocId;
       if (!pause) return;
@@ -3986,6 +4093,30 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (isRecord) B.classList.add("rec", "recmode", "rec-dark");
     else B.classList.add("readerfx", "rec-dark");
     if (isRecord) window.READER_VIEW_FRAC = 0.6;                    // the bottom 40% is the live report panel
+    // What this window is doing, for the Crawler window that opened it: its chip, and its buttons, which bring this
+    // window back instead of loading it again while a take is under way. While a take runs, closing or reloading
+    // this window asks first.
+    const recPhase = ph => {
+      if (!isRecord) return;
+      window.bmgRec.phase = ph;
+      try { const o = window.opener; if (o && !o.closed) o.postMessage({type: "bmg-rec", phase: ph}, location.origin); } catch (e) {}
+    };
+    if (isRecord){
+      window.bmgRec = {phase: "setup"};
+      recPhase("setup");
+      setInterval(() => recPhase(window.bmgRec.phase), 2000);      // a Crawler window reloaded since finds this one again
+      addEventListener("pagehide", () => { try { const o = window.opener; if (o && !o.closed) o.postMessage({type: "bmg-rec", phase: "closed"}, location.origin); } catch (e) {} });
+      addEventListener("beforeunload", e => { if (window.bmgRec.phase === "busy"){ e.preventDefault(); e.returnValue = ""; } });
+    }
+    // A clip planned in Posting (Make a clip, see planSetup): read before the setup is built, which uses it
+    const PLAN_LS = "bmg-clip-plan", PLAN_KEYS = 3.5, PLAN_ONE = 5, PLAN_ENDING = 11;     // the ending: about 11 seconds
+    let plan = null, planMissing = [], planSay = () => {};
+    if (isRecord && /[?&]plan=1\b/.test(location.search)){
+      try { plan = JSON.parse(localStorage.getItem(PLAN_LS) || "null"); } catch (e) {}
+      if (!plan || !(Date.now() - (plan.at || 0) < 12 * 3600e3)) plan = null;
+    }
+    // a set length: the crawl's own seconds (the rest is the moment after the last line, and the ending)
+    const planCrawlSecs = () => Math.max(5, plan.length - (plan.ending ? PLAN_ENDING : 0) - 1.6);
     const leave = () => {
       if (window.opener && !window.opener.closed){ window.close(); return; }
       location.href = location.pathname;                            // this page without ?mode=rec, wherever the site is served
@@ -4014,6 +4145,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       rosegold: {name: "Rose gold", main: "#ffb59e", accent: "#ffe08a", trail: "#ff8fa3"}
     };
     const PALETTE_LS = "bmg-crawler-palette";
+    state.recPalettes = palettes;                                  // Posting's Make a clip offers the same colors
     const canRecord = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.MediaRecorder);
     const setup = document.createElement("div");
     setup.id = "rec-setup";
@@ -4093,6 +4225,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       ideaSetup(format);
       ideasSetup(format);
       prefillSetup(format);
+      planSetup(format);
     }
     // ---- Today's ideas: the autopilot's queued ideas, then the newest days of social/ideas.md; Use fills the idea clip ----
     async function ideasSetup(format){
@@ -4151,6 +4284,204 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         q("clip-st").textContent += " The same document is loaded.";
       });
       if (window.opener) window.opener.postMessage({type: "bmg-record-ready"}, location.origin);
+    }
+    // ---- A clip planned in Posting (Make a clip): the filing, the length, what to find and the look were chosen in
+    // the Crawler window. This window shows them with one Start button, which Chrome needs for its question about
+    // sharing the tab. The filing is loaded first, so a problem with it shows before anything is recorded.
+    function planSetup(format){
+      if (!plan) return;
+      const q = id => setup.querySelector("#" + id), lk = plan.look || {};
+      const set = (id, v) => {
+        const el = q(id); if (!el || v == null) return;
+        if (el.type === "checkbox") el.checked = !!v;
+        else if (el.tagName !== "SELECT" || [...el.options].some(o => o.value === String(v))) el.value = v;
+        el.dispatchEvent(new Event("change"));
+      };
+      set("rec-palette", lk.palette); set("rec-dark", lk.dark); set("rec-cards", lk.cards); set("rec-quality", lk.quality); set("rec-disk", lk.disk); set("rec-capture", true);
+      const opt = document.createElement("option"); opt.value = "plan"; opt.textContent = "Planned in Posting (Make a clip)";
+      format.appendChild(opt); format.value = "plan"; format.dispatchEvent(new Event("change"));
+      const secs = s => s < 60 ? `${s} seconds` : s % 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s / 60} minute${s === 60 ? "" : "s"}`;
+      const card = document.createElement("div"); card.id = "rec-plan";
+      card.innerHTML = `<b class="pl-k">Make a clip</b>
+        <h3>${esc(plan.company || plan.ticker || plan.customName || "Your document")}${plan.form ? ` <span>${esc(plan.form)}</span>` : ""}</h3>
+        <p class="pl-sub">${esc(plan.when || plan.customName || "")}</p>
+        <dl><dt>Length</dt><dd>${plan.length === "whole" ? `The whole form at ${plan.speed && plan.speed !== 1 ? plan.speed + "x " : ""}reading speed`
+            : `${secs(plan.length)}: the spider's speed is set so it reads ${plan.start === "statements" ? "from the financial statements to the end" : "the whole form"} in this time`}</dd>
+          <dt>Starts at</dt><dd>${plan.start === "statements" ? "The financial statements" : "The cover page"}</dd>
+          <dt>Finds</dt><dd>${(plan.find || []).length ? esc(plan.find.join(" · ")) : "Nothing asked for"}</dd>
+          <dt>Ends on</dt><dd>${plan.ending ? "Key findings, then a one-page summary" : "The last line read"}</dd></dl>
+        <p class="pl-st" id="pl-st" role="status"></p>
+        <button type="button" id="pl-start" disabled>Start recording</button>
+        <p class="pl-note">${canRecord ? `Chrome asks to share this tab: choose Allow.${window.showSaveFilePicker && lk.disk !== false ? " Then choose where the video is saved." : ""} ` : ""}When the clip ends, the Studio opens with it in the Crawler window: add pictures there, then download it.</p>
+        <button type="button" class="pl-more" id="pl-more" aria-expanded="false">All Record mode settings</button>`;
+      q("rec-back").after(card);
+      setup.classList.add("planned");
+      const st = card.querySelector("#pl-st"), go = card.querySelector("#pl-start");
+      planSay = (text, err) => { st.textContent = text; st.classList.toggle("err", !!err); };
+      card.querySelector("#pl-more").addEventListener("click", e => {
+        const all = !setup.classList.toggle("planned");
+        e.currentTarget.setAttribute("aria-expanded", String(all)); e.currentTarget.textContent = all ? "Fewer settings" : "All Record mode settings";
+      });
+      go.addEventListener("click", () => { if (go.disabled) return; startBtn.disabled = false; startBtn.click(); });
+      const loaded = f => {
+        const dt = new DataTransfer(); dt.items.add(f);
+        fileIn.files = dt.files; fileIn.dispatchEvent(new Event("change"));
+        const tk = document.getElementById("read-ticker"); if (tk && plan.ticker) tk.value = plan.ticker;
+        go.disabled = false; planSay("Loaded. Press Start recording when you are ready.");
+      };
+      if (plan.source === "custom"){
+        // your own document comes from the Crawler window, which still holds the file you chose there
+        planSay("Waiting for your document from the Crawler window...");
+        addEventListener("message", e => {
+          if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-clip-file" || !(e.data.file instanceof File)) return;
+          loaded(e.data.file);
+        });
+        try { if (window.opener) window.opener.postMessage({type: "bmg-record-ready", plan: true}, location.origin); } catch (e) {}
+        setTimeout(() => { if (go.disabled) planSay("Your document did not come from the Crawler window (was it closed or reloaded?). Choose it again there and press Record.", true); }, 8000);
+        return;
+      }
+      planSay(`Loading the ${plan.form || "filing"} from SEC EDGAR...`);
+      (async () => {
+        try {
+          const url = plan.source === "insiders" ? "/api/edgar/insiders.html?ticker=" + encodeURIComponent(plan.ticker)
+            : "/api/edgar/document?" + new URLSearchParams({cik: plan.cik, accession: plan.accession, document: plan.document});
+          const r = await fetch(url, {cache: "no-store"});
+          if (!r.ok){ let m = "SEC EDGAR did not return it."; try { m = (await r.json()).error || m; } catch (x) {} throw new Error(m); }
+          const blob = await r.blob();
+          // the file name carries the filing's identity into the report's source line, as the Crawler names it
+          const name = plan.source === "insiders" ? (r.headers.get("X-Doc-Name") || `${plan.ticker} Form 4 insider trades.htm`) : plan.fileName;
+          loaded(new File([blob], name, {type: blob.type || "text/html"}));
+        } catch (e){ planSay((e && e.message) || "Could not load the filing.", true); }
+      })();
+    }
+    // What was asked for, found before the clip starts (under the curtain). A number: where it is printed, as an
+    // idea clip finds it. Anything else, in this order, and only a place that names every word asked for (Ask's best
+    // answer to "data center revenue" is total revenue, which would light the wrong figure): a report figure (Ask);
+    // a line of a table labelled with those words, and its first figure (a segment's revenue); a sentence with them
+    // (Ask). A question gets Ask's best answer. Anything else is listed as not found, never guessed.
+    const STOP = new Set("a an the of in on for to and or is are was were be been how much many what which who whom when where why do does did they their them it its this that these those have has had with by from at as about there we our you your show find me please".split(" "));
+    const GENERIC = new Set(["revenue", "revenues", "sales", "income", "total", "net", "amount", "amounts"]);
+    const stemW = w => w.length > 4 ? w.replace(/(es|s)$/, "") : w;
+    const wordsOf = q => String(q).toLowerCase().replace(/[‘’“”"?!]/g, "").split(/\s+/).map(w => w.replace(/^[^a-z0-9$]+|[^a-z0-9%]+$/g, "")).filter(w => w && !STOP.has(w));
+    const namesAll = (text, ws) => { const t = String(text || "").toLowerCase(); return ws.length > 0 && ws.every(w => t.includes(stemW(w))); };
+    // a table line whose label is exactly these words, then (past a "$" or a dash) its first figure
+    function lineFigure(ws){
+      const L = wordList(), n = L.els.length, k = ws.length;
+      if (!k) return null;
+      for (let i = 0; i + k <= n; i++){
+        let ok = true;
+        for (let j = 0; j < k && ok; j++) ok = L.norm[i + j] === ws[j] || stemW(L.norm[i + j]) === stemW(ws[j]);
+        if (!ok) continue;
+        for (let j = i + k; j < Math.min(n, i + k + 4); j++){
+          const t = L.els[j].textContent.trim();
+          if (/^[$(\u2014\u2013\-]+$/.test(t) || /^\(\d\)$/.test(t)) continue;           // "$", a dash, a footnote mark
+          const digits = t.replace(/[^\d]/g, "");
+          if (/^\(?\$?[\d,.]+\)?$/.test(t) && digits.length >= 2 && !/^(19|20)\d\d$/.test(t)) return L.els[j];
+          break;                                                                  // a word follows: a sentence, not a row label
+        }
+      }
+      return null;
+    }
+    async function planTargets(curtain){
+      const items = (plan.find || []).slice(0, 8), hits = [];
+      planMissing = [];
+      if (!items.length) return hits;
+      const note = document.createElement("p"); note.className = "rc-note"; curtain.appendChild(note);
+      const taken = el => hits.some(h => h.el === el);
+      const placeOf = a => {
+        const w = a && locate(a.page, a.kind === "fact" ? a.excerpt : a.text, a.offset, a.kind === "fact" ? a.raw : null);
+        return w && w.classList && w.classList.contains("w") && !taken(w) ? w : null;
+      };
+      for (const q of items){
+        note.textContent = "Finding: " + q;
+        let hit = null;
+        if (/^\$?\(?\d[\d,]*(\.\d+)?\)?%?$/.test(q.replace(/\s+/g, ""))){
+          const t = findClipTargets([q]);
+          if (t && t[0] && !taken(t[0])) hit = {el: t[0], kind: "number"};
+        } else {
+          const ws = wordsOf(q), phrase = String(q).toLowerCase().split(/\s+/).map(normW).filter(Boolean);   // the phrase keeps its "and"
+          const specific = phrase.filter(w => !GENERIC.has(w));
+          let answers = [];
+          if (state.jobId){
+            try { const {r, j} = await api(`/api/read/jobs/${encodeURIComponent(state.jobId)}/ask?q=${encodeURIComponent(q)}`); answers = r.ok && j ? (j.answers || []) : []; }
+            catch (e) { /* no answers: the other ways below, else not found */ }
+          }
+          const fact = answers.find(x => x.kind === "fact" && namesAll(`${x.label || ""} ${x.excerpt || ""}`, ws) && placeOf(x));
+          if (fact) hit = {el: placeOf(fact), kind: "number"};
+          if (!hit){
+            const el = [lineFigure(phrase), specific.length && specific.length < phrase.length ? lineFigure(specific) : null].find(x => x && !taken(x));
+            if (el) hit = {el, kind: "number"};
+          }
+          if (!hit){
+            const sent = answers.find(x => x.kind !== "fact" && namesAll(x.text, ws) && placeOf(x));
+            if (sent) hit = {el: placeOf(sent), kind: "text", ws};
+          }
+          if (!hit && /\?$|^(how|what|which|who|when|where|why|is|are|does|do|did|was|were)\b/i.test(q.trim())){
+            const best = answers.find(x => placeOf(x));
+            if (best) hit = {el: placeOf(best), kind: best.kind === "fact" ? "number" : "text", ws};
+          }
+        }
+        if (!hit){ planMissing.push(q); continue; }
+        hit.q = q;
+        if (hit.kind === "text"){
+          // the words asked for, lit inside the sentence (else the sentence's first words)
+          const L = wordList(), i = L.idx.get(hit.el), want = (hit.ws || []).map(stemW);
+          let at = i;
+          for (let j = i; j < Math.min(L.els.length, i + 80) && want.length; j++) if (stemW(L.norm[j]) === want[0]){ at = j; break; }
+          hit.light = L.els.slice(at, at + Math.max(3, want.length + 1));
+        }
+        hits.push(hit);
+      }
+      note.remove();
+      // the capture sends a still page only now and then: a moment for a frame without the note, which the take
+      // would otherwise open on
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 350))));
+      window.bmgRec.find = {found: hits.map(h => ({q: h.q, kind: h.kind, word: h.el.textContent})), missing: planMissing.slice(), lit: []};   // for checks
+      return hits.sort((a, b) => V.contentY(a.el) - V.contentY(b.el));
+    }
+    // The crawl. A set length moves the page on a timed path from here to the end of the filing, slower near what
+    // was asked for (the highlights camera's path); the whole form reads at reading speed until its last line.
+    function planCrawl(hits){
+      if (plan.length === "whole"){ state.speedMul = Math.min(4, Math.max(0.5, +plan.speed || 1)); return; }
+      const line = innerHeight * (window.READER_VIEW_FRAC || 1) * .5;
+      const start = state.scrollPos ?? scrollY, end = Math.max(start + 1, document.documentElement.scrollHeight - innerHeight);
+      const rowOffset = docTop() + (state.sy || 0) - line;
+      const textRows = (state.rows || []).map(row => row.y + rowOffset).sort((a, b) => a - b);
+      const at = hits.map(h => h.el.getBoundingClientRect().top + scrollY - line).filter(y => y > start && y < end);
+      const secs = planCrawlSecs();
+      state.recordCamera = highlightTimeline(start, end, at, secs, textRows);
+      // its pace against the plain crawl's speed (blank space aside), for checks
+      window.bmgRec.pace = {secs, px: Math.round(end - start), x: Math.round((end - start) / secs / (SCROLL_SPEED * U) * 10) / 10};
+    }
+    // each thing asked for lights up as the spider reaches it, or as it passes the reading line (a fast clip can
+    // pass it before the spider gets near); a figure gets its number card
+    function planWatch(hits){
+      const pending = new Set(hits);
+      cardedLines = [];
+      if (!pending.size) return 0;
+      const id = setInterval(() => {
+        const line = innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5, lit = [];
+        for (const h of pending){
+          if (!zapTo(h.el, true, true) && h.el.getBoundingClientRect().top > line) continue;
+          pending.delete(h); lit.push(h);
+        }
+        if (!lit.length) return;
+        const nums = [];
+        for (const h of lit){
+          if (h.kind === "number"){ h.el.classList.add("found", "pink", "hl-zap"); nums.push(h.el); }
+          else {
+            const ws = h.light || [h.el];
+            ws.forEach(w => w.classList.add("found", "blue", "hl-zap"));
+            setTimeout(() => ws.forEach(w => w.classList.remove("hl-zap")), 2800);
+          }
+          tlFx("lit", {el: h.el, pink: h.kind === "number"});
+          if (window.bmgRec.find) window.bmgRec.find.lit.push(h.q);
+        }
+        if (nums.length) clipCards(nums);
+        if (plan.length === "whole") state.camHoldUntil = performance.now() + 1800;   // at reading speed, a moment on each
+        if (!pending.size) clearInterval(id);
+      }, 100);
+      return id;
     }
     // ---- Idea clip: a pasted idea fills the hook, ticker, numbers and intro; Start loads the filing itself ----
     const NAME_TICKERS = {"unitedhealth": "UNH", "united health": "UNH", "pepsico": "PEP", "pepsi": "PEP", "goldman sachs": "GS", "jpmorgan": "JPM", "jp morgan": "JPM", "chase": "JPM", "costco": "COST", "amazon": "AMZN", "apple": "AAPL", "microsoft": "MSFT",
@@ -4729,6 +5060,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         diskWriter = await diskFile.createWritable();
       } catch (e) { diskFile = diskWriter = null; }
     }
+    function clickToShare(){
+      return new Promise(res => {
+        const o = document.createElement("div"); o.id = "rec-share";
+        o.innerHTML = `<div><p>Ready. Chrome needs one more click to share this tab.</p><button type="button">Share this tab and record</button></div>`;
+        o.querySelector("button").addEventListener("click", () => { o.remove(); res(); });
+        B.appendChild(o); o.querySelector("button").focus();
+      });
+    }
     function captureStreamDescription(actual, bits){
       const size = actual.width && actual.height ? `${actual.width} × ${actual.height}` : "resolution unavailable";
       const fps = actual.frameRate ? `${Math.round(actual.frameRate * 10) / 10} fps reported` : "frame rate unavailable";
@@ -4745,6 +5084,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const video = high ? {width: {ideal: 1080}, height: {ideal: 1920}, frameRate: {ideal: 60, max: 60}} : {frameRate: 30};
       recType = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
       await askDiskFile(/mp4/.test(recType) ? "mp4" : "webm");     // first, while the click still counts as a user gesture
+      // Chrome shares a tab only within a few seconds of a click: when loading the filing or choosing where to save
+      // took longer, one more click (it used to go on without sharing, and the take recorded nothing)
+      if (navigator.userActivation && !navigator.userActivation.isActive) await clickToShare();
       try {
         stream = await navigator.mediaDevices.getDisplayMedia({video, audio: false, preferCurrentTab: true, selfBrowserSurface: "include"});
       } catch (e) {
@@ -4788,7 +5130,17 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       };
       return true;
     }
-    function stopCapture(){
+    // The capture sends a still page only now and then, so a take that ends on a still screen (the summary) came out
+    // up to a second short: a barely different pixel just before the stop gives it a last frame at the stop.
+    function lastFrame(){
+      if (!rec || rec.state !== "recording") return Promise.resolve();
+      const px = document.createElement("i");
+      px.style.cssText = "position:fixed;right:0;bottom:0;width:2px;height:2px;z-index:99999;pointer-events:none;background:rgba(128,128,128,.03)";
+      B.appendChild(px);
+      return new Promise(res => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => { px.remove(); res(); }, 90))));
+    }
+    async function stopCapture(){
+      await lastFrame();
       return new Promise(res => {
         if (!rec || rec.state === "inactive"){ res(null); return; }
         rec.onstop = async () => {
@@ -4853,7 +5205,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         return end;
       })();
     }
-    function finalControls(end, blob){
+    function finalControls(end, blob, stopped){
+      recPhase("done");
       const bar = document.createElement("div"); bar.id = "rec-final";
       const ext = blob && /mp4/.test(blob.type) ? "mp4" : "webm";
       const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
@@ -4861,6 +5214,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const onDisk = blob && blob.disk, saveFailed = blob && blob.diskError;
       bar.innerHTML = `${saveFailed ? `<span role="alert">Recording could not be saved to ${esc(blob.name)}. Choose another location and record again.</span>` : onDisk ? `<span class="rf-dl">Saved to ${esc(blob.name)} (${(blob.size / 1e6).toFixed(1)} MB), written while recording</span>` : blob ? `<a class="rf-dl" download="BMG-${esc((co.ticker || "reader").replace(/[^A-Za-z0-9]/g, ""))}-${stamp}.${ext}" href="${URL.createObjectURL(blob)}">Download recording (${ext.toUpperCase()}, ${(blob.size / 1e6).toFixed(1)} MB)</a>` : `<span>Not recorded in the browser (screen sharing was off or declined).</span>`}
         <button type="button" id="rf-again">Record again</button><button type="button" id="rf-back">&larr; Back to reader</button>`;
+      if (stopped) bar.insertAdjacentHTML("afterbegin", `<span role="alert">The clip stopped early (${esc(stopped)}).</span>`);
+      if (planMissing.length) bar.insertAdjacentHTML("beforeend", `<small class="rf-miss">Not found in this filing: ${esc(planMissing.join(" · "))}</small>`);
       if (blob && captureDetails){
         const details = document.createElement("small"); details.id = "rec-capture-details";
         details.textContent = captureDetails; details.style.display = "block";
@@ -4905,7 +5260,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
               });
             settled = ready ? settled + 1 : 0;
             return settled >= 4;
-          }, 80, 3000);
+          }, 80, 3000).catch(() => {});      // legs still moving after 3 seconds (a busy machine): the clip goes on, never stops for it
     };
     // -- Rewind and pause while recording. The recording holds (nothing is captured) while the crawl is paused or
     // replaying what was already recorded, and for the moment of a skip ahead. The strip with the controls shows only
@@ -4993,6 +5348,19 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (blob.disk && blob.handle) handed = await blob.handle.getFile().catch(() => null);
         b.disabled = false; b.textContent = "Edit in Studio";
         try { new BroadcastChannel("bmg-studio").postMessage({type: "take", id: take.id, file: handed}); } catch (e) {}
+        // a clip planned in Posting goes to the Studio by itself; once the Crawler window has it there, this window
+        // closes, so the Studio is what is on screen. (No Crawler window: the finish card stays, with Edit in Studio.)
+        const o = window.opener;
+        if (plan && o && !o.closed){
+          const got = e => {
+            if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-take-opened" || e.data.id !== take.id) return;
+            removeEventListener("message", got);
+            b.textContent = "Opened in the Studio"; b.disabled = true;
+            setTimeout(() => window.close(), 1200);
+          };
+          addEventListener("message", got);
+          try { o.postMessage({type: "bmg-open-take", id: take.id, file: handed, plan: true, missing: planMissing}, location.origin); } catch (e) {}
+        }
       }).catch(e => { b.textContent = "Not kept for the Studio (" + ((e && e.message) || "browser storage") + "): open the downloaded file there"; });
       b.onclick = () => {
         try { localStorage.setItem("bmg-studio-open", take.id); } catch (e) {}
@@ -5045,7 +5413,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     }
 
     function highlightTimeline(start, end, targets, duration, textRows = []){
-      if (!(end > start) || !targets.length) return null;
+      if (!(end > start)) return null;          // (a planned clip may have nothing to slow down for; highlights always do)
       const points = [{y:start,t:0}], step = 16;
       // Spend less of the fixed clip in empty page gaps; blend at the edges.
       const cost = y => {
@@ -5117,11 +5485,16 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         big: setup.querySelector("#clip-big").value.trim(), small: setup.querySelector("#clip-small").value.trim().replace(/\s*·\s*/g, "\n"),
         secs: Math.min(30, Math.max(15, +setup.querySelector("#clip-len").value || 20))} : null;
       const highlights = setup.querySelector("#rec-format").value === "highlights";
+      const planned = setup.querySelector("#rec-format").value === "plan" ? plan : null;
       const pace = +setup.querySelector("#rec-pace").value || 1.6;
       const previousTempo = state.speedMul || 1;
-      const finishAt = clip ? clip.secs - 2 : Math.max(5, +setup.querySelector("#rec-finish").value || 115);
-      const keySecs = Math.max(0, +setup.querySelector("#rec-keys").value || 0);
-      const oneSecs = Math.max(0, +setup.querySelector("#rec-one").value || 0);
+      // a planned clip of a set length ends when its timed crawl reaches the end of the filing (a few seconds' margin
+      // here); the whole form ends when the reading does
+      const finishAt = clip ? clip.secs - 2 : planned ? (planned.length === "whole" ? Infinity : planCrawlSecs() + 4)
+        : Math.max(5, +setup.querySelector("#rec-finish").value || 115);
+      const keySecs = planned ? (planned.ending ? PLAN_KEYS : 0) : Math.max(0, +setup.querySelector("#rec-keys").value || 0);
+      const oneSecs = planned ? (planned.ending ? PLAN_ONE : 0) : Math.max(0, +setup.querySelector("#rec-one").value || 0);
+      if (planned && !fileIn.files[0]){ planSay("The filing is not loaded yet.", true); return; }
       state.recordRenderWidth = setup.querySelector("#rec-quality")?.value === "standard" ? 0 : 1080;
       state.recCards = !!setup.querySelector("#rec-cards")?.checked;
       state.captureQuality = null;
@@ -5134,6 +5507,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         catch (e){ st.classList.add("err"); st.textContent = e.message || "Could not load the filing."; startBtn.disabled = false; return; }
         st.textContent = "";
       }
+      recPhase("busy");                                             // a take is under way: the Crawler window will not reload this one
       if (capture && capture.checked) await askCapture();          // asked first, while the click still counts as a user gesture
       setup.remove();
       const curtain = document.createElement("div");
@@ -5145,6 +5519,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       let clipWatch = 0;
       try {
         await wait(() => vis("read-skip"), 50);
+        if (planned && planned.start !== "statements") state.paused = true;   // a plan from the cover: the page holds while it is laid out
         const jb = vis("read-jump");
         const targets = clip ? findClipTargets(clip.find) : null;
         if (targets){
@@ -5158,7 +5533,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           await wait(() => window.crawlerJumpTo(anchor), 100, 30000);
           await wait(() => Math.abs(scrollY - y0) > 40, 100, 15000).catch(() => {});
           let last = scrollY; await wait(() => { const st = Math.abs(scrollY - last) < 20; last = scrollY; return st; }, 250, 5000).catch(() => {});
-        } else if (jb){
+        } else if (jb && (!planned || planned.start === "statements")){
           // lift the curtain only once the view has actually moved to the statements, then settled
           const y0 = scrollY; jb.click();
           await wait(() => scrollY - y0 > innerHeight * 0.5, 100, 15000).catch(() => {});
@@ -5169,6 +5544,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (state.feet && state.feet.length){
           await settleSpiderPose();
         }
+        let planHits = null;
+        if (planned){ state.paused = true; planHits = await planTargets(curtain); }
         let intro = null;
         if (clip){
           // the opening: the hook over the paused page for 2 seconds, then the spider at clip speed
@@ -5182,8 +5559,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (holds.size) holdCapture(true);                          // paused under the curtain: the recording waits too
         if (pics.length){ drawPics(); picLayer.hidden = false; }
         if (highlights){ await sleep(2000); startHighlights(pace); }
+        if (planned) planCrawl(planHits);
         if (renderProfile){ renderProfile.frames = []; renderProfile.draws = []; renderProfile.last = 0; }
         curtain.classList.add("out"); setTimeout(() => curtain.remove(), 400);
+        if (planned){ state.paused = false; clipWatch = planWatch(planHits); }
         if (intro){
           await sleep(2000);
           intro.classList.add("out"); setTimeout(() => intro.remove(), 300);
@@ -5201,14 +5580,20 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         }
         startOverlays();
         // count only time that is not paused
-        let left = finishAt * 1000, last = Date.now();
-        // (nor time the recording holds for a rewind: the clip's length is what is recorded)
-        await wait(() => { const now = Date.now(); const paused = (document.getElementById("ctl-pause") || {}).textContent === "Resume";
-                            if (!paused && !holds.size && !settling) left -= now - last; last = now; return left <= 0; }, 100);
+        let left = finishAt * 1000, last = Date.now(), tail = 1200, counted = 0;
+        // (nor time the recording holds for a rewind: the clip's length is what is recorded). The clip also ends once
+        // the spider has read the filing's last line, a moment later so that line is seen: it used to wait out the
+        // rest of its time on the last page. No time limit here: a whole 10-K at reading speed takes many minutes.
+        await wait(() => {
+          const now = Date.now(), paused = (document.getElementById("ctl-pause") || {}).textContent === "Resume";
+          if (!paused && !holds.size && !settling){ left -= now - last; counted += now - last; if (!walking()) tail -= now - last; }
+          last = now;
+          return left <= 0 || tail <= 0;
+        }, 100, Infinity);
         state.recordCamera = null;
         clearInterval(clipWatch);
-        if (clip){
-          // an idea clip ends on the crawl itself: no findings or summary screens
+        if (clip || (planned && !planned.ending)){
+          // an idea clip (and a planned one without the ending) ends on the crawl itself: no findings or summary screens
           clearInterval(hudTimer);
           state.paused = true;
           const blob = await stopCapture();
@@ -5216,7 +5601,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           finalControls(end, blob);
           return;
         }
-        await finishRecording(keySecs, oneSecs, highlights);
+        if (planned && planned.length !== "whole"){
+          // a clip of a set length: the ending takes what is left of it, so the take comes out at the length chosen
+          const n = Math.min(4, ((state.readRes && state.readRes.report && state.readRes.report.exec_findings) || []).length);
+          const rest = planned.length - counted / 1000 - 0.15, one = Math.min(PLAN_ONE, Math.max(2, rest * 0.45));
+          await finishRecording(Math.max(1.2, rest - one - n * 0.55), one, false);
+        } else await finishRecording(keySecs, oneSecs, highlights);
       } catch (e) {
         console.error("record mode stopped early:", e);
         state.recordCamera = null;
@@ -5224,7 +5614,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         document.getElementById("clip-intro")?.remove();
         curtain.remove();
         const blob = await stopCapture();
-        if (blob){ const end = document.createElement("div"); end.id = "rec-end"; B.appendChild(end); finalControls(end, blob); }
+        // the finish card comes either way, so the window is never left on the last page with nothing to press
+        if (!document.getElementById("rec-final")){
+          let end = document.getElementById("rec-end");
+          if (!end){ end = document.createElement("div"); end.id = "rec-end"; B.appendChild(end); }
+          finalControls(end, blob, (e && e.message) || String(e));
+        }
       } finally {
         state.speedMul = previousTempo;
       }
@@ -6729,10 +7124,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       source: `${res.title}${x.page ? ", p." + x.page : ""}`, quote: (x.text || "").slice(0, 300)};
     try { localStorage.setItem(PREFILL_LS, JSON.stringify(idea)); } catch (e) {}
     state.clipFile = state.chosenForJob && state.chosenSha === res.sha256 ? state.chosenForJob : null;
-    const h = Math.min(960, (screen.availHeight || 900) - 60), w = Math.round(h * 9 / 16);
-    const win = window.open("/desk/read/?layout=record&mode=rec&prefill=1", "bmg-record", `popup=yes,width=${w},height=${h}`);
-    state.clipWin = win;
-    if (!win) setStatus("The Record mode window was blocked; allow pop-ups for this page.");
+    const opened = recordWindow(REC_URL + "&prefill=1", true);
+    state.clipWin = opened && opened.win;
+    if (!opened) setStatus("The Record mode window was blocked; allow pop-ups for this page.");
+    else if (opened.busy) setStatus("Record mode is in the middle of a take: it is in front now. Finish that take, then make this clip.");
   }
   // the Record mode window says it is ready: it gets the document that was read, so the clip reads the same file
   addEventListener("message", e => {
@@ -7465,28 +7860,28 @@ Who is the auditor?</textarea>
     document.body.appendChild(pane);
     const body = pane.querySelector(".av-body"), scroller = pane.querySelector(".av-scroll");
     const pressed = v => document.querySelectorAll(".app-tabs button[data-app]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.app === v)));
-    document.addEventListener("bmg-local", () => { tabs.hidden = false; const h = location.hash.slice(1); if (h === "news" || h === "posting" || h === "studio") show(h); });
+    document.addEventListener("bmg-local", () => { tabs.hidden = false; const h = location.hash.slice(1); if (h === "news" || h === "posting" || h === "studio" || h === "make") show(h); });
     function show(v){
       if (v === "crawler"){
         if (studio) studio.hide();
         pane.hidden = true; document.body.classList.remove("av-open"); view = null; pressed("crawler");
         if (pausedByMe){ pausedByMe = false; const pb = document.getElementById("ctl-pause"); if (pb && state.paused && !pb.disabled) pb.click(); }
-        if (/^#(news|posting|studio)$/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
+        if (/^#(news|posting|studio|make)$/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
         return;
       }
       // the crawl waits while another view is open, and goes on when the Crawler is back
       if (walking() && !state.paused){ const pb = document.getElementById("ctl-pause"); if (pb && !pb.disabled){ pb.click(); pausedByMe = true; } }
       const again = view === v && !pane.hidden;
-      view = v; pane.hidden = false; document.body.classList.add("av-open"); pressed(v === "studio" ? "posting" : v);
+      view = v; pane.hidden = false; document.body.classList.add("av-open"); pressed(v === "studio" || v === "make" ? "posting" : v);
       history.replaceState(null, "", location.pathname + location.search + "#" + v);
       if (again) return;
       if (studio && v !== "studio") studio.hide();
       body.classList.toggle("wide", v === "studio");
       scroller.scrollTop = 0;
-      if (v === "news") renderNews(false); else if (v === "studio") renderStudio(); else renderPosting(false);
+      if (v === "news") renderNews(false); else if (v === "studio") renderStudio(); else if (v === "make") renderMake(); else renderPosting(false);
     }
     state.showApp = show;
-    document.addEventListener("click", e => { const b = e.target.closest(".app-tabs button[data-app]"); if (b){ e.preventDefault(); show(b.dataset.app); } });
+    document.addEventListener("click", e => { const b = e.target.closest(".app-tabs button[data-app]"); if (b){ e.preventDefault(); show(b.dataset.app === "posting" ? "make" : b.dataset.app); } });
     const when = s => s ? new Date(s.replace("Z", ":00Z")).toLocaleDateString(undefined, {month: "short", day: "numeric"}) : "";
     const copyText = async (t, btn) => {
       let ok = false;
@@ -7556,7 +7951,7 @@ Who is the auditor?</textarea>
     }
     body.addEventListener("click", async e => {
       const t = e.target;
-      const pv = t.closest("[data-pview]"); if (pv){ show(pv.dataset.pview === "studio" ? "studio" : "posting"); return; }
+      const pv = t.closest("[data-pview]"); if (pv){ show({studio: "studio", make: "make"}[pv.dataset.pview] || "posting"); return; }
       if (t.closest(".nw-refresh")){ renderNews(true); return; }
       const seg = t.closest("[data-sub]"); if (seg){ subject = seg.dataset.sub; drawNews(); return; }
       const cr = t.closest("[data-crawl]"); if (cr){ crawlTicker(cr.dataset.crawl, "rel"); return; }
@@ -7572,7 +7967,7 @@ Who is the auditor?</textarea>
 
     // ---------------- Posting: Today's posts, and the Studio (the editor for Record mode takes)
     let takeWaiting = false;                 // a take arrived while the Studio was not on screen
-    const postingTabs = sel => `<div class="ps-views" role="tablist" aria-label="Posting"><button type="button" role="tab" class="av-seg" data-pview="drafts" aria-selected="${sel === "drafts"}">Today's posts</button><button type="button" role="tab" class="av-seg" data-pview="studio" aria-selected="${sel === "studio"}">Studio${takeWaiting && sel !== "studio" ? ' <i class="ps-dot" title="A new take is waiting"></i>' : ""}</button></div>`;
+    const postingTabs = sel => `<div class="ps-views" role="tablist" aria-label="Posting"><button type="button" role="tab" class="av-seg" data-pview="make" aria-selected="${sel === "make"}">Make a clip</button><button type="button" role="tab" class="av-seg" data-pview="studio" aria-selected="${sel === "studio"}">Studio${takeWaiting && sel !== "studio" ? ' <i class="ps-dot" title="A new take is waiting"></i>' : ""}</button><button type="button" role="tab" class="av-seg" data-pview="drafts" aria-selected="${sel === "drafts"}">Today's posts</button></div>`;
     // The Studio (studio.js) loads the first time it opens. It is fetched past the browser's year-long cache of
     // static scripts, so a new version is used as soon as the server has it.
     let studio = null, studioEl = null, studioP = null;
@@ -7588,10 +7983,7 @@ Who is the auditor?</textarea>
         return window.BMGStudio;
       })().catch(e => { studioP = null; throw e; }));
     }
-    const openRecorder = () => {
-      const h = Math.min(960, (screen.availHeight || 900) - 60), w = Math.round(h * 9 / 16);
-      return !!window.open("/desk/read/?layout=record&mode=rec", "bmg-record", `popup=yes,width=${w},height=${h}`);
-    };
+    const openRecorder = () => !!recordWindow();
     async function renderStudio(){
       takeWaiting = false;
       if (!studioEl){ studioEl = document.createElement("div"); studioEl.className = "st-wrap"; }
@@ -7603,15 +7995,23 @@ Who is the auditor?</textarea>
         const S = await loadStudio();
         if (!studio) studio = window.bmgStudio = S.mount(studioEl, {db: studioDB, openRecorder, files: takeFiles});     // window.bmgStudio.state(): the edit, for checks
         if (view === "studio" && !pane.hidden) studio.show();
+        if (openNext){ const n = openNext; openNext = null; studio.openTake(n.id, n.opts); }
       } catch (e){ studioEl.innerHTML = `<p class="err">${esc(e.message || e)}</p>`; }
     }
-    // Record mode's Edit in Studio, and takes that end while the Crawler is open
+    // Record mode's Edit in Studio, and a planned clip's take, which comes by itself: it starts a clean edit on the
+    // Pictures tab, and the record window hears it arrived, so it can close (the Studio is then what is on screen)
+    let openNext = null;                     // a take to open once the Studio has started
     addEventListener("message", e => {
       if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-open-take") return;
-      if (e.data.file instanceof Blob) takeFiles.set(e.data.id, e.data.file);
-      if (studio){ try { localStorage.removeItem("bmg-studio-open"); } catch (x) {} show("studio"); studio.openTake(e.data.id); }
-      else show("studio");                   // the Studio opens the take named in localStorage as it starts
+      const d = e.data, opts = d.plan ? {clean: true, tab: "pics", note: takeNote(d)} : {};
+      if (d.file instanceof Blob) takeFiles.set(d.id, d.file);
+      try { localStorage.removeItem("bmg-studio-open"); } catch (x) {}
+      if (studio) studio.openTake(d.id, opts); else openNext = {id: d.id, opts};
+      show("studio");
+      if (d.plan){ mk.recording = false; try { e.source && e.source.postMessage({type: "bmg-take-opened", id: d.id}, location.origin); } catch (x) {} }
     });
+    const takeNote = d => "Your clip is on the preview. Add pictures here: drop them in, then drag them on the video. Export (the last tab) downloads it."
+      + (d.missing && d.missing.length ? ` Not found in this filing: ${d.missing.join(", ")}.` : "");
     try {
       new BroadcastChannel("bmg-studio").onmessage = e => {
         if (!e.data || e.data.type !== "take") return;
@@ -7624,6 +8024,178 @@ Who is the auditor?</textarea>
         }
       };
     } catch (e) { /* no BroadcastChannel: the take is in the Studio's list when it opens */ }
+    // ---------------- Posting: Make a clip. A ticker, then one of its forms on SEC EDGAR (or your own document), how
+    // long the clip is (the crawl's speed is set to fit, or the whole form at reading speed), what to find, then
+    // Record: the record window opens with all of it set, and the take comes back here to the Studio by itself.
+    const MAKE_LS = "bmg-make-clip", LENS = [15, 30, 45, 60, 90, 120, 180];
+    const QUICK = ["Revenue", "Net income", "Diluted EPS", "Cash and cash equivalents", "Share repurchases", "Guidance"];
+    const mk = {ticker: "", length: 60, speed: 1, start: "cover", ending: true, find: "", look: {}, list: null, pick: null, file: null, all: false, recording: false};
+    try { const s = JSON.parse(localStorage.getItem(MAKE_LS) || "{}"); for (const k of ["ticker", "length", "speed", "start", "ending", "find", "look"]) if (s[k] != null) mk[k] = s[k]; } catch (e) {}
+    const saveMk = () => { try { localStorage.setItem(MAKE_LS, JSON.stringify({ticker: mk.ticker, length: mk.length, speed: mk.speed, start: mk.start, ending: mk.ending, find: mk.find, look: mk.look})); } catch (e) {} };
+    const lenLabel = s => s === "whole" ? "the whole form" : s < 60 ? `${s} seconds` : s % 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s / 60} min`;
+    const mdy = s => s ? new Date(s + "T12:00:00").toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"}) : "";
+    const mbOf = n => n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
+    const findList = () => [...new Set(String(mk.find || "").split(/\n|;|,\s+/).map(s => s.trim()).filter(Boolean))].slice(0, 8);
+    const mkSay = (id, text, err) => { const el = body.querySelector("#" + id); if (!el) return; el.textContent = text || ""; el.classList.toggle("err", !!err); };
+    // the forms the Crawler reads, newest first: 10-K and 10-Q (and amended ones, 20-F, 40-F), earnings releases,
+    // and the year of insider trades this server gathers from the Form 4 filings
+    function formItems(j){
+      const out = (j.filings || []).map(f => {
+        const base = f.form.replace("/A", ""), annual = /^(10-K|20-F|40-F)$/.test(base), ext = (f.document.match(/\.(\w+)$/) || ["", "htm"])[1];
+        return {label: f.form.endsWith("/A") ? base + " (amended)" : f.form, form: f.form, accession: f.accession, document: f.document,
+          when: (/^8-K/.test(f.form) ? `Filed ${mdy(f.filed)}` : `${annual ? "Year" : "Quarter"} ended ${mdy(f.period || f.filed)} · filed ${mdy(f.filed)}`) + (f.exhibit ? " · " + f.exhibit : ""),
+          fileName: `${j.ticker || "CIK" + j.cik} ${f.form.replace("/", "-")} ${f.period || f.filed} filed ${f.filed} ${f.accession}.${ext}`};
+      });
+      out.push({label: "Form 4 insider trades", form: "Form 4", insiders: true, when: "The last 12 months of insider buys and sales, gathered from SEC EDGAR into one document"});
+      return out;
+    }
+    async function findForms(t){
+      t = String(t || "").trim().toUpperCase().replace(/^\$/, "");
+      if (!/^[A-Z][A-Z0-9.\-]{0,9}$/.test(t)){ mkSay("mk-st1", "Enter a ticker, for example NVDA.", true); return; }
+      mk.ticker = t; mk.file = null; mk.list = null; mk.pick = null; saveMk(); drawForms();
+      mkSay("mk-st1", `Looking up ${t} on SEC EDGAR...`);
+      const btn = body.querySelector("#mk-tk button[type=submit]"); if (btn) btn.disabled = true;
+      try {
+        const {r, j} = await api(`/api/edgar/filings?ticker=${encodeURIComponent(t)}&earnings=1&limit=40`);
+        if (!r.ok || !j) throw new Error((j && j.error) || `SEC EDGAR did not answer (HTTP ${r.status}).`);
+        if (mk.ticker !== t) return;                       // another ticker was asked for meanwhile
+        mk.list = {ticker: j.ticker, company: j.company, cik: j.cik, items: formItems(j)}; mk.all = false;
+        mkSay("mk-st1", "");
+      } catch (e){ if (mk.ticker === t) mkSay("mk-st1", (e && e.message) || String(e), true); }
+      finally { if (btn) btn.disabled = false; }
+      drawForms();
+    }
+    function drawForms(){
+      const box = body.querySelector("#mk-forms"); if (!box || view !== "make") return;
+      if (mk.file){
+        box.innerHTML = `<p class="mk-picked">Your document: <b>${esc(mk.file.name)}</b> (${mbOf(mk.file.size)})</p>
+          <p class="mk-note">${mk.ticker ? `It is read as ${esc(mk.ticker)}'s, so the report names the company. ` : ""}<button type="button" class="av-chip" data-clearfile>Use a filing instead</button></p>`;
+        return;
+      }
+      if (!mk.list){ box.innerHTML = `<p class="mk-note">Find a ticker's forms in step 1, or use your own document.</p>`; return; }
+      const items = mk.list.items, firsts = new Set();
+      box.innerHTML = `<p class="mk-co"><b>${esc(mk.list.company || mk.list.ticker)}</b> · ${esc(mk.list.ticker)} · ${items.length - 1} filings on SEC EDGAR, newest first. Pick one:</p>
+        <ul class="mk-flist" role="radiogroup" aria-label="Form">${items.map((f, i) => {
+          const latest = !f.insiders && !firsts.has(f.form);
+          firsts.add(f.form);
+          return `<li${i >= 9 && !mk.all && !f.insiders ? " hidden" : ""}><button type="button" role="radio" aria-checked="${mk.pick === i}" data-f="${i}"><b>${esc(f.label)}</b><span>${esc(f.when)}</span>${latest ? "<i>latest</i>" : ""}</button></li>`;
+        }).join("")}</ul>
+        ${items.length > 10 && !mk.all ? `<button type="button" class="av-chip" data-allforms style="margin-top:8px">Show all ${items.length - 1} filings</button>` : ""}`;
+    }
+    function drawLen(){
+      const box = body.querySelector(".mk-len"); if (!box) return;
+      const custom = typeof mk.length === "number" && !LENS.includes(mk.length);
+      box.querySelectorAll("[data-len]").forEach(b => b.setAttribute("aria-checked", String(String(mk.length) === b.dataset.len)));
+      const sec = body.querySelector("#mk-secs");
+      if (sec && document.activeElement !== sec) sec.value = custom ? mk.length : "";
+      body.querySelector(".mk-custom").classList.toggle("on", custom);
+      body.querySelector("#mk-speed-l").hidden = mk.length !== "whole";
+      const from = mk.start === "statements" ? "from the financial statements to the end of the form" : "the whole form from its cover page";
+      const crawl = typeof mk.length === "number" ? mk.length - (mk.ending ? 11 : 0) - 1.6 : 0;
+      body.querySelector("#mk-len-note").textContent = mk.length === "whole"
+        ? `The spider reads ${from} at reading speed, and the clip is as long as that takes: a long 10-K takes many minutes at 1x.`
+        : `${lenLabel(mk.length)} in all${mk.ending ? ", the last 11 seconds on the key findings and summary" : ""}. The spider's speed is set so it reads ${from} in the time left: a long form in a short clip is a fast crawl.`
+          + (crawl < 10 ? " That leaves under 10 seconds of crawling: choose a longer clip, or turn the ending off." : "");
+    }
+    function recStatus(ph){
+      if (view !== "make" || !mk.recording) return;
+      mkSay("mk-rst", ph === "busy" ? "Recording in the record window. When it ends, the Studio opens here with the clip."
+        : ph === "done" ? "The take is done: opening it in the Studio..." : ph === "closed" ? "" : "The record window is open with this clip set: press Start recording there.");
+    }
+    state.onRecPhase = ph => { if (ph === "closed" && view === "make") mk.recording = false; recStatus(ph); };
+    // your own document goes to the record window when it asks for it (a planned clip with a file from this Mac)
+    addEventListener("message", e => {
+      if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-record-ready" || !e.data.plan || !mk.file || !e.source) return;
+      try { e.source.postMessage({type: "bmg-clip-file", file: mk.file}, location.origin); } catch (x) {}
+    });
+    function makeRecord(){
+      const f = !mk.file && mk.list && mk.pick != null ? mk.list.items[mk.pick] : null;
+      if (!mk.file && !f){ mkSay("mk-rst", mk.list ? "Pick a form in step 2 first." : "Find a ticker's forms in step 1, or use your own document.", true); return; }
+      if (mk.length !== "whole" && !(mk.length >= 10)){ mkSay("mk-rst", "Choose how long the clip is in step 3.", true); return; }
+      const plan = {at: Date.now(), source: mk.file ? "custom" : f.insiders ? "insiders" : "edgar",
+        ticker: mk.file ? mk.ticker : mk.list.ticker, company: mk.file ? "" : mk.list.company, cik: mk.list && !mk.file ? mk.list.cik : null,
+        form: f ? f.form : "", accession: f ? f.accession : null, document: f ? f.document : null, fileName: f ? f.fileName : null,
+        when: f ? f.when : "", customName: mk.file ? mk.file.name : "",
+        length: mk.length, speed: mk.speed, start: mk.start, ending: mk.ending, find: findList(), look: mk.look};
+      try { localStorage.setItem("bmg-clip-plan", JSON.stringify(plan)); } catch (e) { mkSay("mk-rst", "This browser could not keep the plan (storage full?).", true); return; }
+      state.clipWin = null; state.clipFile = null;        // nothing from an earlier one-click clip goes to this window
+      const opened = recordWindow(REC_URL + "&plan=1", true);
+      if (!opened){ mkSay("mk-rst", "The record window was blocked: allow pop-ups for this page, then press Record again.", true); return; }
+      if (opened.busy){ mkSay("mk-rst", "Record mode is in the middle of a take: it is in front now. Finish that take, then press Record again.", true); return; }
+      mk.recording = true; recStatus("setup");
+    }
+    function renderMake(){
+      const lk = mk.look, pal = state.recPalettes || {};
+      let palNow = lk.palette; try { palNow = palNow || localStorage.getItem("bmg-crawler-palette") || "default"; } catch (e) { palNow = palNow || "default"; }
+      body.innerHTML = `<div class="ps mk">${postingTabs("make")}
+        <div class="av-h"><h2>Make a clip</h2><span class="av-st">Pick the filing, how long, and what to find. Record it, add pictures in the Studio, and download it.</span></div>
+        <ol class="mk-steps">
+        <li class="mk-step"><h3><b>1</b>Company</h3>
+          <form class="mk-row" id="mk-tk"><input id="mk-ticker" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="Ticker, for example NVDA" aria-label="Ticker" value="${esc(mk.ticker)}"><button type="submit" class="av-btn">Find its forms</button>
+            <span class="mk-or">or</span><label class="av-btn mk-own">Use my own document<input type="file" id="mk-file" accept=".pdf,.docx,.pptx,.htm,.html,.txt,.md" hidden></label></form>
+          <p class="mk-st" id="mk-st1" role="status"></p></li>
+        <li class="mk-step"><h3><b>2</b>Form</h3><div id="mk-forms"></div></li>
+        <li class="mk-step"><h3><b>3</b>Length</h3>
+          <div class="av-chips mk-len" role="radiogroup" aria-label="Clip length">${LENS.map(s => `<button type="button" role="radio" class="av-seg" data-len="${s}">${s < 60 ? s + " s" : lenLabel(s)}</button>`).join("")}<label class="mk-custom">Other <input type="number" id="mk-secs" min="10" max="900" step="5" inputmode="numeric" aria-label="Clip length in seconds"> s</label><button type="button" role="radio" class="av-seg" data-len="whole">Whole form</button></div>
+          <p class="mk-note" id="mk-len-note"></p>
+          <div class="mk-row" style="margin-top:10px"><label>Start at <select id="mk-start"><option value="cover">the cover page</option><option value="statements">the financial statements</option></select></label>
+            <label id="mk-speed-l">Reading speed <select id="mk-speed">${[1, 1.5, 2, 3, 4].map(v => `<option value="${v}">${v}x</option>`).join("")}</select></label>
+            <label><input type="checkbox" id="mk-ending"> End on the key findings and a one-page summary (about 11 seconds)</label></div></li>
+        <li class="mk-step"><h3><b>4</b>Find <small>optional</small></h3>
+          <textarea id="mk-find" rows="4" aria-label="What should the spider find? One per line" placeholder="One per line, for example:&#10;revenue&#10;data center revenue&#10;how much cash do they have"></textarea>
+          <div class="av-chips mk-quick">${QUICK.map(t => `<button type="button" class="av-chip" data-add="${esc(t)}">+ ${esc(t)}</button>`).join("")}</div>
+          <p class="mk-note">The spider goes to each one and lights it up, and a figure gets a number card; in a clip of a set length it slows down there. Answers come only from this filing (the Crawler's Ask): anything not in it is listed as not found.</p></li>
+        <li class="mk-step"><h3><b>5</b>Record</h3>
+          <details class="mk-look"><summary>Look: colors, page, number cards, video quality</summary>
+            <div class="mk-row"><label>Crawler colors <select id="mk-pal">${Object.entries(pal).map(([k, p]) => `<option value="${esc(k)}">${esc(p.name)}</option>`).join("")}</select></label>
+              <label><input type="checkbox" id="mk-dark"> Dark page</label><label><input type="checkbox" id="mk-cards"> Number cards</label>
+              <label>Video <select id="mk-q"><option value="high">High Quality · 1080 &times; 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label>
+              ${window.showSaveFilePicker ? `<label><input type="checkbox" id="mk-disk"> Save to disk while recording (long clips use no extra memory)</label>` : ""}</div></details>
+          <div class="mk-row"><button type="button" class="av-btn mk-go" id="mk-record">Record</button><span class="mk-st" id="mk-rst" role="status"></span></div>
+          <p class="mk-note">The record window opens with all of this set. Press Start recording there (Chrome asks to share that tab: choose Allow). When the clip ends, the Studio opens here with it: add pictures, then Export downloads the video.</p></li>
+        </ol></div>`;
+      const $m = id => body.querySelector("#" + id);
+      $m("mk-start").value = mk.start; $m("mk-speed").value = String(mk.speed); $m("mk-ending").checked = !!mk.ending; $m("mk-find").value = mk.find || "";
+      if ($m("mk-pal")) $m("mk-pal").value = palNow;
+      $m("mk-dark").checked = lk.dark !== false; $m("mk-cards").checked = lk.cards !== false; $m("mk-q").value = lk.quality === "standard" ? "standard" : "high";
+      if ($m("mk-disk")) $m("mk-disk").checked = lk.disk !== false;
+      const look = () => { mk.look = {palette: $m("mk-pal") ? $m("mk-pal").value : "default", dark: $m("mk-dark").checked, cards: $m("mk-cards").checked, quality: $m("mk-q").value, disk: $m("mk-disk") ? $m("mk-disk").checked : false}; saveMk(); };
+      look();
+      $m("mk-tk").addEventListener("submit", e => { e.preventDefault(); findForms($m("mk-ticker").value); });
+      $m("mk-file").addEventListener("change", e => {
+        const f = e.target.files[0]; if (!f) return;
+        mk.file = f; mk.pick = null;
+        const t = $m("mk-ticker").value.trim().toUpperCase(); if (/^[A-Z][A-Z0-9.\-]{0,9}$/.test(t)) mk.ticker = t;
+        mkSay("mk-st1", ""); drawForms();
+      });
+      $m("mk-forms").addEventListener("click", e => {
+        if (e.target.closest("[data-clearfile]")){ mk.file = null; drawForms(); return; }
+        if (e.target.closest("[data-allforms]")){ mk.all = true; drawForms(); return; }
+        const b = e.target.closest("button[data-f]"); if (!b) return;
+        mk.pick = +b.dataset.f;
+        $m("mk-forms").querySelectorAll("button[data-f]").forEach(x => x.setAttribute("aria-checked", String(x === b)));
+      });
+      body.querySelector(".mk-len").addEventListener("click", e => {
+        const b = e.target.closest("button[data-len]"); if (!b) return;
+        mk.length = b.dataset.len === "whole" ? "whole" : +b.dataset.len; saveMk(); drawLen();
+      });
+      $m("mk-secs").addEventListener("input", e => { const v = Math.round(+e.target.value); if (v >= 10 && v <= 900){ mk.length = v; saveMk(); drawLen(); } });
+      $m("mk-start").addEventListener("change", e => { mk.start = e.target.value; saveMk(); drawLen(); });
+      $m("mk-speed").addEventListener("change", e => { mk.speed = +e.target.value || 1; saveMk(); });
+      $m("mk-ending").addEventListener("change", e => { mk.ending = e.target.checked; saveMk(); drawLen(); });
+      $m("mk-find").addEventListener("input", e => { mk.find = e.target.value; saveMk(); });
+      body.querySelector(".mk-quick").addEventListener("click", e => {
+        const b = e.target.closest("[data-add]"); if (!b) return;
+        const ta = $m("mk-find"), have = findList().map(s => s.toLowerCase());
+        if (!have.includes(b.dataset.add.toLowerCase())) ta.value = (ta.value.trim() ? ta.value.trim() + "\n" : "") + b.dataset.add;
+        mk.find = ta.value; saveMk();
+      });
+      for (const id of ["mk-pal", "mk-dark", "mk-cards", "mk-q", "mk-disk"]) if ($m(id)) $m(id).addEventListener("change", look);
+      $m("mk-record").addEventListener("click", makeRecord);
+      drawForms(); drawLen();
+      if (mk.recording && recOpen()) recStatus(state.recPhase || "setup"); else mk.recording = false;
+      if (!mk.list && !mk.file && mk.ticker) findForms(mk.ticker);       // the last ticker's forms, ready to pick
+    }
     const PLAT = {tiktok: "TikTok", instagram: "Instagram", x: "X"};
     const SRC = {routine: "Daily hook ideas", read: "Your Crawler read", news: "From the news"};
     async function renderPosting(rebuild, focusId){
@@ -7749,9 +8321,8 @@ Who is the auditor?</textarea>
         big: first.shown || (d.hook.match(/\$\s?[\d.,]+[bmk]?/i) || [""])[0], small: first.period || "", page: first.page || null,
         source: first.where || "the Posting tab", quote: (first.quote || "").slice(0, 300)};
       try { localStorage.setItem(PREFILL_LS, JSON.stringify(x)); } catch (e) {}
-      const h = Math.min(960, (screen.availHeight || 900) - 60), w = Math.round(h * 9 / 16);
-      const win = window.open("/desk/read/?layout=record&mode=rec&prefill=1", "bmg-record", `popup=yes,width=${w},height=${h}`);
-      return !!win;
+      state.clipWin = null; state.clipFile = null;    // this clip loads its filing by ticker, not the last read's file
+      return !!recordWindow(REC_URL + "&prefill=1", true);
     }
     function openSource(d){
       // the idea behind the draft, else what the draft kept of it (an idea from an older list or a story from News)

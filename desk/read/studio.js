@@ -577,6 +577,7 @@ const TEMPLATE = `
       <section class="st-panel" data-p="pics" role="tabpanel" hidden>
         <label class="st-drop" data-drop="pics"><input type="file" accept="image/*" multiple data-in="pics" hidden><b>Drop pictures here or click to choose</b>You can also paste one (Cmd+V).</label>
         <p class="st-note">Drag a picture on the preview to move it, the corner to resize it, the round handle to turn it, and drop it on the bin at the top to remove it. Its purple bar under the video sets when it shows: drag the bar, or its ends.</p>
+        <p class="st-msg" data-m="pics" role="status"></p>
         <ul class="st-list st-pics"></ul>
       </section>
       <section class="st-panel" data-p="text" role="tabpanel" hidden>
@@ -790,12 +791,21 @@ function mount(root, opts){
     makeStrip(file, rec);
     return true;
   }
-  async function openTake(id){
+  async function openTake(id, msg){
     const ok = await showTake(id, !(P.take && P.take.id === id));
     if (!ok) return;
     cur = 0; selected = null; normalize();
     renderItems(); zoomFit(); renderAt(); panels(); commit(); listTakes();
-    flash("The take is on the preview. Press Play, or add pictures, text and a song.");
+    flash(msg ? "Your clip is on the preview." : "The take is on the preview. Press Play, or add pictures, text and a song.");
+    note("pics", msg || "");             // a Make a clip take's note (what to do next, what was not found); gone with another take
+  }
+  // a clip made in Posting (Make a clip) starts a clean edit: its pictures, text and song are its own. The export
+  // settings stay, and Undo brings the last edit back.
+  function cleanEdit(){
+    if (!P.items.length && !P.music) return;
+    pause();
+    P = Object.assign(newProject(), {fit: P.fit, fps: P.fps, origVol: P.origVol, take: P.take, segs: P.segs});
+    selected = null; textCache.clear();
   }
   async function addVideoFile(file){
     if (!file || !/^video\//.test(file.type) && !/\.(mp4|mov|m4v|webm)$/i.test(file.name)){ note("takes", "That is not a video file.", true); return; }
@@ -1969,7 +1979,7 @@ function mount(root, opts){
   return {
     show(){ shown = true; ready.then(() => { zoomFit(); renderItems(); drawWave(); listTakes(); }); st.focus({preventScroll: true}); },
     hide(){ shown = false; pause(); if (listenNode) listen($('[data-a="listen"]')); },
-    async openTake(id){ await ready; showTab("takes", true); await openTake(id); },
+    async openTake(id, o = {}){ await ready; if (o.clean) cleanEdit(); showTab(o.tab || "takes", true); await openTake(id, o.note); },
     async takeArrived(id){ await ready; const all = await listTakes(); if (!P.take && all && all.some(t => t.id === id)) await openTake(id); else flash("A new take is in Takes."); },
     state: () => ({P, cur, playing, selected, pps, thumbs: thumbs.map(t => +t.t.toFixed(2)), shown})        // for checks: what the editor holds right now
   };
