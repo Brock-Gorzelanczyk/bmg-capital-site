@@ -7860,19 +7860,20 @@ Who is the auditor?</textarea>
     document.body.appendChild(pane);
     const body = pane.querySelector(".av-body"), scroller = pane.querySelector(".av-scroll");
     const pressed = v => document.querySelectorAll(".app-tabs button[data-app]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.app === v)));
-    document.addEventListener("bmg-local", () => { tabs.hidden = false; const h = location.hash.slice(1); if (h === "news" || h === "posting" || h === "studio" || h === "make") show(h); });
+    document.addEventListener("bmg-local", () => { tabs.hidden = false; const h = location.hash.slice(1); if (/^(news|posting|studio|make|posts)$/.test(h)) show(h); });
     function show(v){
+      if (v === "posting") v = "make";      // Posting is the clip workflow; today's written drafts are at #posts
       if (v === "crawler"){
         if (studio) studio.hide();
         pane.hidden = true; document.body.classList.remove("av-open"); view = null; pressed("crawler");
         if (pausedByMe){ pausedByMe = false; const pb = document.getElementById("ctl-pause"); if (pb && state.paused && !pb.disabled) pb.click(); }
-        if (/^#(news|posting|studio|make)$/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
+        if (/^#(news|posting|studio|make|posts)$/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
         return;
       }
       // the crawl waits while another view is open, and goes on when the Crawler is back
       if (walking() && !state.paused){ const pb = document.getElementById("ctl-pause"); if (pb && !pb.disabled){ pb.click(); pausedByMe = true; } }
       const again = view === v && !pane.hidden;
-      view = v; pane.hidden = false; document.body.classList.add("av-open"); pressed(v === "studio" || v === "make" ? "posting" : v);
+      view = v; pane.hidden = false; document.body.classList.add("av-open"); pressed(v === "studio" || v === "make" || v === "posts" ? "posting" : v);
       history.replaceState(null, "", location.pathname + location.search + "#" + v);
       if (again) return;
       if (studio && v !== "studio") studio.hide();
@@ -7881,7 +7882,7 @@ Who is the auditor?</textarea>
       if (v === "news") renderNews(false); else if (v === "studio") renderStudio(); else if (v === "make") renderMake(); else renderPosting(false);
     }
     state.showApp = show;
-    document.addEventListener("click", e => { const b = e.target.closest(".app-tabs button[data-app]"); if (b){ e.preventDefault(); show(b.dataset.app === "posting" ? "make" : b.dataset.app); } });
+    document.addEventListener("click", e => { const b = e.target.closest(".app-tabs button[data-app]"); if (b){ e.preventDefault(); show(b.dataset.app); } });
     const when = s => s ? new Date(s.replace("Z", ":00Z")).toLocaleDateString(undefined, {month: "short", day: "numeric"}) : "";
     const copyText = async (t, btn) => {
       let ok = false;
@@ -7951,7 +7952,7 @@ Who is the auditor?</textarea>
     }
     body.addEventListener("click", async e => {
       const t = e.target;
-      const pv = t.closest("[data-pview]"); if (pv){ show({studio: "studio", make: "make"}[pv.dataset.pview] || "posting"); return; }
+      const pv = t.closest("[data-pview]"); if (pv){ show(pv.dataset.pview === "drafts" ? "posts" : pv.dataset.pview); return; }
       if (t.closest(".nw-refresh")){ renderNews(true); return; }
       const seg = t.closest("[data-sub]"); if (seg){ subject = seg.dataset.sub; drawNews(); return; }
       const cr = t.closest("[data-crawl]"); if (cr){ crawlTicker(cr.dataset.crawl, "rel"); return; }
@@ -7961,13 +7962,13 @@ Who is the auditor?</textarea>
         mk.disabled = true; mk.textContent = "Drafting...";
         const {r, j} = await api("/api/posting/drafts", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({story: s, slot: "auto"})});
         if (!r.ok){ mk.disabled = false; mk.textContent = (j && j.error) || "No post angle for this story"; return; }
-        posting = null; show("posting"); renderPosting(false, j.id);
+        posting = null; show("posts"); renderPosting(false, j.id);
       }
     });
 
     // ---------------- Posting: Today's posts, and the Studio (the editor for Record mode takes)
     let takeWaiting = false;                 // a take arrived while the Studio was not on screen
-    const postingTabs = sel => `<div class="ps-views" role="tablist" aria-label="Posting"><button type="button" role="tab" class="av-seg" data-pview="make" aria-selected="${sel === "make"}">Make a clip</button><button type="button" role="tab" class="av-seg" data-pview="studio" aria-selected="${sel === "studio"}">Studio${takeWaiting && sel !== "studio" ? ' <i class="ps-dot" title="A new take is waiting"></i>' : ""}</button><button type="button" role="tab" class="av-seg" data-pview="drafts" aria-selected="${sel === "drafts"}">Today's posts</button></div>`;
+    const postingTabs = sel => `<div class="ps-views" role="tablist" aria-label="Posting"><button type="button" role="tab" class="av-seg" data-pview="make" aria-selected="${sel === "make"}">Make a clip</button><button type="button" role="tab" class="av-seg" data-pview="studio" aria-selected="${sel === "studio"}">Studio${takeWaiting && sel !== "studio" ? ' <i class="ps-dot" title="A new take is waiting"></i>' : ""}</button></div>`;
     // The Studio (studio.js) loads the first time it opens. It is fetched past the browser's year-long cache of
     // static scripts, so a new version is used as soon as the server has it.
     let studio = null, studioEl = null, studioP = null;
@@ -8205,11 +8206,11 @@ Who is the auditor?</textarea>
         if (!r.ok) throw new Error((j && (j.error || j.detail)) || "HTTP " + r.status);
         posting = j;
       } catch (e){
-        if (view !== "posting" || pane.hidden) return;
+        if (view !== "posts" || pane.hidden) return;
         body.innerHTML = `<div class="ps">${postingTabs("drafts")}<div class="av-h"><h2>Posting</h2></div><p class="err">Could not load today's drafts (${esc(e.message || e)}).</p><button type="button" class="av-btn ps-reload">Try again</button></div>`;
         return;
       }
-      if (view !== "posting" || pane.hidden) return;     // the Studio or News opened while the drafts loaded: not drawn over it
+      if (view !== "posts" || pane.hidden) return;     // the Studio or News opened while the drafts loaded: not drawn over it
       drawPosting();
       if (focusId){ const el = body.querySelector(`.ps-slot[data-id="${focusId}"]`); if (el){ el.scrollIntoView({block: "start"}); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1800); } }
     }
