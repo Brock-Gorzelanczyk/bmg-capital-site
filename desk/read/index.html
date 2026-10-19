@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="has-stage">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -230,7 +230,7 @@ body.recmode .site-header,body.recmode .read-page>h1,body.recmode .read-page>.le
 body.recmode main.read-page{max-width:none!important;padding:0 6px!important;margin:0!important}
 body.recmode .read-grid{display:block!important}body.recmode .stage{border:none!important}body.recmode .stage .strip{display:none!important}
 body.recmode .doc{margin-bottom:36vh!important;max-width:none!important}   /* full page width: zooming in clipped wide statement columns */
-body.recmode{--rec-h:28vh;overflow-x:hidden!important}html:has(body.recmode){overflow-x:hidden}
+body.recmode{--rec-h:28vh;overflow-x:hidden!important}html.recmode-root{overflow-x:hidden}   /* a class, not html:has(body.recmode): a :has() at the root restyled the whole page whenever a finding was added */
 body.recmode .read-side{box-sizing:border-box;padding:6px 12px 0!important;box-shadow:0 -8px 24px rgba(0,0,0,.18)!important;border-radius:16px 16px 0 0!important}
 body.recmode .lr-v{font-size:15px}body.recmode .lr-t td{padding:3px 5px}body.recmode .lr h4{margin:8px 0 3px}
 body.recmode.rec-dark,body.recmode.rec-dark main.read-page,body.recmode.rec-dark .read-grid,body.recmode.rec-dark .stage,body.recmode.rec-dark .doc,body.recmode.rec-dark #doc,body.recmode.rec-dark #docbody{background:#000!important}
@@ -719,7 +719,7 @@ kbd{font:600 11px 'IBM Plex Mono',monospace;border:1px solid #c9c9c4;border-bott
 .fmap:hover .fmap-mark::after,.fmap-mark:focus-visible::after{opacity:1}
 .fmap-mark.flag{background:#e5484d}.fmap-mark.guide{background:#e8920c}
 .fmap-dot{position:absolute;left:50%;top:0;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--crawler-main,#27c8ff);box-shadow:0 0 0 2px #fff;pointer-events:none}
-@media (max-width:900px){.stage .strip{position:fixed;left:8px;right:8px;bottom:calc(46vh + 8px);border-radius:12px;z-index:41}body:has(.read-side.collapsed) .stage .strip{bottom:54px}.fmap{display:none}
+@media (max-width:900px){.stage .strip{position:fixed;left:8px;right:8px;bottom:calc(46vh + 8px);border-radius:12px;z-index:41}body.side-collapsed .stage .strip{bottom:54px}.fmap{display:none}
   .stage .strip .status{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* while reading, the sheet is 28vh tall (it holds that height, so the bar sits right on it) and the page can
      scroll the end of the filing above the bar */
@@ -3193,18 +3193,31 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       return {h: r.height, f: f ? f.getBoundingClientRect().top - r.top : 0, l: l ? l.getBoundingClientRect().top - r.top : 0,
         over: k.scrollHeight > k.clientHeight + 1 || k.scrollWidth > k.clientWidth + 1};
     };
-    // boxes that keep their layout under containment (the same test for a group and for a single block)
+    // the first word after a box, wherever it is (the next box, or past the end of the box's parent)
+    const nextWord = k => {
+      for (let e = k; e && e !== wrap; e = e.parentElement)
+        for (let n = e.nextElementSibling; n; n = n.nextElementSibling){ const w = n.classList.contains("w") ? n : n.getElementsByClassName("w")[0]; if (w) return w; }
+      return null;
+    };
+    // boxes that keep their layout under containment (the same test for a group and for a single block): the box's
+    // top, its first and last words and the first word below it stay where they were. The box itself may grow: a
+    // bottom margin that collapsed through its edge is inside it under containment, and the space below is the same.
+    // (Requiring the same height failed every group of NVIDIA's 10-K, whose paragraphs all have a bottom margin: 731
+    // tiny held blocks instead of about 20 groups, and a fast clip stalled at 36 fps.)
     const test = list => {
-      const before = list.map(read);
+      const at = () => list.map((k, i) => ({top: k.getBoundingClientRect().top, below: below[i] ? below[i].getBoundingClientRect().top : null}));
+      const below = list.map(nextWord), before = list.map(read), pos0 = at();
       list.forEach((k, i) => { if (!before[i].over) k.style.contain = "layout paint"; });
-      const after = list.map(read);
+      const after = list.map(read), pos1 = at();
       list.forEach(k => { k.style.contain = ""; });
       return list.map((k, i) => {
-        const b = before[i], a = after[i];
-        return {b, a, pass: !(b.over || a.over || Math.abs(a.h - b.h) > 0.01 || Math.abs(a.f - b.f) > 0.01 || Math.abs(a.l - b.l) > 0.01)};
+        const b = before[i], a = after[i], p = pos0[i], q = pos1[i];
+        const still = Math.abs(q.top - p.top) <= 0.01 && Math.abs(a.f - b.f) <= 0.01 && Math.abs(a.l - b.l) <= 0.01 &&
+          (p.below == null ? Math.abs(a.h - b.h) <= 0.01 : Math.abs(q.below - p.below) <= 0.01);
+        return {b, a, pass: !(b.over || a.over) && still};
       });
     };
-    const keep = list => test(list).map(x => x.pass && x.b);
+    const keep = list => test(list).map(x => x.pass && x.a);
     const unwrap = r => { for (const n of [...r.box.childNodes]) r.box.parentNode.insertBefore(n, r.box); r.box.remove(); r.box = null; };
     const firstTops = () => runs.map(r => r.els.map(e => { const w = words(e)[0]; return w ? w.getBoundingClientRect().top : 0; }));
     const pre = firstTops();
@@ -3234,7 +3247,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         const res = test(live.map(r => r.box || r.els[0])), next = [];
         live.forEach((r, i) => {
           const {b, a, pass} = res[i], box = r.box || r.els[0];
-          if (pass){ held.push([box, b.h]); return; }
+          if (pass){ held.push([box, a.h]); return; }
           if (!isGroup(r)) return;                                      // a single block that fails stays as it is
           const kids = [...r.box.children];
           if (b.over || a.over || kids.length < 2 || round === 3){ alone.push(...kids); unwrap(r); return; }
@@ -4018,6 +4031,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   const sheetBtn = document.getElementById("rs-sheet");
   if (sheetBtn) sheetBtn.addEventListener("click", () => {
     const side = document.querySelector(".read-side"); const c = side.classList.toggle("collapsed");
+    document.body.classList.toggle("side-collapsed", c);          // for the strip above it (a class, not body:has(): see html.recmode-root)
     sheetBtn.setAttribute("aria-expanded", String(!c)); sheetBtn.textContent = c ? "Show report" : "Hide";
   });
   if (/[?&]layout=record\b/.test(location.search)) document.body.classList.add("rec");
@@ -4100,7 +4114,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     });
     const isRecord = /[?&]mode=rec\b/.test(location.search);
     const B = document.body;
-    if (isRecord) B.classList.add("rec", "recmode", "rec-dark");
+    if (isRecord){ B.classList.add("rec", "recmode", "rec-dark"); document.documentElement.classList.add("recmode-root"); }
     else B.classList.add("readerfx", "rec-dark");
     if (isRecord) window.READER_VIEW_FRAC = 0.6;                    // the bottom 40% is the live report panel
     // What this window is doing, for the Crawler window that opened it: its chip, and its buttons, which bring this
