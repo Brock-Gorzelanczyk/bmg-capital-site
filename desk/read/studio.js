@@ -90,9 +90,11 @@ function textCanvas(it, scale){
 }
 
 // ---- where the video sits in the 9:16 frame: filling it (edges cropped) or whole (bars) ----
+// Auto fills the frame (cropping the edges) only for a take within 3% of 9:16; a take further off shows whole, with
+// bars: a Crawler take has text right to its edges (a 6% wider take lost about 15 px of its report panel each side)
 function videoFill(vw, vh, fit){
   const r = vw / vh, R = W / H;
-  return fit === "fill" || (fit !== "fit" && Math.abs(r - R) / R < 0.15);
+  return fit === "fill" || (fit !== "fit" && Math.abs(r - R) / R < 0.03);
 }
 function videoRect(vw, vh, fit){
   const r = vw / vh, R = W / H, fill = videoFill(vw, vh, fit);
@@ -126,7 +128,11 @@ function loadedMeta(v){
   if (v.readyState >= 1) return Promise.resolve();
   return new Promise((res, rej) => {
     const ok = () => { v.removeEventListener("error", bad); res(); };
-    const bad = () => { v.removeEventListener("loadedmetadata", ok); rej(new Error("The browser could not read this video.")); };
+    const bad = () => {
+      v.removeEventListener("loadedmetadata", ok);
+      const e = v.error, why = e ? ["", "it stopped", "a network error", "it could not be decoded", "the file is empty, missing or not a video it can play"][e.code] || "error " + e.code : "";
+      rej(new Error("The browser could not read this video" + (why ? ` (${why}${e && e.message ? ": " + e.message : ""})` : "") + "."));
+    };
     v.addEventListener("loadedmetadata", ok, {once: true}); v.addEventListener("error", bad, {once: true});
   });
 }
@@ -519,6 +525,8 @@ function injectCSS(){
 .st-right{min-width:0;min-height:0;display:flex;flex-direction:column}
 .st-tools{flex:1 1 0;min-height:230px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;overflow:auto}
 .st-tabs{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 10px}
+.st-tools > .st-head{position:sticky;top:-12px;z-index:3;background:#fff;margin:-12px -14px 10px;padding:12px 14px 8px;border-bottom:1px solid #f0f0ec}   /* the tabs stay in view while a panel scrolls */
+.st-tlbar .st-go{margin-left:4px}
 .st-tabs button{height:32px;padding:0 13px;border-radius:16px;border:1px solid #c9cfca;background:#fff;font:600 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer;color:#3a3a3a}
 .st-tabs button[aria-selected=true]{background:#141414;border-color:#141414;color:#fff}
 .st-tabs button i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#ff3da6;margin-left:5px;vertical-align:1px}
@@ -541,6 +549,10 @@ function injectCSS(){
 .st-qx{position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;border:1px solid #c9cfca;background:#fff;color:#3a3a3a;font-size:14px;line-height:1;cursor:pointer;padding:0}
 .st-qx:hover{border-color:#b42318;color:#b42318}
 .st-list .st-ib[data-keep][aria-pressed=true]{border-color:var(--g);color:var(--g)}
+.st-rep{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:8px 0}
+.st-repv{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;border:1px solid #c9cfca;border-radius:10px;background:repeating-conic-gradient(#e3e5e0 0 25%,#fff 0 50%) 0 0/10px 10px;cursor:pointer;font:600 12px 'IBM Plex Sans',sans-serif;color:#141414}
+.st-repv:hover{border-color:var(--g);box-shadow:0 0 0 2px var(--g)}.st-repv img{width:100%;height:150px;object-fit:contain;display:block}
+.st-repv span{background:#fff;border-radius:6px;padding:2px 6px}
 .st-bgx{margin:12px 0 0;padding:12px;border:1px solid #e3e3dc;border-radius:12px;background:#fafaf7}
 .st-bgx-row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
 .st-bgx-pv{display:grid;place-items:center;width:180px;height:180px;flex:none;border-radius:10px;overflow:hidden;
@@ -630,6 +642,7 @@ const TEMPLATE = `
       <div class="st-head"><div class="st-tabs" role="tablist" aria-label="Studio tools">
         <button type="button" role="tab" data-tab="takes" aria-selected="true">Takes</button>
         <button type="button" role="tab" data-tab="pics" aria-selected="false">Pictures</button>
+        <button type="button" role="tab" data-tab="report" aria-selected="false">Report</button>
         <button type="button" role="tab" data-tab="text" aria-selected="false">Text</button>
         <button type="button" role="tab" data-tab="music" aria-selected="false">Music</button>
         <button type="button" role="tab" data-tab="export" aria-selected="false">Export</button>
@@ -656,6 +669,12 @@ const TEMPLATE = `
               <span class="st-row"><button type="button" class="st-btn" data-a="bgok">Use it</button><button type="button" class="st-ib" data-a="bgno">Cancel</button></span></span></div>
           <p class="st-note">It clears the color around the picture's edges: best for a logo or a picture on a plain background (a photo's background is not one color). The original is kept: Undo brings it back.</p>
         </div>
+      </section>
+      <section class="st-panel" data-p="report" role="tabpanel" hidden>
+        <div class="st-row">Style <div class="st-seg" data-set="rstyle"><button type="button" data-v="dark">Dark</button><button type="button" data-v="light">Light</button></div></div>
+        <p class="st-msg" data-m="report" role="status"></p>
+        <div class="st-rep"></div>
+        <p class="st-note">Each version is drawn from the report the Crawler made of this filing: every figure as the filing prints it, with its page. Click one to put it on the video: it shows for 5 seconds from the playhead (the last 5 seconds when the playhead is at the start). Then move, resize and time it like a picture.</p>
       </section>
       <section class="st-panel" data-p="text" role="tabpanel" hidden>
         <textarea rows="3" data-in="text" placeholder="Type your text"></textarea>
@@ -705,6 +724,7 @@ const TEMPLATE = `
     <button type="button" class="st-ib" data-a="whole" title="Selected picture or text shows the whole video">Whole video</button>
     <span class="st-sel"></span>
     <span class="st-zoom"><button type="button" class="st-ib" data-a="zout" title="Zoom out">&minus;</button><button type="button" class="st-ib" data-a="zfit" title="Fit the timeline">Fit</button><button type="button" class="st-ib" data-a="zin" title="Zoom in">+</button></span>
+    <button type="button" class="st-btn st-go" data-a="goexport" title="Make the 1080 &times; 1920 video and download it">Export &amp; download</button>
   </div>
   <div class="st-tl">
     <div class="st-tl-labels"></div>
@@ -834,6 +854,134 @@ function mount(root, opts){
     await loadQuick(); panels();
     if (on) flash("Kept in Quick add, for every video.");
   }
+  // ---------------- Report: versions of the take's report, drawn as pictures for the video ----------------
+  // The record window keeps the report with each take (meta.report: the figures and findings its ending shows, as
+  // printed, with their pages). Nothing here computes a figure: it lays out what the report says.
+  let repStyle = "dark", repShown = "";
+  try { repStyle = localStorage.getItem("bmg-studio-repstyle") === "light" ? "light" : "dark"; } catch (e) {}
+  const REP_SEV = {flag: "#e5484d", watch: "#e8920c", observation: "#3e7bfa"};
+  const repTheme = st => st === "light"
+    ? {bg: "#ffffff", line: "#e3e3dc", text: "#141414", mute: "#6b6f76", up: "#0f7d47", down: "#b42318", brand: "#0f7d47", tile: "#f5f6f3"}
+    : {bg: "#0b0f14", line: "rgba(255,255,255,.12)", text: "#f2f5f8", mute: "#9aa6b1", up: "#2fdc74", down: "#ff5c6b", brand: "#2fdc74", tile: "rgba(255,255,255,.06)"};
+  const takeRep = () => { const r = P.take && P.take.meta && P.take.meta.report; return r && ((r.figures || []).length || (r.findings || []).length) ? r : null; };
+  // the four tiles, as the ending's summary picks them (revenue, net income, diluted EPS, free cash flow), then the rest
+  const repTiles = (r, n) => { const pref = ["revenue", "net_income", "eps_diluted", "fcf"], f = r.figures || [];
+    return [...pref.map(k => f.find(x => x.k === k)).filter(Boolean), ...f.filter(x => !pref.includes(x.k))].slice(0, n); };
+  function repVersions(r){
+    const v = [];
+    if ((r.figures || []).length) v.push({id: "one", name: "One-page summary"});
+    if ((r.findings || []).length) v.push({id: "keys", name: "Key findings"});
+    if ((r.figures || []).length) v.push({id: "nums", name: "Headline numbers"});
+    for (const f of r.figures || []) v.push({id: "fig:" + f.k, name: f.label + " card"});
+    return v;
+  }
+  function repWrap(g, text, maxW){
+    const lines = []; let line = "";
+    for (const w of String(text || "").split(/\s+/).filter(Boolean)){ const t = line ? line + " " + w : w; if (line && g.measureText(t).width > maxW){ lines.push(line); line = w; } else line = t; }
+    if (line) lines.push(line);
+    return lines;
+  }
+  // one version, drawn on a canvas: a rounded card with a soft shadow on a clear background
+  async function repCard(r, ver, st){
+    try { await Promise.all(["700 50px 'IBM Plex Sans'", "500 24px 'IBM Plex Sans'", "600 22px 'IBM Plex Mono'"].map(f => document.fonts.load(f))); } catch (e) {}
+    const T = repTheme(st), fig = ver.id.startsWith("fig:"), W = fig ? 760 : 1000, M = 36, Pd = fig ? 56 : 52, inner = W - 2 * Pd;
+    const c = document.createElement("canvas"); c.width = W + 2 * M; c.height = 3000;
+    const g = c.getContext("2d"), ops = [];
+    const sans = (w, px) => `${w} ${px}px 'IBM Plex Sans', Helvetica, Arial, sans-serif`, mono = (w, px) => `${w} ${px}px 'IBM Plex Mono', ui-monospace, monospace`;
+    const text = (t, font, color, x, y, align) => ops.push(() => { g.font = font; g.fillStyle = color; g.textAlign = align || "left"; g.fillText(t, M + x, M + y); });
+    const measure = (t, font) => { g.font = font; return g.measureText(t).width; };
+    const brand = (y, right) => {
+      ops.push(() => { g.strokeStyle = T.brand; g.lineWidth = 4; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath();
+        g.moveTo(M + Pd, M + y + 2); g.lineTo(M + Pd + 12, M + y - 10); g.lineTo(M + Pd + 22, M + y - 3); g.lineTo(M + Pd + 36, M + y - 18); g.stroke(); });
+      text("BMG Capital", sans(700, 26), T.text, Pd + 48, y);
+      if (right) text(right, sans(500, 22), T.mute, Pd + inner, y, "right");
+    };
+    const tile = (f, x, y, w, h) => {
+      ops.push(() => { g.fillStyle = T.tile; g.beginPath(); g.roundRect(M + x, M + y, w, h, 18); g.fill(); });
+      text(f.label, sans(500, 24), T.mute, x + 22, y + 42);
+      let vf = sans(700, 52); if (measure(f.value, vf) > w - 44) vf = sans(700, 40);
+      text(f.value, vf, T.text, x + 22, y + 100);
+      if (f.change) text(f.change, sans(600, 26), f.up == null ? T.mute : f.up ? T.up : T.down, x + 22, y + 138);
+      text([f.period, f.page ? "p." + f.page : ""].filter(Boolean).join(" · "), mono(500, 19), T.mute, x + 22, y + 168);
+    };
+    const tiles = (list, y) => { const gap = 18, w = (inner - gap) / 2, h = 186; list.forEach((f, i) => tile(f, Pd + (i % 2) * (w + gap), y + Math.floor(i / 2) * (h + gap), w, h)); return y + Math.ceil(list.length / 2) * (h + gap) - gap; };
+    const finding = (x, y, big) => {
+      const fs = big ? 28 : 24, lh = big ? 38 : 32;
+      const y0 = y;
+      ops.push(() => { g.fillStyle = REP_SEV[x.severity] || T.mute; g.beginPath(); g.arc(M + Pd + 8, M + y0 - fs * .35, 7, 0, 7); g.fill(); });
+      g.font = sans(600, fs); const lines = repWrap(g, x.headline, inner - 30);
+      lines.forEach((l, i) => text(l, sans(600, fs), T.text, Pd + 30, y + i * lh));
+      y += (lines.length - 1) * lh + (big ? 32 : 28);
+      text([x.tag, x.pages].filter(Boolean).join(" · "), mono(500, big ? 20 : 18), T.mute, Pd + 30, y);
+      return y + (big ? 30 : 22);
+    };
+    const who = [r.ticker, r.form].filter(Boolean).join(" · ");
+    let y = Pd + 26;
+    if (fig){
+      const f = (r.figures || []).find(x => "fig:" + x.k === ver.id);
+      text(f.label.toUpperCase(), mono(600, 30), T.brand, Pd, y + 6); y += 120;
+      let vf = sans(700, 120); if (measure(f.value, vf) > inner) vf = sans(700, 88);
+      text(f.value, vf, T.text, Pd, y); y += 62;
+      if (f.change){ text(f.change + " vs a year earlier", sans(600, 34), f.up == null ? T.mute : f.up ? T.up : T.down, Pd, y); y += 50; }
+      text([who, f.period, f.page ? "p." + f.page : ""].filter(Boolean).join(" · "), mono(500, 24), T.mute, Pd, y); y += 56;
+      brand(y, ""); y += 14;
+    } else if (ver.id === "keys"){
+      brand(y, who); y += 74;
+      g.font = sans(700, 40); repWrap(g, `Key findings · ${r.company}`, inner).forEach(l => { text(l, sans(700, 40), T.text, Pd, y); y += 50; });
+      y += 18;
+      for (const x of (r.findings || []).slice(0, 4)) y = finding(x, y + 12, true) + 8;
+      y -= 10;
+    } else {
+      brand(y, ver.id === "one" ? "Company report" : who); y += 78;
+      g.font = sans(700, 50); repWrap(g, r.company, inner).slice(0, 2).forEach(l => { text(l, sans(700, 50), T.text, Pd, y); y += 58; });
+      text([r.ticker, r.form, r.period].filter(Boolean).join(" · "), sans(500, 26), T.mute, Pd, y - 8); y += 34;
+      y = tiles(repTiles(r, ver.id === "one" ? 4 : 6), y) + 26;
+      if (ver.id === "one" && (r.findings || []).length){ y += 16; for (const x of r.findings.slice(0, 3)) y = finding(x, y + 8, false) + 4; }
+      if (ver.id === "one"){ y += 10; text([r.coverage, "every figure cites its page in the filing"].filter(Boolean).join(" · "), sans(500, 19), T.mute, Pd, y); y += 6; }
+    }
+    const H = y + Pd;
+    const out = document.createElement("canvas"); out.width = W + 2 * M; out.height = H + 2 * M;
+    const o = out.getContext("2d");
+    o.save(); o.shadowColor = "rgba(0,0,0,.35)"; o.shadowBlur = 28; o.shadowOffsetY = 8; o.fillStyle = T.bg; o.beginPath(); o.roundRect(M, M, W, H, 28); o.fill(); o.restore();
+    o.strokeStyle = T.line; o.lineWidth = 2; o.beginPath(); o.roundRect(M + 1, M + 1, W - 2, H - 2, 27); o.stroke();
+    c.height = H + 2 * M;                           // (clears it) then the card's content is drawn on the card
+    for (const op of ops) op();
+    o.drawImage(c, 0, 0);
+    return out;
+  }
+  const canvasBlob = cv => new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error("picture")), "image/png"));
+  async function drawReport(){
+    setPressed("rstyle", repStyle);
+    const box = $(".st-rep"), r = takeRep();
+    const key = (P.take ? P.take.id : "") + repStyle;
+    if (!r){
+      box.innerHTML = ""; repShown = "";
+      note("report", P.take ? "This take has no report kept with it (a take from a video file, or recorded before the Report tab). Takes recorded from now on keep their report." : "Open a take first (Takes): its report shows here.");
+      return;
+    }
+    note("report", `${r.company}${r.form ? " · " + r.form : ""}: ${repVersions(r).length} versions.`);
+    if (repShown === key) return;
+    repShown = key; box.innerHTML = "";
+    for (const ver of repVersions(r)){
+      const cv = await repCard(r, ver, repStyle);
+      if (repShown !== key) return;
+      const url = URL.createObjectURL(await canvasBlob(cv));
+      box.insertAdjacentHTML("beforeend", `<button type="button" class="st-repv" data-rep="${esc(ver.id)}" title="Put the ${esc(ver.name.toLowerCase())} on the video"><img src="${esc(url)}" alt=""><span>${esc(ver.name)}</span></button>`);
+    }
+  }
+  async function addReport(id){
+    const r = takeRep(), ver = r && repVersions(r).find(v => v.id === id); if (!ver) return;
+    let m;
+    try { const cv = await repCard(r, ver, repStyle); m = await addMedia(await canvasBlob(cv), `${r.ticker || "Report"} ${ver.name}.png`, "picture"); } catch (e) { m = null; }
+    if (!m){ flash("This browser could not keep it (storage full?)."); return; }
+    const d = editDur(), it = picItem(m, m.ratio || 1, null, 0);
+    it.w = id.startsWith("fig:") ? 0.72 : 0.9; it.x = 0.5; it.y = 0.45;
+    if (cur < 0.5){ it.t0 = Math.max(0, d - 5); it.t1 = d; } else { it.t0 = Math.min(cur, Math.max(0, d - 0.5)); it.t1 = Math.min(d, it.t0 + 5); }
+    it.whole = false;
+    P.items.push(it); selected = it.id; renderItems(); drawTimeline(); panels(); commit();
+    flash(`On the video from ${fmt(it.t0, true)} to ${fmt(it.t1, true)}. Drag it to move; its purple bar sets when it shows.`);
+  }
+
   // ---------------- Transparent background (the Pictures tab) ----------------
   let bgx = null;                         // {id: the picture on the video, src: its pixels, blob: the result}
   async function bgOpen(id){
@@ -927,7 +1075,15 @@ function mount(root, opts){
       let ok = (await rec.handle.queryPermission({mode: "read"}).catch(() => "prompt")) === "granted";
       if (!ok && (!navigator.userActivation || navigator.userActivation.isActive)) ok = (await rec.handle.requestPermission({mode: "read"}).catch(() => "denied")) === "granted";
       if (!ok) throw new Error("This take is saved on your disk: press Open next to it and let Chrome read the file.");
-      try { return await rec.handle.getFile(); } catch (e) { throw new Error("The take's file is not where Record mode saved it (moved or deleted?)."); }
+      let file;
+      try { file = await rec.handle.getFile(); } catch (e) { throw new Error("The take's file is not where Record mode saved it (moved or deleted?)."); }
+      if (!file.size) throw new Error(`The take's file on disk (${file.name}) is empty: was something saved over it? Record the clip again.`);
+      // a copy kept in this browser: the edit and its export read it, so the file on disk can be moved, renamed or
+      // even saved over (an export that picked it in the save dialog emptied it) without losing the take
+      // (a real copy, streamed: a File from the disk stored as it is would still be the file on disk)
+      // (kept on this record too: the thumbnail saved a moment later writes this same record, and would drop it)
+      try { const copy = await new Response(file.stream()).blob(); rec.blob = new Blob([copy], {type: file.type || rec.type || "video/mp4"}); await db.put("takes", rec); return (await db.get("takes", rec.id)).blob || file; }
+      catch (e) { delete rec.blob; return file; }  // no room for the copy: the file on disk is read
     }
     throw new Error("This take's video is no longer here.");
   }
@@ -1431,6 +1587,7 @@ function mount(root, opts){
     $$(".st-panel").forEach(p => { p.hidden = p.dataset.p !== k; });
     try { localStorage.setItem("bmg-studio-tab", k); } catch (e) {}
     if (k === "music") drawWave();
+    if (k === "report") drawReport();
     if (!quiet && k === "takes") listTakes();
   }
   const setPressed = (set, v) => $$(`[data-set="${set}"] button`).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === String(v))));
@@ -1487,6 +1644,7 @@ function mount(root, opts){
     if (a === "listen"){ listen(b); return; }
     if (a === "link"){ useLink(); return; }
     if (a === "export"){ runExport(); return; }
+    if (a === "goexport"){ showTab("export"); $(".st-tools").scrollTop = 0; runExport(true); return; }
     if (a === "cancel"){ if (exportJob) exportJob.cancel = true; return; }
     if (b.dataset.open){ openTake(b.dataset.open); return; }
     if (b.dataset.rm){
@@ -1505,6 +1663,7 @@ function mount(root, opts){
     }
     if (b.dataset.qrm){ keepQuick(b.dataset.qrm, false); return; }
     if (b.dataset.bgx){ bgOpen(b.dataset.bgx); return; }
+    if (b.dataset.rep){ addReport(b.dataset.rep); return; }
     if (a === "bgok"){ bgUse(); return; }
     if (a === "bgno"){ bgClose(); return; }
     if (b.dataset.keep){ keepQuick(b.dataset.keep, !quick.some(m => m.id === b.dataset.keep)); return; }
@@ -1513,6 +1672,7 @@ function mount(root, opts){
     const set = b.parentElement && b.parentElement.dataset.set;
     if (set){
       const v = b.dataset.v;
+      if (set === "rstyle"){ repStyle = v === "light" ? "light" : "dark"; try { localStorage.setItem("bmg-studio-repstyle", repStyle); } catch (e) {} drawReport(); return; }
       if (set === "fps"){ P.fps = +v; panels(); commit(); return; }
       if (set === "fit"){ P.fit = v; panels(); commit(); return; }
       const it = itemById(selected);
@@ -1680,8 +1840,9 @@ function mount(root, opts){
   // written into an MP4 here (mp4File): the song sits exactly where it plays in the preview, and no frame is dropped,
   // since the video waits while the encoder is busy. Without WebCodecs, the browser's recorder captures the edit as it
   // plays (MediaRecorder), which can place the sound up to a tenth of a second early.
-  async function runExport(){
+  async function runExport(download){
     if (exportJob) return;
+    autoDownload = !!download;              // from Export & download: the file downloads by itself when it is made
     const msg = (t, err) => note("export", t, err);
     const d = editDur();
     if (!P.take && !P.items.length){ msg("Nothing to export yet: open a take, or add pictures or text.", true); return; }
@@ -1702,11 +1863,21 @@ function mount(root, opts){
     if (window.showSaveFilePicker && $('[data-in="disk"]').checked){
       try {
         handle = await window.showSaveFilePicker({suggestedName: fname, types: [{description: "Video", accept: {[ext === "mp4" ? "video/mp4" : "video/webm"]: ["." + ext]}}]});
+        // Saving over a take's own file (Record mode saved it to disk) empties it before a frame is read: the take is
+        // gone and the export has nothing to read. Any file a take lives in is refused.
+        for (const t of await db.all("takes").catch(() => [])){
+          if (!t.handle || !await handle.isSameEntry(t.handle).catch(() => false)) continue;
+          // the save dialog may already have emptied it (Replace): put the take back from the browser's copy
+          let back = false;
+          try { const f = await handle.getFile(); if (!f.size && t.blob && t.blob.size){ const w = await handle.createWritable(); await w.write(t.blob); await w.close(); back = true; } } catch (e) {}
+          msg(`That file is a take${P.take && t.id === P.take.id ? " (the one you are exporting)" : ""}${back ? "; the save dialog had emptied it, and it is back as it was" : ""}. Export again and choose another name.`, true);
+          return;
+        }
         writable = await handle.createWritable();
       } catch (e){ if (e && e.name === "AbortError"){ msg("Export cancelled."); return; } handle = writable = null; }
     }
     const job = exportJob = {cancel: false, away: false, onAway: null};
-    const ui = on => { $('[data-a="export"]').disabled = on; $('[data-a="cancel"]').hidden = !on; $(".st-prog").hidden = !on; };
+    const ui = on => { $$('[data-a="export"],[data-a="goexport"]').forEach(b => { b.disabled = on; }); $('[data-a="cancel"]').hidden = !on; $(".st-prog").hidden = !on; };
     const bar = $(".st-prog i"), res = $(".st-result");
     ui(true); bar.style.width = "0%"; res.innerHTML = "";
     const progress = e => { bar.style.width = (clamp(e / d, 0, 1) * 100).toFixed(1) + "%"; msg(`Exporting: ${fmt(e)} of ${fmt(d)}${job.away ? " (paused while this tab is in the background)" : ""}`); };
@@ -1785,9 +1956,17 @@ function mount(root, opts){
     }};
   }
   async function exportVideo(withSound){
-    const v = document.createElement("video"); v.preload = "auto"; v.playsInline = true; v.muted = !withSound; v.src = take.url;
-    await loadedMeta(v); await fixDuration(v);
-    return v;
+    const open = async url => { const v = document.createElement("video"); v.preload = "auto"; v.playsInline = true; v.muted = !withSound; v.src = url; await loadedMeta(v); await fixDuration(v); return v; };
+    try { return await open(take.url); }
+    catch (e){
+      // a take saved on disk is read through its file: read it again (it may have been replaced since it opened)
+      const rec = P.take && await db.get("takes", P.take.id).catch(() => null);
+      let file = null; try { file = rec && rec.handle ? await rec.handle.getFile() : null; } catch (x) {}
+      if (file && !file.size) throw new Error(`The take's file on disk (${file.name}) is empty now: was something saved over it? Record the clip again.`);
+      if (!file) throw e;
+      take.file = file; take.url = URL.createObjectURL(file);       // (the preview keeps the address it plays from)
+      return open(take.url);
+    }
   }
   // the next frame the video shows (its own time), or after a second without one, where it is
   const frameOf = v => new Promise(r => {
@@ -2103,14 +2282,18 @@ function mount(root, opts){
     }
   }
   let resultUrl = null;
+  let autoDownload = false;
   function showResult(file, name, kind, onDisk){
     if (resultUrl) URL.revokeObjectURL(resultUrl);
     resultUrl = URL.createObjectURL(file);
     const res = $(".st-result");
     res.innerHTML = `<video controls playsinline src="${resultUrl}"></video>
       <div class="st-row">${onDisk ? `<span class="st-note">Saved to ${esc(name)}</span>` : `<a class="st-btn" href="${resultUrl}" download="${esc(name)}">Download the video</a>`}<span class="st-note">${esc(kind)} · ${mb(file.size)}<span class="st-len"></span></span></div>
-      <p class="st-note">Upload it in TikTok Studio or Instagram; the caption, hashtags and the holdings line are in Today's posts.</p>`;
-    note("export", onDisk ? "Done: the video is saved." : "Done: download the video below.");
+      <p class="st-note">Upload it in TikTok Studio or Instagram. Drafts of a caption, hashtags and the holdings line: <a href="./#posts" target="_blank" rel="noopener">Today's posts</a>.</p>`;
+    note("export", onDisk ? "Done: the video is saved." : autoDownload ? "Done: the video is downloading (and its link is below)." : "Done: download the video below.");
+    if (autoDownload && !onDisk){ const a = res.querySelector("a[download]"); if (a) a.click(); }
+    autoDownload = false;
+    res.scrollIntoView({block: "nearest", behavior: "smooth"});
     const pv = res.querySelector("video");
     pv.addEventListener("loadedmetadata", async () => { await fixDuration(pv); const l = res.querySelector(".st-len"); if (l && Number.isFinite(pv.duration)) l.textContent = " · " + fmt(pv.duration, true); }, {once: true});
   }

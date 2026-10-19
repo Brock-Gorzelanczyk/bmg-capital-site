@@ -3293,10 +3293,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (z !== 1) wrap.style.borderLeftWidth = wrap.style.borderRightWidth = (margin / z).toFixed(2) + "px";
     wrap.dataset.fit = z.toFixed(3);
   }
-  let rehold = 0;
+  let rehold = 0, fitW = innerWidth;
   addEventListener("resize", () => {
     const w = document.querySelector("#doc .htmldoc");
     if (!w) return;
+    // a change of height only (Chrome's sharing bar at the top of the record window) leaves the filing's width and
+    // zoom as they are: no need to let go of the held blocks and measure the filing again
+    if (innerWidth === fitW && !rehold){ bumpLayout(); geo = null; return; }
+    fitW = innerWidth;
     const before = w.dataset.fit, held = !!w.dataset.held || !!rehold;
     releaseHtmlBlocks(w);       // measure the filing's own width, then hold the blocks again once resizing stops
     fitHtml(w);
@@ -4133,7 +4137,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       addEventListener("beforeunload", e => { if (window.bmgRec.phase === "busy"){ e.preventDefault(); e.returnValue = ""; } });
     }
     // A clip planned in Posting (Make a clip, see planSetup): read before the setup is built, which uses it
-    const PLAN_LS = "bmg-clip-plan", PLAN_KEYS = 3.5, PLAN_ONE = 5, PLAN_ENDING = 11;     // the ending: about 11 seconds
+    const PLAN_LS = "bmg-clip-plan", PLAN_KEYS = 3.5, PLAN_ONE = 5, PLAN_ENDING = 11, PLAN_SLOW = 3;     // the ending: about 11 seconds
     let plan = null, planMissing = [], planBefore = [], planSay = () => {};
     if (isRecord && /[?&]plan=1\b/.test(location.search)){
       try { plan = JSON.parse(localStorage.getItem(PLAN_LS) || "null"); } catch (e) {}
@@ -4477,14 +4481,25 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // The crawl. A set length moves the page on a timed path from here to the end of the filing, slower near what
     // was asked for (the highlights camera's path); the whole form reads at reading speed until its last line.
     function planCrawl(hits){
-      if (plan.length === "whole"){ state.speedMul = Math.min(4, Math.max(0.5, +plan.speed || 1)); return; }
+      if (plan.length === "whole"){
+        // reading speed, built up from 30% over the first 3 seconds of reading (a pause does not count)
+        const target = Math.min(4, Math.max(0.5, +plan.speed || 1));
+        let read = 0, last = performance.now();
+        state.speedMul = target * .3;
+        const id = setInterval(() => {
+          const now = performance.now(); if (walking() && !state.paused) read += (now - last) / 1000; last = now;
+          const u = Math.min(1, read / PLAN_SLOW); state.speedMul = target * (.3 + .7 * u * u * (3 - 2 * u));
+          if (u >= 1) clearInterval(id);
+        }, 50);
+        return;
+      }
       const line = innerHeight * (window.READER_VIEW_FRAC || 1) * .5;
       const start = state.scrollPos ?? scrollY, end = Math.max(start + 1, document.documentElement.scrollHeight - innerHeight);
       const rowOffset = docTop() + (state.sy || 0) - line;
       const textRows = (state.rows || []).map(row => row.y + rowOffset).sort((a, b) => a - b);
       const at = hits.map(h => h.el.getBoundingClientRect().top + scrollY - line).filter(y => y > start && y < end);
       const secs = planCrawlSecs();
-      state.recordCamera = highlightTimeline(start, end, at, secs, textRows);
+      state.recordCamera = highlightTimeline(start, end, at, secs, textRows, PLAN_SLOW);    // a slower start, on time
       // its pace against the plain crawl's speed (blank space aside), for checks
       window.bmgRec.pace = {secs, px: Math.round(end - start), x: Math.round((end - start) / secs / (SCROLL_SPEED * U) * 10) / 10};
     }
@@ -5120,6 +5135,27 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       captureDetails = captureStreamDescription(actual, rec?.videoBitsPerSecond || 0);
       state.captureQuality = {...state.captureQuality, ...actual};
     }
+    // Chrome's "Sharing this tab" bar takes about 52 px off the top of the window once sharing starts, so the take
+    // came out wider than the phone's 9:16 and the Studio cropped its sides (the report panel's edges were cut off).
+    // Before the recording begins (under the black opening), the window grows back to 9:16; on a screen with no room
+    // for that, it narrows to 9:16 instead (the filing is measured again, still under the opening). A window that is
+    // not a popup cannot be resized: the Studio then shows its whole frame.
+    const portraitOff = () => Math.round(innerWidth * 16 / 9) - innerHeight;
+    function keepPortrait(){
+      const settle = ms => new Promise(r => setTimeout(r, ms));
+      return new Promise(res => {
+        let done = false;
+        const on = async () => {
+          if (done) return; done = true; removeEventListener("resize", on);
+          await settle(60);
+          if (Math.abs(portraitOff()) > 2){ try { resizeBy(0, portraitOff()); } catch (e) {} await settle(250); }
+          if (portraitOff() > 2){ try { resizeBy(Math.round(innerHeight * 9 / 16) - innerWidth, 0); } catch (e) {} await settle(700); }
+          res();
+        };
+        addEventListener("resize", on);
+        setTimeout(on, 700);                         // the bar comes a moment after sharing starts (or not at all)
+      });
+    }
     async function askCapture(){
       const high = setup.querySelector("#rec-quality")?.value === "high";
       const video = high ? {width: {ideal: 1080}, height: {ideal: 1920}, frameRate: {ideal: 60, max: 60}} : {frameRate: 30};
@@ -5135,6 +5171,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (diskWriter){ try { await diskWriter.abort(); } catch (_) {} diskWriter = diskFile = null; }
         return false;
       }
+      await keepPortrait();                          // 9:16 again before anything is recorded
       chunks = [];
       const bitrate = high ? 32e6 : 12e6;
       try {
@@ -5372,13 +5409,34 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     }
     // -- The take goes to the Studio (Posting tab): kept in this browser, and the Crawler window that opened Record
     // mode hears of it. Edit in Studio opens it there (or the Crawler in a new tab, when this window was opened alone).
+    // The report kept with a take, for the Studio's Report tab: the figures and findings the ending shows, each value
+    // as the report prints it with its period and page. Nothing is computed here.
+    function takeReport(){
+      const rep = state.readRes && state.readRes.report;
+      if (!rep || !rep.evidence || !rep.financials) return null;
+      const co = rep.company || {}, F = rep.evidence.facts || {}, C = rep.evidence.calcs || {}, ev = id => F[id] || C[id];
+      const figures = [];
+      for (const [k, label] of [["revenue", "Revenue"], ["gross_profit", "Gross profit"], ["operating_income", "Operating income"], ["net_income", "Net income"],
+        ["eps_diluted", "Diluted EPS"], ["fcf", "Free cash flow"], ["cfo", "Operating cash flow"]]){
+        const row = (rep.financials.performance || []).find(r => r.metric === k) || (rep.financials.calculated || []).find(r => r.metric === k);
+        const x = row && ev(row.current);
+        if (!x || !x.display) continue;
+        const ch = row.change || {}, up = ch.pct != null ? ch.pct >= 0 : ch.pp != null ? ch.pp >= 0 : null;
+        const page = (x.source || {}).pdf_page || ((x.inputs || []).map(i => (F[i] && F[i].source || {}).pdf_page).filter(Boolean)[0]) || null;
+        figures.push({k, label, value: x.display, change: ch.display || "", up, period: (x.period || {}).short || (x.period || {}).label || "", page});
+      }
+      const findings = (rep.exec_findings || []).slice(0, 6).map(x => ({severity: x.severity, tag: (SEV[x.severity] || {}).l || "", headline: x.headline, pages: pageOf(x.refs)}));
+      return {company: co.name || "", ticker: co.ticker || co.ticker_hint || "", form: co.form || "", period: co.period || "", figures, findings,
+        coverage: rep.coverage ? `${rep.coverage.facts_published} headline figures · ${rep.coverage.checks_run} checks` : ""};
+    }
     state.takeReady = (blob, bar) => {
       if (!isRecord || !blob || blob.diskError || !window.indexedDB) return;
       const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
       const ticker = (co.ticker || co.ticker_hint || setup.querySelector("#clip-ticker")?.value || "").toUpperCase().replace(/[^A-Z0-9.]/g, "");
       const hook = setup.querySelector("#rec-format")?.value === "idea" ? (setup.querySelector("#clip-hook")?.value || "").trim() : "";
       const when = new Date();
-      const take = {id: "take-" + when.getTime().toString(36), created: when.getTime(), size: blob.size, type: blob.type, meta: {ticker, hook, form: co.form || "", source: "record"},
+      let report = null; try { report = takeReport(); } catch (e) { /* the take still goes to the Studio, without its report */ }
+      const take = {id: "take-" + when.getTime().toString(36), created: when.getTime(), size: blob.size, type: blob.type, meta: {ticker, hook, form: co.form || "", source: "record", report},
         name: [ticker || "Crawler", co.form || "", "take", when.toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})].filter(Boolean).join(" ")};
       if (blob.disk) take.handle = blob.handle; else take.blob = blob;
       const b = document.createElement("button"); b.type = "button"; b.id = "rf-studio"; b.disabled = true; b.textContent = "Keeping it for the Studio...";
@@ -5454,7 +5512,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       return;
     }
 
-    function highlightTimeline(start, end, targets, duration, textRows = []){
+    function highlightTimeline(start, end, targets, duration, textRows = [], slowStart = 0){
       if (!(end > start)) return null;          // (a planned clip may have nothing to slow down for; highlights always do)
       const points = [{y:start,t:0}], step = 16;
       // Spend less of the fixed clip in empty page gaps; blend at the edges.
@@ -5472,15 +5530,18 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       }
       for (const point of points) point.t = point.t / total * duration;
       let elapsed = 0, index = 1;
+      // A planned clip (slowStart, seconds) starts at 30% of its speed and builds to full over its first seconds,
+      // then runs a little faster, so it still ends on time; otherwise only the first half-second eases in.
+      const ramp = Math.min(.5, duration / 4), A = slowStart ? Math.min(slowStart, duration / 4) : 0, S0 = .3;
+      const easeIn = e => { if (!A) return e < ramp ? e * e / (2 * ramp) : e - ramp / 2;
+        const u = Math.min(1, e / A); return e < A ? S0 * e + (1 - S0) * A * (u * u * u - u * u * u * u / 2) : A * (1 + S0) / 2 + (e - A); };
+      const full = easeIn(duration - ramp) + ramp / 2;
       return dt => {
         elapsed = Math.min(duration, elapsed + dt);
-        // Only the first/last half-second ease; keep the middle moving briskly.
-        const ramp = Math.min(.5, duration / 4);
+        // the last half-second eases out; the middle moves briskly
         const tail = elapsed - (duration - ramp);
-        const travel = elapsed < ramp ? elapsed * elapsed / (2 * ramp) :
-          elapsed <= duration - ramp ? elapsed - ramp / 2 :
-          duration - 1.5 * ramp + tail - tail * tail / (2 * ramp);
-        const time = travel / (duration - ramp) * duration;
+        const travel = elapsed <= duration - ramp ? easeIn(elapsed) : easeIn(duration - ramp) + tail - tail * tail / (2 * ramp);
+        const time = travel / full * duration;
         while (index < points.length-1 && points[index].t < time) index++;
         const a=points[index-1], b=points[index], mix=(time-a.t)/(b.t-a.t || 1);
         return a.y + (b.y-a.y)*Math.max(0,Math.min(1,mix));
