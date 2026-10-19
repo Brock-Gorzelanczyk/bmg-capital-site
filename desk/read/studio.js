@@ -1884,7 +1884,8 @@ function mount(root, opts){
     const ui = on => { $$('[data-a="export"],[data-a="goexport"]').forEach(b => { b.disabled = on; }); $('[data-a="cancel"]').hidden = !on; $(".st-prog").hidden = !on; };
     const bar = $(".st-prog i"), res = $(".st-result");
     ui(true); bar.style.width = "0%"; res.innerHTML = "";
-    const progress = e => { bar.style.width = (clamp(e / d, 0, 1) * 100).toFixed(1) + "%"; msg(`Exporting: ${fmt(e)} of ${fmt(d)}${job.away ? " (paused while this tab is in the background)" : ""}`); };
+    let doing = "Exporting";
+    const progress = e => { bar.style.width = (clamp(e / d, 0, 1) * 100).toFixed(1) + "%"; msg(`${doing}: ${fmt(e)} of ${fmt(d)}${job.away ? " (paused while this tab is in the background)" : ""}`); };
     // in the background the browser stops drawing frames: the export waits, and goes on when the tab is back
     const onVis = () => {
       if (exportJob !== job) return;
@@ -1897,19 +1898,27 @@ function mount(root, opts){
     document.addEventListener("visibilitychange", onVis);
     const ctx = {d, fps, song, mm, orig, audio, job, progress, msg};
     try {
-      const out = plan ? await exportWC(plan, ctx) : await exportMR(type, ctx, writable);
+      let out;
+      try { out = plan ? await exportWC(plan, ctx) : await exportMR(type, ctx, writable); }
+      catch (e){
+        // the computer's own encoder stopped answering: once more with the browser's own H.264 encoder
+        const soft = e && e.stall && !job.cancel && plan && !plan.video.hardwareAcceleration ? await wcPlan(audio, fps, true) : null;
+        if (!soft){ if (e && e.stall) e.message += " Export again."; throw e; }
+        doing = "Exporting again with the browser's own encoder (the computer's stopped answering)";
+        out = await exportWC(soft, ctx);
+      }
       if (job.cancel || out.cancelled){
         if (writable){ try { await writable.abort(); } catch (x) {} }
         msg("Export cancelled.");
         return;
       }
       bar.style.width = "100%";
-      if (out.onDisk){ const f = await handle.getFile(); showResult(f, f.name, out.kind, true); }
+      if (out.onDisk){ const f = await handle.getFile(); showResult(f, f.name, out.kind, true, out.warn); }
       else if (writable){
         msg("Saving the video...");
         await writable.write(out.blob); await writable.close();
-        const f = await handle.getFile(); showResult(f, f.name, out.kind, true);
-      } else showResult(out.blob, fname, out.kind, false);
+        const f = await handle.getFile(); showResult(f, f.name, out.kind, true, out.warn);
+      } else showResult(out.blob, fname, out.kind, false, out.warn);
     } catch (e){
       if (writable){ try { await writable.abort(); } catch (x) {} }
       msg("The export stopped: " + ((e && e.message) || e), true);
@@ -1920,12 +1929,16 @@ function mount(root, opts){
   }
   // the encoders this browser has, best first: H.264 and AAC (an MP4 that QuickTime, TikTok and Instagram all take),
   // else VP9 and Opus in MP4
-  async function wcPlan(audio, fps){
+  // soft: the browser's own H.264 encoder, not the computer's (a second try when the computer's stopped answering)
+  async function wcPlan(audio, fps, soft){
     if (!window.VideoEncoder || !window.VideoFrame || (audio && (!window.AudioEncoder || !window.AudioData || !window.OfflineAudioContext))) return null;
-    const vids = fps > 30 ? ["avc1.64002a", "avc1.640028", "avc1.4d002a", "vp09.00.41.08"] : ["avc1.640028", "avc1.4d0028", "avc1.42e028", "vp09.00.40.08"];
+    let vids = fps > 30 ? ["avc1.64002a", "avc1.640028", "avc1.4d002a", "vp09.00.41.08"] : ["avc1.640028", "avc1.4d0028", "avc1.42e028", "vp09.00.40.08"];
+    if (soft) vids = vids.filter(x => x.startsWith("avc1"));
     let video = null;
     for (const codec of vids){
-      const c = {codec, width: W, height: H, bitrate: fps > 30 ? 20e6 : 14e6, framerate: fps, latencyMode: "realtime"};
+      // "quality": an export is not live, every frame is kept ("realtime" lets an encoder drop frames to keep up)
+      const c = {codec, width: W, height: H, bitrate: fps > 30 ? 20e6 : 14e6, framerate: fps, latencyMode: "quality"};
+      if (soft) c.hardwareAcceleration = "prefer-software";
       if (codec.startsWith("avc1")) c.avc = {format: "avc"};
       try { if ((await VideoEncoder.isConfigSupported(c)).supported){ video = c; break; } } catch (e) { /* the next one */ }
     }
@@ -2045,6 +2058,7 @@ function mount(root, opts){
       return pos >= 0 && best > 0.15 ? Math.max(0, pos - at) : 0;
     } catch (e) { return 0; }
   }
+  const STALL_MS = 8000;                   // an encoder that takes in and gives out nothing this long has stopped answering
   async function exportWC(plan, c){
     const {d, fps, job} = c;
     let sound = null;
@@ -2059,27 +2073,40 @@ function mount(root, opts){
         delay: opus ? 0 : delay, preSkip: opus ? (head ? head[10] | head[11] << 8 : delay) : 0, length: d};
     }
     const ec = exportCanvas();
-    const frames = []; let vdesc = null, verr = null;
+    // beat: the last time the encoder took a frame in or gave one out. Nothing for STALL_MS: it has stopped answering.
+    const frames = [], short = []; let vdesc = null, verr = null, beat = performance.now();
     const venc = new VideoEncoder({output: (ch, meta) => {
+      beat = performance.now();
       const data = new Uint8Array(ch.byteLength); ch.copyTo(data);
       frames.push({data, pts: ch.timestamp, dur: ch.duration || Math.round(1e6 / fps), key: ch.type === "key"});
       if (meta && meta.decoderConfig && meta.decoderConfig.description) vdesc = bytesOf(meta.decoderConfig.description);
     }, error: e => { verr = e; }});
     venc.configure(plan.video);
+    venc.addEventListener("dequeue", () => { beat = performance.now(); });
+    const stopped = () => Object.assign(new Error(`The video encoder stopped answering at ${fmt(frames.length / fps)} of ${fmt(d)}.`), {stall: true});
     let k = 0;
     const total = Math.max(1, Math.round(d * fps));
     // the export's frames before edit time `limit`, each drawn at its own time from the source frame given
-    const emit = (src, limit) => {
-      while (k < total && k / fps < limit - 1e-9){
+    // A long run of frames (a part's last frames) goes to the encoder a few at a time and the page stays live: given
+    // at once, 2,900 frames (2:01 cut at 0:24) held about 8 MB each in the encoder's queue and froze the page.
+    const emit = async (src, limit) => {
+      while (k < total && k / fps < limit - 1e-9 && !verr && !job.cancel){
         const t = k / fps;
         ec.draw(src, t);
         const vf = new VideoFrame(ec.cv, {timestamp: Math.round(t * 1e6), duration: Math.round(1e6 / fps)});
+        if (!venc.encodeQueueSize) beat = performance.now();    // an idle encoder is not late: its clock starts now
         venc.encode(vf, {keyFrame: k % (fps * 2) === 0}); vf.close(); k++;
+        if (venc.encodeQueueSize > 3) await drain();
+        if (k % 30 === 0){ c.progress(Math.min(d, k / fps)); await new Promise(r => setTimeout(r, 0)); }
       }
       c.progress(Math.min(d, k / fps));
     };
     const drain = async () => {
-      while (venc.encodeQueueSize > 1 && !verr && !job.cancel) await new Promise(r => { const t = setTimeout(r, 200); venc.addEventListener("dequeue", () => { clearTimeout(t); r(); }, {once: true}); });
+      while (venc.encodeQueueSize > 1 && !verr && !job.cancel){
+        await new Promise(r => { const t = setTimeout(r, 200); venc.addEventListener("dequeue", () => { clearTimeout(t); r(); }, {once: true}); });
+        // stopped answering: as an encoder error, the video is let go and the export stops (to try again)
+        if (!job.away && performance.now() - beat > STALL_MS){ verr = stopped(); try { venc.close(); } catch (e) {} }
+      }
     };
     if (P.take){
       c.msg("Exporting...");
@@ -2101,7 +2128,7 @@ function mount(root, opts){
         v.currentTime = s.in; await once(v, "seeked", 5000); await settled(v);
         try { const f = new VideoFrame(v); if (Math.abs(f.timestamp / 1e6 - s.in) < 0.05) last = f; else f.close(); } catch (e) { /* the first frame that plays */ }
         partDone = false;
-        let quiet = 0, shownBefore = null, droppedBefore = dropped(), steady = 0, lastMt = last ? s.in : -1, retries = 0, held = false;
+        let quiet = 0, shownBefore = null, droppedBefore = dropped(), steady = 0, lastMt = last ? s.in : -1, retries = 0, held = false, restarts = 0;
         // play on from just after the last frame copied (after a pause the video may have skipped ahead)
         let onward = null;
         const playOn = () => onward || (onward = (async () => {
@@ -2151,8 +2178,14 @@ function mount(root, opts){
           const it = q.shift();
           if (!it){
             if (partDone) break;
-            // no frame for a while: the video ended or stopped short of the part's end
-            if (v.ended || (!v.paused && ++quiet > 5)){ partDone = true; break; }
+            // no frame for a while: the video ended or stopped short of the part's end. More than a second short and
+            // not ended, it is played again from the last frame copied (up to 3 times); after that, the part's last
+            // frames are that frame, and the export says so
+            if (v.ended || (!v.paused && ++quiet > 5)){
+              if (!v.ended && lastMt < s.out - 1 && restarts++ < 3){ quiet = 0; held = true; await playOn(); continue; }
+              if (lastMt < s.out - 1) short.push(e0 + Math.max(0, lastMt - s.in));
+              partDone = true; break;
+            }
             if (held && q.length <= 1) await playOn();
             continue;
           }
@@ -2160,7 +2193,7 @@ function mount(root, opts){
           // As a player shows it: each frame of the export shows the source frame that started last before its time.
           // A new source frame starts at its own time (within 2 ms: a WebM's times are whole milliseconds), so the
           // frames before it are drawn from the one before it (the part's first frames, from it, if there is none).
-          emit(last || it.vf, Math.min(e0 + (it.mt - s.in) - 0.002, end));
+          await emit(last || it.vf, Math.min(e0 + (it.mt - s.in) - 0.002, end));
           if (last) last.close();
           last = it.vf;
           if (venc.encodeQueueSize > 3) await drain();
@@ -2168,7 +2201,7 @@ function mount(root, opts){
           if (held && q.length <= 1) await playOn();
         }
         v.pause();
-        if (!job.cancel && !verr && last) emit(last, end);              // the part's last frames, up to its end
+        if (!job.cancel && !verr && last) await emit(last, end);        // the part's last frames, up to its end
         for (const it of q.splice(0)) it.vf.close();
         if (last){ last.close(); last = null; }
         e0 = end;
@@ -2176,16 +2209,31 @@ function mount(root, opts){
       job.onAway = null; v.removeAttribute("src"); v.load();
     } else {
       // no video: the pictures and text over black
-      while (k < total && !job.cancel && !verr){ emit(null, (k + 0.5) / fps); if (venc.encodeQueueSize > 3) await drain(); if (k % 10 === 0) await nextFrame(); }
+      while (k < total && !job.cancel && !verr){ await emit(null, (k + 0.5) / fps); if (venc.encodeQueueSize > 3) await drain(); if (k % 10 === 0) await nextFrame(); }
     }
     if (job.cancel){ try { venc.close(); } catch (e) {} return {cancelled: true}; }
     if (verr) throw verr;
     c.msg("Finishing the file...");
-    await venc.flush(); venc.close();
+    // The encoder gives its last frames. A Mac's can stop answering here, its flush never ending (Brock's 2:01 export
+    // sat on this message): after STALL_MS with nothing from it, the file is made from the frames it gave when they
+    // reach the end (the last one held to the end); else it is exported again with the browser's own encoder.
+    beat = performance.now();
+    let flushed = false;
+    venc.flush().then(() => { flushed = true; }, () => { flushed = true; });
+    while (!flushed && !verr && !job.cancel && performance.now() - beat < STALL_MS) await new Promise(r => setTimeout(r, 100));
+    try { venc.close(); } catch (e) {}
+    if (job.cancel) return {cancelled: true};
     if (verr) throw verr;
+    if (!flushed){
+      const endUs = Math.round(d * 1e6), lastPts = frames.reduce((a, f) => Math.max(a, f.pts), -Infinity);
+      if (!frames.length || endUs - (lastPts + 1e6 / fps) > 5e5) throw stopped();
+      const tail = frames[frames.length - 1];            // the file's last sample: its length ends the video
+      tail.dur = Math.max(tail.dur, endUs - lastPts);
+    }
     if (plan.video.codec.startsWith("avc1") && !vdesc) throw new Error("The video encoder gave no H.264 header.");
     const blob = mp4File([{kind: "video", codec: plan.video.codec, width: W, height: H, description: vdesc, samples: frames}, sound].filter(Boolean));
-    return {blob, kind: kindOf(plan)};
+    const warn = short.length ? `The take stopped playing at ${short.map(x => fmt(x)).join(", ")}: from there to its end the video holds that frame. Play the take in Takes; if it stops there too, record it again.` : "";
+    return {blob, kind: kindOf(plan), warn};
   }
   // Without WebCodecs: the browser's recorder captures the canvas and the sound as the edit plays.
   async function exportMR(type, c, writable){
@@ -2287,14 +2335,14 @@ function mount(root, opts){
   }
   let resultUrl = null;
   let autoDownload = false;
-  function showResult(file, name, kind, onDisk){
+  function showResult(file, name, kind, onDisk, warn){
     if (resultUrl) URL.revokeObjectURL(resultUrl);
     resultUrl = URL.createObjectURL(file);
     const res = $(".st-result");
     res.innerHTML = `<video controls playsinline src="${resultUrl}"></video>
       <div class="st-row">${onDisk ? `<span class="st-note">Saved to ${esc(name)}</span>` : `<a class="st-btn" href="${resultUrl}" download="${esc(name)}">Download the video</a>`}<span class="st-note">${esc(kind)} · ${mb(file.size)}<span class="st-len"></span></span></div>
       <p class="st-note">Upload it in TikTok Studio or Instagram. Drafts of a caption, hashtags and the holdings line: <a href="./#posts" target="_blank" rel="noopener">Today's posts</a>.</p>`;
-    note("export", onDisk ? "Done: the video is saved." : autoDownload ? "Done: the video is downloading (and its link is below)." : "Done: download the video below.");
+    note("export", (onDisk ? "Done: the video is saved." : autoDownload ? "Done: the video is downloading (and its link is below)." : "Done: download the video below.") + (warn ? " " + warn : ""), !!warn);
     if (autoDownload && !onDisk){ const a = res.querySelector("a[download]"); if (a) a.click(); }
     autoDownload = false;
     res.scrollIntoView({block: "nearest", behavior: "smooth"});
