@@ -18,7 +18,10 @@ from typing import Optional
 
 _YEAR = re.compile(r"\b(19|20)\d\d\b")
 _DAY_YEAR = re.compile(r"\b(\d{1,2}),((?:19|20)\d\d)\b")
-_DATE = re.compile(r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+((?:19|20)\d\d)\b")
+# "July 26, 2026", and NVIDIA's 10-Q header "Jul 26, 2026  Jul 27, 2025  Jul 26, 2026  Jul 27, 2025" (without the short
+# names, a "Three Months Ended  Six Months Ended" header over those dates was read as four six-month columns ending Jul 26)
+_DATE = re.compile(r"\b(January|February|March|April|May|June|July|August|September|October|November|December"
+                   r"|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)\.?\s+(\d{1,2}),?\s+((?:19|20)\d\d)\b")
 _CELL = re.compile(r"\(?-?\$?\d[\d,]*(?:\.\d+)?\)?%?|\$|%|\u2014|\u2013|-|N/M|n/m|NM|\*")     # N/M, *: a change not meaningful
 # "Three months ended June 30", "Year ended December 31", and Wells Fargo's "Quarter ended June 30,  Six months ended June 30,"
 _PHRASE = re.compile(r"\b(?:(?P<n>three|six|nine|twelve|3|6|9|12)[ -]months?|(?P<q>quarters?)|(?P<y>years?|fiscal years?)) ended\s+(?P<md>[A-Z][a-z]+\.? \d{1,2})", re.I)
@@ -237,6 +240,7 @@ def _header_periods(line: str, context: str) -> Optional[dict]:
     bare = _LINE_CAPTION.sub(" ", line)                 # "in millions, except per share data" before the dates, not in brackets
     words = re.findall(r"[A-Za-z]+", re.sub(r"\([^)]*\)", " ", bare))      # a scale caption may share the line
     allowed = {"january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december",
+               "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
                "change", "years", "year", "ended", "months", "three", "six", "nine", "twelve", "fiscal", "as", "of", "and", "at", "net", "sales",
                "total", "unaudited", "restated", "q", "fy"}
     if len([w for w in words if w.lower() not in allowed]) > 4:
@@ -277,12 +281,15 @@ def _header_periods(line: str, context: str) -> Optional[dict]:
     # "For the Three Months Ended  For the Six Months Ended" over "June 30,  June 30," over "2026  2025  2026  2025" (Simon
     # Property's 10-Q): one month and day per group of year columns, each group of its own length (all were six months)
     kinds = _kinds(context[-300:])
-    if len(kinds) > 1 and mds and len(years) % len(kinds) == 0 and len(mds) in (1, len(kinds)):
+    # NVIDIA's earnings release: the same, with a month and day over every year column ("July 26,  July 27,  July 26,  July 27,"
+    # over "2026  2025  2026  2025"; before 2026-10-19 the four columns were read as six months ending July 26)
+    if len(kinds) > 1 and mds and len(years) % len(kinds) == 0 and len(mds) in (1, len(kinds), len(years)):
         per = len(years) // len(kinds)
         cols = []
         for g, k in enumerate(kinds):
-            mo, d = mds[g if len(mds) > 1 else 0]
-            cols += [{"label": f"{mo[:3]} {int(d)}, {y}", "end": _iso(mo, d, y), "year": y, "type": k} for y in years[g * per:(g + 1) * per]]
+            for j, y in enumerate(years[g * per:(g + 1) * per]):
+                mo, d = mds[g * per + j] if len(mds) == len(years) else mds[g if len(mds) > 1 else 0]
+                cols.append({"label": f"{mo[:3]} {int(d)}, {y}", "end": _iso(mo, d, y), "year": y, "type": k})
         return {"cols": cols, "change_cols": change_cols, "text": (last[-120:] + " | " + line)[:220]}
     phrases = [(_KIND.get(m.group("n").lower(), "FY") if m.group("n") else "Q" if m.group("q") else "FY", m.group("md").replace(".", ""))
                for m in _PHRASE.finditer(context + " " + line)]

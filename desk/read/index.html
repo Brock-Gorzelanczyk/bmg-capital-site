@@ -631,7 +631,7 @@ body.readerfx[data-rec-palette] #rec-end h3,body.readerfx[data-rec-palette] .rk-
 body.readerfx.rec-dark .stage,body.readerfx.rec-dark #doc,body.readerfx.rec-dark #docbody{background:#000!important}
 body.readerfx .sig-pop span:not(.sev),body.recmode .sig-pop span:not(.sev){color:#cbd5e1}
 #reader-appearance{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:12px 0 18px;padding:12px;border:1px solid #d7ddd9;border-radius:9px;font:14px 'IBM Plex Sans',sans-serif}
-#reader-appearance .opt{display:flex;align-items:center;gap:8px}#reader-appearance .rec-palette-preview{margin:0;color:#65716b;order:3;flex-basis:100%}
+#reader-appearance .opt{display:flex;align-items:center;gap:8px}#reader-appearance [hidden]{display:none!important}#reader-appearance .rec-palette-preview{margin:0;color:#65716b;order:3;flex-basis:100%}
 body.readerfx .lr-v{font-size:15px}body.readerfx .lr-t td{padding:3px 5px}
 @media(max-width:900px){body.readerfx .read-side{max-height:28vh!important;box-sizing:border-box}body.readerfx .read-side.collapsed{max-height:44px!important}body.readerfx .read-grid{padding-bottom:30vh}}
 
@@ -660,6 +660,56 @@ body.recmode #rec-end .rk-brand>span{color:#fff}
 /* ---- One search bar: a ticker or a file ---- */
 .read-form.omni{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin:0 0 12px;padding:14px;border:1px solid #d9ddd8;border-radius:14px;background:#fff;box-shadow:0 2px 12px rgba(16,24,20,.05)}
 .omni.dragging{outline:3px dashed #0f7d47;outline-offset:3px;background:#f3faf6}
+/* ---- The Crawler's steps (company, form, find, look, run): Make a clip's step cards, on the Crawler page ---- */
+.read-form.omni.cr-form{padding:0;border:0;background:none;box-shadow:none;gap:0}
+.cr-form.dragging .mk-step:first-child{outline:3px dashed #0f7d47;outline-offset:2px;background:#f3faf6}.cr-form.dragging{outline:none;background:none}
+.cr-form .mk-steps{margin:0}.cr-form .mk-step:last-child{margin-bottom:0}
+.cr-form .omni-bar{gap:10px 12px}
+.cr-form .omni-field{flex:1 1 300px;min-width:0}
+.cr-form #edgar-ticker{flex:1 1 auto;min-width:0;width:100%}.omni.cr-form #edgar-find{flex:0 0 auto;white-space:nowrap}
+.cr-form #edgar-ticker{height:44px;font-size:17px}.cr-form #edgar-find{height:44px;padding:0 18px;border-radius:10px;font-size:14.5px;background:#0f7d47;color:#fff;border:0;font-weight:600;cursor:pointer}
+.cr-form #edgar-find:disabled{opacity:.6;cursor:default}
+.omni:not(.local) .cr-or,.omni:not(.local) .cr-words{display:none}
+.omni.cr-form #read-drop{flex:0 1 auto;min-width:0;max-width:100%;box-sizing:border-box;display:inline-flex;flex-direction:column;justify-content:center;align-items:flex-start;min-height:44px;padding:4px 16px;border:1.5px solid #0f7d47;border-radius:10px;background:#fff;color:#0f7d47;cursor:pointer}
+.cr-form #read-drop b{font-size:14.5px;color:#0f7d47;margin:0}.cr-form #read-drop span{font-size:11.5px;color:#5d6862;overflow-wrap:anywhere}
+.cr-form #read-drop:focus-visible{outline:2px solid #0f7d47;outline-offset:2px}.cr-form .mk-picked b,#cr-sum-t{overflow-wrap:anywhere}
+.cr-form #read-drop.has{background:#f1f8f4}.cr-form #read-drop.over{background:#e6f4ec}
+.cr-form #read-ticker,.cr-form #read-run{height:44px;border-radius:10px}
+.cr-form .cr-limit{margin-top:8px}
+.cr-form #omni-recent{margin-top:8px}.cr-form #edgar-status{display:block;margin-top:8px}
+.cr-form #omni-picks{display:none!important}   /* filled for News' "Read the release" (it clicks a tile), never shown */
+.cr-form #edgar-list:empty{display:none}
+.cr-form #read-run{padding:0 28px;font-size:16px}
+.omni.cr-form #read-recmode{height:26px;padding:0 10px;font-size:12.5px;border-width:1px;border-radius:14px;vertical-align:middle}
+.cr-form #cr-find{min-height:92px}
+.cr-sum{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 14px;border:1px solid #e3e3dc;border-radius:12px;background:#fff;font-size:14px;color:#3a3a3a}.cr-sum[hidden]{display:none}
+.cr-sum b{color:#141414}.cr-steps[hidden]{display:none}
+.cr-fnote{font-size:12.5px;color:#3a3a3a;margin:6px 0 0}.cr-fnote b{font-weight:600}
+/* a Find read: the report shows what was asked for until the end, then the whole report below it */
+#read-live.findmode>.lr-sec:not(.lr-asked),#read-live.findmode>.lr-foot,#read-live.findmode .lr-prog{display:none!important}
+.lr-asked h4 small{font-weight:400}
+.lr-askl{list-style:none;margin:0 0 6px;padding:0}
+.lr-askl li{border-top:1px solid #f0f0ec;padding:7px 2px;display:grid;gap:3px}
+.lr-askl li b{font:600 12.5px/1.3 'IBM Plex Sans',sans-serif;color:#141414}
+.lr-askl .la-v{font:700 15px/1.25 'IBM Plex Mono',monospace;color:#0f7d47;overflow-wrap:anywhere}
+.lr-askl .la-q{quotes:none;color:#2a2a2a;font-size:12px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.lr-askl small{color:#6b6f76;font:10.5px/1.35 'IBM Plex Mono',monospace}
+.lr-askl .la-wait{color:#6b6f76;font-size:12px}.lr-askl li.pending .la-wait::after{content:"";display:inline-block;width:6px;height:6px;margin-left:6px;border-radius:50%;background:#0f7d47;animation:la-dot 1s ease-in-out infinite alternate}
+.lr-askl .la-no{color:#a24a2e;font-size:12px}
+.lr-askl li.arrived{animation:report-row-in .42s cubic-bezier(.2,.8,.2,1)}
+@keyframes la-dot{from{opacity:.25}to{opacity:1}}
+#doc.cr-cut{animation:cr-cut .42s ease both}   /* the page fades out, moves to the next place asked for, and back in */
+@keyframes cr-cut{0%{opacity:1}40%{opacity:0}60%{opacity:0}100%{opacity:1}}
+.rp-asked{flex-basis:100%;font-size:13px;color:#2a2a2a}.rp-asked>b{font:600 14px 'IBM Plex Sans',sans-serif}
+.rp-asked ul{list-style:none;margin:6px 0 4px;padding:0}.rp-asked li{display:grid;gap:2px;padding:7px 0;border-top:1px solid #d7ece0}
+.rp-asked li b{font-weight:600}.rp-asked .la-v{font:700 14px 'IBM Plex Mono',monospace;color:#0f7d47}.rp-asked .la-q{quotes:none;font-size:12.5px}
+.rp-asked small{color:#6b6f76;font-size:11.5px}.rp-asked .la-no{color:#a24a2e}.rp-asked>small{display:block}
+/* Dark page also darkens an HTML filing from EDGAR (a PDF's pages already go dark): Record mode's dark rules; not in the
+   video scripts' ?layout=record pages (body.rec), which set their own */
+body.readerfx.rec-dark:not(.rec) .htmldoc{background:#000}
+body.readerfx.rec-dark:not(.rec) .htmldoc *:not(.w){background-color:transparent!important}
+body.readerfx.rec-dark:not(.rec) .htmldoc *{color:#e8e8e8!important;border-color:#5a5a5a!important}
+body.readerfx.rec-dark:not(.rec) .htmldoc .w:is(.found,.cyanfill,.fillbox,.salmon){color:#fff!important}   /* over a see-through tint on black */
 .omni-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .omni-ico{width:22px;height:22px;color:#5d6862;flex:none}
 .omni-field{display:flex;flex:2 1 320px;gap:8px;min-width:240px}.omni-field[hidden]{display:none}
@@ -1050,24 +1100,43 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
 <h1 class="rp">Crawler</h1>
 <nav class="app-tabs" id="app-tabs" hidden aria-label="Crawler, News and Posting"><button type="button" data-app="crawler" aria-pressed="true">Crawler</button><button type="button" data-app="news" aria-pressed="false">News</button><button type="button" data-app="posting" aria-pressed="false">Posting</button></nav>
 <p class="lede">Type a ticker or drop in a document: a 10-K, 10-Q, earnings release, call transcript, insider trades or a fund's holdings. The server reads it, checks the arithmetic and builds a BMG Capital report in which every figure cites its page. The spider then shows each finding where it sits in the document.</p>
-<!-- One search bar: a ticker (looked up on SEC EDGAR on this Mac) or a file. "read-form" keeps the video scripts' hiding rules working. -->
-<section class="read-form omni" id="omni" aria-label="Read a filing">
-  <div class="omni-bar" id="omni-bar">
-    <svg class="omni-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><line x1="15.5" y1="15.5" x2="21" y2="21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-    <span class="omni-field" id="read-edgar" hidden><input id="edgar-ticker" type="text" maxlength="200" autocomplete="off" spellcheck="false" placeholder="Ticker, or words to search all filings" aria-label="Ticker to look up on SEC EDGAR, or words to search every SEC filing"><button id="edgar-find" type="button">Find</button></span>
-    <label id="read-drop"><input type="file" id="read-file" hidden accept=".pdf,.docx,.pptx,.htm,.html,.txt,.md"><b>Drop a file here or click to choose</b><span id="read-drop-name">10-K, 10-Q, release, call transcript: PDF, DOCX, HTML or text, up to <span id="read-max">10</span> MB.</span></label>
-    <input id="read-ticker" type="text" maxlength="6" autocomplete="off" spellcheck="false" placeholder="Ticker (optional)" aria-label="Ticker for the dropped file (optional)">
-    <button id="read-run" type="button">Run</button>
-    <button id="read-recmode" type="button" title="Open the reader in a phone-shaped window formatted for screen recording">Record mode</button>
-  </div>
-  <div class="omni-recent" id="omni-recent" hidden aria-label="Recent companies"></div>
-  <span id="edgar-status" role="status"></span>
-  <div class="omni-picks" id="omni-picks" hidden></div>
-  <ol id="edgar-list"></ol>
-  <div class="omni-funds" id="omni-funds" hidden></div>
+<!-- The Crawler's steps: the company, its form (from SEC EDGAR on this Mac) or your own document, what to find, the look,
+     then Run crawler. "read-form" keeps the video scripts' hiding rules working; #read-file and #read-run still start a
+     whole-form read for them, as before. -->
+<section class="read-form omni cr-form" id="omni" aria-label="Read a filing">
+  <div class="cr-sum" id="cr-sum" hidden><span id="cr-sum-t"></span><button type="button" class="av-chip" id="cr-edit">Change</button></div>
+  <ol class="mk-steps cr-steps" id="cr-steps">
+  <li class="mk-step"><h3><b>1</b>Company</h3>
+    <div class="omni-bar" id="omni-bar">
+      <span class="omni-field" id="read-edgar" hidden><input id="edgar-ticker" type="text" maxlength="200" autocomplete="off" spellcheck="false" placeholder="Ticker, for example NVDA" aria-label="Ticker to look up on SEC EDGAR, or words to search every SEC filing"><button id="edgar-find" type="button">Find its forms</button></span>
+      <span class="mk-or cr-or">or</span>
+      <label id="read-drop" tabindex="0" role="button"><input type="file" id="read-file" hidden accept=".pdf,.docx,.pptx,.htm,.html,.txt,.md"><b>Use my own document</b><span id="read-drop-name">or drop it here</span></label>
+      <input id="read-ticker" type="text" maxlength="6" autocomplete="off" spellcheck="false" placeholder="Ticker (optional)" aria-label="Ticker for your document (optional)">
+    </div>
+    <p class="mk-note cr-limit">A 10-K, 10-Q, earnings release, call transcript, insider trades or a fund's holdings: PDF, DOCX, HTML or text, up to <span id="read-max">10</span> MB.<span class="cr-words"> Words instead of a ticker search every SEC filing.</span></p>
+    <div class="omni-recent" id="omni-recent" hidden aria-label="Recent companies"></div>
+    <span id="edgar-status" role="status"></span></li>
+  <li class="mk-step"><h3><b>2</b>Form</h3>
+    <div id="cr-forms"><p class="mk-note">Find a company's forms in step 1, or use your own document.</p></div>
+    <div class="omni-picks" id="omni-picks" hidden></div>
+    <ol id="edgar-list"></ol>
+    <div class="omni-funds" id="omni-funds" hidden></div></li>
+  <li class="mk-step"><h3><b>3</b>Find <small>optional</small></h3>
+    <textarea id="cr-find" rows="4" aria-label="What should the spider find? One per line" placeholder="One per line, for example:&#10;revenue&#10;share repurchases&#10;how much cash do they have"></textarea>
+    <div class="av-chips mk-quick" id="cr-quick"></div>
+    <p class="mk-note" id="cr-find-note">Leave it empty and the spider reads the whole form and reports what it finds. With lines here, it goes only to those places, and the report builds what you asked for.</p></li>
+  <li class="mk-step"><h3><b>4</b>Look</h3>
+    <p class="mk-lbl">Spider colors</p>
+    <div class="mk-pals" id="cr-pals" role="radiogroup" aria-label="Spider colors"></div>
+    <p class="mk-lbl">Page</p>
+    <div class="av-chips mk-pgs" id="cr-pgs" role="radiogroup" aria-label="Page"><button type="button" role="radio" class="av-seg" data-dark="1">Dark page</button><button type="button" role="radio" class="av-seg" data-dark="0">Light page</button></div></li>
+  <li class="mk-step"><h3><b>5</b>Run</h3>
+    <div class="mk-row"><button id="read-run" type="button">Run crawler</button><span class="mk-st" id="cr-rst" role="status"></span></div>
+    <p class="mk-note">The spider reads it with the BMG Capital report building beside it; the completed report opens at the end. <button id="read-recmode" type="button" title="Open the reader in a phone-shaped window formatted for screen recording">Record mode</button> opens its own setup; for a clip of a filing, use Posting, Make a clip.</p></li>
+  </ol>
 </section>
 <!-- Everything else stays one click away. "paste" keeps the video scripts' hiding rules working. -->
-<details class="paste omni-more" id="omni-more"><summary>More: My reads, watchlist, earnings watch, paste text, appearance</summary>
+<details class="paste omni-more" id="omni-more"><summary>More: My reads, watchlist, earnings watch, paste text, number cards</summary>
 <div class="omni-more-in">
 <section class="read-library" id="read-library" hidden aria-labelledby="lib-h">
   <div class="rl-head"><h2 id="lib-h">My reads</h2><span id="lib-count"></span><button type="button" id="lib-grid" class="rl-grid">Ask across reads</button></div>
@@ -2172,6 +2241,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (cand.els.some(w => w._fx || w.classList.contains("found"))) return;
     if (!nearSpider(cand.els[0])) return;                // every mark comes with a zap from the eyes
     kind = recQuiet(cand, kind);
+    if (state.findTourOn) return;                       // a Find tour marks only the places asked for
     if (FX_CAP[kind] && fxCount(kind) >= FX_CAP[kind]) kind = kind === "strip" ? "accent" : "fill";
     if (kind === "accent" && fxCount("accent") >= FX_CAP.accent) kind = "fill";
     if (kind === "fill" && fxCount("fill") >= FX_CAP.fill) kind = "outline";
@@ -2764,11 +2834,13 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       // (not while a replay is at the bottom: the reading ends at the live point, not in a replay of it)
       let atBottom = !TL.replay && state.sy + V.h() >= docGeo().sh - 2;
       if (atBottom){ geo = null; atBottom = state.sy + V.h() >= docGeo().sh - 2; }
+      if (state.findTourOn) atBottom = false;              // a Find tour reads only where its camera goes, and ends the walk itself
       while (readIdx < rows.length && (rowY(readIdx) <= ry + 20 || atBottom)){
         if (state.onRow) state.onRow(rows[readIdx].els);
         readIdx++;
       }
       state.walkState.lineIdx = readIdx;
+      if (readIdx >= rows.length && state.findTourOn){ state.walkTimer = setTimeout(step, 150); return; }
       if (readIdx >= rows.length){ state.walkState.done = true; state.eyeFocus = null; state.boostTarget = 1; walkFinished(); return; }
       // Blank space ahead (page gaps, empty bands of a 10-K): speed up;
       // text near the reading line: back to reading speed.
@@ -2778,13 +2850,15 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const boosting = (state.boost || 1) > 1.2;
       if (!ct || Math.hypot(ct.x - state.body.x, ct.y - state.body.y) < 45 || ct.y < ry - (boosting ? 10 : 90)){
         const nf = state.nextFocus;
-        const f = (nf && nf.w.isConnected && rowY(nf.r) >= ry - 30) ? nf : pickFocusNear(ct && ct.el);
+        let ff = state.findTourOn && state.findFocus && state.findFocus.isConnected ? state.findFocus : null;
+        if (ff){ const fy = docSpaceCenter(ff).y; if (fy < ry - 40 || fy > ry + V.h() * .45) ff = null; }    // the next place asked for, once it is near
+        const f = ff ? {w: ff} : (nf && nf.w.isConnected && rowY(nf.r) >= ry - 30) ? nf : pickFocusNear(ct && ct.el);
         if (f){
           const c = docSpaceCenter(f.w), d = {width: docGeo().width};
           state.crawlTarget = {x: Math.min(d.width - HI_REACH, Math.max(HI_REACH, c.x)), y: c.y + 14, el: f.w};
           state.beatN = (state.beatN || 0) + 1;
-          if (state.beatN % 3 === 1) fireBeam(c.x, c.y, c.x, c.y, "", f.w);
-          state.nextFocus = pickFocusNear(f.w);
+          if (state.beatN % 3 === 1 && !state.findTourOn) fireBeam(c.x, c.y, c.x, c.y, "", f.w);
+          state.nextFocus = ff ? null : pickFocusNear(f.w);
           state.eyeFocus = state.nextFocus ? state.nextFocus.w : f.w;
         }
       }
@@ -2993,6 +3067,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
 
 
   // ---- crawler color preview: a small spider on a strip of page, drawn in the chosen colors ----
+  // a little spider in a palette's colors (legs and body, knees and feet, its thread), on the page it will walk
+  // (Posting's Look and the Crawler's step 4 both draw these)
+  function spiderSwatch(p){
+    const feet = [[5, 3], [3, 11], [4, 21], [8, 26], [35, 3], [37, 11], [36, 21], [32, 26]], knees = [[11, 7], [9, 12], [9, 17], [12, 21], [29, 7], [31, 12], [31, 17], [28, 21]];
+    return `<span class="mk-sw" aria-hidden="true"><svg viewBox="0 0 40 28"><path d="M20 9V0" stroke="${p.trail}" stroke-width="1.2" stroke-dasharray="1.5 1.8" fill="none"/>`
+      + `<g stroke="${p.main}" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">${feet.map((f, i) => `<path d="M20 14L${knees[i][0]} ${knees[i][1]}L${f[0]} ${f[1]}"/>`).join("")}<ellipse cx="20" cy="14.5" rx="3.6" ry="4.6"/></g>`
+      + `<g fill="${p.accent}">${feet.map(f => `<circle cx="${f[0]}" cy="${f[1]}" r="1.5"/>`).join("")}${knees.map(k => `<circle cx="${k[0]}" cy="${k[1]}" r="1"/>`).join("")}</g></svg></span>`;
+  }
   function crawlerPreviewSvg(){
     // Stacked layers that only move with transform and opacity, so the GPU animates them
     // without repainting and the preview never competes with the spider for frames.
@@ -3452,7 +3534,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const busy = () => walking() || runRead.textContent === "Working..." || document.body.classList.contains("recmode") || recWinOpen()
       || !!(window.bmgStudio && window.bmgStudio.busy && window.bmgStudio.busy())
       || typing() || Date.now() - lastInput < 10000 || Date.now() < holdUntil || (chooser && Date.now() - chooser < 300000)
-      || (state.mkBusy && state.mkBusy());
+      || (state.mkBusy && state.mkBusy()) || (state.crawlFormBusy && state.crawlFormBusy());
     const readOnScreen = () => !document.body.classList.contains("av-open") && !!document.querySelector("svg.spider rect.body");
     // the theme files are kept by the browser for a long time: fetched fresh first, so the reload uses the new ones
     const reload = async () => {
@@ -3579,24 +3661,23 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (!t){ say("Enter a ticker, for example AMZN, or words to search every SEC filing.", true); return; }
       find.disabled = true; list.innerHTML = "";
       if (!tickerShaped(raw)){                                   // words or a "quoted phrase": SEC full-text search
-        found = null; picksEl.hidden = true; watchRow.hidden = true;
+        found = null; picksEl.hidden = true; watchRow.hidden = true; if (state.crFound) state.crFound(null);
         try { await ftsSearch(raw, 0); } finally { find.disabled = false; }
         return;
       }
       say("Looking up " + t + " on SEC EDGAR...");
       try {
-        const r = await fetch("/api/edgar/filings?earnings=1&ticker=" + encodeURIComponent(t), {cache: "no-store"});
+        const r = await fetch("/api/edgar/filings?earnings=1&limit=40&ticker=" + encodeURIComponent(t), {cache: "no-store"});
         const j = await r.json();
-        if (!r.ok && r.status === 404 && /No SEC filer has the ticker/.test(j.error || "")){ found = null; picksEl.hidden = true; await ftsSearch(raw, 0, `No company has the ticker ${t}. `); return; }
+        if (!r.ok && r.status === 404 && /No SEC filer has the ticker/.test(j.error || "")){ found = null; picksEl.hidden = true; if (state.crFound) state.crFound(null); await ftsSearch(raw, 0, `No company has the ticker ${t}. `); return; }
         if (!r.ok){ say(j.error || "SEC EDGAR lookup failed.", true); return; }
         found = j;
         remember(j.ticker);
-        drawPicks(j);
+        drawPicks(j);                                       // (the tiles stay hidden: News' "Read the release" clicks one)
+        if (state.crFound) state.crFound(j);                // step 2 lists the filings to pick from
         if (!j.filings.length){ say(`${j.company} has no 10-K or 10-Q in its recent filings.`, true); return; }
-        say(`${j.company} · CIK ${j.cik} · choose what to read, or pick a filing below`);
+        say("");
         watchRow.hidden = false;
-        list.innerHTML = j.filings.map((f, i) => `<li${i >= 6 ? " hidden" : ""}><span><b>${esc(f.form)}</b>${f.period && !/^8-K/.test(f.form) ? " · period ended " + esc(f.period) : ""}<small>filed ${esc(f.filed)} · ${esc(f.accession)}</small></span><button type="button" data-i="${i}">Read</button></li>`).join("")
-          + (j.filings.length > 6 ? `<li class="re-more"><button type="button" data-more="1">Show ${j.filings.length - 6} older</button></li>` : "");
       } catch (e){ say("Could not reach the local server.", true); }
       finally { find.disabled = false; }
     }
@@ -3637,21 +3718,21 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (i !== "" && i != null) readFiling(found.filings[+i]);
     });
     // a document this server writes from EDGAR data (insider trades, a fund's 13F), then read like any other
-    async function readGenerated(url, ticker, msg){
+    async function loadGenerated(url, ticker, msg){
       say(msg);
       picksEl.querySelectorAll("button").forEach(x => { x.disabled = true; });
       try {
         const r = await fetch(url, {cache: "no-store"});
-        if (!r.ok){ let m = "SEC EDGAR did not return it."; try { m = (await r.json()).error || m; } catch (x){} say(m, true); return; }
+        if (!r.ok){ let m = "SEC EDGAR did not return it."; try { m = (await r.json()).error || m; } catch (x){} say(m, true); return false; }
         const name = r.headers.get("X-Doc-Name") || "document.htm";
         pick(new File([await r.blob()], name, {type: "text/html"}));
         const tk = document.getElementById("read-ticker"); if (tk) tk.value = ticker || "";
         say(`Loaded ${name.replace(/\.htm$/, "")}. Reading...`);
-        list.innerHTML = "";
-        startRead();
-      } catch (x){ say("Could not reach the local server.", true); }
+        return true;
+      } catch (x){ say("Could not reach the local server.", true); return false; }
       finally { if (found) drawPicks(found); }
     }
+    async function readGenerated(url, ticker, msg){ if (await loadGenerated(url, ticker, msg)){ list.innerHTML = ""; startRead(); } }
     async function showFunds(j){
       fundsEl.hidden = false;
       fundsEl.innerHTML = `<div class="of-row"><b>Big funds and ${esc(j.ticker)}</b><button type="button" data-act="holders">Which funds hold ${esc(j.ticker)}?</button></div>
@@ -3707,13 +3788,18 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const b = e.target.closest("button[data-i]"); if (!b || !found) return;
       readFiling(found.filings[+b.dataset.i]);
     });
-    async function readFiling(f){
+    async function readFiling(f){ if (await loadFiling(f)){ list.innerHTML = ""; startRead(); } }
+    // step 2's pick, loaded when Run crawler is pressed: a filing, or the company's insider trades
+    state.crLoad = (it, j) => { found = j; return it.ins ? loadGenerated(`/api/edgar/insiders.html?ticker=${encodeURIComponent(found.ticker)}`, found.ticker, `Collecting ${found.ticker}'s Form 4 filings from SEC EDGAR (the first time takes up to a minute)...`)
+      : loadFiling(it.f); };
+    state.crFunds = j => { if (j){ found = j; showFunds(j); } };
+    async function loadFiling(f){
       list.querySelectorAll("button").forEach(x => { x.disabled = true; });
       say(`Downloading ${f.form} filed ${f.filed} from SEC EDGAR...`);
       try {
         const q = new URLSearchParams({cik: found.cik, accession: f.accession, document: f.document});
         const r = await fetch("/api/edgar/document?" + q, {cache: "no-store"});
-        if (!r.ok){ let m = "Download failed."; try { m = (await r.json()).error || m; } catch (x){} say(m, true); return; }
+        if (!r.ok){ let m = "Download failed."; try { m = (await r.json()).error || m; } catch (x){} say(m, true); return false; }
         const blob = await r.blob();
         const ext = (f.document.match(/\.(\w+)$/) || ["", "htm"])[1];
         // the file name carries the filing's identity into the report's source line
@@ -3723,9 +3809,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         state.companyHint = {file, name: found.company || ""};     // a release that never names its company is still labeled
         const tk = document.getElementById("read-ticker"); if (tk) tk.value = found.ticker;
         say(`Loaded ${f.form} for the period ended ${f.period || f.filed} (filed ${f.filed}). Reading...`);
-        list.innerHTML = "";                                   // the choice is made; keep the page short
-        startRead();
-      } catch (x){ say("Could not reach the local server.", true); }
+        return true;
+      } catch (x){ say("Could not reach the local server.", true); return false; }
       finally { list.querySelectorAll("button").forEach(x => { x.disabled = false; }); }
     }
 
@@ -3781,14 +3866,13 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   ["dragenter","dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
   ["dragleave","drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
   drop.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) pick(f); });
-  // One search bar: the whole bar takes a dropped file, and a chosen or dropped file is read at once (on this Mac
-  // the ticker typed in the bar goes with it). Record mode keeps its own Start button.
+  drop.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target === drop){ e.preventDefault(); fileIn.click(); } });   // the file box from the keyboard
+  // The steps take a dropped file anywhere on them; a chosen or dropped file becomes step 2's document, and Run
+  // crawler reads it (with the Find lines and the look). Record mode keeps its own Start button.
   const omni = document.getElementById("omni");
   const autoRun = () => {
     if (document.body.classList.contains("recmode") || !chosen) return;
-    const et = document.getElementById("edgar-ticker"), t = et ? et.value.trim() : "";
-    if (READ_MAX.local && t && /^[A-Za-z][A-Za-z0-9.\-]{0,9}$/.test(t) && !tickerIn.value.trim()) tickerIn.value = t.toUpperCase();
-    startRead();
+    if (state.crOwn) state.crOwn(chosen);
   };
   fileIn.addEventListener("change", () => { if (fileIn.files[0]) setTimeout(autoRun, 0); });
   if (omni){
@@ -3803,6 +3887,189 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       setTimeout(autoRun, 0);
     });
   }
+
+  // ---- The Crawler's steps: 1 Company, 2 Form, 3 Find, 4 Look, 5 Run. Step 2 lists the company's filings (SEC
+  // EDGAR, on this Mac) or shows your document; nothing is read until Run crawler. Run crawler loads the picked
+  // filing, then reads it: the whole form, or with Find lines only those places (the Find tour, in Record mode's
+  // code). A read started any other way (My reads, a link, News, the watchlist, a search hit, a script) reads the
+  // whole form, as before. ----
+  (function crawlerSteps(){
+    const steps = document.getElementById("cr-steps");
+    if (!steps || /[?&]mode=rec\b/.test(location.search)) return;
+    const formsEl = document.getElementById("cr-forms"), findIn = document.getElementById("cr-find"), rst = document.getElementById("cr-rst");
+    const quickEl = document.getElementById("cr-quick"), noteEl = document.getElementById("cr-find-note");
+    const sumEl2 = document.getElementById("cr-sum"), sumT = document.getElementById("cr-sum-t");
+    const cr = state.cr = {found: null, pick: null, own: null, paste: false, all: false, loaded: null, restore: null};
+    const CR_LS = "bmg-crawler-form", FIND_SS = "bmg-crawler-find", DARK_LS = "bmg-crawler-dark";
+    const QUICK = ["Revenue", "Net income", "Diluted EPS", "Cash and cash equivalents", "Share repurchases", "Guidance"];
+    const say = (t, err) => { rst.textContent = t || ""; rst.classList.toggle("err", !!err); };
+    const mdy = d => d ? new Date(d + "T12:00:00").toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"}) : "";
+    const tickerShaped = v => /^[A-Za-z][A-Za-z0-9.\-]{0,9}$/.test(v);
+    const save = () => { try { localStorage.setItem(CR_LS, JSON.stringify({ticker: cr.found ? cr.found.ticker : null, pickKey: cr.pick != null ? (items()[cr.pick] || {}).key : null})); } catch (e) {} };
+    // the Find lines: one per line (or ";"), each kept as typed, no repeats, at most 8
+    const findList = () => { const seen = new Set(); return String(findIn.value || "").split(/\n|;/).map(x => x.trim()).filter(x => x && !seen.has(x.toLowerCase()) && seen.add(x.toLowerCase())).slice(0, 8); };
+    state.crFindList = findList;
+    function items(){
+      const j = cr.found; if (!j) return [];
+      return j.filings.map((f, i) => {
+        const base = f.form.replace("/A", ""), annual = /^(10-K|20-F|40-F)$/.test(base);
+        return {f, key: f.accession, label: f.form.endsWith("/A") ? base + " (amended)" : f.form,
+          when: (/^8-K/.test(f.form) ? `Filed ${mdy(f.filed)}` : `${annual ? "Year" : "Quarter"} ended ${mdy(f.period || f.filed)} · filed ${mdy(f.filed)}`) + (f.exhibit ? " · " + f.exhibit : "")};
+      }).concat([{ins: true, key: "ins:" + j.ticker, label: "Form 4 insider trades", when: "The last 12 months of insider buys and sales, gathered from SEC EDGAR into one document"}]);
+    }
+    const mb = n => n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
+    function draw(){
+      if (cr.own){
+        const et = document.getElementById("edgar-ticker"), t = et && READ_MAX.local ? et.value.trim().toUpperCase() : "";
+        formsEl.innerHTML = `<p class="mk-picked">Your document: <b>${esc(cr.own.name)}</b> (${mb(cr.own.size)})</p>
+          <p class="mk-note">${t && tickerShaped(t) ? `It is read as ${esc(t)}'s. ` : ""}${cr.found ? `<button type="button" class="av-chip" data-crclear>Use a filing instead</button>` : ""}</p>`;
+        return;
+      }
+      if (cr.paste){
+        const n = (pasteIn.value.trim().match(/\S+/g) || []).length;
+        formsEl.innerHTML = `<p class="mk-picked">Your pasted text (${n.toLocaleString()} words, in More below)</p>${cr.found ? `<p class="mk-note"><button type="button" class="av-chip" data-crclear>Use a filing instead</button></p>` : ""}`;
+        return;
+      }
+      const j = cr.found;
+      if (!j){ formsEl.innerHTML = `<p class="mk-note">${READ_MAX.local ? "Find a company's forms in step 1, or use your own document." : "Use your own document in step 1."}</p>`; return; }
+      const it = items(), firsts = new Set();
+      formsEl.innerHTML = `<p class="mk-co"><b>${esc(j.company || j.ticker)}</b> · ${esc(j.ticker)} · its 10-Ks, 10-Qs and earnings releases on SEC EDGAR, newest first (up to 40). Pick one:</p>
+        <ul class="mk-flist" role="radiogroup" aria-label="Form">${it.map((x, i) => {
+          const latest = !x.ins && !firsts.has(x.f.form); if (!x.ins) firsts.add(x.f.form);
+          return `<li${i >= 9 && !cr.all && !x.ins ? " hidden" : ""}><button type="button" role="radio" aria-checked="${cr.pick === i}" data-crf="${i}"><b>${esc(x.label)}</b><span>${esc(x.when)}</span>${latest ? "<i>latest</i>" : ""}</button></li>`;
+        }).join("")}</ul>
+        <div class="av-chips" style="margin-top:8px">${it.length > 10 && !cr.all ? `<button type="button" class="av-chip" data-crall>Show all ${it.length - 1} filings</button>` : ""}<button type="button" class="av-chip" data-crfunds>Big funds that hold ${esc(j.ticker)}</button></div>`;
+    }
+    const resetLabel = () => { if (!runRead.disabled) runRead.textContent = "Run crawler"; };
+    state.crFound = j => {
+      cr.found = j; cr.pick = null; cr.all = false; cr.own = null; cr.paste = false;
+      if (j && cr.restore && cr.restore.ticker === j.ticker){ const i = items().findIndex(x => x.key === cr.restore.pickKey); if (i >= 0){ cr.pick = i; if (i >= 9) cr.all = true; } }
+      cr.listed = !!j;                                     // a company's forms are listed: Run crawler wants one of them picked
+      cr.restore = null;
+      if (j) save();
+      draw(); resetLabel();
+    };
+    state.crOwn = f => {
+      cr.own = f; cr.paste = false; cr.pick = null; cr.loaded = null; cr.loadedFile = null; draw(); resetLabel(); say("");
+      if (steps.hidden){ steps.hidden = false; sumEl2.hidden = true; }    // dropped on the folded form: the steps open with it
+    };
+    formsEl.addEventListener("click", e => {
+      const focusForm = sel => { const b = formsEl.querySelector(sel) || formsEl.querySelector("button[data-crf]"); if (b) b.focus({preventScroll: true}); };
+      if (e.target.closest("[data-crclear]")){ cr.own = null; cr.paste = false; draw(); focusForm('button[aria-checked="true"]'); return; }
+      if (e.target.closest("[data-crall]")){ cr.all = true; draw(); focusForm('button[data-crf="9"]'); return; }
+      if (e.target.closest("[data-crfunds]")){ if (state.crFunds) state.crFunds(cr.found); return; }
+      const b = e.target.closest("button[data-crf]"); if (!b) return;
+      cr.pick = +b.dataset.crf; cr.own = null; cr.paste = false; save();
+      formsEl.querySelectorAll("button[data-crf]").forEach(x => x.setAttribute("aria-checked", String(x === b)));
+      resetLabel(); say("");
+    });
+    pasteIn.addEventListener("input", () => { cr.paste = !!pasteIn.value.trim() && !cr.own; if (cr.paste){ cr.pick = null; cr.loaded = null; cr.loadedFile = null; } draw(); });
+    // 3 Find
+    quickEl.innerHTML = QUICK.map(t => `<button type="button" class="av-chip" data-add="${esc(t)}">+ ${esc(t)}</button>`).join("");
+    const findNote = () => {
+      const f = findList();
+      noteEl.innerHTML = f.length ? `The spider will look for: <b>${f.map(esc).join(" · ")}</b>. It goes only to those places, and the report builds what you asked for. Clear the box to read the whole form.`
+        : "Leave it empty and the spider reads the whole form and reports what it finds. With lines here, it goes only to those places, and the report builds what you asked for.";
+      try { sessionStorage.setItem(FIND_SS, findIn.value); } catch (e) {}
+    };
+    try { findIn.value = sessionStorage.getItem(FIND_SS) || ""; } catch (e) {}
+    findNote();
+    findIn.addEventListener("input", findNote);
+    quickEl.addEventListener("click", e => {
+      const b = e.target.closest("[data-add]"); if (!b) return;
+      if (!findList().some(x => x.toLowerCase() === b.dataset.add.toLowerCase())) findIn.value = (findIn.value.trim() ? findIn.value.trim() + "\n" : "") + b.dataset.add;
+      findNote();
+    });
+    // 4 Look: the spider's colors and the page, through the reader's own controls (More used to hold them)
+    const palsEl = document.getElementById("cr-pals"), pgsEl = document.getElementById("cr-pgs");
+    function drawLook(){
+      const pal = state.recPalettes || {}, sel = document.getElementById("rec-palette"), dk = document.getElementById("rec-dark");
+      if (!sel || !dk) return;
+      if (!palsEl.children.length) palsEl.innerHTML = Object.entries(pal).map(([k, p]) => `<button type="button" role="radio" class="mk-pal" data-pal="${esc(k)}" title="${esc(p.name)}">${spiderSwatch(p)}<small>${esc(p.name.replace(/ \(default\)$/, ""))}</small></button>`).join("");
+      palsEl.classList.toggle("light", !dk.checked);
+      palsEl.querySelectorAll("[data-pal]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.pal === sel.value)));
+      pgsEl.querySelectorAll("[data-dark]").forEach(b => b.setAttribute("aria-checked", String((b.dataset.dark === "1") === dk.checked)));
+    }
+    const setCtl = (id, v) => { const el = document.getElementById(id); if (!el) return; if (el.type === "checkbox"){ if (el.checked === v) return; el.checked = v; } else { if (el.value === v) return; el.value = v; } el.dispatchEvent(new Event("change")); };
+    palsEl.addEventListener("click", e => { const b = e.target.closest("[data-pal]"); if (!b) return; setCtl("rec-palette", b.dataset.pal); drawLook(); });
+    pgsEl.addEventListener("click", e => {
+      const b = e.target.closest("[data-dark]"); if (!b) return;
+      setCtl("rec-dark", b.dataset.dark === "1"); try { localStorage.setItem(DARK_LS, b.dataset.dark); } catch (x) {}
+      drawLook();
+    });
+    // the reader's controls are made a moment later (Record mode's code): the page chosen before, then the tiles
+    setTimeout(() => { try { if (localStorage.getItem(DARK_LS) === "0") setCtl("rec-dark", false); } catch (e) {} drawLook(); }, 0);
+    // 5 Run: a trusted press loads step 2's pick first; the Find lines go with this read only
+    state.crBeforeRun = async () => {
+      const find = findList(), it = cr.pick != null ? items()[cr.pick] : null;
+      if (cr.own){
+        const et = document.getElementById("edgar-ticker"), t = et ? et.value.trim() : "";
+        // on this Mac the ticker box is hidden: it carries step 1's ticker (what step 2 says) or none, never an earlier read's
+        if (READ_MAX.local) tickerIn.value = t && tickerShaped(t) ? t.toUpperCase() : "";
+        if (chosen !== cr.own) pick(cr.own);
+        cr.starting = true; state.findNext = find; return false;
+      }
+      if (!it){
+        if (cr.paste && pasteIn.value.trim()){ chosen = null; cr.starting = true; state.findNext = find; return false; }
+        if (cr.listed || (!chosen && !pasteIn.value.trim())){ say(READ_MAX.local ? "Pick a form in step 2, or use your own document." : "Choose your document in step 1.", true); return true; }
+        cr.starting = true; state.findNext = find; return false;           // Run again: the document on screen
+      }
+      if (cr.loaded === it.key && chosen && chosen === cr.loadedFile){ cr.starting = true; state.findNext = find; return false; }
+      say(""); runRead.disabled = true; runRead.textContent = "Working...";
+      let ok = false;
+      const seq = state.runSeq || 0;
+      try { ok = await state.crLoad(it, cr.found); } catch (e) { ok = false; }
+      if ((state.runSeq || 0) !== seq) return true;        // another read started meanwhile (a watch, My reads): it keeps the button
+      runRead.disabled = false; runRead.textContent = "Run crawler";
+      if (!ok){ say("The filing did not load: see the message in step 1.", true); return true; }
+      cr.loaded = it.key; cr.loadedFile = chosen; cr.starting = true; state.findNext = find;
+      startRead();
+      state.findNext = null;                                // taken by the click above; never left for a later read
+      return true;
+    };
+    // a read started another way (My reads, News, a search hit, a link): step 2's pick is not what is on screen now,
+    // so Run again reads the document on screen, not the pick
+    state.crStarted = () => {
+      if (cr.starting){ cr.starting = false; return; }
+      const ownGone = cr.own && chosen !== cr.own;
+      if (cr.pick != null || cr.loaded || ownGone || (cr.paste && chosen)){
+        cr.pick = null; cr.loaded = null; cr.loadedFile = null; cr.listed = false;
+        if (ownGone) cr.own = null;
+        if (chosen) cr.paste = false;
+        draw();
+      }
+    };
+    // while it reads, the steps fold into one line (Change opens them again)
+    state.crCollapse = find => {
+      const it = cr.pick != null && !cr.own && !cr.paste ? items()[cr.pick] : null, f = chosen;      // the file going up now
+      const what = it && f && cr.loaded === it.key && f === cr.loadedFile ? `${cr.found.ticker} · ${it.label} · ${it.when}` : f ? f.name : "Pasted text";
+      sumT.innerHTML = `Reading <b>${esc(what)}</b>${find && find.length ? ` · finding ${esc(find.join(" · "))}` : " · the whole form"}`;
+      const had = steps.contains(document.activeElement);
+      sumEl2.hidden = false; steps.hidden = true;
+      if (had) document.getElementById("cr-edit").focus({preventScroll: true});     // focus was on Run crawler: it stays in the form
+    };
+    document.getElementById("cr-edit").addEventListener("click", () => {
+      steps.hidden = false; sumEl2.hidden = true; resetLabel();
+      const f = document.getElementById(READ_MAX.local ? "edgar-ticker" : "read-drop"); if (f) f.focus({preventScroll: true});
+    });
+    // the form, colors and page groups: arrow keys move the choice, as in any radio group
+    for (const g of [formsEl, palsEl, pgsEl]) g.addEventListener("keydown", e => {
+      const step = {ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1}[e.key]; if (!step) return;
+      const all = [...g.querySelectorAll('[role="radio"]')].filter(b => b.offsetParent), i = all.indexOf(document.activeElement);
+      if (i < 0 || all.length < 2) return;
+      e.preventDefault();
+      const next = all[(i + step + all.length) % all.length]; next.click(); next.focus();
+    });
+    state.crawlFormBusy = () => !!cr.own && cr.own !== state.chosenForJob;     // a document from this Mac cannot be kept over a reload
+    try { const s = JSON.parse(localStorage.getItem(CR_LS) || "{}"); if (s.ticker) cr.restore = s; } catch (e) {}
+    // on this Mac: the last company's forms again, with its pick
+    document.addEventListener("bmg-local", () => {
+      draw();
+      const et = document.getElementById("edgar-ticker");
+      if (cr.restore && et && !et.value){ et.value = cr.restore.ticker; document.getElementById("edgar-find").click(); }
+    });
+    draw();
+  })();
 
   // ---- findings panel: grouped, deduplicated, linked to the highlight ----
   const GROUPS = ["Financials", "Operating metrics", "Risks", "Other figures"];
@@ -3894,6 +4161,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   }
 
   state.onRow = (els) => {
+    if (state.findOnRow){ state.findOnRow(els); if (state.findTourOn) return; }   // a Find read: only the places asked for (see the Find tour)
     if (state.recSection) state.recSection(els);
     // A finding is shown when the spider's reading line reaches the word
     // that holds it, on the page the server cited (one page either side).
@@ -4403,6 +4671,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       setup.querySelector("#rec-back").addEventListener("click", leave);
       const drop = document.getElementById("read-drop");
       setup.querySelector("#rec-file-slot").appendChild(drop);
+      drop.querySelector("b").textContent = "Drop a file here or click to choose";
+      drop.querySelector("#read-drop-name").textContent = "10-K, 10-Q, release, call transcript: PDF, DOCX, HTML or text";
       fileIn.addEventListener("change", () => { startBtn.disabled = !fileIn.files[0]; });
       drop.addEventListener("drop", () => setTimeout(() => { startBtn.disabled = !(fileIn.files[0] || drop.classList.contains("has")); }, 0));
     } else {
@@ -4412,6 +4682,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const cards = document.createElement("label"); cards.className = "opt";
       cards.innerHTML = `Number cards <input type="checkbox" id="num-cards-on">`;
       cards.title = "A big card with the figure, its change and its page when the spider reads a headline number";
+      colors.hidden = preview.hidden = dark.hidden = true;        // shown as the Crawler's step 4, Look; still the controls it drives
       setup.replaceChildren(colors, preview, dark, cards);
       setup.id = "reader-appearance";
       const slot = document.getElementById("appearance-slot");
@@ -5407,7 +5678,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         const i = pdfOpen ? pdfOpen.pages.findIndex(pg => top + pg.docY <= mid && top + pg.docY + pg.vp.height >= mid) : -1;
         // what the report below has added: its figures, its trades, holdings, guidance or questions, its observations
         const bits = [];
-        if (B.classList.contains("rec-social")){
+        if (state.findCount) bits.push(state.findCount());      // a Find read: what was asked for, found so far
+        else if (B.classList.contains("rec-social")){
           // a clip for social video says what the report below says, in its words: "12 of 40 trades", "9 of 34 figures"
           if (rc.sections.length) for (const x of rc.sections) bits.push(`${x.shown} of ${x.total} ${x.total === 1 ? x.noun[0] : x.noun[1]}`);
           else if (plan && plan.cells) bits.push(`${state.cellsShown()} of ${plan.cells} figures`);
@@ -5823,6 +6095,370 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         } catch (e) { /* Restore visibility even if a run is cancelled mid-jump. */ }
         finally { if (version === jumpVersion) spiderSvg.style.visibility = ""; }
       };
+      // ---- Find (the Crawler's step 3): the spider goes only to the places asked for, and the report builds them ----
+      // Each line is looked up in the filing (the server's Ask: the report's figures first, then sentences), then
+      // placed on the page the way Make a clip's Find places it (a figure the report has, a table line with those
+      // words, a sentence naming them). The camera cuts to each stretch with places asked for and glides through it;
+      // the rows in between are never read. As the walk reaches a place, its words light up and it flies into "What
+      // you asked for" at the top of the report, which is all the report shows until the end: then the whole report
+      // is filled in (the figures the tour reached count as reached) and the finish card lists what was asked.
+      // Nothing here is computed: every value is the report's or the filing's, with its page.
+      let tour = {id: 0};
+      const camY = el => V.contentY(el) - V.h() * (window.READER_VIEW_FRAC || 1) * .5;
+      const FSYN = {buyback: ["repurchase"], buybacks: ["repurchase"], repurchases: ["buyback"], sales: ["revenue"], revenue: ["sales"], revenues: ["sales", "revenue"],
+        earnings: ["income"], profit: ["income"], eps: ["per share"], capex: ["capital expenditure"], dividend: ["dividends"], debt: ["borrowings", "notes"]};
+      // "inventory" names "Inventories" too (stemW keeps the y)
+      const stemF = w => w.length > 4 ? w.replace(/(ies|es|s|y)$/, "") : w;
+      const namesSyn = (text, ws) => { const t = String(text || "").toLowerCase(); return ws.length > 0 && ws.every(w => t.includes(stemF(w)) || (FSYN[w] || []).some(x => t.includes(x))); };
+      const otherNumber = ws => ws.map(w => /[^aeiou]y$/.test(w) ? w.slice(0, -1) + "ies" : /ies$/.test(w) ? w.slice(0, -3) + "y" : w);
+      // the unit a table's caption prints above an amount ("(In millions)", "($ in millions)"): only for a whole amount (a
+      // per-share figure or a percentage has decimals or a "%"), and only from its own table or page, never an earlier one's
+      function unitAbove(el){
+        if (!/^\(?\$?\d[\d,]*\)?$/.test(el.textContent.trim())) return "";
+        const L = wordList(), i = L.idx.get(el), tb = el.closest("table"), pg = el.closest(".pdfpage");
+        for (let k = i - 1; k > 0 && i - k < 500; k--){
+          const w = L.els[k], t2 = w.closest("table");
+          if ((t2 && t2 !== tb) || (pg && !pg.contains(w))) break;
+          if (L.norm[k - 1] === "in" && /^(millions|thousands|billions)\)?$/.test(L.norm[k])){
+            // a caption with two units ("Dollars in millions, shares in thousands"): which one this figure is in is not known
+            const unit = L.norm[k].replace(")", "");
+            for (let m = Math.max(1, k - 12); m < k - 1; m++) if (L.norm[m - 1] === "in" && /^(millions|thousands|billions)/.test(L.norm[m]) && L.norm[m].replace(/[),]/g, "") !== unit) return "";
+            for (let m = k + 1; m < Math.min(L.els.length, k + 8); m++) if (L.norm[m - 1] === "in" && /^(millions|thousands|billions)/.test(L.norm[m]) && L.norm[m].replace(/[),]/g, "") !== unit) return "";
+            return unit;
+          }
+        }
+        return "";
+      }
+      // a table of contents' page number ("Legal Proceedings 34") is not a figure: a bare number of 1 to 3 digits, no "$" before it
+      const notPageNo = el => { const t = el.textContent.trim(), L = wordList(), i = L.idx.get(el); return !(/^\d{1,3}$/.test(t) && !(i > 0 && /\$$/.test(L.els[i - 1].textContent.trim()))); };
+      const pageOfEl = el => { const pg = el.closest && el.closest(".pdfpage"); if (pg) return [...docBody.querySelectorAll(".pdfpage")].indexOf(pg) + 1 || null; return htmlPageOf(el); };
+      const sameNum = (w, raw) => { const a = numOf(w.textContent), b = numOf(raw); return a != null && a === b; };
+      state.findReset = () => {
+        tour = {id: tour.id + 1};
+        state.findTourOn = false; state.findOnRow = null; state.findFocus = null; state.findCount = null; state.onDone = null;
+        state.recordCamera = null; state.findResults = null;
+        if (liveEl) liveEl.classList.remove("findmode");
+      };
+      state.endFindTour = () => {                           // Go to, a link or the map took the page elsewhere: reading goes on from there
+        if (!state.findTourOn) return;
+        state.findTourOn = false; state.recordCamera = null; state.findFocus = null; tour.ended = true;
+        if (liveEl) liveEl.classList.remove("findmode");   // the whole report fills from here, the asked rows on top
+        const jb = document.getElementById("read-jump"); if (jb) jb.hidden = !state.jumpPage;
+      };
+      async function askLine(job, q){
+        try {
+          const {r, j} = await api(`/api/read/jobs/${encodeURIComponent(job)}/ask?q=${encodeURIComponent(q.slice(0, 300))}`);
+          return r.ok && j ? {answers: j.answers || []} : {error: `HTTP ${r.status}`};
+        } catch (e){ return {error: "the local server did not answer"}; }
+      }
+      // one line's place: like Make a clip's find(), over the whole document, with checks that the word placed is
+      // the one asked for (a failed match on an HTML filing falls back to the first word of its page)
+      function placeLine(q, answers, drawn, taken){
+        const out = {q, kind: "none"};
+        const ws = wordsOf(q), phrase = String(q).toLowerCase().split(/\s+/).map(normW).filter(Boolean), specific = phrase.filter(w => !GENERIC.has(w));
+        const fact = answers.find(a => a.kind === "fact" && namesSyn(`${a.label || ""} ${a.excerpt || ""}`, ws));
+        const question = /\?$|^(how|what|which|who|when|where|why|is|are|does|do|did|was|were)\b/i.test(q.trim());
+        const factOf = a => Object.assign(out, {kind: a.formula ? "calc" : "number", label: a.label, value: a.value, period: a.period, page: a.page, answer: a,
+          note: a.formula ? "calculated from the filing's figures" : ""});
+        if (/^\$?\(?\d[\d,]*(\.\d+)?\)?%?$/.test(q.replace(/\s+/g, "")) && drawn){
+          const t = findClipTargets([q]);
+          if (t && t[0]) return Object.assign(out, {kind: "number", el: t[0], value: t[0].textContent.trim(), page: pageOfEl(t[0]), label: "as printed"});
+          return out;
+        }
+        const placeFact = a => {
+          if (!drawn || a.formula) return null;
+          const w = locate(a.page, a.excerpt, a.offset, a.raw);
+          return w && w.classList && w.classList.contains("w") && a.raw && sameNum(w, a.raw) ? w : null;
+        };
+        const tryFact = a => { factOf(a); const w = placeFact(a); if (w){ out.el = taken.get(w) ? taken.get(w).el : w; } else if (drawn && !a.formula) out.note = a.page ? "not placed on the page drawn" : ""; return out; };
+        if (fact) return tryFact(fact);
+        if (drawn){
+          const alt = otherNumber(phrase), altS = otherNumber(specific), lf = ws2 => lineFigure(ws2, notPageNo);
+          const el = lf(phrase) || (alt.join() !== phrase.join() ? lf(alt) : null) ||
+            (specific.length && specific.length < phrase.length ? lf(specific) || (altS.join() !== specific.join() ? lf(altS) : null) : null);
+          if (el){
+            const L = wordList(), i = L.idx.get(el); let j = i; while (j > 0 && i - j < 12 && !/^[$(\u2014\u2013\-]*\d/.test(L.els[j - 1].textContent) && L.els[j - 1].getBoundingClientRect().top > el.getBoundingClientRect().top - 4) j--;
+            const label = L.els.slice(j, i).map(w => w.textContent).join(" ").replace(/[$\s]+$/, "").trim();
+            const pct = /^\)?%/.test(((L.els[i + 1] || {}).textContent || "").trim()), unit = pct ? "" : unitAbove(el);
+            return Object.assign(out, {kind: "number", el, value: el.textContent.trim() + (pct && !/%$/.test(el.textContent.trim()) ? "%" : ""), page: pageOfEl(el),
+              label: (label ? `"${label}", as printed` : "as printed") + (unit ? `, in ${unit}` : "")});
+          }
+        }
+        const sent = answers.find(a => a.kind !== "fact" && namesSyn(a.text, ws)) || (question ? answers.find(a => a.kind !== "fact" && wordsOf(q).some(w => !GENERIC.has(w) && String(a.text).toLowerCase().includes(stemW(w)))) : null);
+        if (question && !sent){ const f2 = answers.find(a => a.kind === "fact" && wordsOf(q).some(w => !GENERIC.has(w) && namesSyn(a.label, [w]))); if (f2) return tryFact(f2); }
+        if (sent){
+          Object.assign(out, {kind: "text", quote: String(sent.text).replace(/\s+/g, " ").trim(), page: sent.page});
+          if (drawn){
+            const w = locate(sent.page, sent.text, sent.offset, null), first = normW(String(sent.text).trim().split(/\s+/)[0]);
+            if (w && w.classList && w.classList.contains("w") && normW(w.textContent) === first){
+              const L = wordList(), i = L.idx.get(w), want = ws.map(stemW); let at = i;
+              for (let k = i; k < Math.min(L.els.length, i + 80) && want.length; k++) if (stemW(L.norm[k]) === want[0]){ at = k; break; }
+              out.el = L.els[at]; out.light = L.els.slice(at, at + Math.max(3, want.length + 1));
+            } else out.note = "not placed on the page drawn";
+          }
+          return out;
+        }
+        return out;
+      }
+      // Form 4 insider trades: a line naming an insider, a role or an action is matched to the report's trades
+      function placeTrades(q){
+        const ws = wordsOf(q).filter(w => !["trade", "trades", "insider", "insiders", "form"].includes(w));
+        if (!ws.length || !state.ins || state.ins.kind !== "insider" || !state.insTargets) return null;
+        const hits = [], loose = [];
+        // a person as SEC prints them, surname first ("Huang Jen Hsun" for "Jensen Huang"): any word of the name
+        const named = x => ws.some(w => w.length >= 3 && String(x.insider || "").toLowerCase().split(/[^a-z]+/).includes(w));
+        for (const [w, list] of state.insTargets()) for (const i of list){
+          const x = (state.insItem || (() => null))(i); if (!x || x.kind !== "trade") continue;
+          if (namesSyn(`${x.insider} ${x.title || ""} ${x.action}`, ws)) hits.push({w, i, x});
+          else if (named(x)) loose.push({w, i, x});
+        }
+        const strict = hits.length > 0;
+        if (!strict) hits.push(...loose);
+        // the same match over every transaction the filing lists (the report lists the first 40 open-market ones)
+        const all = state.ins.trades || [], om = t => t.code === "P" || t.code === "S";
+        const inFiling = all.filter(t => om(t) && (strict ? namesSyn(`${t.insider} ${t.title || ""} ${t.action}`, ws) : namesSyn(t.insider, ws) || named(t)));
+        if (!hits.length){
+          if (inFiling.length) return {unlisted: inFiling};          // open-market trades past the ones the report lists
+          const mine = all.filter(t => namesSyn(t.insider, ws) || named(t)), who = mine.length ? mine[0].insider : "", other = mine.filter(t => t.insider === who);
+          if (other.length){
+            const acts = [...new Set(other.map(t => t.action))].join(", ");
+            return {none: `No open-market buys or sales by ${who}. The filing lists ${other.length} other transaction${other.length > 1 ? "s" : ""} by ${who} (${acts}), which the report does not list.`};
+          }
+          return null;
+        }
+        hits.sort((a, b) => V.contentY(a.w) - V.contentY(b.w));
+        return {list: hits.slice(0, 6), listed: hits.length, inFiling: inFiling.length};
+      }
+      async function resolveLines(id, lines, job, drawn){
+        const out = [];
+        if (!job){ lines.forEach((q, i) => out.push({q, i, kind: "error", err: "no read on the server"})); return out; }
+        const first = await askLine(job, lines[0]);
+        const rest = await Promise.all(lines.slice(1).map(q => askLine(job, q)));
+        if (id !== tour.id) return out;
+        const asks = [first, ...rest], taken = new Map();
+        for (let i = 0; i < lines.length; i++){
+          const q = lines[i], a = asks[i];
+          if (a.error){ out.push({q, i, kind: "error", err: a.error}); continue; }
+          const tr = drawn ? placeTrades(q) : null;
+          if (tr && tr.none){ out.push({q, i, kind: "none", note: tr.none}); continue; }
+          if (tr && tr.unlisted){
+            const x = tr.unlisted[0];
+            out.push({q, i, kind: "trade", x, page: x.page, sub: 0, note: `in the filing, past the 40 open-market trades the report lists${tr.unlisted.length > 1 ? `; ${tr.unlisted.length} such trades in all` : ""}`});
+            continue;
+          }
+          if (tr){
+            tr.list.forEach((t, k) => out.push({q, i, kind: "trade", el: t.w, ins: t.i, x: t.x, page: t.x.page, sub: k,
+              more: k ? 0 : tr.listed - 1, note: k || tr.inFiling <= tr.listed ? "" : `${tr.inFiling} in the filing; the report lists its first 40 open-market trades`}));
+            continue;
+          }
+          // guidance and outlook ("Guidance", "revenue guidance", "2027 outlook"): the report's own guidance items, quoted
+          if (/\b(guidance|outlook|forecasts?)\b/i.test(q) && wordsOf(q).length <= 4){
+            const ins = state.ins || {}, gs = ins.kind === "transcript" ? ((ins.call || {}).guidance || []) : (ins.guidance || []);
+            const rest = wordsOf(q).filter(w => !/^(guidance|outlook|forecasts?|their|its|the)$/.test(w) && !/^(19|20)\d\d$/.test(w));
+            const cand = rest.length ? gs.filter(g => namesSyn(g.text, rest)) : gs;
+            if (!gs.length){ out.push({q, i, kind: "none", note: "The report found no forward-looking guidance in this filing"}); continue; }
+            if (!cand.length){ out.push({q, i, kind: "none", note: `None of the report's ${gs.length} guidance item${gs.length > 1 ? "s names" : " names"} ${rest.join(" ")}`}); continue; }
+            const g = cand[0]; let el = null, insI = null;
+            if (drawn && state.insTargets) for (const [w, list] of state.insTargets()) for (const k of list){ const x = (state.insItem || (() => null))(k); if (x && x.kind === "guide" && x.text === g.text){ el = w; insI = k; } }
+            out.push({q, i, kind: "text", quote: String(g.text).replace(/\s+/g, " ").trim(), page: g.page, el, ins: insI,
+              note: cand.length > 1 ? (rest.length ? `the first of ${cand.length} guidance items in the report that name ${rest.join(" ")}` : `the first of ${gs.length} guidance items in the report`)
+                : gs.length > 1 ? `one of ${gs.length} guidance items in the report` : "the report's guidance item"});
+            if (el) taken.set(el, out[out.length - 1]);
+            continue;
+          }
+          let h = placeLine(q, a.answers, drawn, taken);
+          // "revenues and share repurchases" on one line: each part on its own, when the whole line names no one place or
+          // only a sentence and a part is a figure ("Cash and cash equivalents" is one figure and stays one line)
+          if ((h.kind === "none" || h.kind === "text") && /\s(and|&)\s|,|\+/.test(q)){
+            const parts = q.split(/\s+(?:and|&)\s+|,|\+/).map(x => x.replace(/^\s*(their|the|its|also|and|i want|find|look for)\s+/i, "").trim()).filter(x => wordsOf(x).length);
+            if (parts.length > 1){
+              const pa = await Promise.all(parts.map(x => askLine(job, x)));
+              if (id !== tour.id) return out;
+              const ph = parts.map((x, k) => pa[k].error ? {q: x, kind: "error", err: pa[k].error} : placeLine(x, pa[k].answers, drawn, taken));
+              if (h.kind === "none" || ph.some(p => p.kind === "number" || p.kind === "calc")){
+                ph.forEach((hp, k) => { hp.i = i; hp.part = parts[k]; out.push(hp); if (hp.el) taken.set(hp.el, hp); });
+                continue;
+              }
+            }
+          }
+          h.i = i; out.push(h); if (h.el) taken.set(h.el, h);
+        }
+        return out;
+      }
+      const rowEl = h => liveEl && liveEl.querySelector(`#lr-asked li[data-k="${h.k}"]`);
+      const esc2 = esc;
+      function rowHTML(h){
+        const head = `<b>${esc2(h.part || h.q)}</b>`, pg = h.page ? `p.${h.page}` : "";
+        if (h.kind === "none") return head + `<span class="la-no">${esc2(h.note || "Not found in this filing")}</span>`;
+        if (h.kind === "error") return head + `<span class="la-no">Could not search: ${esc2(h.err)}</span>`;
+        if (!h.filled) return head + `<span class="la-wait">${h.el ? "found; the spider is on its way" : "found"}</span>`;
+        if (h.kind === "text") return head + `<q class="la-q">${esc2(h.quote)}</q><small>${esc2([pg, h.note].filter(Boolean).join(" · "))}</small>`;
+        if (h.kind === "trade"){ const x = h.x; return head + `<span class="la-v">${esc2(x.shares)} shares${x.price && x.price !== "n/a" ? " at " + esc2(x.price) : ""}${x.value && x.value !== "n/a" ? ", " + esc2(x.value) : ""}</span><small>${esc2([x.insider, x.action, x.date, pg, h.more ? `and ${h.more} more trade${h.more > 1 ? "s" : ""} in the trades below` : "", h.note].filter(Boolean).join(" · "))}</small>`; }
+        const lab = h.label && h.label.toLowerCase() !== String(h.part || h.q).toLowerCase() ? h.label : "";
+        const review = h.answer && h.answer.status === "Needs review" ? "needs review (see the report's sources)" : "";
+        return head + `<span class="la-v">${esc2(h.value)}</span><small>${esc2([lab, h.period, pg, h.note, review].filter(Boolean).join(" · "))}</small>`;
+      }
+      function drawRow(h){ if (h.sub) return; const li = rowEl(h); if (li){ li.innerHTML = rowHTML(h); li.classList.toggle("pending", !h.filled && h.kind !== "none" && h.kind !== "error"); li.classList.toggle("no", h.kind === "none" || h.kind === "error"); } }
+      const foundN = () => (tour.hits || []).filter(h => h.filled && h.sub == null || h.filled && h.sub === 0).length;
+      function writeCount(){
+        const n = (tour.hits || []).filter(h => h.sub == null || h.sub === 0).length, el = liveEl && liveEl.querySelector("#lr-asked-n");
+        if (el) el.textContent = `${foundN()} of ${n} found so far`;
+      }
+      // a place reached: its row filled (the figure, as reached, in its report cell too, at the end)
+      function fillRow(h, flew){
+        if (h.filled) return;
+        h.filled = true; drawRow(h);
+        const li = rowEl(h); if (li && flew){ li.classList.add("arrived"); setTimeout(() => li.classList.remove("arrived"), 600); }
+        if (h.answer && tour.res){
+          const f = (tour.res.findings || []).find(x => x.offset === h.answer.offset && x.raw === h.answer.raw);
+          const pend = state.pendingFindings || [], k = f ? pend.findIndex(p => p._f === f) : -1;
+          if (f && k >= 0 && state.live){ pend.splice(k, 1); addFinding(f, null); tour.changes.push(state.live.revealFinding(f.id)); }
+        }
+        if (h.ins != null && state.revealIns) state.revealIns(h.ins);      // a trade or a guidance item: its row in the report too
+        writeCount(); if (state.hudTick) state.hudTick();
+      }
+      function moment(id, h){
+        if (h.lit || id !== tour.id) return;
+        h.lit = true;
+        tour.slowUntil = performance.now() + 1200;
+        const el = h.el, words = h.light || [el];
+        words.forEach(w => w.classList.add("found", h.kind === "text" ? "blue" : "pink", "hl-zap"));
+        setTimeout(() => words.forEach(w => w.classList.remove("hl-zap")), 2800);
+        zapTo(el, true, true); tlFx("lit", {el, pink: h.kind !== "text"});
+        if (h.kind === "number" && document.getElementById("num-cards-on")?.checked) numberCard({label: h.label && h.label !== "as printed" ? h.label : h.q, value: h.value, page: h.page,
+          sub: [h.period, h.answer && h.answer.status === "Needs review" ? "needs review" : ""].filter(Boolean).join(" · ")});
+        const chip = h.kind === "text" ? (h.part || h.q) : h.kind === "trade" ? `${h.x.shares} shares` : h.value;
+        setTimeout(() => {
+          if (id !== tour.id) return;
+          const li = rowEl(h);
+          if (!li || !readerSourceVisible(el)){ fillRow(h, false); return; }
+          fly(el, li, chip, h.kind === "text", () => { if (id === tour.id) fillRow(h, true); });
+          tlFx("fly", {el, dest: li, text: chip});
+        }, ZAP_LAND);
+      }
+      state.findCount = null;
+      state.findStart = (res, drawn) => {
+        const lines = (state.findRun || []).slice(0, 8);
+        if (!lines.length || !liveEl) return;
+        const id = tour.id + 1;
+        tour = {id, res, hits: [], changes: [], drawn, slowUntil: 0};
+        state.onDone = r => findDone(id, r);
+        liveEl.classList.add("findmode");
+        const sec = document.createElement("section"); sec.className = "lr-sec lr-asked";
+        sec.innerHTML = `<h4>What you asked for <small id="lr-asked-n">searching the filing...</small></h4><ol class="lr-askl" id="lr-asked">${lines.map((q, i) => `<li data-k="${i}" class="pending"><b>${esc2(q)}</b><span class="la-wait">Searching the filing...</span></li>`).join("")}</ol>`;
+        const top = liveEl.querySelector(".lr-top"); if (top) top.after(sec); else liveEl.prepend(sec);
+        state.findCount = () => `${foundN()} of ${(tour.hits || []).filter(h => h.sub == null || h.sub === 0).length || lines.length} found`;
+        if (typeof selectTab === "function") selectTab("tab-live");
+        const side = document.querySelector(".read-side"); if (side && side.classList.contains("collapsed")) document.getElementById("rs-sheet")?.click();
+        if (drawn){
+          // the page holds where it is (the spider stays alive) while the lines are looked up
+          state.findTourOn = true; state.findOnRow = els => findOnRow(id, els);
+          state.recordCamera = () => state.scrollPos ?? state.sy;
+          const jb = document.getElementById("read-jump"); if (jb) jb.hidden = true;
+          setStatus(`finding ${lines.join(", ")}...`);
+        }
+        tour.ready = resolveLines(id, lines, state.jobId, drawn).then(hits => {
+          if (id !== tour.id) return;
+          // one row per line (a line found in parts: one per part; trades: one per line, its first trade first)
+          let k = 0;
+          hits.forEach(h => { h.k = h.sub ? null : k++; });
+          tour.hits = hits;
+          const ol = liveEl.querySelector("#lr-asked");
+          if (ol) ol.innerHTML = hits.filter(h => !h.sub).map(h => `<li data-k="${h.k}"></li>`).join("");
+          hits.forEach(h => { if (h.sub){ const r = hits.find(x => x.i === h.i && !x.sub); h.k = r.k; } });
+          hits.filter(h => !h.sub).forEach(h => { if (!h.el && h.kind !== "none" && h.kind !== "error") h.filled = true; drawRow(h); });   // found but not on the page drawn: shown as found, no flight
+          writeCount();
+          return hits;
+        });
+        if (drawn) tour.ready.then(() => runTour(id)).catch(e => { console.error("find tour:", e); finishTour(id); });
+      };
+      function findOnRow(id, els){
+        if (id !== tour.id || !tour.hits) return;
+        for (const w of els) for (const h of tour.hits) if (h.el === w && !h.lit) moment(id, h);
+      }
+      const until = (id, ok, ms = 100) => new Promise(res => { const t = setInterval(() => { if (id !== tour.id || ok()){ clearInterval(t); res(); } }, ms); });
+      async function runTour(id){
+        if (id !== tour.id || tour.ended) return;
+        // the lines can come back before the walk has started (it starts just after the page is drawn)
+        const t0 = performance.now();
+        await until(id, () => walking() || state.walkSkipped || tour.ended || performance.now() - t0 > 6000);
+        if (id !== tour.id || tour.ended || state.walkSkipped) return;
+        if (!walking()){ finishTour(id); return; }
+        const hits = tour.hits.filter(h => h.el && h.el.isConnected).sort((a, b) => camY(a.el) - camY(b.el));
+        const groups = [];
+        for (const h of hits){ const y = camY(h.el), g = groups[groups.length - 1]; if (g && y - g.y1 < V.h() * 1.2) { g.hits.push(h); g.y1 = y; } else groups.push({hits: [h], y0: y, y1: y}); }
+        if (!groups.length){
+          const rows = tour.hits.filter(h => !h.sub);
+          setStatus(rows.length && rows.every(h => h.kind === "error") ? "could not search the filing for what was asked; the full report is below"
+            : `none of the ${rows.length} things asked for is on the pages drawn; the full report is below`);
+          await sleep(1500);
+          await until(id, () => tour.ended || (!state.paused && !TL.replay));
+          if (id !== tour.id || tour.ended) return;
+          finishTour(id); return;
+        }
+        setStatus(`finding ${tour.hits.filter(h => h.el && !h.sub).map(h => h.part || h.q).join(", ")}`);
+        for (const g of groups){
+          if (id !== tour.id || tour.ended) return;
+          await until(id, () => tour.ended || (!state.paused && !TL.replay && !(state.userScrolledAt && performance.now() - state.userScrolledAt < 2500)));
+          if (id !== tour.id || tour.ended) return;
+          const maxS = Math.max(0, docGeo().sh - V.h());
+          const y0 = Math.max(0, Math.min(maxS, g.y0 - Math.min(V.h() * .25, 180))), y1 = Math.max(y0 + 1, Math.min(maxS, g.y1 + 30));
+          // a stretch more than half a view away: cut to it (the rows between are never read)
+          if (Math.abs(y0 - state.sy) > V.h() * .5){
+            const d = document.getElementById("doc");
+            d.classList.add("cr-cut"); await sleep(170);
+            if (id !== tour.id || tour.ended){ d.classList.remove("cr-cut"); return; }
+            state.recordCamera = () => y0;
+            tlJumpTo(y0, true);
+            await sleep(260); d.classList.remove("cr-cut");
+            if (id !== tour.id || tour.ended) return;          // Go to, Skip or a new read during the fade: the camera is theirs
+          }
+          const from = state.sy, secs = 1.4 + 1.9 * g.hits.length;
+          const path = scopePath(from, g.hits.map(h => camY(h.el)), Math.max(from + 1, y1), secs);
+          let ran = 0;
+          state.findFocus = g.hits[0].el;
+          state.recordCamera = dt => { const k = (performance.now() < tour.slowUntil ? .25 : 1) * Math.max(.5, Math.min(4, state.speedMul || 1)); ran += dt * k; return path(dt * k); };
+          await until(id, () => { const next = g.hits.find(h => !h.lit); state.findFocus = next ? next.el : null; return ran >= secs || tour.ended; });
+          // a place the walk did not reach on this stretch (a word beside the line): lit now, or filled without a flight
+          await sleep(400);
+          if (id !== tour.id || tour.ended) return;
+          g.hits.forEach(h => { if (!h.lit) moment(id, h); });
+          await until(id, () => g.hits.every(h => h.filled) || tour.ended, 150);
+          if (id !== tour.id || tour.ended) return;
+          state.recordCamera = () => state.sy;              // hold until the next stretch
+        }
+        await sleep(1500);
+        await until(id, () => tour.ended || (!state.paused && !TL.replay && !(state.chipsInFlight > 0)));
+        if (id !== tour.id || tour.ended) return;          // Go to in the last moments: reading goes on from there
+        finishTour(id);
+      }
+      function finishTour(id){
+        if (id !== tour.id) return;
+        tour.ended = true; state.findTourOn = false; state.recordCamera = null; state.findFocus = null;
+        if (walking()) skipWalk();                          // the read ends here: done() fills the rest of the report
+      }
+      async function findDone(id, res){
+        if (id !== tour.id) return;
+        tour.ended = true; state.findTourOn = false; state.recordCamera = null; state.findFocus = null;
+        try { await tour.ready; } catch (e) {}
+        if (id !== tour.id) return;
+        (tour.hits || []).forEach(h => { if (!h.filled && h.kind !== "none" && h.kind !== "error") fillRow(h, false); });   // Skip, reduced motion: filled now
+        state.findOnRow = null; state.findCount = null;
+        liveEl.classList.remove("findmode");
+        // the figures the tour reached, in their report cells: each cell as the report has it now (done() filled the
+        // rest first, so a calculated cell resting on one of them shows its final value, not the one it had then)
+        const got0 = tour.changes.flat(), ids = new Set(got0.filter(c => c.kind !== "signal").map(c => c.id));
+        if (got0.length) applyLive(got0.filter(c => c.kind === "signal").concat([...ids].map(id => ({...got0.filter(c => c.id === id).pop(), ...(state.live.shown.get(id) || {}), id, op: "update"}))));   // update: their number card was shown when reached
+        liveProgress(true);
+        const n = (tour.hits || []).filter(h => !h.sub), got = n.filter(h => h.filled);
+        const sm = liveEl.querySelector("#lr-asked-n"); if (sm) sm.textContent = `${got.length} of ${n.length} found`;
+        state.findResults = n.map(h => ({q: h.part || h.q, html: rowHTML(h)}));
+        const card = document.getElementById("read-report-ready");
+        if (card && n.length) card.insertAdjacentHTML("afterbegin", `<div class="rp-asked"><b>You asked for</b><ul>${n.map(h => `<li>${rowHTML(h)}</li>`).join("")}</ul><small>Also at the top of the report panel. The PDF and Excel are the full report.</small></div>`);
+        setStatus(n.length && n.every(h => h.kind === "error") ? "ready · could not search the filing for what was asked · the full report is filled in below"
+          : `ready · ${got.length} of ${n.length} things asked for found · the full report is filled in below`);
+        setTimeout(() => { if (id !== tour.id || !reportSide) return; followAnim++; followHoldUntil = performance.now() + 4000; reportSide.scrollTop = 0; }, 60);
+      }
       let activeToken = null;
       const clearReaderOverlays = () => {
         cancelAnimationFrame(eyeRaf); clearInterval(hudTimer); state.hudTick = null;
@@ -6211,7 +6847,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     showErr("That job is no longer on the server (results are kept for one hour, and a server restart clears them). Run the file again to rebuild the report.");
     ctlEl.hidden = true;
   }
-  function resetRunBtn(t){ runRead.disabled = false; runRead.textContent = t || "Run"; }
+  function resetRunBtn(t){ runRead.disabled = false; runRead.textContent = t || "Run crawler"; }
   // A read started from the page (a filing picked, a saved read opened, a link, a search hit, a dropped file)
   // replaces the one on screen, even while that one is still being read or walked: the old job is cancelled on
   // the server (a finished job is left as it is) and its events are no longer applied.
@@ -6234,7 +6870,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       return;
     }
     const {j} = await api(`/api/read/jobs/${encodeURIComponent(id)}`);
-    rememberJob(null);
+    rememberJob(null); state.findRun = null;
     showErr(st === "cancelled" ? "Cancelled. No report was produced." : ((j && j.error) || "Processing failed; no report was produced."));
     setStatus(st); resetRunBtn("Run again");
   }
@@ -6262,6 +6898,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       docBody.innerHTML = `<p class="muted" style="padding:20px">The document itself is not kept, so it cannot be redrawn after a reload. The report and every citation are still available below. Choose the file again to watch it being read.</p>`;
       res.findings.forEach(x => { addFinding(x, null); onFindingSignals(x, null); });
       if (state.live) applyLive(state.live.finish());
+      if (state.findRun && state.findStart) state.findStart(res, false);      // what was asked for, from Ask: no document to tour
       return done(res);
     }
     state.docsLoaded["job-" + res.sha256] = {text: res.text};
@@ -6282,6 +6919,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       doc_type: (res.kind || "").toUpperCase(), ticker: co.ticker || "", has_text: true, fetched_at: new Date().toISOString()});
     if (!ok){ if (state.doneHook){ state.doneHook = null; done(res); } return; }
     toolsDocReady();
+    if (state.findRun && state.findStart) state.findStart(res, true);        // Find lines: the spider goes only to those places
     // Skip (or reduced motion) while the document was still drawing: the
     // walk is queued to start just after this; stop it as it starts.
     if (REDUCED || state.walkSkipped){ state.walkSkipped = true; setTimeout(() => { skipWalk(); setStatus(`ready \u00b7 ${state.panelIds.size} findings`); }, 120); }
@@ -6320,6 +6958,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     liveProgress(true);
     showFinish(res);
     resetRunBtn("Run again");
+    if (state.onDone) state.onDone(res);                  // a Find read: what was asked for, in the report and the finish card
   }
 
   // ---- finish card: View report, Download PDF, Review sources, issues ----
@@ -6843,6 +7482,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     catch(e){ return null; }
   }
   function resetView(){
+    if (state.findReset) state.findReset();                // a Find tour of the read on screen ends here
     stopWalk(); state.loadToken++; clearSpider(); docBody.innerHTML = ""; h1.textContent = "";
     toolsReset();
     listEl.innerHTML = ""; chipsEl.innerHTML = ""; scopeEl.innerHTML = ""; catFilter = ""; sumEl.hidden = true; sumEl.innerHTML = "";
@@ -6856,7 +7496,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     document.getElementById("read-stage").hidden = false;
   }
 
-  runRead.addEventListener("click", async () => {
+  runRead.addEventListener("click", async e => {
+    if (e.isTrusted && state.crBeforeRun && await state.crBeforeRun()) return;   // the steps load the picked filing, then start it
+    const find = state.findNext; state.findNext = null;                           // only this read gets the Find lines
+    state.runSeq = (state.runSeq || 0) + 1;
     showErr("");
     const fd = new FormData();
     if (chosen){
@@ -6874,6 +7517,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.remove("on"));
     runRead.disabled = true; runRead.textContent = "Working...";
     resetView(); drawStages();
+    state.findRun = find && find.length ? find : null;
+    if (state.crStarted) state.crStarted();
+    if (state.crCollapse) state.crCollapse(state.findRun);
     state.jobId = null;
     state.chosenForJob = chosen; state.pastedForJob = chosen ? "" : pasteIn.value;
     state.chosenSha = chosen ? await sha256Hex(chosen) : null;
@@ -6888,7 +7534,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const job = up.j;
     Object.assign(state.stages, job.stages || {}); drawStages();
     state.jobId = job.job_id;
-    rememberJob({id: job.job_id, title: job.title, at: Date.now()});
+    rememberJob({id: job.job_id, title: job.title, at: Date.now(), find: state.findRun || undefined});
     setStatus(job.reused ? "this file was already processed; reusing that result" : "processing on the server");
     follow(job.job_id);
   });
@@ -7061,6 +7707,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   // reads on from that line; once the walk is over, the page scrolls there. The words light up either way.
   function seekTo(el, opts = {}){
     if (!el || !el.isConnected) return false;
+    if (state.findTourOn && state.endFindTour) state.endFindTour();
     const running = state.walkState && !state.walkState.done && state.scrollPos != null && !state.walkSkipped;
     const top = V.contentY(el);
     revealPane();
@@ -7392,7 +8039,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   addEventListener("keydown", e => {
     if (document.body.classList.contains("recmode") || document.body.classList.contains("av-open") || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === "Escape"){ closeMenus(); askPop.hidden = true; return; }
-    if (e.target.closest("input,textarea,select,[contenteditable]") || document.body.classList.contains("rp-open")) return;
+    if (e.target.closest("input,textarea,select,[contenteditable],#omni") || document.body.classList.contains("rp-open")) return;   // (the steps' own buttons keep Space)
     if (document.getElementById("read-stage").hidden) return;
     const k = e.key.toLowerCase(), click = id => { const b = document.getElementById(id); if (b && !b.hidden && !b.disabled){ b.click(); return true; } return false; };
     if (e.key === " "){ if (click("ctl-pause")) e.preventDefault(); }
@@ -7497,7 +8144,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   const baseOnRow = state.onRow;
   state.onRow = (els) => {
     baseOnRow(els);
-    if (!insTargets.size) return;
+    if (!insTargets.size || state.findTourOn) return;
     for (const w of els){
       const list = insTargets.get(w);
       if (!list) continue;
@@ -7669,7 +8316,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     }
     function stop(msg){ clearInterval(timer); timer = null; if (msg) say(msg); }
     // read the queue one filing at a time, only while nothing else is being read
-    function idle(){ return !runRead.disabled && !walking(); }
+    function idle(){ return !runRead.disabled && !walking() && !(state.crawlFormBusy && state.crawlFormBusy()); }   // nor over a document chosen in step 1 and not yet read
     function pump(){
       if (busy || !queue.length || !idle()) return;
       const {j, f} = queue.shift();
@@ -8363,12 +9010,13 @@ Who is the auditor?</textarea>
       show("crawler");
       const inp = document.getElementById("edgar-ticker"), find = document.getElementById("edgar-find"), picks = document.getElementById("omni-picks");
       if (!inp || !find || !t) return;
-      inp.value = t; inp.classList.remove("phrase"); picks.hidden = true;
-      find.click();
-      const t0 = Date.now();
+      const t0 = Date.now(), want = String(t).toUpperCase(), go = () => { inp.value = t; inp.classList.remove("phrase"); picks.hidden = true; find.click(); };
+      let asked = !find.disabled;                // a lookup already running (the Crawler's restored company) finishes first
+      if (asked) go();
       const wait = setInterval(() => {
-        const b = picks.querySelector(`button[data-act="${act || "k"}"]`);
-        if (b && !picks.hidden && !find.disabled){ clearInterval(wait); if (!b.disabled) b.click(); }
+        if (!asked){ if (!find.disabled){ asked = true; go(); } else if (Date.now() - t0 > 60000) clearInterval(wait); return; }
+        const b = picks.querySelector(`button[data-act="${act || "k"}"]`), co = state.cr && state.cr.found;
+        if (b && !picks.hidden && !find.disabled && (!co || String(co.ticker).toUpperCase() === want)){ clearInterval(wait); if (!b.disabled) b.click(); }
         else if (Date.now() - t0 > 60000) clearInterval(wait);
       }, 250);
       document.getElementById("omni")?.scrollIntoView({block: "start", behavior: REDUCED ? "auto" : "smooth"});
@@ -8773,13 +9421,6 @@ Who is the auditor?</textarea>
       if (opened.busy){ mkSay("mk-rst", "Record mode is in the middle of a take: it is in front now. Finish that take, then press Record again.", true); return; }
       mk.recording = true; recStatus("setup");
     }
-    // a little spider in a palette's colors (legs and body, knees and feet, its thread), on the page it will walk
-    const spiderSwatch = p => {
-      const feet = [[5, 3], [3, 11], [4, 21], [8, 26], [35, 3], [37, 11], [36, 21], [32, 26]], knees = [[11, 7], [9, 12], [9, 17], [12, 21], [29, 7], [31, 12], [31, 17], [28, 21]];
-      return `<span class="mk-sw" aria-hidden="true"><svg viewBox="0 0 40 28"><path d="M20 9V0" stroke="${p.trail}" stroke-width="1.2" stroke-dasharray="1.5 1.8" fill="none"/>`
-        + `<g stroke="${p.main}" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">${feet.map((f, i) => `<path d="M20 14L${knees[i][0]} ${knees[i][1]}L${f[0]} ${f[1]}"/>`).join("")}<ellipse cx="20" cy="14.5" rx="3.6" ry="4.6"/></g>`
-        + `<g fill="${p.accent}">${feet.map(f => `<circle cx="${f[0]}" cy="${f[1]}" r="1.5"/>`).join("")}${knees.map(k => `<circle cx="${k[0]}" cy="${k[1]}" r="1"/>`).join("")}</g></svg></span>`;
-    };
     // ---- the logos: "Built with" (Claude) and "Scanning" (the company), from the pictures kept in the Studio's Quick
     // add. A picture is offered for a role by its name ("claude", the ticker or the company's name), and the one
     // chosen is kept (the company's per ticker). Without one the clip names it in text: nothing is drawn or fetched. ----
@@ -9203,6 +9844,7 @@ Who is the auditor?</textarea>
   // a trade of the report by its key (a planned clip names its featured one so): its index, and the word the
   // spider reaches it by
   state.insTargets = () => insTargets;
+  state.insItem = i => insItems[i]; state.revealIns = revealIns;         // a Find read's trades (the Find tour)
   state.insFind = key => {
     const i = insItems.findIndex(x => x.kind === "trade" && [x.accession, x.date, x.code, x.shares, x.price, x.insider].join("|") === key);
     if (i < 0) return null;
@@ -9230,6 +9872,7 @@ Who is the auditor?</textarea>
     state.mode = "read";
     resetView(); Object.assign(state.stages, j.stages || {}); drawStages();
     state.jobId = sj.id; state.chosenForJob = null;
+    state.findRun = Array.isArray(sj.find) && sj.find.length ? sj.find.slice(0, 8) : null;
     setStatus(`reconnected to ${esc(j.title)}`);
     if (j.state === "queued" || j.state === "running"){ runRead.disabled = true; runRead.textContent = "Working..."; ctlEl.hidden = false; cancelBtn.hidden = false; skipBtn.hidden = true; }
     follow(sj.id);
