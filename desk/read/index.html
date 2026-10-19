@@ -3950,6 +3950,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   function revealFound(tr){
     if (!tr || !tr.isConnected) return;
     tr.classList.remove("pending"); tr.classList.add("lr-row-enter");
+    if (state.hudTick) state.hudTick();
     const v = tr.querySelector(".lr-c"); if (v){ v.classList.add("flash"); setTimeout(() => v.classList.remove("flash"), 1400); }
     setTimeout(() => tr.classList.remove("lr-row-enter"), 450);
     liveFollow(tr);
@@ -4009,11 +4010,34 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     reportNextReview = now + 1800;
     liveFollow(next, true);
   }, 200);
+  // What the report has added so far, by kind: statement figures (a filled cell, or a row of "More from the
+  // filing"), the document's own sections (trades, holdings, guidance, analyst questions, claims) and observations.
+  // A row still on its way to the report (pending) is not counted. The chip over the video and the report's own
+  // count both read this: they counted statement figures only, so an insider filing said 0 the whole time while
+  // its trades filled the report.
+  const INS_NOUN = {guid: ["guidance item", "guidance items"], qs: ["analyst question", "analyst questions"], claims: ["claim", "claims"], trades: ["trade", "trades"], holds: ["holding", "holdings"]};
+  function reportCounts(){
+    const out = {figures: 0, observations: 0, sections: []};
+    if (!liveEl) return out;
+    out.figures = liveEl.querySelectorAll("tr:not(.pending) .lr-c .lr-v").length;
+    const sigs = document.getElementById("lr-sigs"); out.observations = sigs ? sigs.children.length : 0;
+    for (const sec of liveEl.querySelectorAll(".lr-insec")){
+      const noun = INS_NOUN[sec.dataset.ins]; if (!noun) continue;
+      out.sections.push({noun, total: sec.querySelectorAll(".lr-ins > li").length, shown: sec.querySelectorAll(".lr-ins > li:not(.pending)").length});
+    }
+    return out;
+  }
+  state.reportCounts = reportCounts;
+  const many = (n, noun) => `${n} ${n === 1 ? noun[0] : noun[1]}`;
   function liveProgress(final){
+    if (state.hudTick) state.hudTick();
     if (!state.live) return;
-    const c = state.live.counts();
+    if (final) state.live.assembled = true; else if (state.live.assembled) final = true;   // assembled stays assembled
+    const c = state.live.counts(), rc = reportCounts();
     const el = document.getElementById("lr-prog");
-    if (el) el.textContent = final ? `Report assembled: ${c.shown} of ${c.cells} figures, ${c.signals} observations.`
+    // a document without statement figures (insider trades, a 13F, a call) counts what it does have
+    if (el && !c.cells && rc.sections.length) el.textContent = (final ? "Report assembled: " : "") + rc.sections.map(x => `${x.shown} of ${many(x.total, x.noun)}`).join(" · ") + (final ? "." : " shown");
+    else if (el) el.textContent = final ? `Report assembled: ${c.shown} of ${c.cells} figures, ${c.signals} observations.`
       : `${c.shown} of ${c.cells} report figures shown${c.earlier ? ` · ${c.earlier} source lines read before this excerpt` : ""}`;
     const ft = document.getElementById("lr-foot");
     if (ft && final) ft.innerHTML = `Source lines behind these figures: ${c.walk} revealed during the walk${c.earlier ? `, ${c.earlier} read before the replayed excerpt` : ""}${c.server ? `, ${c.server} filled in from the completed analysis` : ""}. <button type="button" class="lr-open">Open full report</button>`;
@@ -5075,10 +5099,11 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const co = (state.readRes && state.readRes.report && state.readRes.report.company) || {};
       const callCo = (((state.readRes || {}).insights || {}).call || {}).company || {};       // a transcript names its company itself
       const tag = [co.ticker || co.ticker_hint || callCo.ticker || (co.name ? "" : (callCo.name || "").replace(/,? (?:Inc|Corp|Co|Ltd)\.?$/, "").slice(0, 24)), co.form].filter(Boolean).join(" ");
-      hudTimer = setInterval(() => {
+      // the chip is drawn five times a second, and at once when the report adds something, so its counts are the
+      // report's counts at every moment
+      const tick = () => {
         // scoped lookups: a whole-document query walks every word span (180,000 in JPMorgan's HTML 10-K)
-        const figs = liveEl ? liveEl.querySelectorAll(".lr-c .lr-v").length : 0;
-        const sigs = document.getElementById("lr-sigs"), obs = sigs ? sigs.children.length : 0;
+        const rc = state.reportCounts ? state.reportCounts() : {figures: 0, observations: 0, sections: []}, plan = state.live && state.live.counts ? state.live.counts() : null;
         // Positions come from the cached document geometry and page offsets: reading live rectangles
         // here forced a layout of the filing five times a second, and the panel lookup walked every word span.
         const g = docGeo(), top = docTop();
@@ -5096,9 +5121,16 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         }
         const mid = V.h() * (isRecord ? 0.3 : 0.5);
         const i = pdfOpen ? pdfOpen.pages.findIndex(pg => top + pg.docY <= mid && top + pg.docY + pg.vp.height >= mid) : -1;
-        const html = `<b>${esc(tag || "BMG READER")}</b> <span>${figs} figure${figs === 1 ? "" : "s"}</span> <span>${obs} observation${obs === 1 ? "" : "s"}</span>${i >= 0 ? ` <span>p.${i + 1}</span>` : ""}`;
+        // what the report below has added: its figures, its trades, holdings, guidance or questions, its observations
+        const bits = [];
+        if (rc.figures || (plan && plan.cells) || !rc.sections.length) bits.push(`${rc.figures} figure${rc.figures === 1 ? "" : "s"}`);
+        for (const x of rc.sections) bits.push(`${x.shown} ${x.shown === 1 ? x.noun[0] : x.noun[1]}`);
+        if (rc.observations || (plan && plan.cells) || !rc.sections.length) bits.push(`${rc.observations} observation${rc.observations === 1 ? "" : "s"}`);
+        const html = `<b>${esc(tag || "BMG READER")}</b>${bits.map(b => ` <span>${b}</span>`).join("")}${i >= 0 ? ` <span>p.${i + 1}</span>` : ""}`;
         if (hud.dataset.html !== html){ hud.dataset.html = html; hud.innerHTML = html; }
-      }, 200);
+      };
+      hudTimer = setInterval(tick, 200);
+      state.hudTick = () => { if (hud && hud.isConnected) tick(); };
     }
 
     // -- recording this tab (optional)
@@ -5309,7 +5341,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     async function finishRecording(keySecs, oneSecs, highlights){
       state.recordCamera = null;
       stopWalk();
-      clearInterval(hudTimer);
+      clearInterval(hudTimer);                         // (the report still tells the chip when it adds its last rows)
       cancelAnimationFrame(eyeRaf);
       await wait(() => state.readRes && state.readRes.report, 100, 30000);
       // The ending reads the completed server report. Filling every underlying
@@ -5439,13 +5471,20 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const take = {id: "take-" + when.getTime().toString(36), created: when.getTime(), size: blob.size, type: blob.type, meta: {ticker, hook, form: co.form || "", source: "record", report},
         name: [ticker || "Crawler", co.form || "", "take", when.toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})].filter(Boolean).join(" ")};
       if (blob.disk) take.handle = blob.handle; else take.blob = blob;
+      // A take saved to disk is also copied into the browser now, while its file is certainly whole, and the Studio
+      // edits that copy: Brock's disk takes were found empty at export twice (whatever emptied them), and the Studio,
+      // reading through the file, lost the take with it.
+      const keep = blob.disk && blob.handle ? blob.handle.getFile().then(f => new Response(f.stream()).blob()).then(c => { if (c.size) take.blob = new Blob([c], {type: blob.type || "video/mp4"}); }).catch(() => {}) : Promise.resolve();
       const b = document.createElement("button"); b.type = "button"; b.id = "rf-studio"; b.disabled = true; b.textContent = "Keeping it for the Studio...";
       bar.insertBefore(b, bar.querySelector("#rf-again"));
       // a take saved on disk: its file goes along with the messages, so the Crawler window opens it without asking
       // Chrome for the file again
       let handed = null;
-      studioDB.put("takes", take).then(() => studioDB.prune(10)).then(async () => {
-        if (blob.disk && blob.handle) handed = await blob.handle.getFile().catch(() => null);
+      // (no room in the browser for the copy: the take is kept by its file, as before)
+      keep.then(() => studioDB.put("takes", take).catch(e => { if (!take.blob) throw e; delete take.blob; return studioDB.put("takes", take); }))
+        .then(() => studioDB.prune(10)).then(async () => {
+        if (take.blob) handed = take.blob;
+        else if (blob.disk && blob.handle) handed = await blob.handle.getFile().catch(() => null);
         b.disabled = false; b.textContent = "Edit in Studio";
         try { new BroadcastChannel("bmg-studio").postMessage({type: "take", id: take.id, file: handed}); } catch (e) {}
         // a clip planned in Posting goes to the Studio by itself; once the Crawler window has it there, this window
@@ -5495,7 +5534,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       };
       let activeToken = null;
       const clearReaderOverlays = () => {
-        cancelAnimationFrame(eyeRaf); clearInterval(hudTimer);
+        cancelAnimationFrame(eyeRaf); clearInterval(hudTimer); state.hudTick = null;
         document.getElementById("rec-eye")?.remove();
         document.getElementById("rec-hud")?.remove();
         popQ.length = 0;
@@ -5698,7 +5737,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         clearInterval(clipWatch);
         if (clip || (planned && !planned.ending)){
           // an idea clip (and a planned one without the ending) ends on the crawl itself: no findings or summary screens
-          clearInterval(hudTimer);
+          clearInterval(hudTimer); state.hudTick = null;
           state.paused = true;
           const blob = await stopCapture();
           const end = document.createElement("div"); end.id = "rec-end"; B.appendChild(end);
@@ -7118,11 +7157,13 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (!html) return;
     const obs = liveEl.querySelector(".lr-obs"), foot = document.getElementById("lr-foot");
     (obs || foot) ? (obs || foot).insertAdjacentHTML(obs ? "afterend" : "beforebegin", html) : liveEl.insertAdjacentHTML("beforeend", html);
+    liveProgress();                                   // its count names these sections from the start ("0 of 40 trades")
   }
   function revealIns(i, quiet){
     const li = liveEl && liveEl.querySelector(`.lr-ins li[data-x="${i}"]`);
     if (!li || !li.classList.contains("pending")) return;
     li.classList.remove("pending");
+    liveProgress();                                   // the report's count includes it now
     if (!quiet){ li.classList.add("arrived"); setTimeout(() => li.classList.remove("arrived"), 500); liveFollow(li); }
     else li.querySelector("small").insertAdjacentText("beforeend", " · full read");
     const x = insItems[i];

@@ -511,7 +511,10 @@ function injectCSS(){
 .st-guides .gv{left:50%;top:0;bottom:0;width:1px}.st-guides .gh{top:50%;left:0;right:0;height:1px}
 .st-safe{position:absolute;left:5%;right:13%;top:7%;bottom:21%;border:1.5px dashed rgba(255,210,63,.9);border-radius:6px;pointer-events:none;z-index:3}
 .st-safe span{position:absolute;right:4px;bottom:3px;font:600 10px 'IBM Plex Mono',monospace;color:#ffd23f;background:rgba(0,0,0,.6);padding:1px 4px;border-radius:3px}.st-safe[hidden]{display:none}
-.st-bin{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:4;padding:8px 14px;border-radius:20px;background:rgba(0,0,0,.72);color:#fff;font:600 12.5px 'IBM Plex Sans',sans-serif;border:2px solid transparent;pointer-events:none}
+/* the bin is under the video, over the play controls, while a picture or text is dragged: on the video it covered
+   its top, where nothing could be put */
+.st-left{position:relative}
+.st-bin{position:absolute;bottom:0;left:50%;transform:translateX(-50%);z-index:6;box-sizing:border-box;width:min(100%,420px);height:38px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(0,0,0,.78);color:#fff;font:600 13px 'IBM Plex Sans',sans-serif;border:2px dashed rgba(255,255,255,.55);pointer-events:none}
 .st-bin.over{background:#e5484d;border-color:#fff}.st-bin[hidden]{display:none}
 .st-flash{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:4;max-width:88%;padding:7px 12px;border-radius:10px;background:rgba(0,0,0,.78);color:#fff;font:600 12.5px/1.35 'IBM Plex Sans',sans-serif;text-align:center;pointer-events:none;opacity:0;transition:opacity .2s}.st-flash.on{opacity:1}
 .st-big{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2}
@@ -625,10 +628,10 @@ const TEMPLATE = `
         <div class="st-items"></div>
         <div class="st-guides"><i class="gv"></i><i class="gh"></i></div>
         <div class="st-safe" hidden><span>TikTok buttons and caption sit outside this line</span></div>
-        <div class="st-bin" hidden>Drop here to remove</div>
         <div class="st-big"><b></b></div>
         <div class="st-flash"></div>
       </div>
+      <div class="st-bin" hidden>Drop here to remove</div>
       <div class="st-transport">
         <button type="button" class="st-ib" data-a="back" title="Back 1 second (left arrow; Shift: 5 seconds)">&minus;1s</button>
         <button type="button" class="st-ib st-play" data-a="play" title="Play or pause (Space)">Play</button>
@@ -657,7 +660,7 @@ const TEMPLATE = `
       <section class="st-panel" data-p="pics" role="tabpanel" hidden>
         <div class="st-quick" role="group" aria-label="Quick add"><p class="st-qh"><b>Quick add</b> <small>Pictures you use a lot, kept in this browser for every video: click one to put it on the video.</small></p><div class="st-qrow"></div></div>
         <label class="st-drop" data-drop="pics"><input type="file" accept="image/*" multiple data-in="pics" hidden><b>Drop pictures here or click to choose</b>You can also paste one (Cmd+V).</label>
-        <p class="st-note">Drag a picture on the preview to move it, the corner to resize it, the round handle to turn it, and drop it on the bin at the top to remove it. Its purple bar under the video sets when it shows: drag the bar, or its ends.</p>
+        <p class="st-note">Drag a picture on the preview to move it, the corner to resize it, the round handle to turn it, and drop it on the bin under the video to remove it. Its purple bar under the video sets when it shows: drag the bar, or its ends.</p>
         <p class="st-msg" data-m="pics" role="status"></p>
         <ul class="st-list st-pics"></ul>
         <div class="st-bgx" hidden>
@@ -1245,7 +1248,8 @@ function mount(root, opts){
         gv.classList.toggle("on", sx); gh.classList.toggle("on", sy);
         it.x = clamp(x, -0.4, 1.4); it.y = clamp(y, -0.4, 1.4);
         const b = bin.getBoundingClientRect();
-        overBin = ev.clientX > b.left - 10 && ev.clientX < b.right + 10 && ev.clientY > b.top - 10 && ev.clientY < b.bottom + 10;
+        // on the bin itself (a little to the sides and below; not above it, where the video's bottom edge is)
+        overBin = ev.clientX > b.left - 10 && ev.clientX < b.right + 10 && ev.clientY > Math.max(b.top, stage.getBoundingClientRect().bottom + 2) && ev.clientY < b.bottom + 10;
         bin.classList.toggle("over", overBin);
       } else if (mode === "size"){
         const k = clamp(Math.hypot(ev.clientX - cx, ev.clientY - cy) / start.d, 0.1, 12);
