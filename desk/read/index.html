@@ -146,6 +146,32 @@ svg.spider .knee{fill:#ff3d9a}
 .desk-row select{height:38px;border:1px solid #c9c9c4;border-radius:8px;padding:0 10px;font:500 14px 'IBM Plex Mono',monospace;background:#fff}
 .read-page .older{margin-top:28px;font-size:13px}
 .read-page .older a{color:#6b6f76}
+/* Compare: two Crawlers side by side (or stacked, for a 9:16 video), each one its own reader with its own steps */
+.read-page h1.rp .cmp-go{display:inline-flex;align-items:center;height:30px;padding:0 12px;margin-left:12px;vertical-align:middle;border:1px solid #2fa66a;border-radius:8px;color:#0f7d47;font:600 13px 'IBM Plex Sans',sans-serif;text-decoration:none}
+.read-page h1.rp .cmp-go:hover{background:#0f7d47;color:#fff}
+html.cmpmode,html.cmpmode body{height:100%;margin:0;overflow:hidden}
+html.cmpmode body>*:not(#cmp-app){display:none!important}
+#cmp-app{position:fixed;inset:0;display:flex;flex-direction:column;background:#0b0f0d}
+.cmp-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;color:#e8ece9;font:500 13px 'IBM Plex Sans',sans-serif;border-bottom:1px solid #1f2a24}
+.cmp-bar>b{font:600 17px 'Source Serif 4',Georgia,serif;margin-right:6px}
+.cmp-bar button,.cmp-bar a{height:32px;padding:0 12px;border-radius:8px;border:1px solid #2fa66a;background:transparent;color:#2fdc74;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
+.cmp-bar .cmp-run{background:#0f7d47;border-color:#0f7d47;color:#fff}
+.cmp-bar button[aria-pressed="true"]{background:#1d3a2b;color:#fff}
+.cmp-bar button:disabled{opacity:.45;cursor:default}
+.cmp-bar .cmp-seg{display:inline-flex;gap:0}.cmp-bar .cmp-seg button{border-radius:0}.cmp-bar .cmp-seg button:first-child{border-radius:8px 0 0 8px}.cmp-bar .cmp-seg button:last-child{border-radius:0 8px 8px 0;margin-left:-1px}
+.cmp-st{color:#9fb3a8;font-size:12.5px;flex:1 1 220px;min-width:0}
+.cmp-panes{flex:1;display:flex;min-height:0;gap:2px;background:#1f2a24}
+.cmp-panes.stack{flex-direction:column}
+.cmp-panes iframe{flex:1 1 0;min-width:0;min-height:0;border:0;background:#fff}
+.cmp-panes.solo iframe.b{display:none}
+/* one half of Compare: the reader without the site around it */
+html.panemode .site-header,html.panemode .read-page>.back,html.panemode .read-page>h1.rp,html.panemode .read-page>.lede,html.panemode #app-tabs,html.panemode #omni-more{display:none!important}
+html.panemode .read-page{padding-top:10px}
+/* while Compare records: the halves show the filing, the spider and the report, not the buttons or scrollbars */
+html.paneclean #ctl-bar>*:not(.ctl-prog),html.paneclean .read-side .rs-tabs{display:none!important}
+html.paneclean .stage .strip{background:transparent!important;border:0!important;box-shadow:none!important;min-height:2px!important;padding:0!important}
+html.paneclean,html.paneclean *{scrollbar-width:none!important}
+.cmp-bar .cmp-rec.on{background:#b3261e;border-color:#b3261e;color:#fff}
 .read-page h1.rp{font-family:'Source Serif 4',Georgia,serif;font-size:36px;margin:0 0 8px;color:#141414}
 .read-page .lede{margin:0 0 20px;font-size:17px;color:#4a4a4a;max-width:720px}
 .read-form{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:stretch;margin-bottom:12px}
@@ -1077,6 +1103,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
 <!-- bmg-theme --><link rel="stylesheet" href="../../assets/theme.css"><script>try{if(localStorage.getItem("bmg-theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script><script src="../../assets/theme.js" defer></script>
 </head>
 <body>
+<script>(function(){var q=location.search;if(/[?&]compare=1\b/.test(q)){window.BMG_COMPARE=true;document.documentElement.classList.add("cmpmode");}if(/[?&]pane=[ab]\b/.test(q))document.documentElement.classList.add("panemode");})();</script>
 <header class="site-header">
   <div class="site-header-inner">
     <a class="brand" href="../../" aria-label="BMG Capital home">
@@ -1098,7 +1125,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
 </header>
 <main class="container read-page">
 <a class="back" href="../../">&larr; Back to BMG Capital</a>
-<h1 class="rp">Crawler</h1>
+<h1 class="rp">Crawler <a class="cmp-go" href="?compare=1" title="Two filings side by side, a spider on each, started together">Compare</a></h1>
 <nav class="app-tabs" id="app-tabs" hidden aria-label="Crawler, News and Posting"><button type="button" data-app="crawler" aria-pressed="true">Crawler</button><button type="button" data-app="news" aria-pressed="false">News</button><button type="button" data-app="posting" aria-pressed="false">Posting</button></nav>
 <p class="lede">Type a ticker or drop in a document: a 10-K, 10-Q, earnings release, call transcript, insider trades or a fund's holdings. The server reads it, checks the arithmetic and builds a BMG Capital report in which every figure cites its page. The spider then shows each finding where it sits in the document.</p>
 <!-- The Crawler's steps: the company, its form (from SEC EDGAR on this Mac) or your own document, what to find, the look,
@@ -1343,6 +1370,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
 </script>
 <script>
 (() => {
+  if (window.BMG_COMPARE) return;                     // ?compare=1: the two halves are readers of their own (below)
+  // one half of Compare (?pane=a or b): its own saved steps, look, job and colors, so the halves never share them
+  const PANE = (location.search.match(/[?&]pane=([ab])\b/) || [])[1] || "", PK = PANE ? "-" + PANE : "";
   const SVG_NS = "http://www.w3.org/2000/svg";
   const doc = document.getElementById("doc");
   const spiderSvg = document.getElementById("spider");
@@ -2717,7 +2747,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     else window.scrollTo({top: Math.max(0, dRect.top + window.scrollY - 60), behavior: "smooth"});
     setStatus(`reading <b>${ev.host||""}</b> ${ev.doc_type} ${(ev.published_at||ev.fetched_at||"").slice(0,10)} &nbsp;&middot;&nbsp; 0 numbers found`);
     const dur = state.walkOverride || computeWalkDuration(ev.doc_id, ev.fetched_at);
-    setTimeout(() => { if (token === state.loadToken) startWalk(ev.doc_id, dur); }, 80);
+    const go = () => { if (token === state.loadToken) startWalk(ev.doc_id, dur); };
+    if (state.paneGate) state.paneGate(go); else setTimeout(go, 80);
     return true;
   }
 
@@ -2775,9 +2806,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // page scrolls itself (restored when the walk ends)
     doc.style.pointerEvents = "none";
     holdHtmlBlocks(docBody.querySelector(".htmldoc"));
-    bumpLayout(); geo = null;      // the document is fully laid out now: measure it afresh
+    const pre = state.preRows; state.preRows = null;
+    const fresh = !!pre && pre.token === state.loadToken && pre.epoch === state.layoutEpoch;   // measured while a half of Compare waited, nothing moved since
+    if (!fresh) bumpLayout();
+    geo = null;      // the document is fully laid out now: measure it afresh
     clearTimeout(state.walkTimer);
-    const rows = visualRows();
+    const rows = fresh ? pre.rows : visualRows();
     state.rows = rows;
     if (!rows.length){ state.walkState.done = true; walkFinished(); return; }
     const perRow = Math.max(120, Math.min(900, (duration_s * 1000) / rows.length));
@@ -3603,6 +3637,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   let chosen = null;
 
   function showErr(m){ errBox.textContent = m; errBox.hidden = !m; }
+  function runFailed(m){ showErr(m); if (state.paneTell) state.paneTell("failed", {msg: m}); }     // a half of Compare tells the other not to wait
   function pick(f){
     chosen = f || null;
     const size = f ? (f.size >= 1048576 ? `${(f.size / 1048576).toFixed(1)} MB` : `${Math.round(f.size / 1024)} KB`) : "";
@@ -3901,7 +3936,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const quickEl = document.getElementById("cr-quick"), noteEl = document.getElementById("cr-find-note");
     const sumEl2 = document.getElementById("cr-sum"), sumT = document.getElementById("cr-sum-t");
     const cr = state.cr = {found: null, pick: null, own: null, paste: false, all: false, loaded: null, restore: null};
-    const CR_LS = "bmg-crawler-form", FIND_SS = "bmg-crawler-find", DARK_LS = "bmg-crawler-dark";
+    const CR_LS = "bmg-crawler-form" + PK, FIND_SS = "bmg-crawler-find" + PK, DARK_LS = "bmg-crawler-dark" + PK;
     const QUICK = ["Revenue", "Net income", "Diluted EPS", "Cash and cash equivalents", "Share repurchases", "Guidance"];
     const say = (t, err) => { rst.textContent = t || ""; rst.classList.toggle("err", !!err); };
     const mdy = d => d ? new Date(d + "T12:00:00").toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"}) : "";
@@ -4619,7 +4654,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       cobalt: {name: "Cobalt + amber", main: "#3d7bff", accent: "#ffb000", trail: "#9db8ff"},
       rosegold: {name: "Rose gold", main: "#ffb59e", accent: "#ffe08a", trail: "#ff8fa3"}
     };
-    const PALETTE_LS = "bmg-crawler-palette";
+    const PALETTE_LS = "bmg-crawler-palette" + PK;
     state.recPalettes = palettes;                                  // Posting's Make a clip offers the same colors
     const canRecord = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.MediaRecorder);
     const setup = document.createElement("div");
@@ -6660,6 +6695,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           writeCount();
           return hits;
         });
+        state.findReadyP = tour.ready;                      // a half of Compare waits for it before it says it is ready
         if (drawn) tour.ready.then(() => runTour(id)).catch(e => { console.error("find tour:", e); finishTour(id); });
       };
       function findOnRow(id, els){
@@ -6671,7 +6707,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (id !== tour.id || tour.ended) return;
         // the lines can come back before the walk has started (it starts just after the page is drawn)
         const t0 = performance.now();
-        await until(id, () => walking() || state.walkSkipped || tour.ended || performance.now() - t0 > 6000);
+        await until(id, () => walking() || state.walkSkipped || tour.ended || (!state.paneHeld && performance.now() - t0 > 6000));   // a half of Compare may wait longer for the other
         if (id !== tour.id || tour.ended || state.walkSkipped) return;
         if (!walking()){ finishTour(id); return; }
         const top = V.contentY(doc), ys = new Map(tour.hits.filter(h => h.el && h.el.isConnected).map(h => [h, camY(h.el, top)]));
@@ -7058,7 +7094,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   function setStage(n, d){ state.stages[n] = {...(state.stages[n] || {}), ...d}; drawStages(); }
 
   // ---- jobs: owner token, create, follow events, resume after refresh ----
-  const OWNER_LS = "bmg-reader-owner", JOB_LS = "bmg-reader-job";
+  const OWNER_LS = "bmg-reader-owner", JOB_LS = "bmg-reader-job" + PK;
   function owner(){
     try{
       let t = localStorage.getItem(OWNER_LS);
@@ -7138,7 +7174,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   }
   function jobGone(){
     rememberJob(null); state.jobId = null; resetRunBtn();
-    showErr("That job is no longer on the server (results are kept for one hour, and a server restart clears them). Run the file again to rebuild the report.");
+    runFailed("That job is no longer on the server (results are kept for one hour, and a server restart clears them). Run the file again to rebuild the report.");
     ctlEl.hidden = true;
   }
   function resetRunBtn(t){ runRead.disabled = false; runRead.textContent = t || "Run crawler"; }
@@ -7159,13 +7195,13 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (st === "done"){
       setStage("Ready", {state: "done"});
       const {r, j} = await api(`/api/read/jobs/${encodeURIComponent(id)}/result`);
-      if (!r.ok){ showErr((j && (j.error || j.detail)) || "Could not load the result."); resetRunBtn(); return; }
+      if (!r.ok){ runFailed((j && (j.error || j.detail)) || "Could not load the result."); resetRunBtn(); return; }
       present(j);
       return;
     }
     const {j} = await api(`/api/read/jobs/${encodeURIComponent(id)}`);
     rememberJob(null); state.findRun = null;
-    showErr(st === "cancelled" ? "Cancelled. No report was produced." : ((j && j.error) || "Processing failed; no report was produced."));
+    runFailed(st === "cancelled" ? "Cancelled. No report was produced." : ((j && j.error) || "Processing failed; no report was produced."));
     setStatus(st); resetRunBtn("Run again");
   }
 
@@ -7266,6 +7302,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   }
   function showFinish(res){
     const rep = res.report;
+    if (state.paneTell) state.paneTell("done", {job: state.jobId, ticker: (rep.company || {}).ticker || "", form: (rep.company || {}).form || ""});
     let card = document.getElementById("read-report-ready");
     if (!card){ card = document.createElement("div"); card.id = "read-report-ready"; card.className = "rp-ready"; }
     sumEl.innerHTML = ""; sumEl.appendChild(card); sumEl.hidden = false;
@@ -7781,6 +7818,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   function closeReport(){
     const o = document.getElementById("bmg-report"); if (!o || o.hidden) return;
     o.hidden = true; document.body.classList.remove("rp-open");
+    if (state.paneTell) state.paneTell("report-closed");
     if (state.reportOpener && state.reportOpener.focus) state.reportOpener.focus({preventScroll: true});   // a source link scrolls on its own
   }
   function openReport(anchor, mode){
@@ -7908,6 +7946,55 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     document.getElementById("read-stage").hidden = false;
   }
 
+  // ---- one half of Compare: Run both runs this reader as a pressed Run crawler would, and holds its walk until the
+  // other half is ready, so the two spiders set off together ----
+  if (PANE){
+    state.paneTell = (type, extra) => { try { parent.postMessage({bmgPane: PANE, type, ...(extra || {})}, location.origin); } catch (e) {} };
+    window.crawlerRun = async sync => {
+      window.crawlerSync = !!sync; state.paneStarted = false;
+      if (state.crBeforeRun && await state.crBeforeRun()) return state.paneStarted;   // the steps loaded the pick and started it, or said what is missing
+      runRead.click();
+      return state.paneStarted;
+    };
+    state.paneGate = go => {
+      if (!window.crawlerSync){ state.paneHeld = false; window.crawlerGo = null; setTimeout(go, 80); return; }      // its own Run crawler
+      state.paneHeld = true;
+      const token = state.loadToken;
+      // Compare calls both halves' crawlerGo in one go: each walk starts at once (the page was drawn long ago), so the
+      // two spiders set off in the same frame; held until then (the Find tour waits on it)
+      const said = statusEl.innerHTML, WAIT = "ready; waiting for the other filing to start together";
+      window.crawlerGo = () => {
+        window.crawlerGo = null; window.crawlerSync = false;
+        if (statusEl.textContent === WAIT) statusEl.innerHTML = said;      // what the read said before it waited
+        if (!state.walkSkipped) go();
+        state.paneHeld = false;
+      };
+      setStatus(WAIT);
+      // the slow part of starting a walk (grouping an HTML filing's blocks, measuring every line) is done now, while
+      // it waits, so the two spiders set off at the same moment
+      setTimeout(async () => {
+        if (token !== state.loadToken || !window.crawlerGo) return;
+        if (state.walkSkipped){ window.crawlerGo = null; window.crawlerSync = false; state.paneHeld = false; return; }   // Skip: no walk to start
+        holdHtmlBlocks(docBody.querySelector(".htmldoc"));
+        bumpLayout(); geo = null;
+        state.preRows = {token, epoch: state.layoutEpoch, rows: visualRows()};
+        // a Find read looks up its lines first, so the two tours set off together too
+        if (state.findRun && state.findReadyP){
+          try { await state.findReadyP; } catch (e) {}
+          if (token !== state.loadToken || !window.crawlerGo) return;
+          if (state.walkSkipped){ window.crawlerGo = null; window.crawlerSync = false; state.paneHeld = false; return; }
+        }
+        state.paneTell("ready");
+      }, 80);
+    };
+    window.crawlerJob = () => state.jobId;
+    window.crawlerCompareWith = async b => {                   // true when the comparison report is open
+      state.compareJob = b; await openCompare();
+      const o = document.getElementById("bmg-report");
+      return !!(o && !o.hidden && o.dataset.mode === "compare");
+    };
+    addEventListener("message", e => { if (e.origin === location.origin && e.data && e.data.bmgGo && window.crawlerGo) window.crawlerGo(); });
+  }
   runRead.addEventListener("click", async e => {
     if (e.isTrusted && state.crBeforeRun && await state.crBeforeRun()) return;   // the steps load the picked filing, then start it
     const find = state.findNext; state.findNext = null;                           // only this read gets the Find lines
@@ -7925,6 +8012,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (tk) fd.append("ticker", tk);
     if (chosen && state.companyHint && state.companyHint.file === chosen && state.companyHint.name) fd.append("company", state.companyHint.name);
     state.mode = "read";
+    if (state.paneTell){ state.paneStarted = true; state.paneTell("started"); }
     stopLive(); clearTimeout(state.tickTimer);
     document.querySelectorAll(".btn[data-mode]").forEach(x => x.classList.remove("on"));
     runRead.disabled = true; runRead.textContent = "Working...";
@@ -7940,9 +8028,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     setStage("Upload", {state: "running", pct: 0});
     let up;
     try{ up = await upload(fd); }
-    catch(e){ setStage("Upload", {state: "failed"}); showErr(e.message); resetRunBtn(); ctlEl.hidden = true; return; }
+    catch(e){ setStage("Upload", {state: "failed"}); runFailed(e.message); resetRunBtn(); ctlEl.hidden = true; return; }
     finally{ state.xhr = null; }
-    if (up.status >= 400){ setStage("Upload", {state: "failed"}); showErr(up.j.error || up.j.detail || ("HTTP " + up.status)); resetRunBtn(); ctlEl.hidden = true; return; }
+    if (up.status >= 400){ setStage("Upload", {state: "failed"}); runFailed(up.j.error || up.j.detail || ("HTTP " + up.status)); resetRunBtn(); ctlEl.hidden = true; return; }
     const job = up.j;
     Object.assign(state.stages, job.stages || {}); drawStages();
     state.jobId = job.job_id;
@@ -8761,7 +8849,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       setTimeout(pump, 3000);
     });
     draw();
-    document.addEventListener("bmg-local", () => { if (W.on) start(); });
+    document.addEventListener("bmg-local", () => { if (W.on && !PANE) start(); });      // never inside a half of Compare
   })();
 
   // ======== Research tools: ten-year history, peers, full redline, guidance history, tone, quality scores, segments,
@@ -10307,6 +10395,203 @@ Who is the auditor?</textarea>
       if (fmap && !fmap.hidden && paneOn()){ state.fmapH = fmap.clientHeight; state.fmapDotY = null; }
     }).observe(bar);
   })();
+})();
+</script>
+<script>
+// Compare (?compare=1): two Crawlers side by side, each a whole reader in its own frame (?pane=a, ?pane=b) with its own
+// steps. Run both starts the two reads; each half reads its filing, draws it and holds its spider at the start of the
+// walk, and when both are ready the two spiders set off at the same moment. Stacked puts one above the other (9:16).
+// At the end, Comparison report opens the two reads compared measure by measure, across both halves.
+(() => {
+  if (!window.BMG_COMPARE) return;
+  const LAY_LS = "bmg-compare-layout", K = ["a", "b"];
+  document.title = "Compare | BMG Capital";
+  const app = document.createElement("div");
+  app.id = "cmp-app";
+  app.innerHTML = `<div class="cmp-bar"><b>Compare</b>
+    <button type="button" class="cmp-run" title="Starts both reads; the spiders set off together when both filings are ready">Run both</button>
+    <button type="button" class="cmp-rec" title="Runs both and records just the two filings, from the moment the spiders set off until both are finished">Run both and record</button>
+    <span class="cmp-seg" role="group" aria-label="Layout"><button type="button" data-lay="side">Side by side</button><button type="button" data-lay="stack">Stacked</button></span>
+    <button type="button" class="cmp-rep" disabled title="The two finished reads compared measure by measure">Comparison report</button>
+    <span class="cmp-st" role="status" aria-live="polite"></span>
+    <a class="cmp-back" href="./">Back to Crawler</a></div>
+    <div class="cmp-panes"><iframe class="a" src="?pane=a" title="First filing"></iframe><iframe class="b" src="?pane=b" title="Second filing"></iframe></div>`;
+  document.body.appendChild(app);
+  const panes = app.querySelector(".cmp-panes"), stEl = app.querySelector(".cmp-st");
+  const runB = app.querySelector(".cmp-run"), repB = app.querySelector(".cmp-rep"), recB = app.querySelector(".cmp-rec");
+  const fr = {a: app.querySelector("iframe.a"), b: app.querySelector("iframe.b")};
+  const win = k => fr[k].contentWindow;
+  // each half: idle, starting, reading (the server reads it), ready (drawn, spider held), walking, done, failed
+  const S = {a: {phase: "idle"}, b: {phase: "idle"}};
+  const side = k => panes.classList.contains("stack") ? (k === "a" ? "Top" : "Bottom") : (k === "a" ? "Left" : "Right");
+  const other = k => k === "a" ? "b" : "a";
+  const say = m => { stEl.textContent = m; };
+  say("Pick a company and a form on each side, then Run both. The two spiders start at the same moment.");
+
+  function setLay(l){
+    panes.classList.toggle("stack", l === "stack");
+    app.querySelectorAll("[data-lay]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lay === l)));
+    try { localStorage.setItem(LAY_LS, l); } catch (e) {}
+  }
+  let lay = innerHeight > innerWidth ? "stack" : "side";
+  try { lay = localStorage.getItem(LAY_LS) || lay; } catch (e) {}
+  setLay(lay === "stack" ? "stack" : "side");
+  app.querySelectorAll("[data-lay]").forEach(b => { b.onclick = () => setLay(b.dataset.lay); });
+  // the layout is chosen before Run both: a filing that changes width while it is drawn or read measures itself again,
+  // which stops a 10-K for many seconds, and both halves at once
+  const LOCKED = "Choose the layout before Run both: it is locked while the filings are read";
+  function drawLock(){
+    const busy = K.some(k => ["starting", "reading", "ready", "walking"].includes(S[k].phase));
+    app.querySelectorAll("[data-lay]").forEach(b => { b.disabled = busy; b.title = busy ? LOCKED : ""; });
+  }
+  // Run both is ready once both halves have loaded (a half that reloads itself for a new version loads again)
+  const loaded = () => K.every(k => { try { return typeof win(k).crawlerRun === "function"; } catch (e) { return false; } });
+  runB.disabled = recB.disabled = true;
+  K.forEach(k => fr[k].addEventListener("load", () => { if (!K.some(j => S[j].phase === "starting")) runB.disabled = recB.disabled = !loaded(); }));
+
+  // a side that is ready waits only for a side still loading or reading in the same Run both
+  function maybeGo(){
+    const ready = K.filter(k => S[k].phase === "ready");
+    if (!ready.length) return;
+    const busy = K.filter(k => S[k].sync && (S[k].phase === "starting" || S[k].phase === "reading"));
+    if (busy.length){ say(`${side(ready[0])} is ready; waiting for ${side(busy[0])} to finish reading, so both start together.`); return; }
+    ready.forEach(k => { S[k].phase = "walking"; });
+    beginRecord();
+    ready.forEach(k => { try { if (win(k).crawlerGo) win(k).crawlerGo(); else win(k).postMessage({bmgGo: true}, location.origin); } catch (e) {} });
+    const o = other(ready[0]);
+    say(ready.length === 2 ? "Both spiders are reading." : `${side(ready[0])} is reading; ${side(o)} ${S[o].phase === "done" ? "is finished" : S[o].phase === "failed" ? "stopped" : "did not start"}.`);
+  }
+  function drawRep(){ repB.disabled = !K.every(k => S[k].phase === "done" && S[k].job); }
+
+  // ---- Run both and record: Chrome shares this tab (asked at the click), the recording is cut to the two halves
+  // where Chrome can (Region Capture), starts as the spiders set off and stops 1.5 s after both reads finish ----
+  let rec = null;
+  const setClean = on => K.forEach(k => { try { fr[k].contentDocument.documentElement.classList.toggle("paneclean", on); } catch (e) {} });
+  async function startRecord(){
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || !window.MediaRecorder){ say("This browser cannot record the page. Use Run both and a screen recorder."); return; }
+    let stream;
+    try { stream = await navigator.mediaDevices.getDisplayMedia({video: {frameRate: 30}, audio: false, preferCurrentTab: true, selfBrowserSurface: "include"}); }
+    catch (e){ say("Not recording: sharing this tab was not allowed."); return; }
+    const track = stream.getVideoTracks()[0];
+    let cut = false;
+    try { if (window.CropTarget && track.cropTo){ await track.cropTo(await CropTarget.fromElement(panes)); cut = true; } } catch (e) {}
+    const type = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
+    rec = {stream, type, chunks: [], mr: null, cut};
+    track.addEventListener("ended", () => stopRecord());
+    setClean(true);
+    recB.textContent = "Stop recording"; recB.classList.add("on");
+    await runBoth();
+    if (rec && !K.some(k => S[k].sync && ["starting", "reading", "ready", "walking"].includes(S[k].phase))) stopRecord();   // nothing started
+  }
+  function beginRecord(){
+    if (!rec || rec.mr) return;
+    const r = rec;
+    try {
+      const mr = new MediaRecorder(r.stream, r.type ? {mimeType: r.type, videoBitsPerSecond: 12e6} : {videoBitsPerSecond: 12e6});
+      mr.ondataavailable = e => { if (e.data && e.data.size) r.chunks.push(e.data); };
+      r.mr = mr; mr.start(1000);
+      say("Recording: both spiders are reading.");
+    } catch (e){ say("Recording could not start in this browser."); stopRecord(); }
+  }
+  function stopRecord(){
+    const r = rec; if (!r) return;
+    rec = null;
+    recB.textContent = "Run both and record"; recB.classList.remove("on");
+    const finish = () => {
+      if (!rec) setClean(false);                         // the buttons come back once the recorder has stopped
+      r.stream.getTracks().forEach(t => t.stop());
+      if (!r.chunks.length){ if (r.mr) say("Nothing was recorded."); return; }
+      const type = (r.mr && r.mr.mimeType) || r.type || "video/webm";
+      const names = K.map(k => S[k].ticker || (k === "a" ? "A" : "B")).join("-vs-");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob(r.chunks, {type}));
+      a.download = `BMG-Capital-${names}-compare.${/mp4/.test(type) ? "mp4" : "webm"}`.replace(/[^A-Za-z0-9.-]+/g, "-");
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      say(`Saved ${a.download}${r.cut ? "" : " (the whole tab: this browser cannot cut the recording to the two filings)"}.`);
+    };
+    if (r.mr && r.mr.state !== "inactive"){ r.mr.onstop = finish; try { r.mr.stop(); } catch (e) { finish(); } }
+    else finish();
+  }
+  // both halves finished (or stopped): the recording ends a moment later, on the finish cards
+  function maybeEndRecord(){
+    if (!rec || rec.ending) return;
+    if (K.some(k => ["starting", "reading", "ready", "walking"].includes(S[k].phase))) return;
+    if (!rec.mr){ stopRecord(); return; }                // both stopped before the spiders set off: nothing to record
+    rec.ending = true; const r = rec;
+    setTimeout(() => { if (rec === r) stopRecord(); }, 1500);
+  }
+  recB.onclick = () => { if (rec) stopRecord(); else startRecord(); };
+
+  runB.onclick = () => runBoth(false);
+  async function runBoth(){
+    runB.disabled = true; repB.disabled = true; panes.classList.remove("solo");
+    K.forEach(k => { S[k] = {phase: "starting", sync: true}; });
+    drawLock();
+    say("Loading both filings...");
+    const ok = {};
+    await Promise.all(K.map(async k => {
+      try { ok[k] = !!(await win(k).crawlerRun(true)); } catch (e) { ok[k] = false; }
+      if (!ok[k]){ S[k] = {phase: "idle"}; try { win(k).crawlerSync = false; } catch (e) {} }
+      else if (S[k].phase === "starting") S[k].phase = "reading";
+    }));
+    drawLock();
+    runB.disabled = false;
+    if (!ok.a && !ok.b){ say("Neither side started: each side says in its steps what it needs (a company and a form, or a document)."); return; }
+    if (rec) say("Recording starts when the spiders set off.");
+    if (!ok.a || !ok.b){
+      const k = ok.a ? "b" : "a";
+      say(`${side(k)} did not start (its steps say what it needs); ${side(other(k))} reads on its own.`);
+      maybeGo();
+      return;
+    }
+    if (K.every(k => S[k].phase === "reading")) say(`Both filings are being read on the server. The spiders start together when both are ready${rec ? "; the recording starts then" : ""}.`);
+  }
+
+  repB.onclick = async () => {
+    let ja = null, jb = null;
+    try { ja = win("a").crawlerJob(); jb = win("b").crawlerJob(); } catch (e) {}
+    if (!ja || !jb){ say("Both sides need a finished read first."); return; }
+    repB.disabled = true; say("Building the comparison...");
+    panes.classList.add("solo");
+    let shown = false;
+    try { shown = await win("a").crawlerCompareWith(jb); } catch (e) {}
+    repB.disabled = false;
+    if (!shown){ panes.classList.remove("solo"); say(`The comparison could not be built; the ${side("a").toLowerCase()} side says why.`); return; }
+    say("Comparison report open. Close it to see both filings again.");
+  };
+
+  addEventListener("message", e => {
+    const d = e.data;
+    if (e.origin !== location.origin || !d || !K.includes(d.bmgPane)) return;
+    const k = d.bmgPane;
+    if (e.source !== win(k)) return;
+    if (d.type === "started"){
+      let sync = false; try { sync = !!win(k).crawlerSync; } catch (x) {}
+      S[k] = {phase: "reading", sync};
+      repB.disabled = true;
+    }
+    else if (d.type === "ready"){ if (S[k].phase !== "done" && S[k].phase !== "failed"){ S[k].phase = "ready"; maybeGo(); } }
+    else if (d.type === "failed"){
+      S[k] = {phase: "failed"};
+      try { win(k).crawlerSync = false; } catch (x) {}
+      say(`${side(k)} stopped: ${d.msg || "the read did not finish"}.`.replace(/\.\.$/, "."));
+      maybeGo(); drawRep(); maybeEndRecord();
+    }
+    else if (d.type === "done"){
+      S[k] = {phase: "done", job: d.job, ticker: d.ticker, form: d.form};
+      try { win(k).crawlerSync = false; } catch (x) {}          // skipped while it waited: its own Run again does not wait
+      maybeEndRecord();
+      drawRep();
+      const o = S[other(k)].phase;
+      if (o === "done") say("Both reads are finished. Comparison report compares them measure by measure.");
+      else if (["starting", "reading", "ready", "walking"].includes(o)) say(`${side(k)} is finished; ${side(other(k))} is still reading.`);
+      else say(`${side(k)} is finished.`);
+      maybeGo();
+    }
+    else if (d.type === "report-closed" && panes.classList.contains("solo")){ panes.classList.remove("solo"); say("Both reads are finished."); }
+    drawLock();
+  });
 })();
 </script>
 </body>
