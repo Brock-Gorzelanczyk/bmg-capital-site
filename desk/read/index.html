@@ -428,6 +428,9 @@ body.pics-edit .rp-pic .rp-size{display:block;position:absolute;right:-10px;bott
    use for the report it zaps it"), its right side clear of TikTok's buttons. Sections read and the filing's other
    figures stay in it, so it keeps filling through the pages of text. */
 body.recmode.rec-social{--rec-h:28vh}
+/* Record mode: the spider is drawn above everything on the page, the chips flying into the report included (they
+   start on the word the spider zapped, under its legs); the featured card stays above it (Brock 2026-10-20) */
+body.recmode .stage .doc{isolation:auto}body.recmode svg.spider{z-index:46}body.recmode #rec-feat{z-index:47}
 body.recmode.rec-social .read-side{padding:.8vh 11.6vw 0 3.4vw!important}
 body.rec-social .lr-ins li q{-webkit-line-clamp:2}body.rec-social .lr-ins li .go{display:none}body.rec-social .lr-sum{display:none}
 body.rec-social .lr-ins li.incoming{visibility:hidden}
