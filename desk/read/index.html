@@ -293,6 +293,16 @@ body.recmode #bmg-report .rp-bar{display:none!important}
 #rec-plan #pl-start{height:50px;border:0;border-radius:11px;background:#2fdc74;color:#04130a;font:700 18px 'IBM Plex Sans',sans-serif;cursor:pointer}#rec-plan #pl-start:disabled{opacity:.5;cursor:default}
 #rec-setup #rec-plan .pl-st{color:#e8edf2;font-size:13.5px;min-height:1.4em;overflow-wrap:anywhere}#rec-setup #rec-plan .pl-st.err{color:#ff8a8a}
 #rec-plan .pl-more{align-self:flex-start;background:none;border:0;color:#6ff4ff;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer;padding:2px 0;text-decoration:underline}
+/* the clean-frame check: what is on the page that the Crawler did not put there, and the tab as the recording sees it */
+#rec-plan .pl-check{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;font-size:12.5px}
+#rec-plan #pl-check{height:34px;padding:0 14px;border:1px solid #6ff4ff;border-radius:9px;background:transparent;color:#6ff4ff;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+#rec-plan .pl-ok{color:#9aa4b1}#rec-plan .pl-dirty{color:#ffb86b}
+.rec-mark{position:fixed;z-index:99998;border:2px dashed #ff5c6b;border-radius:6px;pointer-events:none;color:#ff5c6b;font:600 11px 'IBM Plex Mono',monospace;padding:2px 4px;box-sizing:border-box;overflow:hidden}
+#rec-check{position:fixed;z-index:99997;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,420px);max-height:92vh;display:flex;flex-direction:column;gap:8px;padding:12px;background:#0c121a;border:1px solid #6ff4ff;border-radius:12px;color:#e8edf2;font:500 13px/1.4 'IBM Plex Sans',sans-serif;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+#rec-check p{margin:0}#rec-check video{width:100%;max-height:60vh;object-fit:contain;background:#000;border-radius:8px}
+#rec-check div{display:flex;flex-wrap:wrap;gap:8px}#rec-check button{height:34px;padding:0 12px;border-radius:9px;border:1px solid #2fdc74;background:#2fdc74;color:#04130a;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+#rec-check button[data-k="stop"]{background:transparent;color:#e8edf2;border-color:#4a5868}
+#rec-final .rf-filing{color:#9aa4b1}
 #rec-share{position:fixed;inset:0;z-index:3200;background:#05070c;display:flex;align-items:center;justify-content:center;padding:24px}
 #rec-share>div{display:flex;flex-direction:column;gap:14px;text-align:center;font:15px/1.4 'IBM Plex Sans',sans-serif;color:#e8edf2}#rec-share p{margin:0;color:#9aa4b1}
 #rec-share button{height:50px;padding:0 22px;border:0;border-radius:11px;background:#2fdc74;color:#04130a;font:700 17px 'IBM Plex Sans',sans-serif;cursor:pointer}
@@ -1044,7 +1054,7 @@ body.av-open{overflow:hidden}
 .mk-flist button b{font:700 14.5px 'IBM Plex Sans',sans-serif;color:#141414}.mk-flist button:hover{border-color:#0f7d47}
 .mk-flist button[aria-checked=true]{border-color:#0f7d47;box-shadow:0 0 0 2px #0f7d47;background:#f3fbf6}
 .mk-flist i{position:absolute;top:8px;right:10px;font:600 10px 'IBM Plex Mono',monospace;text-transform:uppercase;color:#0f7d47;font-style:normal}
-.mk-len{margin:0 0 4px}.mk-len .av-seg[aria-checked=true]{background:#141414;border-color:#141414;color:#fff}
+.mk-len{margin:0 0 4px}.mk-len .av-seg[aria-checked=true],.mk-scope .av-seg[aria-checked=true]{background:#141414;border-color:#141414;color:#fff}.mk-scope .av-seg:disabled{opacity:.45;cursor:default}
 .mk-custom{display:inline-flex;align-items:center;gap:4px;font-size:13px;color:#3a3a3a}.mk-custom input{width:66px;height:34px;box-sizing:border-box;border:1px solid #c9cfca;border-radius:17px;padding:0 8px;font:600 13px 'IBM Plex Sans',sans-serif}
 .mk-custom.on input{border-color:#141414;box-shadow:0 0 0 1px #141414}
 .mk-picked{margin:0;font-size:14px}.mk-quick{margin:8px 0 0}
@@ -2965,14 +2975,17 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // extracts often have the same value appear many times in the body;
     // picking the first unmarked one lets subsequent facts land on fresh
     // positions and the spider walk builds multiple .found fills.
-    let found = (ev._el && !ev._el.classList.contains("found")) ? ev._el : null;
+    // (a Find request's light marks a word without taking it: state.askLit, Record mode's plan)
+    const taken = w => w.classList.contains("found") && !(state.askLit && state.askLit.has(w));
+    let found = (ev._el && !taken(ev._el)) ? ev._el : null;
     if (!found){
       for (const w of docBody.querySelectorAll(".w")){
-        if (w.classList.contains("found")) continue;
+        if (taken(w)) continue;
         if (holds(w, ev.value)){ found = w; break; }
       }
     }
     if (!found) return;
+    if (state.askLit) state.askLit.delete(found);
     if (state.onFound) state.onFound(ev, found);
     found.classList.add("found", familyOf(ev.label));
     tlFx("lit", {el: found});                    // a rewind lights it again as the spider reaches it
@@ -4213,7 +4226,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       return (w._pg = pg ? pg._idx : 0);
     };
     for (const w of els){
-      if (w.classList.contains("found")) continue;
+      if (w.classList.contains("found") && !(state.askLit && state.askLit.has(w))) continue;   // lit by a Find request: still free
       const wp = pageOf(w);
       const wy = docSpaceCenter(w).y / H;
       let k = -1, best = 1e9;
@@ -4619,7 +4632,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const PLAN_LS = "bmg-clip-plan", PLAN_KEYS = 3.5, PLAN_ONE = 5, PLAN_ENDING = 11, PLAN_SLOW = 3;     // the ending: about 11 seconds
     // a clip of findings: 2 s on the report after the last one, and the featured one's moment (1.6 s, the page at 15%)
     const PLAN_HOLD = 2, PLAN_FEAT = 1.6, PLAN_FEAT_PACE = .15;
-    let plan = null, planMissing = [], planBefore = [], planSay = () => {};
+    let plan = null, planMissing = [], planBefore = [], planSay = () => {}, planPending = null;
+    const planExcerpt = p => !!(p && p.mode !== "entire" && p.scope && p.length !== "whole");
     if (isRecord && /[?&]plan=1\b/.test(location.search)){
       try { plan = JSON.parse(localStorage.getItem(PLAN_LS) || "null"); } catch (e) {}
       if (!plan || !(Date.now() - (plan.at || 0) < 12 * 3600e3)) plan = null;
@@ -4817,28 +4831,45 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const opt = document.createElement("option"); opt.value = "plan"; opt.textContent = "Planned in Posting (Make a clip)";
       format.appendChild(opt); format.value = "plan"; format.dispatchEvent(new Event("change"));
       const secs = s => s < 60 ? `${s} seconds` : s % 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s / 60} minute${s === 60 ? "" : "s"}`;
+      const excerpt = planExcerpt(plan), sc = plan.scope, noun = sc && sc.noun ? sc.noun : ["figure", "figures"];
       const card = document.createElement("div"); card.id = "rec-plan";
       card.innerHTML = `<b class="pl-k">Make a clip</b>
         <h3>${esc(plan.company || plan.ticker || plan.customName || "Your document")}${plan.form ? ` <span>${esc(plan.form)}</span>` : ""}</h3>
-        <p class="pl-sub">${esc(plan.when || plan.customName || "")}</p>
-        <dl><dt>Length</dt><dd>${plan.length === "whole" ? `The whole form at ${plan.speed && plan.speed !== 1 ? plan.speed + "x " : ""}reading speed`
-            : `${secs(plan.length)}: the spider's speed is set so it reads ${plan.start === "statements" ? "from the financial statements to the end" : "the whole form"} in this time`}</dd>
-          <dt>Starts at</dt><dd>${plan.start === "statements" ? "The financial statements" : "The cover page"}</dd>
-          <dt>Finds</dt><dd>${(plan.find || []).length ? esc(plan.find.join(" · ")) : "Nothing asked for"}</dd>
-          <dt>Ends on</dt><dd>${plan.ending ? "Key findings, then a one-page summary" : "The last line read"}</dd></dl>
+        <p class="pl-sub">${esc(plan.when || plan.customName || "")}${plan.accession ? ` · accession ${esc(plan.accession)}` : ""}</p>
+        <dl><dt>Covers</dt><dd>${excerpt ? `An excerpt, not the whole filing: ${sc.keys.length} of the report's ${sc.total} ${sc.total === 1 ? noun[0] : noun[1]}${(plan.find || []).length ? ", and each Find request (with any figures on the way to it)" : ""}`
+            : `The entire ${plan.source === "custom" ? "document" : "filing"}: every page, cover to final line`}</dd>
+          <dt>Length</dt><dd>${plan.length === "whole" ? `As long as it takes, at ${plan.speed && plan.speed !== 1 ? plan.speed + "x " : ""}reading speed`
+            : excerpt ? `${secs(plan.length)}: the excerpt, then 2 seconds on the report` : `${secs(plan.length)}: the spider's speed is set so it covers every page in this time`}</dd>
+          <dt>Starts at</dt><dd>${excerpt ? "Just above the excerpt's first figure" : "The cover page"}</dd>
+          <dt>Finds</dt><dd>${(plan.find || []).length ? esc(plan.find.join(" · ")) + (excerpt ? " (the clip goes to each)" : " (lit as the spider passes)") : "Nothing asked for"}</dd>
+          <dt>Ends on</dt><dd>${plan.ending ? "Key findings, then a one-page summary" : "The last line read"}</dd>
+          <dt>Video</dt><dd id="pl-video"></dd></dl>
         <p class="pl-st" id="pl-st" role="status"></p>
+        <div class="pl-check"><button type="button" id="pl-check">Check the frame</button><span id="pl-clean" role="status"></span></div>
         <button type="button" id="pl-start" disabled>Start recording</button>
         <p class="pl-note">${canRecord ? `Chrome asks to share this tab: choose Allow.${window.showSaveFilePicker && lk.disk !== false ? " Then choose where the video is saved." : ""} ` : ""}When the clip ends, the Studio opens with it in the Crawler window: add pictures there, then download it.</p>
         <button type="button" class="pl-more" id="pl-more" aria-expanded="false">All Record mode settings</button>`;
       q("rec-back").after(card);
       setup.classList.add("planned");
+      // the video asked for, and about what this window gives: Chrome captures a tab at about the window's own size
+      const drawVideo = () => {
+        const high = (q("rec-quality") || {}).value !== "standard", px = `${Math.round(innerWidth * devicePixelRatio)} \u00d7 ${Math.round(innerHeight * devicePixelRatio)}`;
+        card.querySelector("#pl-video").textContent = `${high ? "High Quality asks for 1080 \u00d7 1920 at 60 fps" : "Standard asks for 30 fps"}. This window gives about ${px} pixels (${innerWidth} \u00d7 ${innerHeight} at ${devicePixelRatio}x); the last screen says what was really recorded.`;
+      };
+      drawVideo(); addEventListener("resize", drawVideo);
+      cleanCheck(card.querySelector("#pl-clean"));
+      card.querySelector("#pl-check").addEventListener("click", () => previewFrame(card.querySelector("#pl-clean")));
       const st = card.querySelector("#pl-st"), go = card.querySelector("#pl-start");
       planSay = (text, err) => { st.textContent = text; st.classList.toggle("err", !!err); };
       card.querySelector("#pl-more").addEventListener("click", e => {
         const all = !setup.classList.toggle("planned");
         e.currentTarget.setAttribute("aria-expanded", String(all)); e.currentTarget.textContent = all ? "Fewer settings" : "All Record mode settings";
       });
-      go.addEventListener("click", () => { if (go.disabled) return; startBtn.disabled = false; startBtn.click(); });
+      go.addEventListener("click", () => {
+        if (go.disabled) return;
+        if (!go.dataset.anyway && cleanCheck(card.querySelector("#pl-clean")).length){ go.dataset.anyway = "1"; go.textContent = "Start recording anyway"; return; }
+        startBtn.disabled = false; startBtn.click();
+      });
       const loaded = f => {
         const dt = new DataTransfer(); dt.items.add(f);
         fileIn.files = dt.files; fileIn.dispatchEvent(new Event("change"));
@@ -4891,8 +4922,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // the last one has arrived. The featured item has its own moment: lit, named in a card for about a second, then
     // flown into its row, which keeps a mark. Nothing in it is computed here: every value is the report's. ----
     let scopeRun = null, featRun = null, featBusy = false, featPaceUntil = 0, featNote = "", zapBase = null;
-    async function scopeJump(sc){
+    async function scopeJump(sc, requests){
       await wait(() => state.docReady === state.loadToken && state.walkState && !state.walkState.done && state.scrollPos != null, 100, 60000);
+      const extra = requests ? (await requests()).filter(el => el && el.isConnected) : [];
       const res = state.readRes || {}, L = (res.report || {}).live || {}, f2f = L.fact_to_finding || {}, fds = new Map((res.findings || []).map(f => [f.id, f]));
       const at = new Map(), missing = [], scopeIdx = new Set();
       for (const k of sc.keys){
@@ -4911,22 +4943,32 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (!featRun) featNote = `the featured finding (${ft.type === "trade" ? ft.who + ", " + ft.date : ft.label}): not in this read of the filing`;
       }
       window.bmgRec.scope = {keys: sc.keys.length, placed: at.size, missing, featured: !!featRun, arrived: []};    // for checks
-      if (!at.size) return null;                  // nothing placed: the clip reads as a plan without findings
+      if (!at.size && !extra.length) return null;   // nothing placed: the clip reads as a plan without findings
       const line = innerHeight * (window.READER_VIEW_FRAC || 1) * .5, yOf = el => el.getBoundingClientRect().top + scrollY - line;
-      const ys = [...at.values()].map(yOf), docEnd = document.documentElement.scrollHeight - innerHeight, y0 = Math.min(...ys), y1 = Math.max(...ys);
+      // the stretch runs from the first of its findings or requests to the last (a request away from the findings widens it)
+      const ys = [...at.values(), ...extra].map(yOf), docEnd = document.documentElement.scrollHeight - innerHeight;
       // the report's other items around the stretch stay out of it: the page opens past the one before (the walk
       // reads from 20 px above the reading line) and stops short of the one after (it reads to 20 px below)
       const others = [];
       if (sc.unit === "trade"){ for (const [w, list] of state.insTargets()) if (!list.some(i => scopeIdx.has(i))) others.push(yOf(w)); }
       else for (const id of Object.keys(L.cells || {})) if (!at.has(id) && f2f[id]){ const f = fds.get(f2f[id]), w = f && locate(f.pdf_page, f.excerpt, f.offset, f.raw); if (w && w.classList && w.classList.contains("w")) others.push(yOf(w)); }
-      const before = Math.max(-Infinity, ...others.filter(y => y < y0)), after = Math.min(Infinity, ...others.filter(y => y > y1));
-      const start = Math.max(0, y0 - innerHeight * .15, before + 30);
-      const end = Math.max(start + 1, Math.min(docEnd, Math.max(y1 + 2, Math.min(y1 + 30, after - 25))));
+      const {start, end} = stretchOf(ys, others, docEnd, innerHeight);
       if (start > (state.scrollPos ?? scrollY) + 20){
+        // the camera moves only while the walk runs: a Find lookup above held it, so it runs for the jump
+        const held = state.paused; state.paused = false;
         state.scrollPos = start; state.walkSeek(start);     // the rows on the way are not read, so they never reach the report
         await wait(() => Math.abs(V.y() - start) < 40, 50, 15000).catch(() => {});
+        state.paused = held;
       }
       return {unit: sc.unit, keys: [...at.keys()], at, end, cameraDone: () => false};
+    }
+    // the stretch an excerpt's camera covers, in page positions: from the first of its findings and requests (ys) to
+    // the last, opening past the report item before it and stopping short of the one after (others), within the page
+    function stretchOf(ys, others, docEnd, viewH){
+      const y0 = Math.min(...ys), y1 = Math.max(...ys);
+      const before = Math.max(-Infinity, ...others.filter(y => y < y0)), after = Math.min(Infinity, ...others.filter(y => y > y1));
+      const start = Math.max(0, y0 - viewH * .15, before + 30);
+      return {start, end: Math.max(start + 1, Math.min(docEnd, Math.max(y1 + 2, Math.min(y1 + 30, after - 25))))};
     }
     const scopeArrived = k => scopeRun.unit === "trade"
       ? !!liveEl.querySelector(`.lr-ins li[data-x="${(state.insFind(k) || {}).i}"]:not(.pending):not(.incoming)`)
@@ -4937,7 +4979,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const got = scopeRun.keys.filter(scopeArrived), s = window.bmgRec.scope;
       if (s) for (const k of got) if (!s.arrived.some(a => a.k === k)) s.arrived.push({k, t: +(performance.now() / 1000).toFixed(2)});
       if (featBusy || (state.chipsInFlight || 0) > 0) return false;
-      return got.length === scopeRun.keys.length || scopeRun.cameraDone();
+      return (got.length === scopeRun.keys.length && !(planPending && planPending.size)) || scopeRun.cameraDone();
     }
     // The camera of a clip of findings: through each arrival in turn at a steady rhythm. The time between two grows
     // only slowly with the distance (a page of other text between two figures is crossed quickly, so the report keeps
@@ -5029,7 +5071,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       }
       return share;
     }
-    async function planTargets(curtain){
+    async function planTargets(curtain, anywhere){
       const items = (plan.find || []).slice(0, 8), hits = [];
       planMissing = []; planBefore = [];
       if (!items.length) return hits;
@@ -5038,7 +5080,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       // the clip shows the page from here (the cover, or the financial statements it jumped to) to the end: a place
       // above the first screen is never on screen, so it is not used (what is on the first screen is: it lights at
       // the start, though the spider reads from the middle of the screen)
-      const inClip = el => el.getBoundingClientRect().top >= -2 &&      // a clip of findings also ends where its stretch does
+      const inClip = el => !!anywhere || el.getBoundingClientRect().top >= -2 &&      // a clip of findings also ends where its stretch does
         (!scopeRun || el.getBoundingClientRect().top + scrollY - innerHeight * (window.READER_VIEW_FRAC || 1) * .5 <= scopeRun.end + 20);
       const find = (q, answers, within) => {
         const placeOf = a => {
@@ -5123,9 +5165,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // each thing asked for lights up as the spider reaches it, or as it passes the reading line (a fast clip can
     // pass it before the spider gets near); a figure gets its number card
     function planWatch(hits){
-      const pending = new Set(hits);
+      const pending = planPending = new Set(hits);
       cardedLines = [];
       if (!pending.size) return 0;
+      // a request lights its words without taking them: a report figure printed on one still reaches the report
+      const asked = state.askLit || (state.askLit = new WeakSet());
+      const light = (ws, c) => ws.forEach(w => { if (!w.classList.contains("found")) asked.add(w); w.classList.add("found", c, "hl-zap"); });
       const id = setInterval(() => {
         const line = innerHeight * (window.READER_VIEW_FRAC || 1) * 0.5, lit = [];
         for (const h of pending){
@@ -5135,10 +5180,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (!lit.length) return;
         const nums = [];
         for (const h of lit){
-          if (h.kind === "number"){ h.el.classList.add("found", "pink", "hl-zap"); nums.push(h.el); }
+          if (h.kind === "number"){ light([h.el], "pink"); nums.push(h.el); }
           else {
             const ws = h.light || [h.el];
-            ws.forEach(w => w.classList.add("found", "blue", "hl-zap"));
+            light(ws, "blue");
             setTimeout(() => ws.forEach(w => w.classList.remove("hl-zap")), 2800);
           }
           tlFx("lit", {el: h.el, pink: h.kind === "number"});
@@ -5719,8 +5764,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (state.findCount) bits.push(state.findCount());      // a Find read: what was asked for, found so far
         else if (B.classList.contains("rec-social")){
           // a clip for social video says what the report below says, in its words: "12 of 40 trades", "9 of 34 figures"
-          if (rc.sections.length) for (const x of rc.sections) bits.push(`${x.shown} of ${x.total} ${x.total === 1 ? x.noun[0] : x.noun[1]}`);
-          else if (plan && plan.cells) bits.push(`${state.cellsShown()} of ${plan.cells} figures`);
+          // (by the report's own rule: its statement figures when it has them, else its trades, holdings or guidance)
+          if (plan && plan.cells) bits.push(`${state.cellsShown()} of ${plan.cells} figures`);
+          else for (const x of rc.sections) bits.push(`${x.shown} of ${x.total} ${x.total === 1 ? x.noun[0] : x.noun[1]}`);
         } else {
         if (rc.figures || (plan && plan.cells) || !rc.sections.length) bits.push(`${rc.figures} figure${rc.figures === 1 ? "" : "s"}`);
         for (const x of rc.sections) bits.push(`${x.shown} ${x.shown === 1 ? x.noun[0] : x.noun[1]}`);
@@ -5733,8 +5779,60 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       state.hudTick = () => { if (hud && hud.isConnected) tick(); };
     }
 
+    // -- a clean frame. Anything on this page that the Crawler did not put there (a browser extension's badge, button
+    // or panel) is recorded with it. Found by what extensions add and this page never does: elements beside the page's
+    // body, custom elements, frames and shadow-root hosts, and boxes pinned above everything. Nothing is hidden or
+    // changed here: each is named and outlined for a few seconds, to be switched off in the extension itself. Check
+    // the frame also shows the tab as the recording sees it, live, and that same sharing is then what is recorded.
+    const nameOf = el => el.tagName.toLowerCase() + (el.id ? "#" + el.id : "") + (typeof el.className === "string" && el.className.trim() ? "." + el.className.trim().split(/\s+/).slice(0, 2).join(".") : "");
+    function strangers(){
+      const look = [...document.documentElement.children].filter(el => el !== document.head && el !== document.body);
+      for (const el of document.body.children){
+        if (/^(SCRIPT|STYLE|LINK|TEMPLATE|NOSCRIPT)$/.test(el.tagName) || el.classList.contains("rec-mark")) continue;
+        const cs = getComputedStyle(el);
+        if (el.tagName.includes("-") || el.tagName === "IFRAME" || el.shadowRoot || (/fixed|absolute|sticky/.test(cs.position) && (parseInt(cs.zIndex, 10) || 0) >= 1e6)) look.push(el);
+      }
+      return look.filter(el => { const cs = getComputedStyle(el); return cs.display !== "none" && cs.visibility !== "hidden" && +cs.opacity !== 0; });
+    }
+    function markIt(el){
+      const r = el.getBoundingClientRect(); if (!(r.width > 0 && r.height > 0)) return;
+      const m = document.createElement("div"); m.className = "rec-mark";
+      m.style.cssText = `left:${Math.max(0, r.left - 3)}px;top:${Math.max(0, r.top - 3)}px;width:${r.width + 6}px;height:${r.height + 6}px`;
+      m.textContent = nameOf(el); B.appendChild(m); setTimeout(() => m.remove(), 8000);
+    }
+    function cleanCheck(say){
+      const xs = strangers();
+      if (say){
+        say.className = xs.length ? "pl-dirty" : "pl-ok";
+        say.textContent = xs.length ? `On this page but not part of the Crawler, so it would be in the video: ${xs.slice(0, 4).map(nameOf).join(", ")}${xs.length > 4 ? ` and ${xs.length - 4} more` : ""}. Probably a browser extension: switch it off for this site in the extension (or record in a Chrome profile without extensions), then Check the frame again.`
+          : "No extension badge or panel found on this page. Check the frame shows the tab exactly as the recording will.";
+      }
+      xs.forEach(markIt);
+      return xs;
+    }
+    async function previewFrame(say){
+      cleanCheck(say);
+      if (!canRecord) return;
+      document.getElementById("rec-check")?.remove();
+      if (!previewStream || !previewStream.active){
+        try { previewStream = await navigator.mediaDevices.getDisplayMedia({video: captureVideo(), audio: false, preferCurrentTab: true, selfBrowserSurface: "include"}); }
+        catch (e){ if (say) say.textContent += " (The live frame needs Chrome's OK to share this tab.)"; return; }
+        previewStream.getVideoTracks()[0].addEventListener("ended", () => { previewStream = null; document.getElementById("rec-check")?.remove(); });
+      }
+      const box = document.createElement("div"); box.id = "rec-check";
+      box.innerHTML = `<p><b>What the recording sees, live.</b> Look along the edges and in the corners for anything that is not the Crawler: a badge, a button or a panel from a browser extension. This box is not recorded.</p><video muted autoplay playsinline></video>
+        <div><button type="button" data-k="keep">Looks clean: record with this</button><button type="button" data-k="stop">Stop sharing</button></div>`;
+      B.appendChild(box);
+      const v = box.querySelector("video"); v.srcObject = previewStream; v.play().catch(() => {});
+      box.addEventListener("click", e => {
+        const k = e.target.closest("[data-k]"); if (!k) return;
+        if (k.dataset.k === "stop" && previewStream){ previewStream.getTracks().forEach(t => t.stop()); previewStream = null; }
+        v.srcObject = null; box.remove();
+        if (say && k.dataset.k === "keep") say.textContent = (say.className === "pl-dirty" ? say.textContent + " " : "") + "The tab stays shared: Start recording records it without asking again.";
+      });
+    }
     // -- recording this tab (optional)
-    let rec = null, chunks = [], recType = "", stream = null, captureDetails = "";
+    let rec = null, chunks = [], recType = "", stream = null, captureDetails = "", previewStream = null;
     // Save to disk while recording (Chrome's file system access): each half-second of video is written to the file
     // as it arrives, so memory stays flat however long the take. No picker, or picker cancelled: kept in memory as before.
     let diskFile = null, diskWriter = null, diskChain = Promise.resolve(), diskBytes = 0, diskError = null;
@@ -5788,16 +5886,20 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         setTimeout(on, 700);                         // the bar comes a moment after sharing starts (or not at all)
       });
     }
+    const captureVideo = () => setup.querySelector("#rec-quality")?.value === "high" ? {width: {ideal: 1080}, height: {ideal: 1920}, frameRate: {ideal: 60, max: 60}} : {frameRate: 30};
     async function askCapture(){
       const high = setup.querySelector("#rec-quality")?.value === "high";
-      const video = high ? {width: {ideal: 1080}, height: {ideal: 1920}, frameRate: {ideal: 60, max: 60}} : {frameRate: 30};
+      const video = captureVideo();
+      const shared = previewStream && previewStream.active ? previewStream : null;
+      previewStream = null; document.getElementById("rec-check")?.remove(); document.querySelectorAll(".rec-mark").forEach(m => m.remove());
       recType = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
       await askDiskFile(/mp4/.test(recType) ? "mp4" : "webm");     // first, while the click still counts as a user gesture
       // Chrome shares a tab only within a few seconds of a click: when loading the filing or choosing where to save
       // took longer, one more click (it used to go on without sharing, and the take recorded nothing)
-      if (navigator.userActivation && !navigator.userActivation.isActive) await clickToShare();
+      if (!shared && navigator.userActivation && !navigator.userActivation.isActive) await clickToShare();
       try {
-        stream = await navigator.mediaDevices.getDisplayMedia({video, audio: false, preferCurrentTab: true, selfBrowserSurface: "include"});
+        if (shared){ stream = shared; await stream.getVideoTracks()[0].applyConstraints(video).catch(() => {}); }
+        else stream = await navigator.mediaDevices.getDisplayMedia({video, audio: false, preferCurrentTab: true, selfBrowserSurface: "include"});
       } catch (e) {
         stream = null;
         if (diskWriter){ try { await diskWriter.abort(); } catch (_) {} diskWriter = diskFile = null; }
@@ -5849,6 +5951,13 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       B.appendChild(px);
       return new Promise(res => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => { px.remove(); res(); }, 90))));
     }
+    // what the take really is, read from its file, beside what was asked for and the window it was captured from
+    async function qualityOf(f){
+      const cq = state.captureQuality || {}, high = cq.requestedQuality === "high";
+      return {requested: high ? {label: "High Quality", w: 1080, h: 1920, fps: 60} : {label: "Standard", w: 0, h: 0, fps: 30},
+        stream: {w: cq.width || 0, h: cq.height || 0, fps: cq.frameRate || 0}, window: {w: innerWidth, h: innerHeight, dpr: window.devicePixelRatio || 1},
+        measured: f ? await probeVideo(f).catch(() => ({})) : {}};
+    }
     async function stopCapture(){
       await lastFrame();
       return new Promise(res => {
@@ -5860,9 +5969,13 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
             await diskChain;
             try { await diskWriter.close(); } catch (e) { diskError = diskError || e; }
             if (diskError){ res({diskError: true, name: diskFile.name}); return; }
+            let saved = null; try { saved = await diskFile.getFile(); } catch (e) { /* measured from nothing: the finish card says so */ }
+            state.takeQuality = await qualityOf(saved);
             res({disk: true, name: diskFile.name, size: diskBytes, type: recType || "video/webm", handle: diskFile}); return;
           }
-          res(new Blob(chunks, {type: recType || "video/webm"}));
+          const blob = new Blob(chunks, {type: recType || "video/webm"});
+          state.takeQuality = await qualityOf(blob);
+          res(blob);
         };
         rec.stop();
       });
@@ -5927,10 +6040,16 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (stopped) bar.insertAdjacentHTML("afterbegin", `<span role="alert">The clip stopped early (${esc(stopped)}).</span>`);
       if (planMissing.length) bar.insertAdjacentHTML("beforeend", `<small class="rf-miss">Not found in this filing: ${esc(planMissing.join(" · "))}</small>`);
       if (planBefore.length) bar.insertAdjacentHTML("beforeend", `<small class="rf-miss">Outside the part of the filing this clip shows: ${esc(planBefore.join(" · "))}</small>`);
-      if (blob && captureDetails){
+      if (blob && (state.takeQuality || captureDetails)){
         const details = document.createElement("small"); details.id = "rec-capture-details";
-        details.textContent = captureDetails; details.style.display = "block";
+        details.textContent = state.takeQuality ? qualityWords(state.takeQuality) : captureDetails; details.style.display = "block";
         bar.appendChild(details);
+      }
+      const pl = setup.querySelector("#rec-format")?.value === "plan" ? plan : null;
+      if (pl){
+        const fl = document.createElement("small"); fl.className = "rf-filing"; fl.style.display = "block";
+        fl.textContent = [filingWords(pl.filing), planExcerpt(pl) ? "An excerpt, not the whole filing" : `The entire ${pl.source === "custom" ? "document" : "filing"}, cover to final line`].filter(Boolean).join(" \u00b7 ");
+        bar.appendChild(fl);
       }
       end.appendChild(bar);
       bar.querySelector("#rf-again").onclick = () => location.reload();
@@ -6058,7 +6177,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         figures.push({k, label, value: x.display, change: ch.display || "", up, period: (x.period || {}).short || (x.period || {}).label || "", page});
       }
       const findings = (rep.exec_findings || []).slice(0, 6).map(x => ({severity: x.severity, tag: (SEV[x.severity] || {}).l || "", headline: x.headline, pages: pageOf(x.refs)}));
+      const pl = setup.querySelector("#rec-format")?.value === "plan" && plan ? plan : null, g = (pl && pl.filing) || {};
       return {company: co.name || "", ticker: co.ticker || co.ticker_hint || "", form: co.form || "", period: co.period || "", figures, findings,
+        accession: g.accession || "", filed: g.filed || "", when: g.when || "",
         coverage: rep.coverage ? `${rep.coverage.facts_published} headline figures · ${rep.coverage.checks_run} checks` : ""};
     }
     state.takeReady = (blob, bar) => {
@@ -6069,8 +6190,11 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const hook = fmt === "idea" ? (setup.querySelector("#clip-hook")?.value || "").trim() : fmt === "plan" && plan ? String(plan.hook || "").trim() : "";
       const when = new Date();
       let report = null; try { report = takeReport(); } catch (e) { /* the take still goes to the Studio, without its report */ }
-      const take = {id: "take-" + when.getTime().toString(36), created: when.getTime(), size: blob.size, type: blob.type, meta: {ticker, hook, form: co.form || "", source: "record", report},
-        name: [ticker || "Crawler", co.form || "", "take", when.toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})].filter(Boolean).join(" ")};
+      const pl = fmt === "plan" && plan ? plan : null, cover = pl ? (planExcerpt(pl) ? "excerpt" : "entire") : "";
+      const take = {id: "take-" + when.getTime().toString(36), created: when.getTime(), size: blob.size, type: blob.type, meta: {ticker, hook, form: co.form || "", source: "record", report,
+          filing: pl ? pl.filing || null : null, cover, coverage: pl ? pl.coverage || "" : "", quality: state.takeQuality || null,
+          find: pl ? {asked: pl.find || [], missing: planMissing.slice(), outside: planBefore.slice()} : null},
+        name: [ticker || "Crawler", co.form || "", cover === "entire" ? "entire filing" : cover, "take", when.toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})].filter(Boolean).join(" ")};
       if (blob.disk) take.handle = blob.handle; else take.blob = blob;
       // A take saved to disk is also copied into the browser now, while its file is certainly whole, and the Studio
       // edits that copy: Brock's disk takes were found empty at export twice (whatever emptied them), and the Studio,
@@ -6099,7 +6223,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
             setTimeout(() => window.close(), 1200);
           };
           addEventListener("message", got);
-          try { o.postMessage({type: "bmg-open-take", id: take.id, file: handed, plan: true, missing: planMissing, before: planBefore}, location.origin); } catch (e) {}
+          try { o.postMessage({type: "bmg-open-take", id: take.id, file: handed, plan: true, missing: planMissing, before: planBefore, cover}, location.origin); } catch (e) {}
         }
       }).catch(e => { b.textContent = "Not kept for the Studio (" + ((e && e.message) || "browser storage") + "): open the downloaded file there"; });
       b.onclick = () => {
@@ -6885,7 +7009,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         secs: Math.min(30, Math.max(15, +setup.querySelector("#clip-len").value || 20))} : null;
       const highlights = setup.querySelector("#rec-format").value === "highlights";
       const planned = setup.querySelector("#rec-format").value === "plan" ? plan : null;
-      const scoped = planned && planned.scope && planned.length !== "whole" ? planned.scope : null;
+      const scoped = planExcerpt(planned) ? planned.scope : null;
       const pace = +setup.querySelector("#rec-pace").value || 1.6;
       const previousTempo = state.speedMul || 1;
       // a planned clip of a set length ends when its timed crawl reaches the end of the filing (a few seconds' margin
@@ -6898,7 +7022,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       state.recordRenderWidth = setup.querySelector("#rec-quality")?.value === "standard" ? 0 : 1080;
       state.recCards = !!setup.querySelector("#rec-cards")?.checked;
       state.recBig = !!setup.querySelector("#rec-big")?.checked;
-      state.captureQuality = null;
+      state.captureQuality = null; state.takeQuality = null;
       const capture = setup.querySelector("#rec-capture");
       if (clip && clip.ticker && !fileIn.files[0]){
         // the filing is fetched before the screen-share prompt, so a bad ticker never starts a recording
@@ -6917,7 +7041,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       B.appendChild(curtain);
       if (clip) B.classList.add("clip-zoom");                     // before the filing is laid out, so the words are measured zoomed
       document.getElementById("read-run").click();
-      let clipWatch = 0;
+      let clipWatch = 0, reqHits = null;
       try {
         await wait(() => vis("read-skip"), 50);
         if (planned && planned.start !== "statements" && !scoped) state.paused = true;   // a plan from the cover: the page holds while it is laid out
@@ -6934,7 +7058,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           await wait(() => window.crawlerJumpTo(anchor), 100, 30000);
           await wait(() => Math.abs(scrollY - y0) > 40, 100, 15000).catch(() => {});
           let last = scrollY; await wait(() => { const st = Math.abs(scrollY - last) < 20; last = scrollY; return st; }, 250, 5000).catch(() => {});
-        } else if (scoped && (scopeRun = await scopeJump(scoped))){
+        } else if (scoped && (scopeRun = await scopeJump(scoped, async () => {
+          // the Find requests first, anywhere in the filing: the stretch then reaches each one
+          if (!(planned.find || []).length) return [];
+          state.paused = true; reqHits = await planTargets(curtain, true);
+          return reqHits.map(h => h.el);
+        }))){
           // the stretch with the clip's findings; the featured one, when the spider reaches it, has its moment first
           state.paused = true;
           if (featRun && featRun.unit === "trade") state.featIns = (w, list) => {
@@ -6972,7 +7101,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           await settleSpiderPose();
         }
         let planHits = null;
-        if (planned){ state.paused = true; planHits = await planTargets(curtain); if (featNote) planMissing.push(featNote); }
+        if (planned){ state.paused = true; planHits = reqHits || await planTargets(curtain); if (featNote) planMissing.push(featNote); }
         let intro = null;
         if (clip){
           // the opening: the hook over the paused page for 2 seconds, then the spider at clip speed
@@ -7054,6 +7183,84 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       }
     });
   })();
+  // ---- What a video file really holds, read from the file itself: its frame size, how many frames it has and how
+  // long they run (so its frame rate). Chrome's recorder writes an MP4 as a run of fragments (moof), the Studio's
+  // export writes one index (stts); both are counted here, for the video track only. A WebM, or a file this cannot
+  // read, gives its size from the browser and no frame rate: nothing here is estimated. ----
+  async function probeVideo(file){
+    const out = {w: 0, h: 0, frames: 0, secs: 0, fps: 0, basis: ""};
+    if (!file || !file.size) return out;
+    const read = async (o, n) => new DataView(await file.slice(o, o + n).arrayBuffer());
+    const four = (d, o) => String.fromCharCode(d.getUint8(o), d.getUint8(o + 1), d.getUint8(o + 2), d.getUint8(o + 3));
+    const tracks = new Map(), INSIDE = new Set(["moov", "trak", "mdia", "minf", "stbl", "mvex", "moof", "traf"]);
+    const T = id => { if (!tracks.has(id)) tracks.set(id, {video: false, scale: 0, w: 0, h: 0, frames: 0, units: 0, defDur: 0}); return tracks.get(id); };
+    let trak = null, frag = null;
+    const boxes = (d, o, end) => {
+      while (o + 8 <= end){
+        let sz = d.getUint32(o), hdr = 8; const typ = four(d, o + 4);
+        if (sz === 1){ sz = Number(d.getBigUint64(o + 8)); hdr = 16; } else if (sz === 0) sz = end - o;
+        if (sz < hdr || o + sz > end) return;
+        const b = o + hdr, v = d.getUint8(b);
+        if (typ === "trak") trak = null;
+        if (INSIDE.has(typ)) boxes(d, b, o + sz);
+        else if (typ === "tkhd"){ trak = T(d.getUint32(b + (v ? 20 : 12))); const at = b + (v ? 88 : 76); trak.w = d.getUint32(at) / 65536; trak.h = d.getUint32(at + 4) / 65536; }
+        else if (typ === "mdhd" && trak) trak.scale = d.getUint32(b + (v ? 20 : 12));
+        else if (typ === "hdlr" && trak) trak.video = four(d, b + 8) === "vide";
+        else if (typ === "stts" && trak){ const n = d.getUint32(b + 4); for (let i = 0; i < n; i++){ const c = d.getUint32(b + 8 + i * 8); trak.frames += c; trak.units += c * d.getUint32(b + 12 + i * 8); } }
+        else if (typ === "trex") T(d.getUint32(b + 4)).defDur = d.getUint32(b + 12);
+        else if (typ === "tfhd"){
+          const fl = d.getUint32(b) & 0xffffff; let at = b + 8;
+          if (fl & 1) at += 8; if (fl & 2) at += 4;
+          frag = {t: T(d.getUint32(b + 4))}; frag.dur = fl & 8 ? d.getUint32(at) : frag.t.defDur;
+        }
+        else if (typ === "trun" && frag){
+          const fl = d.getUint32(b) & 0xffffff, n = d.getUint32(b + 4), step = 4 * [0x100, 0x200, 0x400, 0x800].filter(f => fl & f).length;
+          let at = b + 8; if (fl & 1) at += 4; if (fl & 4) at += 4;
+          frag.t.frames += n;
+          if (fl & 0x100) for (let i = 0; i < n; i++) frag.t.units += d.getUint32(at + i * step);
+          else frag.t.units += n * frag.dur;
+        }
+        o += sz;
+      }
+    };
+    try {
+      // the top level: the index (moov) and each fragment's header (moof) are read whole, the pictures between skipped
+      if (four(await read(0, 8), 4) === "ftyp"){
+        for (let o = 0; o + 8 <= file.size;){
+          const h = await read(o, 16); let sz = h.getUint32(0); const typ = four(h, 4);
+          if (sz === 1) sz = Number(h.getBigUint64(8)); else if (sz === 0) sz = file.size - o;
+          if (sz < 8) break;
+          if (typ === "moov" || typ === "moof") boxes(await read(o, sz), 0, sz);
+          o += sz;
+        }
+        const v = [...tracks.values()].find(t => t.video);
+        if (v && v.frames && v.scale) Object.assign(out, {w: Math.round(v.w), h: Math.round(v.h), frames: v.frames, secs: v.units / v.scale, basis: "file"});
+      }
+    } catch (e) { /* not an MP4 this can read: its size comes from the browser below */ }
+    if (out.secs > 0) out.fps = out.frames / out.secs;
+    if (!out.w){
+      const vid = document.createElement("video"), url = URL.createObjectURL(file);
+      try {
+        vid.muted = true; vid.preload = "metadata"; vid.src = url;
+        await new Promise((res, rej) => { vid.onloadedmetadata = res; vid.onerror = rej; setTimeout(rej, 8000); });
+        out.w = vid.videoWidth; out.h = vid.videoHeight; out.basis = out.basis || "browser";
+      } catch (e) {} finally { vid.removeAttribute("src"); vid.load(); URL.revokeObjectURL(url); }
+    }
+    return out;
+  }
+  // the filing a clip is made from, as picked in Make a clip: company, form, period, filing date and accession
+  const filingWords = g => !g ? "" : g.own ? `Your document: ${g.name}` : [g.company ? `${g.company} (${g.ticker})` : g.ticker, g.label || g.form, g.when, g.accession ? "accession " + g.accession : ""].filter(Boolean).join(" \u00b7 ");
+  // a take's quality in words: what was recorded (from the file) against what Record mode asked for
+  function qualityWords(q){
+    if (!q) return "";
+    const m = q.measured || {}, r = q.requested || {};
+    const got = m.w ? `${m.w} \u00d7 ${m.h}` + (m.fps ? ` at ${m.fps.toFixed(1)} fps (${m.frames.toLocaleString()} frames in ${m.secs.toFixed(1)} s, counted in the file)` : " (frame rate not measured: not an MP4)") : "not measured";
+    const asked = r.w ? `${r.label}, ${r.w} \u00d7 ${r.h} at ${r.fps} fps` : `${r.label || "Standard"}, ${r.fps || 30} fps`;
+    const win = q.window, px = win ? `${Math.round(win.w * win.dpr)} \u00d7 ${Math.round(win.h * win.dpr)}` : "";
+    return `Recorded: ${got}. Asked for: ${asked}.` + (m.w && r.w && (m.w < r.w || m.h < r.h) && win
+      ? ` Chrome captures the window at about its own size (this one is ${Math.round(win.w)} \u00d7 ${Math.round(win.h)} at ${win.dpr}x, about ${px} pixels): a bigger take needs a bigger window or a sharper screen.` : "")
+      + (m.fps && r.fps && m.fps < r.fps * 0.8 ? ` Chrome delivered ${m.fps.toFixed(1)} frames a second, not ${r.fps}.` : "");
+  }
   function onFindingSignals(f, el){
     if (f.group === "Operating metrics") tickBrief("kpi:" + f.label, f.value);
     for (const id of f.signals || []){
@@ -9613,7 +9820,7 @@ Who is the auditor?</textarea>
       studioEl.innerHTML = rtLoading("Opening the Studio...");
       try {
         const S = await loadStudio();
-        if (!studio) studio = window.bmgStudio = S.mount(studioEl, {db: studioDB, openRecorder, files: takeFiles});     // window.bmgStudio.state(): the edit, for checks
+        if (!studio) studio = window.bmgStudio = S.mount(studioEl, {db: studioDB, openRecorder, files: takeFiles, probe: probeVideo});     // window.bmgStudio.state(): the edit, for checks
         if (view === "studio" && !pane.hidden) studio.show();
         if (openNext){ const n = openNext; openNext = null; studio.openTake(n.id, n.opts); }
       } catch (e){ studioEl.innerHTML = `<p class="err">${esc(e.message || e)}</p>`; }
@@ -9630,7 +9837,7 @@ Who is the auditor?</textarea>
       show("studio");
       if (d.plan){ mk.recording = false; try { e.source && e.source.postMessage({type: "bmg-take-opened", id: d.id}, location.origin); } catch (x) {} }
     });
-    const takeNote = d => "Your clip is on the preview. Add pictures here: drop them in, then drag them on the video. Export (the last tab) downloads it."
+    const takeNote = d => `Your clip${d.cover === "entire" ? " (the entire filing, cover to final line)" : d.cover === "excerpt" ? " (an excerpt: Specific findings)" : ""} is on the preview. Add pictures here: drop them in, then drag them on the video. Export (the last tab) downloads it; it says what the take measured.`
       + (d.missing && d.missing.length ? ` Not found in this filing: ${d.missing.join(", ")}.` : "")
       + (d.before && d.before.length ? ` Outside the part of the filing the clip shows (start from the cover page, or choose a longer clip, to include them): ${d.before.join(", ")}.` : "");
     try {
@@ -9650,19 +9857,34 @@ Who is the auditor?</textarea>
     // Record: the record window opens with all of it set, and the take comes back here to the Studio by itself.
     const MAKE_LS = "bmg-make-clip", LENS = [30, 45, 60, 90, 120, 180], SHORT = 22;      // Short: about 22 s, no ending
     const QUICK = ["Revenue", "Net income", "Diluted EPS", "Cash and cash equivalents", "Share repurchases", "Guidance"];
-    const mk = {ticker: "", length: 60, speed: 1, start: "cover", ending: true, find: "", look: {}, list: null, pick: null, pickKey: null, file: null, all: false, recording: false,
-      found: null, feat: null, featBy: {}, hook: "", hookBy: {}, logos: {built: "", scan: {}}, safe: true};
-    const MK_KEEP = ["ticker", "length", "speed", "start", "ending", "find", "look", "pickKey", "featBy", "hookBy", "logos", "safe"];
-    try { const s = JSON.parse(localStorage.getItem(MAKE_LS) || "{}"); for (const k of MK_KEEP) if (s[k] != null) mk[k] = s[k]; } catch (e) {}
+    // What the clip covers (its scope) and how long it runs (its length) are two choices. The entire filing is the
+    // default each time the page opens: every page from the cover to the final line, with no featured number to pick.
+    // Specific findings is an excerpt: the report's findings around the one you feature, and each Find request. Each
+    // scope keeps its own length, so switching back never carries an excerpt, or a start other than the cover, into
+    // the entire filing. (The scope itself is not kept: a reopened page starts on the entire filing again.)
+    const mk = {ticker: "", scope: "entire", length: "whole", lenBy: {entire: "whole", specific: 60}, speed: 1, ending: true, find: "", look: {}, list: null, pick: null, pickKey: null, file: null, all: false, recording: false,
+      found: null, feat: null, featBy: {}, hook: "", hookBy: {}, hookMine: {}, logos: {built: "", scan: {}}, safe: true};
+    const MK_KEEP = ["ticker", "lenBy", "speed", "ending", "find", "look", "pickKey", "featBy", "hookBy", "hookMine", "logos", "safe"];
+    // a length either scope can run at: the entire filing at reading speed ("whole") or a set time; an excerpt a set time
+    const okLen = (v, scope) => v === "whole" ? (scope === "entire" ? v : 60) : typeof v === "number" && v >= 10 && v <= 900 && !(scope === "entire" && v === SHORT) ? v : scope === "entire" ? "whole" : 60;
+    try {
+      const s = JSON.parse(localStorage.getItem(MAKE_LS) || "{}");
+      for (const k of MK_KEEP) if (s[k] != null) mk[k] = s[k];
+      // kept before there were scopes, one length for both: a set length made an excerpt, the whole form read it all
+      if (!s.lenBy && s.length != null) mk.lenBy = {entire: "whole", specific: s.length === "whole" ? 60 : s.length};
+    } catch (e) {}
+    mk.lenBy = {entire: okLen((mk.lenBy || {}).entire, "entire"), specific: okLen((mk.lenBy || {}).specific, "specific")};
+    mk.length = mk.lenBy.entire;
     const saveMk = () => {
       const k = mk.found && mk.found.key;
       if (k){ if (mk.feat) mk.featBy[k] = mk.feat; mk.hookBy[k] = mk.hook; }
-      for (const m of [mk.featBy, mk.hookBy]){ const ks = Object.keys(m); for (const x of ks.slice(0, Math.max(0, ks.length - 30))) delete m[x]; }   // the last 30 filings
+      mk.lenBy[mk.scope] = mk.length;
+      for (const m of [mk.featBy, mk.hookBy, mk.hookMine]){ const ks = Object.keys(m); for (const x of ks.slice(0, Math.max(0, ks.length - 30))) delete m[x]; }   // the last 30 filings
       try { localStorage.setItem(MAKE_LS, JSON.stringify(Object.fromEntries(MK_KEEP.map(k => [k, mk[k]])))); } catch (e) {}
     };
     const itemKey = it => it ? (it.accession || it.form) : null;
     state.mkBusy = () => view === "make" && !!mk.file;      // a document chosen from this Mac cannot be kept over a reload
-    const lenLabel = s => s === "whole" ? "the whole form" : s < 60 ? `${s} seconds` : s % 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s / 60} min`;
+    const lenLabel = s => s === "whole" ? "as long as the filing takes" : s < 60 ? `${s} seconds` : s % 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s / 60} min`;
     const mdy = s => s ? new Date(s + "T12:00:00").toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"}) : "";
     const mbOf = n => n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
     const findList = () => [...new Set(String(mk.find || "").split(/\n|;|,\s+/).map(s => s.trim()).filter(Boolean))].slice(0, 8);
@@ -9672,7 +9894,7 @@ Who is the auditor?</textarea>
     function formItems(j){
       const out = (j.filings || []).map(f => {
         const base = f.form.replace("/A", ""), annual = /^(10-K|20-F|40-F)$/.test(base), ext = (f.document.match(/\.(\w+)$/) || ["", "htm"])[1];
-        return {label: f.form.endsWith("/A") ? base + " (amended)" : f.form, form: f.form, accession: f.accession, document: f.document,
+        return {label: f.form.endsWith("/A") ? base + " (amended)" : f.form, form: f.form, accession: f.accession, document: f.document, period: f.period || "", filed: f.filed || "",
           when: (/^8-K/.test(f.form) ? `Filed ${mdy(f.filed)}` : `${annual ? "Year" : "Quarter"} ended ${mdy(f.period || f.filed)} · filed ${mdy(f.filed)}`) + (f.exhibit ? " · " + f.exhibit : ""),
           fileName: `${j.ticker || "CIK" + j.cik} ${f.form.replace("/", "-")} ${f.period || f.filed} filed ${f.filed} ${f.accession}.${ext}`};
       });
@@ -9719,24 +9941,26 @@ Who is the auditor?</textarea>
     }
     function drawLen(){
       const box = body.querySelector(".mk-len"); if (!box) return;
+      const entire = mk.scope !== "specific";
       const custom = typeof mk.length === "number" && !LENS.includes(mk.length) && mk.length !== SHORT;
-      box.querySelectorAll("[data-len]").forEach(b => b.setAttribute("aria-checked", String(String(mk.length) === b.dataset.len)));
+      // the entire filing runs at reading speed or in a set time; an excerpt in a set time (Short is an excerpt's preset)
+      box.querySelectorAll("[data-len]").forEach(b => {
+        b.setAttribute("aria-checked", String(String(mk.length) === b.dataset.len));
+        b.hidden = entire ? b.dataset.len === String(SHORT) : b.dataset.len === "whole";
+      });
       const sec = body.querySelector("#mk-secs");
       if (sec && document.activeElement !== sec) sec.value = custom ? mk.length : "";
       body.querySelector(".mk-custom").classList.toggle("on", custom);
       body.querySelector("#mk-speed-l").hidden = mk.length !== "whole";
-      // a clip of a set length shows the report's findings that fit (see the preview); without them (your own
-      // document, or a filing not read yet) it reads the form from where it starts, as fast as the length needs
-      const sc = clipScope();
-      body.querySelector("#mk-start-l").hidden = !!sc;
-      const from = mk.start === "statements" ? "from the financial statements to the end of the form" : "the whole form from its cover page";
+      const sc = clipScope(), end = mk.ending ? ", the last 11 seconds on the key findings and summary" : "";
       const crawl = typeof mk.length === "number" ? mk.length - (mk.ending ? 11 : 0) - (sc ? END_HOLD + LEAD_IN + (featItem() ? FEATURE_HOLD : 0) : 1.6) : 0;
       body.querySelector("#mk-len-note").textContent = mk.length === "whole"
-        ? `The spider reads ${from} at reading speed, and the clip is as long as that takes: a long 10-K takes many minutes at 1x.`
-        : sc ? `${lenLabel(mk.length)} in all${mk.ending ? ", the last 11 seconds on the key findings and summary" : ""}. The spider reads the stretch of the filing with the findings that fit${featItem() ? ", from just before your featured one" : ""}, and the clip ends 2 seconds after the last one reaches the report.`
+        ? `The spider reads every page, from the cover to the final line, at ${mk.speed}x reading speed: the clip is as long as that takes (a long 10-K takes many minutes at 1x)${mk.ending ? ", then about 11 seconds on the key findings and summary" : ""}.`
+        : entire ? `${lenLabel(mk.length)} in all${end}. The spider covers every page, from the cover to the final line, in the time left: a long filing in a short clip is a very fast crawl.`
+          + (crawl < 10 ? " That leaves under 10 seconds of crawling: choose a longer clip, or turn the ending off." : "")
+        : sc ? `${lenLabel(mk.length)} in all${end}. An excerpt: the spider reads the stretch of the filing with the findings that fit${featItem() ? ", from just before your featured one" : ""}, goes to each Find request, and the clip ends 2 seconds after the last one reaches the report.`
           + (crawl < 6 ? " That leaves under 6 seconds for findings: choose a longer clip, or turn the ending off." : "")
-        : `${lenLabel(mk.length)} in all${mk.ending ? ", the last 11 seconds on the key findings and summary" : ""}. The spider's speed is set so it reads ${from} in the time left: a long form in a short clip is a fast crawl.`
-          + (crawl < 10 ? " That leaves under 10 seconds of crawling: choose a longer clip, or turn the ending off." : "");
+        : "Specific findings needs the filing's findings: pick a filing in step 1 and wait for its read.";
     }
     function recStatus(ph){
       if (view !== "make" || !mk.recording) return;
@@ -9832,11 +10056,13 @@ Who is the auditor?</textarea>
         if (seq !== readSeq) return;
         if (!rr.ok || !res) throw new Error("The read finished but its result did not come. Pick the form again.");
         mk.found = {state: "done", key, form: f.form, ...findingsOf(res)};
+        if (!mk.found.form) mk.found.form = f.label || f.form;            // the report names no form (an earnings release): the one picked
         // the finding picked before for this filing, else the largest trade or the first figure, whichever has its data
         const kept = mk.featBy[key], ok = mk.found.items.filter(x => !x.missing.length);
         const best = mk.found.kind === "insider" ? ok.slice().sort((a, b) => amountOf(b.value) - amountOf(a.value))[0] : ok[0];
         mk.feat = mk.found.items.some(x => x.key === kept && !x.missing.length) ? kept : best ? best.key : null;
-        if (!mk.hook) mk.hook = suggestHook();
+        if (mk.scope === "specific" && !specificOK()) setScope("entire");      // nothing to pick in this filing
+        if (!hookIsMine()) mk.hook = suggestHook();
         saveMk();
       } catch (e){ if (seq === readSeq) mk.found = {state: "error", key, msg: (e && e.message) || String(e)}; }
       if (seq === readSeq){ drawFinding(); drawHook(); drawLen(); drawPreview(); }
@@ -9851,32 +10077,72 @@ Who is the auditor?</textarea>
       : `${x.section} · ${x.page ? "p." + x.page : ""}${x.pdfPage && x.pdfPage !== x.page ? ` (p.${x.pdfPage} in the reader)` : ""}${x.status ? " · " + x.status : ""}`;
     function drawFinding(){
       const box = body.querySelector("#mk-found"); if (!box || view !== "make") return;
+      drawScope();
       const F = mk.found;
-      if (mk.file){ box.innerHTML = `<p class="mk-note">Your own document is read in the record window: the clip runs without a featured finding.</p>`; return; }
-      if (!F){ box.innerHTML = `<p class="mk-note">Pick a filing in step 1: it is read here and its findings are listed to choose from.</p>`; return; }
+      if (mk.file){ box.innerHTML = `<p class="mk-note">Your own document is read in the record window: the clip covers the entire document, without a featured finding.</p>`; return; }
+      if (!F){ box.innerHTML = `<p class="mk-note">Pick a filing in step 1: it is read here, and its findings are listed for Specific findings.</p>`; return; }
       if (F.state === "loading"){ box.innerHTML = `<p class="mk-st" role="status">${esc(F.msg)}</p>`; return; }
       if (F.state === "error"){ box.innerHTML = `<p class="mk-st err" role="status">${esc(F.msg)}</p><button type="button" class="av-chip" data-reread>Read it again</button>`; return; }
+      if (mk.scope !== "specific"){ box.innerHTML = `<p class="mk-note">${esc(entireLine(F))}</p>`; return; }
       if (!F.items.length){ box.innerHTML = `<p class="mk-note">${esc(F.note)}</p>`; return; }
       box.innerHTML = `<p class="mk-note">${esc(F.note)}</p>
         <ul class="mk-fnd" role="radiogroup" aria-label="Featured finding">${F.items.map(x => `<li><button type="button" role="radio" data-feat="${esc(x.key)}" aria-checked="${x.key === mk.feat}"${x.missing.length ? " disabled" : ""}>
           <b>${esc(x.type === "trade" ? x.who : x.label)}</b><span>${esc(x.type === "trade" ? featLine(x) : `${x.value}${printed(x)} · ${x.period}`)}</span>
           <small>${esc(featSrc(x))}${x.type === "trade" ? " · amount: shares x reported price" : ""}</small>${x.missing.length ? `<em>Missing: ${esc(x.missing.join(", "))}. Choose another.</em>` : ""}</button></li>`).join("")}</ul>`;
     }
+    // what the entire filing shows of the report: every item it has, each as the spider reaches it
+    const entireLine = F => (F.kind === "insider" ? `Every page, cover to final line: the ${F.total} trades the report lists arrive as the spider reaches each one.`
+      : F.kind === "financial" ? `Every page, cover to final line: the report's ${F.total} figures arrive as the spider reaches each one, each with its page.`
+      : "Every page, cover to final line.") + " No featured number to pick; choose Specific findings to feature one.";
+    // Specific findings needs the report's findings, read here (your own document is read in the record window)
+    const specificOK = () => !mk.file && !!mk.found && mk.found.state === "done" && mk.found.arrivals.length > 0;
+    function drawScope(){
+      const box = body.querySelector(".mk-scope"); if (!box || view !== "make") return;
+      box.querySelectorAll("[data-scope]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.scope === mk.scope)));
+      const sp = box.querySelector('[data-scope="specific"]'), F = mk.found;
+      const why = mk.file ? "Your own document is read in the record window, so its findings cannot be picked here."
+        : !F ? "Pick a filing first: its findings are listed to choose from." : F.state === "loading" ? "The filing is being read for its findings."
+        : F.state !== "done" ? "The filing's findings did not come: read it again." : !F.arrivals.length ? "This document has no findings to pick." : "";
+      sp.disabled = !!why; sp.title = why;
+      const note = body.querySelector("#mk-scope-note");
+      if (note) note.textContent = mk.scope === "specific"
+        ? "An excerpt, not the whole filing: the report's findings around the one you feature, and each Find request below. The video says how many it shows."
+        : "The whole filing, every page from the cover to the final line. Find requests below are lit as the spider passes them; they do not shorten the read.";
+    }
+    // a scope switch puts that scope's own length back and nothing else: the entire filing always starts at the cover,
+    // with no excerpt or featured number carried in
+    function setScope(sc){
+      if ((sc !== "entire" && sc !== "specific") || sc === mk.scope) return false;
+      if (sc === "specific" && !specificOK()) return false;
+      mk.lenBy[mk.scope] = mk.length;
+      mk.scope = sc;
+      mk.length = okLen(mk.lenBy[sc], sc);
+      if (!hookIsMine()) mk.hook = suggestHook();
+      saveMk();
+      return true;
+    }
+    // the hook is yours once you type in it (even to empty it), for this filing; Use the suggestion hands it back
+    const hookIsMine = () => !!(mk.found && mk.found.key && mk.hookMine[mk.found.key]);
     // ---- 3 Hook: a plain statement of what the clip shows (a filing is a record, not a verdict), yours to edit ----
     function suggestHook(){
       const F = mk.found, x = featItem(), co = (F && F.company) || shortName(mk.list && mk.list.company) || (mk.list && mk.list.ticker) || "";
       if (!F || F.state !== "done") return "";
       if (F.kind === "insider") return `${co} insider trades, read from their SEC Form 4 filings`;
+      if (mk.scope !== "specific") return `${co}'s ${F.form || "filing"}, read cover to cover by a web crawler`;
       if (x && x.type === "cell") return `${co}'s ${x.label.toLowerCase()}: ${x.value}, read from the ${F.form || "filing"}`;
       return `${co}'s ${F.form || "filing"}, read by a web crawler`;
     }
-    function drawHook(){ const h = body.querySelector("#mk-hook"); if (h && document.activeElement !== h) h.value = mk.hook || ""; }
+    function drawHook(){
+      const h = body.querySelector("#mk-hook"); if (h && document.activeElement !== h) h.value = mk.hook || "";
+      const a = body.querySelector("#mk-hook-auto"), sug = suggestHook();
+      if (a){ a.hidden = !(hookIsMine() && sug && sug !== mk.hook); a.title = sug ? "Suggested: " + sug : ""; }
+    }
     // ---- what a clip of this length shows: the report items it reaches, in the filing's order, from just before the
     // featured one. Each gets about 1.3 s, the featured one 1.6 s more, and the clip holds 2 s on the report at the end
     // (the record window places them on the page and ends there: no crawl after the last one). ----
     const PER_ARRIVAL = 1.3, END_HOLD = 2, LEAD_IN = 1.5, FEATURE_HOLD = 1.6;
     function clipScope(){
-      const F = mk.found; if (!F || F.state !== "done" || !F.arrivals.length || mk.length === "whole" || mk.file) return null;
+      const F = mk.found; if (mk.scope === "entire" || !F || F.state !== "done" || !F.arrivals.length || mk.length === "whole" || mk.file) return null;
       const x = featItem(), budget = mk.length - END_HOLD - LEAD_IN - (x ? FEATURE_HOLD : 0) - (mk.ending ? 11 : 0);
       const n = Math.max(2, Math.floor(budget / PER_ARRIVAL + 1e-6)), all = F.arrivals;
       const fi = x ? all.indexOf(x.key) : -1;
@@ -9891,40 +10157,63 @@ Who is the auditor?</textarea>
       return {unit: F.kind === "insider" ? "trade" : "cell", keys, total: F.total, all: all.length, noun: F.noun, featured: fi >= 0 && keys.includes(x.key) ? x.key : null};
     }
     function scopeText(){
-      const F = mk.found, sc = clipScope(), x = featItem();
-      if (mk.file) return "Your own document: the clip runs at the length chosen, from its start.";
-      if (!F || F.state !== "done") return F && F.state === "loading" ? "The scope shows here once the filing is read." : "";
-      if (mk.length === "whole") return `The whole form at reading speed: every finding the spider reaches arrives in the report, ending on the last line.`;
-      if (!sc) return F.note;
+      const F = mk.found, sc = clipScope(), x = featItem(), asks = findList();
+      const lit = asks.length ? ` Find requests (${asks.join(", ")}) are lit as the spider passes them; anything not in the filing is listed as not found.` : "";
+      const ending = mk.ending ? " Then the key findings and a one-page summary." : "";
+      if (mk.file) return `Your own document, all of it from its start${mk.length === "whole" ? `, at ${mk.speed}x reading speed` : `, in ${lenLabel(mk.length)}`}.${lit}${ending}`;
+      if (!F || F.state !== "done") return F && F.state === "loading" ? "What the clip shows is written here once the filing is read." : "";
+      if (mk.scope !== "specific"){
+        const pace = mk.length === "whole" ? `at ${mk.speed}x reading speed, as long as that takes` : `in ${lenLabel(mk.length)} (a fast crawl)`;
+        const items = F.total ? ` The report's ${F.total} ${F.total === 1 ? F.noun[0] : F.noun[1]} arrive as the spider reaches each one.` : "";
+        return `The entire filing: every page from the cover to the final line, ${pace}.${items}${lit}${ending}`;
+      }
+      if (!sc) return "Specific findings needs the filing's findings: pick a filing in step 1 and wait for its read.";
       const byKey = new Map(F.items.map(i => [i.key, i])), first = byKey.get(sc.keys[0]), last = byKey.get(sc.keys[sc.keys.length - 1]);
       const many = (n, nn) => `${n} ${n === 1 ? nn[0] : nn[1]}`;
       const range = F.kind === "insider" && first && last ? `, in the order the filings list them: first ${first.who} (${first.date}), last ${last.who} (${last.date})`
         : F.names && F.names[sc.keys[0]] ? `, in the filing's order: first ${F.names[sc.keys[0]]}, last ${F.names[sc.keys[sc.keys.length - 1]]}` : "";
       const all = sc.keys.length >= sc.all;
-      return `${all ? `All ${many(sc.keys.length, F.noun)} the clip can reach` : `${many(sc.keys.length, F.noun)} of the report's ${sc.total}`}${range}${x ? (sc.featured ? ", your featured one included" : ". Your featured one is outside this stretch: choose a longer clip") : ""}. `
-        + `They arrive one by one; the counter will read ${sc.keys.length} of ${sc.total} shown${F.kind === "financial" ? " (or a little more: a calculated figure fills once its inputs have arrived)" : ""}, and the clip holds 2 seconds on the report, then ends.`;
+      return `An excerpt, not the whole filing: ${all ? `all ${many(sc.keys.length, F.noun)} the clip can reach` : `${many(sc.keys.length, F.noun)} of the report's ${sc.total}`}${range}${x ? (sc.featured ? ", your featured one included" : ". Your featured one is outside this stretch: choose a longer clip") : ""}. `
+        + `They arrive one by one; the counter will read ${sc.keys.length} of ${sc.total} shown${F.kind === "financial" ? " (or a little more: a calculated figure fills once its inputs have arrived)" : ""}, and the clip holds 2 seconds on the report, then ends.`
+        + (asks.length ? ` The clip also goes to each Find request (${asks.join(", ")}): a request away from the stretch widens it, and the figures on the way arrive too. Anything not in the filing is listed as not found.` : "");
+    }
+    // the filing exactly as picked: company, form, period, filing date and accession number (the record window loads
+    // this accession, and the take carries the same line into the Studio)
+    function filingOf(f){
+      if (mk.file) return {own: true, name: mk.file.name, ticker: mk.ticker || ""};
+      if (!f || !mk.list) return null;
+      return {company: mk.list.company || "", ticker: mk.list.ticker, cik: mk.list.cik, form: f.form, label: f.label, accession: f.accession || "", document: f.document || "",
+        period: f.period || "", filed: f.filed || "", when: f.when || ""};
     }
     function makeRecord(){
       const f = !mk.file && mk.list && mk.pick != null ? mk.list.items[mk.pick] : null;
       if (!mk.file && !f){ mkSay("mk-rst", mk.list ? "Pick a form in step 2 first." : "Find a ticker's forms in step 1, or use your own document.", true); return; }
       if (mk.length !== "whole" && !(mk.length >= 10)){ mkSay("mk-rst", "Choose how long the clip is in step 4.", true); return; }
       if (mk.found && mk.found.state === "loading"){ mkSay("mk-rst", "The filing is still being read for its findings: a moment.", true); return; }
-      // the featured finding as the report gives it (it is matched there by the same key, never by its place in a
-      // list), the stretch of findings the clip shows, the hook and the logos
-      const x = featItem(), sc = clipScope(), logo = role => { const q = logoFor(role); return {media: q ? q.id : null, text: logoText(role)}; };
-      const plan = {at: Date.now(), source: mk.file ? "custom" : f.insiders ? "insiders" : "edgar",
-        ticker: mk.file ? mk.ticker : mk.list.ticker, company: mk.file ? "" : mk.list.company, cik: mk.list && !mk.file ? mk.list.cik : null,
-        form: f ? f.form : "", accession: f ? f.accession : null, document: f ? f.document : null, fileName: f ? f.fileName : null,
-        when: f ? f.when : "", customName: mk.file ? mk.file.name : "",
-        length: mk.length, speed: mk.speed, start: mk.start, ending: mk.ending, find: findList(), look: mk.look,
-        featured: x && sc && sc.featured ? {...x, missing: undefined} : null, scope: sc, hook: (mk.hook || "").trim().slice(0, 90),
-        logos: {built: logo("built"), scan: logo("scan")}};
+      if (mk.scope === "specific" && !mk.file && !clipScope()){ mkSay("mk-rst", "Specific findings needs the filing's findings: wait for its read, or choose Entire filing.", true); return; }
+      const plan = planOf(f);
       try { localStorage.setItem("bmg-clip-plan", JSON.stringify(plan)); } catch (e) { mkSay("mk-rst", "This browser could not keep the plan (storage full?).", true); return; }
       state.clipWin = null; state.clipFile = null;        // nothing from an earlier one-click clip goes to this window
       const opened = recordWindow(REC_URL + "&plan=1", true);
       if (!opened){ mkSay("mk-rst", "The record window was blocked: allow pop-ups for this page, then press Record again.", true); return; }
       if (opened.busy){ mkSay("mk-rst", "Record mode is in the middle of a take: it is in front now. Finish that take, then press Record again.", true); return; }
       mk.recording = true; recStatus("setup");
+    }
+    // The plan: the filing exactly as picked, what the clip covers and for how long, what to find, the look, the hook
+    // and the logos. The entire filing starts at the cover with no excerpt and no featured number, whatever an excerpt
+    // left behind; an excerpt carries its stretch of findings and the featured one as the report gives it (matched
+    // there by the same key, never by its place in a list).
+    function planOf(f){
+      const entire = mk.scope !== "specific" || !!mk.file;
+      const x = featItem(), sc = clipScope(), logo = role => { const q = logoFor(role); return {media: q ? q.id : null, text: logoText(role)}; };
+      return {at: Date.now(), source: mk.file ? "custom" : f.insiders ? "insiders" : "edgar",
+        ticker: mk.file ? mk.ticker : mk.list.ticker, company: mk.file ? "" : mk.list.company, cik: mk.list && !mk.file ? mk.list.cik : null,
+        form: f ? f.form : "", accession: f ? f.accession : null, document: f ? f.document : null, fileName: f ? f.fileName : null,
+        when: f ? f.when : "", customName: mk.file ? mk.file.name : "",
+        mode: entire ? "entire" : "specific", length: mk.length, speed: mk.speed, start: entire ? "cover" : "excerpt", ending: mk.ending, find: findList(), look: mk.look,
+        featured: !entire && x && sc && sc.featured ? {...x, missing: undefined} : null, scope: entire ? null : sc, hook: (mk.hook || "").trim().slice(0, 90),
+        filing: filingOf(f), coverage: scopeText(), total: mk.found && mk.found.state === "done" ? mk.found.total : null,
+        logos: {built: logo("built"), scan: logo("scan")}};
     }
     // ---- the logos: "Built with" (Claude) and "Scanning" (the company), from the pictures kept in the Studio's Quick
     // add. A picture is offered for a role by its name ("claude", the ticker or the company's name), and the one
@@ -9969,14 +10258,15 @@ Who is the auditor?</textarea>
       const box = body.querySelector("#mk-pv"); if (!box || view !== "make") return;
       const F = mk.found, x = featItem(), sc = clipScope(), L = mk.look || {};
       const byKey = new Map(F && F.items ? F.items.map(i => [i.key, i]) : []);
-      const near = sc ? sc.keys.map(k => byKey.get(k)).filter(Boolean) : [];
-      const fi = x ? near.indexOf(x) : -1;
+      const near = sc ? sc.keys.map(k => byKey.get(k)).filter(Boolean) : F && F.state === "done" && mk.scope !== "specific" ? (F.arrivals || []).map(k => byKey.get(k)).filter(Boolean) : [];
+      const fi = x && sc ? near.indexOf(x) : -1;
       const rows = (fi >= 0 ? near.slice(Math.max(0, fi - 1), fi + 2) : near.slice(0, 3));
       const rowHTML = it => it.type === "trade"
         ? `<li class="${it === x ? "feat" : ""}"><b>${esc(it.label)}</b><q>${esc(it.shares)} shares at ${esc(it.price)}, ${esc(it.value)} on ${esc(it.date)}</q><small>${esc(it.who)}</small></li>`
         : `<li class="${it === x ? "feat" : ""}"><b>${esc(it.label)}</b><q>${esc(it.value)}</q><small>${esc(it.period)}${it.page ? " · p." + esc(it.page) : ""}</small></li>`;
       const logo = role => { const q = logoFor(role); return `<span class="pv-logo"><small>${role === "built" ? "Built with" : "Scanning"}</small>${q ? `<img src="${esc(q.url)}" alt="">` : `<i>${esc(logoText(role))}</i>`}</span>`; };
-      const count = F && F.state === "done" && sc ? `0 of ${sc.total} ${sc.total === 1 ? F.noun[0] : F.noun[1]} shown` : "";
+      const tot = sc ? sc.total : F && F.state === "done" && mk.scope !== "specific" ? F.total : 0;
+      const count = tot ? `0 of ${tot} ${tot === 1 ? F.noun[0] : F.noun[1]} shown` : "";
       box.innerHTML = `<div class="mk-pvf${L.dark === false ? " light" : ""}" role="img" aria-label="The clip's frame: the hook at the top, the filing in the middle, the report below">
           <div class="pv-page">${"<i></i>".repeat(14)}${spiderSwatch((state.recPalettes || {})[L.palette] || {main: "#6ff4ff", accent: "#ff3da6", trail: "#9fb4ff"})}</div>
           ${mk.hook ? `<p class="pv-hook">${esc(mk.hook)}</p>` : ""}
@@ -9986,6 +10276,9 @@ Who is the auditor?</textarea>
           <div class="pv-safe"${mk.safe ? "" : " hidden"}><span class="t">TikTok top bar</span><span class="r">buttons</span><span class="b">caption and username</span></div>
         </div>`;
       const st = body.querySelector("#mk-scope"); if (st) st.textContent = scopeText();
+      const fl = body.querySelector("#mk-filing"), f = !mk.file && mk.list && mk.pick != null ? mk.list.items[mk.pick] : null;
+      if (fl) fl.textContent = filingWords(filingOf(f)) || "Pick a filing in step 1.";
+      drawHook();
     }
     function renderMake(){
       const lk = mk.look, pal = state.recPalettes || {};
@@ -9999,19 +10292,22 @@ Who is the auditor?</textarea>
             <span class="mk-or">or</span><label class="av-btn mk-own">Use my own document<input type="file" id="mk-file" accept=".pdf,.docx,.pptx,.htm,.html,.txt,.md" hidden></label></form>
           <p class="mk-st" id="mk-st1" role="status"></p>
           <div id="mk-forms"></div></li>
-        <li class="mk-step"><h3><b>2</b>Finding <small>what the clip features, from the filing itself</small></h3><div id="mk-found"></div>
-          <details class="mk-also"${mk.find ? " open" : ""}><summary>Also light up <small>optional: words or figures to find, one per line</small></summary>
+        <li class="mk-step"><h3><b>2</b>Finding <small>what the clip covers, from the filing itself</small></h3>
+          <div class="av-chips mk-scope" role="radiogroup" aria-label="What the clip covers"><button type="button" role="radio" class="av-seg" data-scope="entire">Entire filing</button><button type="button" role="radio" class="av-seg" data-scope="specific">Specific findings</button></div>
+          <p class="mk-note" id="mk-scope-note"></p>
+          <div id="mk-found"></div>
+          <details class="mk-also"${mk.find ? " open" : ""}><summary>Find requests <small>optional: words or figures to find, one per line (the Crawler's Find)</small></summary>
           <textarea id="mk-find" rows="3" aria-label="What else should the spider find? One per line" placeholder="One per line, for example:&#10;data center revenue&#10;how much cash do they have"></textarea>
           <div class="av-chips mk-quick">${QUICK.map(t => `<button type="button" class="av-chip" data-add="${esc(t)}">+ ${esc(t)}</button>`).join("")}</div>
-          <p class="mk-note">The spider lights each one up as it reaches it. Answers come only from this filing (the Crawler's Ask): anything not in it is listed as not found.</p></details></li>
+          <p class="mk-note">The spider lights each one up as it reaches it. With Entire filing it still reads every page; with Specific findings the clip goes to each one. Answers come only from this filing (the Crawler's Ask): anything not in it is listed as not found, on the record window's last screen and in the Studio.</p></details></li>
         <li class="mk-step"><h3><b>3</b>Hook <small>the line on screen from the first frame; yours to edit</small></h3>
           <input id="mk-hook" type="text" maxlength="90" autocomplete="off" aria-label="Hook" placeholder="Pick a filing first: a plain line about it is suggested here">
+          <button type="button" class="av-chip" id="mk-hook-auto" hidden style="margin-top:6px">Use the suggested hook</button>
           <p class="mk-note">It goes on the video as a text item in the Studio, at the top, where you can still change it. A number in it should be the featured finding's, as the filing prints it. A Form 4 sale or purchase is a disclosed trade, often under a 10b5-1 plan set up in advance: it says nothing on its own about why.</p></li>
         <li class="mk-step"><h3><b>4</b>Length</h3>
-          <div class="av-chips mk-len" role="radiogroup" aria-label="Clip length"><button type="button" role="radio" class="av-seg" data-len="${SHORT}">Short · ${SHORT} s</button>${LENS.map(s => `<button type="button" role="radio" class="av-seg" data-len="${s}">${s < 60 ? s + " s" : lenLabel(s)}</button>`).join("")}<label class="mk-custom">Other <input type="number" id="mk-secs" min="10" max="900" step="1" inputmode="numeric" aria-label="Clip length in seconds"> s</label><button type="button" role="radio" class="av-seg" data-len="whole">Whole form</button></div>
+          <div class="av-chips mk-len" role="radiogroup" aria-label="Clip length"><button type="button" role="radio" class="av-seg" data-len="${SHORT}">Short · ${SHORT} s</button>${LENS.map(s => `<button type="button" role="radio" class="av-seg" data-len="${s}">${s < 60 ? s + " s" : lenLabel(s)}</button>`).join("")}<label class="mk-custom">Other <input type="number" id="mk-secs" min="10" max="900" step="1" inputmode="numeric" aria-label="Clip length in seconds"> s</label><button type="button" role="radio" class="av-seg" data-len="whole">Reading speed · as long as it takes</button></div>
           <p class="mk-note" id="mk-len-note"></p>
-          <div class="mk-row" style="margin-top:10px"><label id="mk-start-l">Start at <select id="mk-start"><option value="cover">the cover page</option><option value="statements">the financial statements</option></select></label>
-            <label id="mk-speed-l">Reading speed <select id="mk-speed">${[1, 1.5, 2, 3, 4].map(v => `<option value="${v}">${v}x</option>`).join("")}</select></label>
+          <div class="mk-row" style="margin-top:10px"><label id="mk-speed-l">Reading speed <select id="mk-speed">${[1, 1.5, 2, 3, 4].map(v => `<option value="${v}">${v}x</option>`).join("")}</select></label>
             <label><input type="checkbox" id="mk-ending"> End on the key findings and a one-page summary (about 11 seconds)</label></div></li>
         <li class="mk-step"><h3><b>5</b>Look</h3>
           <p class="mk-lbl">Spider colors</p>
@@ -10020,17 +10316,17 @@ Who is the auditor?</textarea>
           <div class="av-chips mk-pgs" role="radiogroup" aria-label="Page"><button type="button" role="radio" class="av-seg" data-dark="1">Dark page</button><button type="button" role="radio" class="av-seg" data-dark="0">Light page</button></div>
           <p class="mk-lbl" style="margin-top:14px">Logos <small>small, in the report's header</small></p><div id="mk-logos"></div>
           <div class="mk-row" style="margin-top:14px"><label><input type="checkbox" id="mk-pops"> Pop-ups: a big number card for each figure, and words that grow on the page</label></div>
-          <div class="mk-row" style="margin-top:8px"><label>Video <select id="mk-q"><option value="high">High Quality · 1080 &times; 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label>
+          <div class="mk-row" style="margin-top:8px"><label>Video <select id="mk-q"><option value="high">High Quality · asks for 1080 &times; 1920 at 60 fps</option><option value="standard">Standard · asks for 30 fps</option></select></label>
             ${window.showSaveFilePicker ? `<label><input type="checkbox" id="mk-disk"> Save to disk while recording (long clips use no extra memory)</label>` : ""}</div></li>
         <li class="mk-step"><h3><b>6</b>Preview and record</h3>
           <div class="mk-pvw"><div id="mk-pv"></div>
-            <div class="mk-pvs"><p class="mk-lbl">What the clip shows</p><p class="mk-note" id="mk-scope"></p>
+            <div class="mk-pvs"><p class="mk-lbl">Filing</p><p class="mk-note" id="mk-filing"></p><p class="mk-lbl">What the clip shows</p><p class="mk-note" id="mk-scope"></p>
               <label class="mk-safe"><input type="checkbox" id="mk-safe"> TikTok safe area (here only, never in the video)</label>
               <div class="mk-row" style="margin-top:14px"><button type="button" class="av-btn mk-go" id="mk-record">Record</button><span class="mk-st" id="mk-rst" role="status"></span></div>
-              <p class="mk-note">The record window opens with all of this set. Press Start recording there (Chrome asks to share that tab: choose Allow). When the clip ends, the Studio opens here with it and the hook on it: add pictures, then Export downloads the video.</p></div></div></li>
+              <p class="mk-note">The record window opens with all of this set. Check the frame there first: it shows what the recording will see, so a browser extension's badge or panel on the page can be switched off before you record. Then press Start recording (Chrome asks to share that tab: choose Allow). When the clip ends, the Studio opens here with it and the hook on it: add pictures, then Export downloads the video. Chrome records at the size this screen and window allow: the record window and the Studio say what the take really is.</p></div></div></li>
         </ol></div>`;
       const $m = id => body.querySelector("#" + id);
-      $m("mk-start").value = mk.start; $m("mk-speed").value = String(mk.speed); $m("mk-ending").checked = !!mk.ending; $m("mk-find").value = mk.find || ""; $m("mk-safe").checked = !!mk.safe;
+      $m("mk-speed").value = String(mk.speed); $m("mk-ending").checked = !!mk.ending; $m("mk-find").value = mk.find || ""; $m("mk-safe").checked = !!mk.safe;
       // the look: spider colors and the page are tiles, pop-ups (number cards, enlarged words) are off unless ticked
       const L = mk.look = {palette: palNow, dark: lk.dark !== false, pops: !!lk.pops, quality: lk.quality === "standard" ? "standard" : "high", disk: lk.disk !== false};
       $m("mk-pops").checked = L.pops; $m("mk-q").value = L.quality; if ($m("mk-disk")) $m("mk-disk").checked = L.disk;
@@ -10047,7 +10343,7 @@ Who is the auditor?</textarea>
       $m("mk-tk").addEventListener("submit", e => { e.preventDefault(); findForms($m("mk-ticker").value); });
       $m("mk-file").addEventListener("change", e => {
         const f = e.target.files[0]; if (!f) return;
-        mk.file = f; mk.pick = null; mk.pickKey = null; saveMk();
+        mk.file = f; mk.pick = null; mk.pickKey = null; setScope("entire"); saveMk();
         const t = $m("mk-ticker").value.trim().toUpperCase(); if (/^[A-Z][A-Z0-9.\-]{0,9}$/.test(t)) mk.ticker = t;
         mkSay("mk-st1", ""); drawForms(); loadFindings();
       });
@@ -10060,17 +10356,23 @@ Who is the auditor?</textarea>
         $m("mk-forms").querySelectorAll("button[data-f]").forEach(x => x.setAttribute("aria-checked", String(x === b)));
         if (was !== mk.pick || !mk.found || mk.found.state === "error") loadFindings();
       });
+      body.querySelector(".mk-scope").addEventListener("click", e => {
+        const b = e.target.closest("button[data-scope]"); if (!b || b.disabled) return;
+        if (!setScope(b.dataset.scope)) return;
+        $m("mk-ending").checked = !!mk.ending;
+        drawFinding(); drawHook(); drawLen(); drawPreview();
+      });
       $m("mk-found").addEventListener("click", e => {
         if (e.target.closest("[data-reread]")){ loadFindings(); return; }
         const b = e.target.closest("button[data-feat]"); if (!b || b.disabled) return;
-        const auto = mk.hook === suggestHook();               // a hook still as suggested follows the finding
         mk.feat = b.dataset.feat;
-        if (auto) mk.hook = suggestHook();
+        if (!hookIsMine()) mk.hook = suggestHook();           // a hook still as suggested follows the finding
         saveMk();
         $m("mk-found").querySelectorAll("button[data-feat]").forEach(x => x.setAttribute("aria-checked", String(x === b)));
         drawHook(); drawLen(); drawPreview();
       });
-      $m("mk-hook").addEventListener("input", e => { mk.hook = e.target.value; saveMk(); drawPreview(); });
+      $m("mk-hook").addEventListener("input", e => { mk.hook = e.target.value; if (mk.found && mk.found.key) mk.hookMine[mk.found.key] = true; saveMk(); drawPreview(); });
+      $m("mk-hook-auto").addEventListener("click", () => { if (mk.found && mk.found.key) delete mk.hookMine[mk.found.key]; mk.hook = suggestHook(); saveMk(); drawHook(); drawPreview(); });
       body.querySelector(".mk-len").addEventListener("click", e => {
         const b = e.target.closest("button[data-len]"); if (!b) return;
         mk.length = b.dataset.len === "whole" ? "whole" : +b.dataset.len;
@@ -10078,8 +10380,7 @@ Who is the auditor?</textarea>
         saveMk(); drawLen(); drawPreview();
       });
       $m("mk-secs").addEventListener("input", e => { const v = Math.round(+e.target.value); if (v >= 10 && v <= 900){ mk.length = v; saveMk(); drawLen(); drawPreview(); } });
-      $m("mk-start").addEventListener("change", e => { mk.start = e.target.value; saveMk(); drawLen(); });
-      $m("mk-speed").addEventListener("change", e => { mk.speed = +e.target.value || 1; saveMk(); });
+      $m("mk-speed").addEventListener("change", e => { mk.speed = +e.target.value || 1; saveMk(); drawLen(); drawPreview(); });
       $m("mk-ending").addEventListener("change", e => { mk.ending = e.target.checked; saveMk(); drawLen(); drawPreview(); });
       $m("mk-find").addEventListener("input", e => { mk.find = e.target.value; saveMk(); });
       body.querySelector(".mk-quick").addEventListener("click", e => {

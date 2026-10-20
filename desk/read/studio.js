@@ -708,6 +708,7 @@ const TEMPLATE = `
       </section>
       <section class="st-panel" data-p="export" role="tabpanel" hidden>
         <p class="st-note">The video is made at 1080 &times; 1920, the TikTok and Reels size, with the pictures, text and song as you see them in the preview.</p>
+        <p class="st-note st-qual" role="status"></p>
         <div class="st-row">Frame rate <div class="st-seg" data-set="fps"><button type="button" data-v="30">30 fps</button><button type="button" data-v="60">60 fps</button></div></div>
         <div class="st-row">Video in the frame <div class="st-seg" data-set="fit"><button type="button" data-v="auto">Auto</button><button type="button" data-v="fill">Fill (crop edges)</button><button type="button" data-v="fit">Whole (bars)</button></div></div>
         <label class="st-row st-disk" hidden><input type="checkbox" data-in="disk" checked> Save to disk while exporting (choose where; long videos use no extra memory)</label>
@@ -739,6 +740,29 @@ const TEMPLATE = `
     </div>
   </div>
 </div>`;
+
+// the export's frame rate for a take: about 60 frames a second or more exports at 60, fewer at 30 (a take of 31
+// frames a second shown at 60 would only show each frame twice); unmeasured, the edit's own setting stays
+function fpsFor(q){ return q && q.fps ? (q.fps >= 45 ? 60 : 30) : 0; }
+// what the take really is (measured from its file) against what Record mode asked for, and what the export does
+// with it: filling 1080 x 1920 scales a smaller take up, which adds no detail; a rate above the take's repeats frames
+function qualityNote(take, fps){
+  if (!take) return "";
+  const q = take.probe || {}, asked = take.meta && take.meta.quality && take.meta.quality.requested;
+  const size = q.w ? `${q.w} \u00d7 ${q.h}` : "", rate = q.fps ? `${q.fps.toFixed(1)} fps` : "";
+  let s = `This take: ${[size, rate].filter(Boolean).join(" at ") || "its size could not be read"}${q.basis === "file" ? " (measured from its file)" : q.w ? " (frame rate not measured)" : ""}`
+    + (asked ? `; Record mode asked for ${asked.w ? `${asked.w} \u00d7 ${asked.h} at ` : ""}${asked.fps} fps.` : ".");
+  if (q.w && q.h){
+    const up = Math.min(W / q.w, H / q.h);
+    s += up > 1.005 ? ` The export is 1080 \u00d7 1920: the take is scaled up about ${Math.round((up - 1) * 100)}% to fill it, which adds no detail.`
+      : up < 0.995 ? " The export is 1080 \u00d7 1920: the take is scaled down to it." : " The export is the take's own size.";
+  }
+  if (q.fps) s += Math.abs(q.fps - fps) <= 2 ? ` Frame rate ${fps} fps, the take's own rate.`
+    : fps > q.fps ? ` Frame rate ${fps} fps: the take has ${q.fps.toFixed(1)}, so ${fps >= q.fps * 1.5 ? "most" : "some"} frames show twice (no added motion).`
+    : ` Frame rate ${fps} fps: the take has ${q.fps.toFixed(1)}, so some of its frames are left out.`;
+  return s;
+}
+const filingText = f => !f ? "" : f.own ? f.name || "" : [f.company ? `${f.company} (${f.ticker})` : f.ticker, f.label || f.form, f.when, f.accession ? "accession " + f.accession : ""].filter(Boolean).join(" \u00b7 ");
 
 function newProject(){
   return {v: 1, take: null, segs: [], fit: "auto", fps: 30, items: [], music: null, origVol: 1, placeholder: 20};
@@ -968,7 +992,7 @@ function mount(root, opts){
       note("report", P.take ? "This take has no report kept with it (a take from a video file, or recorded before the Report tab). Takes recorded from now on keep their report." : "Open a take first (Takes): its report shows here.");
       return;
     }
-    note("report", `${r.company}${r.form ? " · " + r.form : ""}: ${repVersions(r).length} versions.`);
+    note("report", `${r.company}${r.form ? " · " + r.form : ""}${r.when ? " · " + r.when : ""}${r.accession ? " · accession " + r.accession : ""}: ${repVersions(r).length} versions.`);
     if (repShown === key) return;
     repShown = key; box.innerHTML = "";
     for (const ver of repVersions(r)){
@@ -1068,7 +1092,7 @@ function mount(root, opts){
     try { all = (await db.all("takes")).sort((a, b) => b.created - a.created); } catch (e) { note("takes", "This browser's storage could not be read: " + (e.message || e), true); return; }
     takesEl.innerHTML = all.length ? all.map(t => `<li data-id="${esc(t.id)}" class="${P.take && P.take.id === t.id ? "on" : ""}">
         ${t.thumb ? `<img class="th" src="${esc(t.thumb)}" alt="">` : `<span class="th"></span>`}
-        <span class="nm"><b>${esc(t.name || "Take")}</b><small>${[t.dur ? fmt(t.dur) : "", t.size ? mb(t.size) : "", t.handle ? "saved on disk" : "", new Date(t.created).toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})].filter(Boolean).join(" · ")}${t.meta && t.meta.hook ? `<br>${esc(t.meta.hook)}` : ""}</small></span>
+        <span class="nm"><b>${esc(t.name || "Take")}</b><small>${[t.dur ? fmt(t.dur) : "", t.size ? mb(t.size) : "", t.probe && t.probe.w ? `${t.probe.w} \u00d7 ${t.probe.h}${t.probe.fps ? ` at ${t.probe.fps.toFixed(1)} fps` : ""}` : "", t.handle ? "saved on disk" : "", new Date(t.created).toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})].filter(Boolean).join(" · ")}${t.meta && t.meta.filing ? `<br>${esc(filingText(t.meta.filing))}${t.meta.cover === "entire" ? " \u00b7 entire filing" : t.meta.cover === "excerpt" ? " \u00b7 excerpt" : ""}` : ""}${t.meta && t.meta.hook ? `<br>${esc(t.meta.hook)}` : ""}</small></span>
         <span class="ac">${take.id === t.id ? `<span class="st-note">On the preview</span>` : `<button type="button" class="st-ib" data-open="${esc(t.id)}">Open</button>`}<button type="button" class="st-ib" data-rm="${esc(t.id)}">Remove</button></span></li>`).join("")
       : `<li><span class="nm"><small>No takes yet. Record one, or open a video file.</small></span></li>`;
     return all;
@@ -1114,11 +1138,17 @@ function mount(root, opts){
     try { await loadedMeta(video); await fixDuration(video); }
     catch (e){ note("takes", e.message || String(e), true); return false; }
     note("takes", "");
-    const dur = video.duration;
-    if (fresh || !P.take || P.take.id !== id){
+    const dur = video.duration, isNew = fresh || !P.take || P.take.id !== id;
+    if (isNew){
       P.take = {id, name: rec.name || "Take", dur, w: video.videoWidth, h: video.videoHeight, type: file.type, size: file.size, meta: rec.meta || {}, hasAudio: null};
       P.segs = [{id: uid(), in: 0, out: dur}];
     } else P.take.dur = dur;
+    // what the take really is, from its file (Record mode measured it as it saved it; a file opened here is read now)
+    const m = rec.meta && rec.meta.quality && rec.meta.quality.measured;
+    let q = rec.probe || (m && m.basis === "file" ? m : null);
+    if (!q && opts.probe){ q = await opts.probe(file).catch(() => null); if (q && q.w){ rec.probe = q; try { await db.put("takes", rec); } catch (e) {} } }
+    P.take.probe = q && q.w ? q : {w: video.videoWidth, h: video.videoHeight, frames: 0, secs: 0, fps: 0, basis: "browser"};
+    if (isNew && fpsFor(P.take.probe)) P.fps = fpsFor(P.take.probe);
     video.volume = clamp(P.origVol, 0, 1); video.muted = P.origVol <= 0;
     makeStrip(file, rec);
     return true;
@@ -1639,6 +1669,7 @@ function mount(root, opts){
     const ov = $('[data-in="ovol"]'); ov.value = Math.round(P.origVol * 100); ov.nextElementSibling.textContent = ov.value + "%";
     // export
     setPressed("fps", P.fps); setPressed("fit", P.fit);
+    const qn = $(".st-qual"); if (qn) qn.textContent = qualityNote(P.take, P.fps || 30);
     video.classList.toggle("fit", !!(P.take && P.take.w && !videoFill(P.take.w, P.take.h, P.fit)));
     $(".st-disk").hidden = !window.showSaveFilePicker;
   }
@@ -1882,8 +1913,9 @@ function mount(root, opts){
     if (!plan && (!type || !window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream)){ msg("This browser cannot make video files. Use Chrome.", true); return; }
     const ext = /mp4/.test(type) ? "mp4" : "webm";
     const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
-    const tk = ((P.take && P.take.meta && P.take.meta.ticker) || "").replace(/[^A-Za-z0-9]/g, "");
-    const fname = `BMG-${tk ? tk + "-" : ""}studio-${stamp}.${ext}`;
+    const tm = (P.take && P.take.meta) || {}, tk = (tm.ticker || "").replace(/[^A-Za-z0-9]/g, "");
+    const tag = [tk, String((tm.filing && tm.filing.form) || tm.form || "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, ""), tm.cover === "entire" ? "entire-filing" : tm.cover === "excerpt" ? "excerpt" : ""].filter(Boolean).join("-");
+    const fname = `BMG-${tag ? tag + "-" : ""}studio-${stamp}.${ext}`;
     let handle = null, writable = null;
     if (window.showSaveFilePicker && $('[data-in="disk"]').checked){
       try {
@@ -2354,7 +2386,7 @@ function mount(root, opts){
       if (v){ v.pause(); v.removeAttribute("src"); v.load(); }
     }
   }
-  let resultUrl = null, unsavedResult = false, holdUntil = 0, preparing = false;
+  let resultUrl = null, unsavedResult = false, holdUntil = 0, preparing = false, made = null;
   let autoDownload = false;
   function showResult(file, name, kind, onDisk, warn){
     if (resultUrl) URL.revokeObjectURL(resultUrl);
@@ -2362,6 +2394,7 @@ function mount(root, opts){
     const res = $(".st-result");
     res.innerHTML = `<video controls playsinline src="${resultUrl}"></video>
       <div class="st-row">${onDisk ? `<span class="st-note">Saved to ${esc(name)}</span>` : `<a class="st-btn" href="${resultUrl}" download="${esc(name)}">Download the video</a>`}<span class="st-note">${esc(kind)} · ${mb(file.size)}<span class="st-len"></span></span></div>
+      <p class="st-note st-made"></p>
       <p class="st-note">Upload it in TikTok Studio or Instagram. Drafts of a caption, hashtags and the holdings line: <a href="./#posts" target="_blank" rel="noopener">Today's posts</a>.</p>`;
     note("export", (onDisk ? "Done: the video is saved." : autoDownload ? "Done: the video is downloading (and its link is below)." : "Done: download the video below.") + (warn ? " " + warn : ""), !!warn);
     // a video only in this page until it is downloaded: the page does not load a new version over it, nor for 30 s
@@ -2373,6 +2406,11 @@ function mount(root, opts){
     res.scrollIntoView({block: "nearest", behavior: "smooth"});
     const pv = res.querySelector("video");
     pv.addEventListener("loadedmetadata", async () => { await fixDuration(pv); const l = res.querySelector(".st-len"); if (l && Number.isFinite(pv.duration)) l.textContent = " · " + fmt(pv.duration, true); }, {once: true});
+    if (opts.probe) opts.probe(file).then(q => {
+      made = q;
+      const el = res.querySelector(".st-made");
+      if (el && q && q.w) el.textContent = `Made: ${q.w} \u00d7 ${q.h}${q.fps ? ` at ${q.fps.toFixed(1)} fps, ${q.frames.toLocaleString()} frames in ${q.secs.toFixed(1)} s` : ""}${q.basis === "file" ? ", read from the file itself" : ""}.`;
+    }).catch(() => {});
   }
 
   // ---------------- keys (while the Studio is on screen) ----------------
@@ -2431,10 +2469,10 @@ function mount(root, opts){
     // the page waits before loading a new version: an export (from its click), an edit not yet saved, a video not
     // downloaded or still downloading, the edit or a song playing
     busy: () => !!exportJob || preparing || saving || unsavedResult || Date.now() < holdUntil || playing || !!listenNode,
-    state: () => ({P, cur, playing, selected, pps, thumbs: thumbs.map(t => +t.t.toFixed(2)), shown})        // for checks: what the editor holds right now
+    state: () => ({P, cur, playing, selected, pps, thumbs: thumbs.map(t => +t.t.toFixed(2)), shown, made})        // for checks: what the editor holds right now, and the last video made
   };
 }
 
 // parts: the pure pieces, for the tests (site/server/tests/test_studio.py)
-window.BMGStudio = {mount, version: 1, parts: {gainCurve, curveAt, videoFill, videoRect, linkKind, mp4File, fixWebmDuration, pickType, describeType, aiffDecode}};
+window.BMGStudio = {mount, version: 1, parts: {gainCurve, curveAt, videoFill, videoRect, linkKind, mp4File, fixWebmDuration, pickType, describeType, aiffDecode, fpsFor, qualityNote}};
 })();
