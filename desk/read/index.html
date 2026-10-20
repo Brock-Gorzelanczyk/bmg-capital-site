@@ -457,8 +457,8 @@ body.recmode .lr-c.flash{animation:reccell 1.3s ease}@keyframes reccell{0%{backg
 #rec-end h3{margin:0 0 14px;font:600 13px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#6ff4ff}
 #rec-end ol,#rec-end ul{list-style:none;margin:0;padding:0}
 .rk-keys li{border-left:4px solid var(--c,#6ff4ff);background:rgba(255,255,255,.05);border-radius:0 10px 10px 0;padding:10px 12px;margin:0 0 10px;opacity:0;transform:translateX(-30px);transition:opacity .45s,transform .55s cubic-bezier(.2,1.4,.4,1)}
-.rk-keys li.in{opacity:1;transform:none}.rk-keys li b{display:block;font-size:18px;margin-top:3px}.rk-keys li small{color:#8fa0b3;font-family:'IBM Plex Mono',monospace}
-#rec-end .s-watch{--c:#ffb020}#rec-end .s-flag{--c:#ff4d6d}#rec-end .s-observation{--c:#6ff4ff}
+.rk-keys li.in{opacity:1;transform:none}.rk-keys li b small{font-size:13px;font-weight:400;color:#8fa0b3}.rk-keys li b.rk-amt{display:inline;font-size:inherit;color:var(--c)}.rk-keys li.s-buy>small,.rk-keys li.s-sell>small{display:block;margin-top:2px}.rk-keys li b{display:block;font-size:18px;margin-top:3px}.rk-keys li small{color:#8fa0b3;font-family:'IBM Plex Mono',monospace}
+#rec-end .s-watch{--c:#ffb020}#rec-end .s-flag{--c:#ff4d6d}#rec-end .s-observation{--c:#6ff4ff}#rec-end .s-sell{--c:#ff4d6d}#rec-end .s-buy{--c:#2fdc74}
 #rec-end .sev{font:700 10px 'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--c)}
 .rk-one{opacity:0;transform:scale(.96);transition:opacity .5s,transform .6s}.rk-one.in{opacity:1;transform:none}
 .rk-one h2{margin:0;font-size:28px}.rk-one h2 span{color:#6ff4ff;font-size:18px}.rk-sub{margin:2px 0 14px;color:#8fa0b3;font-size:13px}
@@ -4837,7 +4837,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
             : excerpt ? `${secs(plan.length)}: the excerpt, then 2 seconds on the report` : `${secs(plan.length)}: the spider's speed is set so it covers every page in this time`}</dd>
           <dt>Starts at</dt><dd>${excerpt ? "Just above the excerpt's first figure" : "The cover page"}</dd>
           <dt>Finds</dt><dd>${(plan.find || []).length ? esc(plan.find.join(" · ")) + (excerpt ? " (the clip goes to each)" : " (lit as the spider passes)") : "Nothing asked for"}</dd>
-          <dt>Ends on</dt><dd>${plan.ending ? "Key findings, then a one-page summary" : "The last line read"}</dd>
+          <dt>Ends on</dt><dd>${plan.ending ? (plan.source === "insiders" ? "The largest trades, then what insiders bought and sold" : "Key findings, then a one-page summary") : "The last line read"}</dd>
           <dt>Video</dt><dd id="pl-video"></dd></dl>
         <p class="pl-st" id="pl-st" role="status"></p>
         <div class="pl-check"><button type="button" id="pl-check">Check the frame</button><span id="pl-clean" role="status"></span></div>
@@ -6007,7 +6007,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const kf = (rep.exec_findings || []).slice(0, 4);
       const end = document.createElement("div"); end.id = "rec-end";
       if (highlights) end.classList.add("rec-highlight-ending");
-      end.innerHTML = `<div class="rk-phase rk-keys"><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span></div>
+      const ins = (state.readRes.insights || {}).kind === "insider" ? state.readRes.insights.summary : null;
+      if (ins) end.innerHTML = insiderEnding(ins, co);
+      else end.innerHTML = `<div class="rk-phase rk-keys"><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span></div>
           <h3>Key findings &middot; ${esc(co.name || "")}</h3>
           <ol>${kf.map(x => `<li class="s-${x.severity}"><span class="sev s-${x.severity}">${SEV[x.severity].l}</span><b>${esc(x.headline)}</b><small>${esc(pageOf(x.refs))}</small></li>`).join("")}</ol></div>
         <div class="rk-phase rk-one" hidden><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span><em>Company report</em></div>
@@ -6027,6 +6029,35 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         await sleep(oneSecs * 1000);
         return end;
       })();
+    }
+    // An insider-trades document (Form 4) has no statement figures: its ending is the trades. First the largest
+    // open-market trades, then one page with what insiders bought and sold, every value as the document prints it
+    // (its summary, summed from the Form 4 XML, and its own rows). Says what happened, never what to do.
+    function insiderEnding(S, co){
+      const who = t => esc(t.insider || "") + (t.title ? ` <small>(${esc(String(t.title).slice(0, 40))})</small>` : "");
+      const side = t => t.code === "P" ? "buy" : "sell";
+      const kind = t => (t.code === "P" ? "Purchase" : "Sale") + (t.plan ? " · 10b5-1 plan" : "");
+      const big = (S.largest || []).slice(0, 4), name = S.company || co.name || "", tk = S.ticker || co.ticker || co.ticker_hint || "";
+      const net = S.net, b = S.buys || {}, s = S.sells || {}, top = big[0];
+      const sh = x => x.shares == null ? "shares by class" : `${esc(x.shares)} shares`;      // several classes: never added together
+      const many = (n, one, more) => `${n} ${n === 1 ? one : more}`;
+      const span = S.first && S.last ? `${S.first} to ${S.last}` : "";
+      return `<div class="rk-phase rk-keys"><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span></div>
+          <h3>Largest insider trades &middot; ${esc(name)}</h3>
+          <ol>${big.map(t => `<li class="s-${side(t)}"><span class="sev s-${side(t)}">${esc(kind(t))}</span><b>${who(t)}</b>${esc(t.shares)} shares at ${esc(t.price)}, <b class="rk-amt">${esc(t.value)}</b><small>${esc(t.date)} &middot; Form 4 ${esc(t.accession)}</small></li>`).join("")
+            || `<li class="s-observation"><b>${(b.count || 0) + (s.count || 0) ? "No open-market trade in these filings reports a price" : "No open-market buys or sales in these filings"}</b><small>${esc(S.other || "")}</small></li>`}</ol></div>
+        <div class="rk-phase rk-one" hidden><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span><em>Insider trades</em></div>
+          <h2>${esc(name)} <span>${esc(tk)}</span></h2>
+          <p class="rk-sub">${esc(["Form 4 filings", S.filings >= 60 ? `the latest ${S.filings}` : S.months ? `last ${S.months} months` : "", span].filter(Boolean).join(" · "))}</p>
+          <div class="rk-tiles">
+            <div class="rk-tile"><span>Insiders bought</span><b>${esc(b.value || "$0")}</b><em class="up">${sh(b)}</em><small>${esc(many(b.count || 0, "buy", "buys"))} &middot; ${esc(many(b.insiders || 0, "insider", "insiders"))}</small></div>
+            <div class="rk-tile"><span>Insiders sold</span><b>${esc(s.value || "$0")}</b><em class="down">${sh(s)}</em><small>${esc(many(s.count || 0, "sale", "sales"))}${s.count ? ` &middot; ${esc(String(s.plan || 0))} marked 10b5-1 plan` : ""}</small></div>
+            ${net ? `<div class="rk-tile"><span>Net shares, open market</span><b>${esc(net.shares || "0")}</b><em class="${net.side === "bought" ? "up" : net.side === "sold" ? "down" : ""}">${net.side ? "net " + esc(net.side) : "even"}</em><small>bought minus sold</small></div>`
+              : `<div class="rk-tile"><span>Shares, open market</span><b>By class</b><small>${esc(S.classes || "")}</small></div>`}
+            ${top ? `<div class="rk-tile"><span>Largest trade</span><b>${esc(top.value)}</b><em class="${top.code === "P" ? "up" : "down"}">${top.code === "P" ? "Purchase" : "Sale"}</em><small>${esc(top.insider)} &middot; ${esc(top.date)}</small></div>` : ""}
+          </div>
+          <ul class="rk-mini">${big.slice(1, 4).map(t => `<li class="s-${side(t)}"><b>${esc(t.insider)}</b> ${t.code === "P" ? "bought" : "sold"} ${esc(t.shares)} shares, ${esc(t.value)} <small>${esc(t.date)}</small></li>`).join("")}</ul>
+          <p class="rk-foot">${S.filings ? esc(many(S.filings, "Form 4 filing", "Form 4 filings")) + " &middot; " : ""}sales are often planned in advance (Rule 10b5-1) or pay tax on vesting shares &middot; not investment advice</p></div>`;
     }
     function finalControls(end, blob, stopped){
       recPhase("done");
@@ -7160,7 +7191,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         }
         if (planned && planned.length !== "whole"){
           // a clip of a set length: the ending takes what is left of it, so the take comes out at the length chosen
-          const n = Math.min(4, ((state.readRes && state.readRes.report && state.readRes.report.exec_findings) || []).length);
+          // the first screen's cards: the report's key findings, or for insider trades its largest trades (one card when there are none)
+          const insE = state.readRes && state.readRes.insights && state.readRes.insights.kind === "insider" ? state.readRes.insights.summary : null;
+          const n = insE ? Math.min(4, Math.max(1, (insE.largest || []).length)) : Math.min(4, ((state.readRes && state.readRes.report && state.readRes.report.exec_findings) || []).length);
           const rest = planned.length - counted / 1000 - 0.15, one = Math.min(PLAN_ONE, Math.max(2, rest * 0.45));
           await finishRecording(Math.max(1.2, rest - one - n * 0.55), one, false);
         } else await finishRecording(keySecs, oneSecs, highlights);
@@ -10166,7 +10199,7 @@ Who is the auditor?</textarea>
     function scopeText(){
       const F = mk.found, sc = clipScope(), x = featItem(), asks = findList();
       const lit = asks.length ? ` Find requests (${asks.join(", ")}) are lit as the spider passes them; anything not in the filing is listed as not found.` : "";
-      const ending = mk.ending ? " Then the key findings and a one-page summary." : "";
+      const ending = mk.ending ? (F && F.kind === "insider" ? " Then the largest trades and what insiders bought and sold." : " Then the key findings and a one-page summary.") : "";
       if (mk.file) return `Your own document, all of it from its start${mk.length === "whole" ? `, ${paceWords()}` : `, in ${lenLabel(mk.length)}`}.${lit}${ending}`;
       if (!F || F.state !== "done") return F && F.state === "loading" ? "What the clip shows is written here once the filing is read." : "";
       if (mk.scope !== "specific"){

@@ -1272,7 +1272,79 @@ def _rows(doc) -> list[tuple[int, list[str]]]:
 
 
 # the full-width line above each filing's transactions in a generated insider-trades document
-_FILED_BY = re.compile(r"^Filed (\d{4}-\d\d-\d\d) by (.+?)(?: \(([^()]*)\))?, filing (\d{10}-\d\d-\d{6})$")
+_FILED_BY = re.compile(r"^Filed (\d{4}-\d\d-\d\d) by (.+?)(?: \((.*)\))?, filing (\d{10}-\d\d-\d{6})$")   # a role may hold "(Sales)", "13(d)"
+
+
+# the generated insider-trades document's own heading, period and summary lines (ownership.form4_document)
+_INS_HEAD = re.compile(r"^BMG insider trades: (.+) \(([A-Z0-9.\-]+)\)$")
+_INS_SPAN = re.compile(r"(\d+) filings filed (\d{4}-\d\d-\d\d) to (\d{4}-\d\d-\d\d) \(the last (\d+) months")
+_INS_MONEY = r"(\$[\d,.]+(?: million| billion)?)"
+_INS_BUYS = re.compile(r"^Open-market purchases: (\d+) by (\d+) insiders?, " + _INS_MONEY + r" in total\.$")
+_INS_SELLS = re.compile(r"^Open-market sales: (\d+) by (\d+) insiders?, " + _INS_MONEY + r" in total(?:; (\d+) of them under a Rule 10b5-1)?")
+_INS_BIG = re.compile(r": open-market (buy|sale) of ([\d,]+) shares at (\$[\d,.]+) on (\d{4}-\d\d-\d\d)(?: \(10b5-1 plan\))?, "
+                      + _INS_MONEY + r"\. Filing (\d{10}-\d\d-\d{6})\.$")
+_INS_SHARES = re.compile(r"^Open-market shares: ([\d,]+) bought, ([\d,]+) sold, net ([\d,]+)(?: (bought|sold))?\.$")
+
+
+def _ins_num(s: str) -> float:
+    try:
+        return float(re.sub(r"[$,]", "", s or ""))
+    except ValueError:
+        return 0.0
+
+
+def insider_summary(doc, trades: list) -> dict:
+    """What a clip's ending says about insider trades, every value as the document prints it: the company, the
+    filings and their dates, the open-market totals (the document's summary, summed from the Form 4 XML), the shares
+    bought and sold, and the largest open-market trades (the document's own rows, each with its page)."""
+    out = {"company": "", "ticker": "", "filings": None, "first": "", "last": "", "months": None,
+           "buys": {"count": 0, "insiders": 0, "value": "$0", "shares": "0"}, "sells": {"count": 0, "insiders": 0, "value": "$0", "plan": 0, "shares": "0"},
+           "net": {"shares": "0", "side": ""}, "other": "", "largest": [], "pages": {}}
+    listed = []                     # the document's own "Largest open-market trades", in its order (exact values)
+    for off, cells in _rows(doc):
+        line = " ".join(cells)
+        if not line:
+            continue
+        if not out["company"] and (m := _INS_HEAD.match(line)):
+            out["company"], out["ticker"] = m[1], m[2]
+        elif out["filings"] is None and (m := _INS_SPAN.search(line)):
+            out["filings"], out["first"], out["last"], out["months"] = int(m[1]), m[2], m[3], int(m[4])
+        elif m := _INS_BUYS.match(line):
+            out["buys"].update(count=int(m[1]), insiders=int(m[2]), value=m[3]); out["pages"]["summary"] = doc.page_at(off)
+        elif m := _INS_SELLS.match(line):
+            out["sells"].update(count=int(m[1]), insiders=int(m[2]), value=m[3], plan=int(m[4] or 0))
+        elif m := _INS_SHARES.match(line):
+            out["buys"]["shares"], out["sells"]["shares"], out["net"] = m[1], m[2], {"shares": m[3], "side": m[4] or ""}
+            out["_shares_line"] = True
+        elif line.startswith("Open-market shares by class: "):
+            # several classes of stock (Class A and Class B): their shares are not added together, so no totals or net
+            out["classes"] = line[len("Open-market shares by class: "):]
+            out["buys"]["shares"] = out["sells"]["shares"] = None
+            out["net"] = None
+            out["_shares_line"] = True
+        elif line.startswith("Other transactions: "):
+            out["other"] = line[len("Other transactions: "):]
+        elif m := _INS_BIG.search(line):
+            listed.append((("P" if m[1] == "buy" else "S"), m[2], m[3], m[4], m[6]))
+    opens = [t for t in trades if t["code"] in ("P", "S")]
+    if not out.pop("_shares_line", False):
+        # a document made before it printed the shares line: the sum of its own rows (whole shares, as printed)
+        b = sum(_ins_num(t["shares"]) for t in opens if t["code"] == "P"); s = sum(_ins_num(t["shares"]) for t in opens if t["code"] == "S")
+        out["buys"]["shares"], out["sells"]["shares"] = f"{b:,.0f}", f"{s:,.0f}"
+        out["net"] = {"shares": f"{abs(b - s):,.0f}", "side": "bought" if b > s else "sold" if s > b else ""}
+    # the largest open-market trades: the document's own list (ranked by the exact values from the XML), each found
+    # again as its row; a document without the list, by shares times the price as printed
+    big, used = [], set()
+    for code, sh, pr, date, acc in listed:
+        t = next((t for i, t in enumerate(opens) if i not in used and (t["code"], t["shares"], t["price"], t["date"], t["accession"]) == (code, sh, pr, date, acc)), None)
+        if t is not None:
+            used.add(opens.index(t)); big.append(t)
+    if not big:
+        big = sorted([t for t in opens if _ins_num(t["shares"]) and _ins_num(t["price"])], key=lambda t: -_ins_num(t["shares"]) * _ins_num(t["price"]))
+    big = big[:5]
+    out["largest"] = [{k: t.get(k) for k in ("insider", "title", "code", "action", "date", "shares", "price", "value", "accession", "filed", "page", "offset")}
+                      | {"plan": "10b5-1" in (t.get("action") or "")} for t in big]
+    return out
 
 
 def insider(doc) -> dict:
@@ -1295,7 +1367,7 @@ def insider(doc) -> dict:
             trades.append({"filed": filing[1], "date": r["Trade date"], "insider": filing[2], "title": filing[3] or "", "code": r["Code"],
                            "action": r["Action"], "shares": r["Shares"], "price": r["Price"], "value": r["Value"],
                            "owned_after": r["Owned after"], "accession": filing[4], **_loc(doc, off)})
-    return {"trades": trades}
+    return {"trades": trades, "summary": insider_summary(doc, trades)}
 
 
 def holdings(doc) -> dict:

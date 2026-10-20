@@ -82,13 +82,19 @@ def parse_form4(xml_text: str) -> dict:
             shares = _num(_text(tx, "transactionAmounts/transactionShares"))
             price = _num(_text(tx, "transactionAmounts/transactionPricePerShare"))
             ids = {f.get("id") for f in tx.iter() if _local(f.tag) == "footnoteId"}
-            plan = plan_flag or any(re.search(r"10b5-1", notes.get(i, ""), re.I) for i in ids)
+            said = [notes.get(i, "") for i in ids if re.search(r"10b5-1", notes.get(i, ""), re.I)]
+            plan = any(not re.search(r"\bnot\b[^.]{0,80}?10b5-1", n, re.I) for n in said) if said else None
             txs.append({"security": _text(tx, "securityTitle"), "date": _text(tx, "transactionDate"), "code": code,
                         "action": CODES.get(code, code or "Other"), "acquired": _text(tx, "transactionAmounts/transactionAcquiredDisposedCode") == "A",
                         "shares": shares, "price": price if price else None,
                         "value": round(shares * price, 2) if shares and price else None,
                         "owned_after": _num(_text(tx, "postTransactionAmounts/sharesOwnedFollowingTransaction")),
                         "direct": _text(tx, "ownershipNature/directOrIndirectOwnership") != "I", "derivative": deriv, "plan": plan})
+    # the filing's 10b5-1 box says that a trade in it was made under a plan, not which: it marks the trades only when
+    # no trade's own footnote says either way
+    told = any(t["plan"] is not None for t in txs)
+    for t in txs:
+        t["plan"] = bool(t["plan"]) if told else plan_flag
     return {"issuer": _text(root, "issuer/issuerName"), "ticker": _text(root, "issuer/issuerTradingSymbol"),
             "owners": owners, "transactions": txs, "period": _text(root, "periodOfReport")}
 
@@ -139,13 +145,24 @@ def _page(title: str, marker: str, body: str) -> str:
 
 
 def _who(name: str, role: str, n: int) -> str:
-    return f"{name} ({role[:n]})" if role else name
+    cut = role[:n]
+    cut += ")" * max(0, cut.count("(") - cut.count(")"))        # a title cut inside its own parentheses closes them
+    return f"{name} ({cut})" if role else name
 
 
 def form4_document(company: str, ticker: str, cik: int, filings: list, months: int) -> str:
     """filings: [{filed, accession, url, parsed}] newest first."""
     rows, groups = [], []
+    # a Form 4/A restates an earlier Form 4 (the same insider or insiders, the same reporting date): only the latest
+    # version is counted, so a corrected price or share count is not added on top of the original
+    key = lambda f: ("; ".join(o["name"] for o in f["parsed"]["owners"]), f["parsed"].get("period") or "")
+    latest = {}
     for f in filings:
+        if f.get("form") == "4/A" and f["filed"] >= latest.get(key(f), ""):
+            latest[key(f)] = f["filed"]
+    replaced = [f for f in filings if key(f) in latest and (f.get("form") != "4/A" or f["filed"] < latest[key(f)]) and f["filed"] <= latest[key(f)]]
+    filings_used = [f for f in filings if not any(f is r for r in replaced)]
+    for f in filings_used:
         p = f["parsed"]
         who = "; ".join(o["name"] for o in p["owners"]) or "Unknown"
         role = "; ".join(r for o in p["owners"] for r in o["roles"])
@@ -160,13 +177,24 @@ def form4_document(company: str, ticker: str, cik: int, filings: list, months: i
     buys = [r for r in rows if r["code"] == "P" and not r["derivative"]]
     sells = [r for r in rows if r["code"] == "S" and not r["derivative"]]
     tot = lambda rs: sum(r["value"] for r in rs if r["value"])
+    shares = lambda rs: round(sum(r["shares"] for r in rs if r["shares"]))     # whole shares, so the line adds up as printed
     people = lambda rs: len({r["insider"] for r in rs})
+    net = shares(buys) - shares(sells)
+    # one class of stock, or several (Class A and Class B): shares of different classes are never added together
+    def cls(r):
+        m = re.search(r"\bclass\s+([a-z])\b", r.get("security") or "", re.I)
+        return f"Class {m[1].upper()}" if m else "Common"
+    classes = sorted({cls(r) for r in buys + sells})
     planned = [r for r in sells if r["plan"]]
     span = f"{filings[-1]['filed']} to {filings[0]['filed']}" if filings else "no filings"
     summary = [
         f"Open-market purchases: {len(buys)} by {people(buys)} insider{'s' if people(buys) != 1 else ''}, {_money(tot(buys)) if buys else '$0'} in total.",
         f"Open-market sales: {len(sells)} by {people(sells)} insider{'s' if people(sells) != 1 else ''}, {_money(tot(sells)) if sells else '$0'} in total"
         + (f"; {len(planned)} of them under a Rule 10b5-1 trading plan set in advance." if sells else "."),
+        (f"Open-market shares: {_int(shares(buys))} bought, {_int(shares(sells))} sold, net {_int(abs(net))}"
+         + (" bought." if net > 0 else " sold." if net < 0 else ".")) if len(classes) < 2 else
+        "Open-market shares by class: " + "; ".join(f"{c}: {_int(shares([r for r in buys if cls(r) == c]))} bought, "
+                                                   f"{_int(shares([r for r in sells if cls(r) == c]))} sold" for c in classes) + ".",
         f"Other transactions: {sum(1 for r in rows if r['code'] == 'A')} grants or awards, {sum(1 for r in rows if r['code'] == 'F')} share withholdings for tax, "
         f"{sum(1 for r in rows if r['code'] in ('M', 'X'))} exercises or conversions of options and stock units, {sum(1 for r in rows if r['code'] == 'G')} gifts.",
     ]
@@ -180,10 +208,13 @@ def form4_document(company: str, ticker: str, cik: int, filings: list, months: i
                    _int(r["shares"]), f"${r['price']:,.2f}" if r["price"] else NA, _money(r["value"]), _int(r["owned_after"])] for r in mine]
     body = (f"<h1>BMG insider trades: {_E(company)} ({_E(ticker)})</h1>"
             f"<p>Form 4 filings by {_E(company)}'s officers, directors and 10% owners from SEC EDGAR, {len(filings)} filings filed {span} "
-            f"(the last {months} months, at most 60 filings). Each row is one transaction as reported, with the filing it comes from.</p>"
+            f"(the last {months} months, at most 60 filings). Each row is one transaction as reported, with the filing it comes from"
+            + (f"; {len(replaced)} earlier filing{'s are' if len(replaced) != 1 else ' is'} left out because a Form 4/A restates {'them' if len(replaced) != 1 else 'it'}" if replaced else "")
+            + ".</p>"
             "<h2>Summary</h2>" + "".join(f"<p>{_E(x)}</p>" for x in summary)
             + ("<h2>Largest open-market trades</h2>" + "".join(f"<p>{_E(_who(r['insider'], r['role'], 50))}: {_E(r['action'].lower())} of {_int(r['shares'])} shares "
-                                                               f"at ${r['price']:,.2f} on {_E(r['date'])}, {_money(r['value'])}. Filing {_E(r['accession'])}.</p>" for r in big) if big else "")
+                                                               f"at ${r['price']:,.2f} on {_E(r['date'])}{' (10b5-1 plan)' if r['plan'] and r['code'] == 'S' else ''}, {_money(r['value'])}. "
+                                                               f"Filing {_E(r['accession'])}.</p>" for r in big) if big else "")
             + "<h2>Every transaction</h2><p>Each filing, newest first, with the transactions it reports: trade date, the SEC transaction code, "
               "shares, price per share, value (shares times price) and the shares the insider owned after the trade.</p>"
             + _table(["Trade date", "Code", "Action", "Shares", "Price", "Value", "Owned after"], {3, 4, 5, 6}, {0, 1}, table)

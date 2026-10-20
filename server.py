@@ -2335,7 +2335,7 @@ async def edgar_insiders(ticker: str = Query(..., max_length=12), months: int = 
                     parsed = _own.parse_form4(data.decode("utf-8", errors="replace"))
                 except (httpx.HTTPError, ValueError, Exception):
                     return None
-            return {"filed": rec["filingDate"][i], "accession": acc, "parsed": parsed,
+            return {"filed": rec["filingDate"][i], "accession": acc, "parsed": parsed, "form": rec["form"][i],
                     "url": f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/{doc}"}
         filings = [x for x in await asyncio.gather(*(one(i) for i in picks)) if x]
     except httpx.HTTPError as e:
