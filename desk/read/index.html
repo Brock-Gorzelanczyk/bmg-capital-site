@@ -423,22 +423,16 @@ body.pics-edit .rp-pic .rp-size{display:block;position:absolute;right:-10px;bott
 #rec-eye{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:25}
 #rec-hud{position:fixed;top:calc(100vh - var(--rec-h) - 40px);left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;white-space:nowrap;font:600 12px 'IBM Plex Mono',monospace;color:#6ff4ff;background:rgba(0,0,0,.72);border:1px solid rgba(111,244,255,.45);border-radius:20px;padding:5px 12px;box-shadow:0 0 14px rgba(111,244,255,.25)}
 #rec-hud b{color:#fff;margin-right:4px}#rec-hud span{margin-left:8px}
-/* a clip planned in Make a clip (social video, 9:16): the report starts at 52% of the height, its newest row is kept in the
-   part above TikTok's caption (the bottom 1/6), and its right side is clear of the buttons (the right 11.1%). Sizes in vw
-   follow the window, so the take reads the same at any window size. */
-body.recmode.rec-social{--rec-h:48vh}
-body.recmode.rec-social .doc{margin-bottom:60vh!important}
-body.recmode.rec-social .read-side{padding:1.4vh 11.6vw 0 3.4vw!important}
-body.rec-social .lr{font-size:3.4vw}body.rec-social .lr-t td{padding:.5vh 1vw;font-size:3.4vw}body.rec-social .lr-v{font-size:4.2vw;font-weight:700}
-body.rec-social .lr-src{font-size:2.5vw}body.rec-social .lr h4{font-size:3.2vw;margin:1.2vh 0 .4vh}body.rec-social .lr h4 small,body.rec-social .lr-t thead th{font-size:2.4vw}
-body.rec-social .lr-brand{font-size:3.4vw}body.rec-social .lr-brand .bmg-line{width:3.6vw;height:3.2vw}body.rec-social .lr-co{font-size:2.8vw}body.rec-social .lr-prog{font-size:2.8vw}
-body.rec-social .lr-ins li{padding:.8vh .6vw;gap:.2vh 2vw}body.rec-social .lr-ins li b{font-size:3.4vw}body.rec-social .lr-ins li q{font-size:3.8vw;font-weight:600;color:#141414;-webkit-line-clamp:2}
-body.rec-social .lr-ins li small{font-size:2.5vw}body.rec-social .lr-ins li .go{display:none}body.rec-social .lr-sum{display:none}
+/* A clip for social video (Make a clip): the report is a small band at the bottom with Record mode's own type, as in
+   Brock's reference clips (2026-10-20: "the report is small at the bottom, and when it finds information its going to
+   use for the report it zaps it"), its right side clear of TikTok's buttons. Sections read and the filing's other
+   figures stay in it, so it keeps filling through the pages of text. */
+body.recmode.rec-social{--rec-h:28vh}
+body.recmode.rec-social .read-side{padding:.8vh 11.6vw 0 3.4vw!important}
+body.rec-social .lr-ins li q{-webkit-line-clamp:2}body.rec-social .lr-ins li .go{display:none}body.rec-social .lr-sum{display:none}
 body.rec-social .lr-ins li.incoming{visibility:hidden}
 body.rec-social .lr-ins li.feat,body.rec-social tr.feat td{background:color-mix(in srgb,var(--crawler-main,#6ff4ff) 16%,#fff)}body.rec-social .lr-ins li.feat{box-shadow:inset .9vw 0 0 var(--crawler-main,#6ff4ff)}body.rec-social tr.feat td:first-child{box-shadow:inset .9vw 0 0 var(--crawler-main,#6ff4ff)}
-body.rec-social .lr-read,body.rec-social .lr-found{display:none!important}   /* the report's figures and the filing's own items only */
 body.rec-social #read-live .lr-obs{display:none;padding-bottom:0}body.rec-social #read-live .lr-obs.has{display:block}
-body.rec-social #read-live .lr-foot{padding-bottom:34vh}   /* room below the last row, so the newest is always brought above the caption */
 html.rec-social-root{scrollbar-width:none}html.rec-social-root::-webkit-scrollbar{display:none}   /* no page scrollbar in the video */
 body.rec-social .lr-head{display:flex;flex-wrap:wrap;align-items:center;gap:.4vh 3vw}body.rec-social .lr-co{flex-basis:100%}
 .lr-logos{display:none}body.rec-social .lr-logos{display:flex;align-items:center;gap:3.2vw;margin-left:auto}
@@ -1085,17 +1079,17 @@ html[data-theme="dark"] .mk-sw{filter:invert(1) hue-rotate(180deg)}   /* the vie
 #mk-pv{flex:0 0 auto;width:min(270px,100%)}
 html[data-theme="dark"] #mk-pv{filter:invert(1) hue-rotate(180deg)}   /* the view is inverted in dark mode: the frame shows its real colors */
 .mk-pvf{position:relative;width:100%;aspect-ratio:9/16;border-radius:12px;overflow:hidden;background:#000;container-type:inline-size;font-family:'IBM Plex Sans',sans-serif;box-shadow:0 0 0 1px #c9cfca}
-.mk-pvf .pv-page{position:absolute;inset:0 0 48% 0;padding:9% 6% 0;display:flex;flex-direction:column;gap:3.2%}.mk-pvf .pv-page i{display:block;height:1.4cqw;border-radius:1cqw;background:#3a3f47;width:88%}.mk-pvf .pv-page i:nth-child(3n){width:62%}.mk-pvf .pv-page i:nth-child(4n){width:76%}
+.mk-pvf .pv-page{position:absolute;inset:0 0 28% 0;padding:9% 6% 0;display:flex;flex-direction:column;gap:3.2%}.mk-pvf .pv-page i{display:block;height:1.4cqw;border-radius:1cqw;background:#3a3f47;width:88%}.mk-pvf .pv-page i:nth-child(3n){width:62%}.mk-pvf .pv-page i:nth-child(4n){width:76%}
 .mk-pvf.light{background:#fff}.mk-pvf.light .pv-page i{background:#d6d9dd}
-.mk-pvf .mk-sw{position:absolute;left:38%;top:52%;width:24%;height:auto;background:none}.mk-pvf.light .mk-sw{box-shadow:none}
+.mk-pvf .mk-sw{position:absolute;left:38%;top:24%;width:24%;height:auto;background:none}.mk-pvf.light .mk-sw{box-shadow:none}
 .mk-pvf .pv-hook{position:absolute;left:8%;right:14%;top:7.5%;margin:0;padding:1.6cqw 2.6cqw;border-radius:2cqw;background:rgba(0,0,0,.72);color:#fff;font:700 6.2cqw/1.18 'IBM Plex Sans',sans-serif;text-align:center}
-.mk-pvf .pv-rep{position:absolute;left:0;right:0;bottom:0;top:52%;background:#fff;border-radius:4cqw 4cqw 0 0;padding:2.4cqw 11.2cqw 0 3.4cqw;box-sizing:border-box;overflow:hidden;color:#141414}
+.mk-pvf .pv-rep{position:absolute;left:0;right:0;bottom:0;top:72%;background:#fff;border-radius:4cqw 4cqw 0 0;padding:2.4cqw 11.2cqw 0 3.4cqw;box-sizing:border-box;overflow:hidden;color:#141414}
 .mk-pvf .pv-head{display:flex;align-items:center;gap:3cqw;padding-bottom:1.6cqw;border-bottom:1px solid #eceee9}.mk-pvf .pv-brand{display:flex;align-items:center;gap:1.2cqw;font-size:3.6cqw;margin-right:auto;white-space:nowrap}.mk-pvf .pv-brand .bmg-line{width:4cqw;height:3.4cqw}
 .mk-pvf .pv-logo{display:flex;align-items:center;gap:1cqw;font-size:2.6cqw;color:#6b6f76;white-space:nowrap}.mk-pvf .pv-logo img{max-height:5cqw;max-width:14cqw;object-fit:contain}.mk-pvf .pv-logo i{font-style:normal;font-weight:700;color:#141414;max-width:20cqw;overflow:hidden;text-overflow:ellipsis}
 .mk-pvf .pv-prog{margin:1.6cqw 0 0;font:500 3cqw 'IBM Plex Mono',monospace;color:#3a3a3a}
 .mk-pvf ol{list-style:none;margin:1cqw 0 0;padding:0}.mk-pvf li{padding:1.6cqw 1.6cqw;border-bottom:1px solid #eceee9;font-size:3.4cqw;line-height:1.25}.mk-pvf li b{display:block;font-size:3.6cqw}.mk-pvf li q{display:block;quotes:none;font-weight:600;font-size:4cqw}.mk-pvf li small{display:block;color:#6b6f76;font-size:2.8cqw}
 .mk-pvf li.feat{background:#eafff6;box-shadow:inset 0.8cqw 0 0 #0f7d47}.mk-pvf li.pv-empty{color:#8a9099;border:0}
-.mk-pvf .pv-call{position:absolute;left:8%;right:14%;top:38%;padding:2cqw 3cqw;border-radius:2.4cqw;background:rgba(5,7,12,.9);border:1px solid #6ff4ff;color:#fff;box-shadow:0 0 4cqw rgba(111,244,255,.35)}.mk-pvf .pv-call small{display:block;font:600 2.6cqw 'IBM Plex Mono',monospace;color:#6ff4ff;text-transform:uppercase}.mk-pvf .pv-call b{display:block;font-size:4.2cqw}.mk-pvf .pv-call span{display:block;font-size:3.4cqw;color:#cbd5e1}
+.mk-pvf .pv-call{position:absolute;left:8%;right:14%;bottom:29.5%;padding:2cqw 3cqw;border-radius:2.4cqw;background:rgba(5,7,12,.9);border:1px solid #6ff4ff;color:#fff;box-shadow:0 0 4cqw rgba(111,244,255,.35)}.mk-pvf .pv-call small{display:block;font:600 2.6cqw 'IBM Plex Mono',monospace;color:#6ff4ff;text-transform:uppercase}.mk-pvf .pv-call b{display:block;font-size:4.2cqw}.mk-pvf .pv-call span{display:block;font-size:3.4cqw;color:#cbd5e1}
 .mk-pvf .pv-safe{position:absolute;left:5.56%;right:11.11%;top:5.63%;bottom:16.67%;border:2px dashed rgba(255,59,92,.9);border-radius:6px;pointer-events:none}.mk-pvf .pv-safe[hidden]{display:none}
 .mk-pvf .pv-safe span{position:absolute;font:600 2.6cqw 'IBM Plex Sans',sans-serif;color:#fff;background:rgba(255,59,92,.9);padding:.4cqw 1.2cqw;border-radius:1cqw;white-space:nowrap}.mk-pvf .pv-safe .t{top:-5.2cqw;left:0}.mk-pvf .pv-safe .r{right:-11.4cqw;top:46%;transform:rotate(90deg)}.mk-pvf .pv-safe .b{bottom:-5.4cqw;left:0}
 /* the record window is open (it can be behind this window): one click brings it back */
@@ -4434,11 +4428,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const box = scroller.getBoundingClientRect(), r = el.getBoundingClientRect();
     const top = liveEl.querySelector(".lr-top"), head = top ? top.offsetHeight : 0;
     const pad = 16, from = scroller.scrollTop;
-    // a clip for social video: the newest row sits at the foot of the part of the panel above TikTok's caption (the
-    // bottom 1/6 of the window, whose bottom the panel's is), the rows before it above
-    const social = !!state.recSocial, bottom = social ? box.bottom * 5 / 6 : box.bottom;
-    const center = box.top + head + (bottom - box.top - head) * .5;
-    const to = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, from + (social ? Math.min(r.bottom - (bottom - 10), r.top - box.top - head - 6) : r.top + r.height / 2 - center)));
+    const center = box.top + head + (box.bottom - box.top - head) * .5;
+    const to = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, from + (r.top + r.height / 2 - center)));
     if (Math.abs(to - from) < 3) return;
     if (REDUCED){ scroller.scrollTop = to; return; }
     const id = ++followAnim, t0 = performance.now(), dur = reviewing ? 1000 : 420;
@@ -4464,7 +4455,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   setInterval(() => {
     const now = performance.now();
     if (drainReportFollow(now)) return;
-    if (REDUCED || !walking() || state.paused || !liveEl || liveEl.hidden || document.body.classList.contains("rec-social") ||
+    if (REDUCED || !walking() || state.paused || !liveEl || liveEl.hidden || state.recExcerpt ||
         document.getElementById("rec-end") || now < followHoldUntil || now < reportNextReview ||
         (state.flightLock && now < state.flightLock.until)) return;
     const items = [...liveEl.querySelectorAll("tr")].filter(row => row.querySelector(".lr-v"));
@@ -4629,7 +4620,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       addEventListener("beforeunload", e => { if (window.bmgRec.phase === "busy"){ e.preventDefault(); e.returnValue = ""; } });
     }
     // A clip planned in Posting (Make a clip, see planSetup): read before the setup is built, which uses it
-    const PLAN_LS = "bmg-clip-plan", PLAN_KEYS = 3.5, PLAN_ONE = 5, PLAN_ENDING = 11, PLAN_SLOW = 3;     // the ending: about 11 seconds
+    const PLAN_LS = "bmg-clip-plan", PLAN_KEYS = 3.5, PLAN_ONE = 5, PLAN_ENDING = 11, PLAN_SLOW = 3, PLAN_RAMP = 4;     // the ending: about 11 seconds
     // a clip of findings: 2 s on the report after the last one, and the featured one's moment (1.6 s, the page at 15%)
     const PLAN_HOLD = 2, PLAN_FEAT = 1.6, PLAN_FEAT_PACE = .15;
     let plan = null, planMissing = [], planBefore = [], planSay = () => {}, planPending = null;
@@ -4818,7 +4809,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // sharing the tab. The filing is loaded first, so a problem with it shows before anything is recorded.
     function planSetup(format){
       if (!plan) return;
-      B.classList.add("rec-social"); document.documentElement.classList.add("rec-social-root"); state.recSocial = true;   // a clip for social video: the report clear of TikTok's caption and buttons
+      B.classList.add("rec-social"); document.documentElement.classList.add("rec-social-root"); state.recSocial = true;   // a clip for social video: a small report, clear of TikTok's buttons
+      state.recExcerpt = planExcerpt(plan);         // an excerpt ends on its last arrival: no review of earlier rows
       if (plan.logos) setTimeout(() => recLogos(plan.logos));
       const q = id => setup.querySelector("#" + id), lk = plan.look || {};
       const set = (id, v) => {
@@ -4838,7 +4830,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         <p class="pl-sub">${esc(plan.when || plan.customName || "")}${plan.accession ? ` · accession ${esc(plan.accession)}` : ""}</p>
         <dl><dt>Covers</dt><dd>${excerpt ? `An excerpt, not the whole filing: ${sc.keys.length} of the report's ${sc.total} ${sc.total === 1 ? noun[0] : noun[1]}${(plan.find || []).length ? ", and each Find request (with any figures on the way to it)" : ""}`
             : `The entire ${plan.source === "custom" ? "document" : "filing"}: every page, cover to final line`}</dd>
-          <dt>Length</dt><dd>${plan.length === "whole" ? `As long as it takes, at ${plan.speed && plan.speed !== 1 ? plan.speed + "x " : ""}reading speed`
+          <dt>Length</dt><dd>${plan.length === "whole" ? (plan.ramp ? `As long as it takes: ${plan.ramp.from}x for the first ${plan.ramp.secs} seconds, then speeding up to ${plan.speed}x` : `As long as it takes, at ${plan.speed && plan.speed !== 1 ? plan.speed + "x " : ""}reading speed`)
             : excerpt ? `${secs(plan.length)}: the excerpt, then 2 seconds on the report` : `${secs(plan.length)}: the spider's speed is set so it covers every page in this time`}</dd>
           <dt>Starts at</dt><dd>${excerpt ? "Just above the excerpt's first figure" : "The cover page"}</dd>
           <dt>Finds</dt><dd>${(plan.find || []).length ? esc(plan.find.join(" · ")) + (excerpt ? " (the clip goes to each)" : " (lit as the spider passes)") : "Nothing asked for"}</dd>
@@ -5135,14 +5127,19 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // was asked for (the highlights camera's path); the whole form reads at reading speed until its last line.
     function planCrawl(hits){
       if (plan.length === "whole"){
-        // reading speed, built up from 30% over the first 3 seconds of reading (a pause does not count)
-        const target = Math.min(4, Math.max(0.5, +plan.speed || 1));
+        // reading speed, built up from 30% over the first 3 seconds of reading (a pause does not count); with Start
+        // slow, that first speed holds for the seconds asked, then rises smoothly to the reading speed over 4 seconds
+        const target = Math.min(4, Math.max(0.5, +plan.speed || 1)), r = plan.ramp;
+        const from = r ? Math.min(target, Math.max(0.5, +r.from || 1)) : target, hold = r ? Math.max(0, +r.secs || 0) : 0;
+        const ease = u => u * u * (3 - 2 * u);
         let read = 0, last = performance.now();
-        state.speedMul = target * .3;
+        state.speedMul = from * .3;
         const id = setInterval(() => {
           const now = performance.now(); if (walking() && !state.paused) read += (now - last) / 1000; last = now;
-          const u = Math.min(1, read / PLAN_SLOW); state.speedMul = target * (.3 + .7 * u * u * (3 - 2 * u));
-          if (u >= 1) clearInterval(id);
+          const u = Math.min(1, read / PLAN_SLOW), v = r ? Math.min(1, Math.max(0, (read - PLAN_SLOW - hold) / PLAN_RAMP)) : 1;
+          state.speedMul = u < 1 ? from * (.3 + .7 * ease(u)) : from + (target - from) * ease(v);
+          if (window.bmgRec) window.bmgRec.speed = +state.speedMul.toFixed(2);       // for checks
+          if (u >= 1 && v >= 1) clearInterval(id);
         }, 50);
         return;
       }
@@ -9856,6 +9853,11 @@ Who is the auditor?</textarea>
     // long the clip is (the crawl's speed is set to fit, or the whole form at reading speed), what to find, then
     // Record: the record window opens with all of it set, and the take comes back here to the Studio by itself.
     const MAKE_LS = "bmg-make-clip", LENS = [30, 45, 60, 90, 120, 180], SHORT = 22;      // Short: about 22 s, no ending
+    // Start slow (reading speed only): the spider reads at a slow speed for the first seconds, then speeds up to the
+    // reading speed, as in a clip where the crawl starts calm and then races
+    const RAMP_FROM = [1, 1.5, 2, 3], RAMP_SECS = [5, 10, 15, 20, 30];
+    const rampOn = () => mk.length === "whole" && mk.ramp.on && mk.ramp.from < mk.speed;
+    const paceWords = () => rampOn() ? `at ${mk.ramp.from}x for the first ${mk.ramp.secs} seconds, then speeding up to ${mk.speed}x` : `at ${mk.speed}x reading speed`;
     const QUICK = ["Revenue", "Net income", "Diluted EPS", "Cash and cash equivalents", "Share repurchases", "Guidance"];
     // What the clip covers (its scope) and how long it runs (its length) are two choices. The entire filing is the
     // default each time the page opens: every page from the cover to the final line, with no featured number to pick.
@@ -9863,8 +9865,8 @@ Who is the auditor?</textarea>
     // scope keeps its own length, so switching back never carries an excerpt, or a start other than the cover, into
     // the entire filing. (The scope itself is not kept: a reopened page starts on the entire filing again.)
     const mk = {ticker: "", scope: "entire", length: "whole", lenBy: {entire: "whole", specific: 60}, speed: 1, ending: true, find: "", look: {}, list: null, pick: null, pickKey: null, file: null, all: false, recording: false,
-      found: null, feat: null, featBy: {}, hook: "", hookBy: {}, hookMine: {}, logos: {built: "", scan: {}}, safe: true};
-    const MK_KEEP = ["ticker", "lenBy", "speed", "ending", "find", "look", "pickKey", "featBy", "hookBy", "hookMine", "logos", "safe"];
+      found: null, feat: null, featBy: {}, hook: "", hookBy: {}, hookMine: {}, logos: {built: "", scan: {}}, safe: true, ramp: {on: false, from: 1, secs: 10}};
+    const MK_KEEP = ["ticker", "lenBy", "speed", "ramp", "ending", "find", "look", "pickKey", "featBy", "hookBy", "hookMine", "logos", "safe"];
     // a length either scope can run at: the entire filing at reading speed ("whole") or a set time; an excerpt a set time
     const okLen = (v, scope) => v === "whole" ? (scope === "entire" ? v : 60) : typeof v === "number" && v >= 10 && v <= 900 && !(scope === "entire" && v === SHORT) ? v : scope === "entire" ? "whole" : 60;
     try {
@@ -9875,6 +9877,7 @@ Who is the auditor?</textarea>
     } catch (e) {}
     mk.lenBy = {entire: okLen((mk.lenBy || {}).entire, "entire"), specific: okLen((mk.lenBy || {}).specific, "specific")};
     mk.length = mk.lenBy.entire;
+    mk.ramp = {on: !!(mk.ramp && mk.ramp.on), from: RAMP_FROM.includes(+(mk.ramp || {}).from) ? +mk.ramp.from : 1, secs: RAMP_SECS.includes(+(mk.ramp || {}).secs) ? +mk.ramp.secs : 10};
     const saveMk = () => {
       const k = mk.found && mk.found.key;
       if (k){ if (mk.feat) mk.featBy[k] = mk.feat; mk.hookBy[k] = mk.hook; }
@@ -9951,11 +9954,12 @@ Who is the auditor?</textarea>
       const sec = body.querySelector("#mk-secs");
       if (sec && document.activeElement !== sec) sec.value = custom ? mk.length : "";
       body.querySelector(".mk-custom").classList.toggle("on", custom);
-      body.querySelector("#mk-speed-l").hidden = mk.length !== "whole";
+      body.querySelector("#mk-speed-l").hidden = body.querySelector("#mk-ramp-l").hidden = mk.length !== "whole";
+      const rn = body.querySelector("#mk-ramp-n"); if (rn) rn.textContent = mk.ramp.on && mk.ramp.from >= mk.speed ? `Start slow needs a reading speed above ${mk.ramp.from}x: pick a faster reading speed or a slower start.` : "";
       const sc = clipScope(), end = mk.ending ? ", the last 11 seconds on the key findings and summary" : "";
       const crawl = typeof mk.length === "number" ? mk.length - (mk.ending ? 11 : 0) - (sc ? END_HOLD + LEAD_IN + (featItem() ? FEATURE_HOLD : 0) : 1.6) : 0;
       body.querySelector("#mk-len-note").textContent = mk.length === "whole"
-        ? `The spider reads every page, from the cover to the final line, at ${mk.speed}x reading speed: the clip is as long as that takes (a long 10-K takes many minutes at 1x)${mk.ending ? ", then about 11 seconds on the key findings and summary" : ""}.`
+        ? `The spider reads every page, from the cover to the final line, ${paceWords()}: the clip is as long as that takes (a long 10-K takes many minutes at 1x)${mk.ending ? ", then about 11 seconds on the key findings and summary" : ""}.`
         : entire ? `${lenLabel(mk.length)} in all${end}. The spider covers every page, from the cover to the final line, in the time left: a long filing in a short clip is a very fast crawl.`
           + (crawl < 10 ? " That leaves under 10 seconds of crawling: choose a longer clip, or turn the ending off." : "")
         : sc ? `${lenLabel(mk.length)} in all${end}. An excerpt: the spider reads the stretch of the filing with the findings that fit${featItem() ? ", from just before your featured one" : ""}, goes to each Find request, and the clip ends 2 seconds after the last one reaches the report.`
@@ -10160,10 +10164,10 @@ Who is the auditor?</textarea>
       const F = mk.found, sc = clipScope(), x = featItem(), asks = findList();
       const lit = asks.length ? ` Find requests (${asks.join(", ")}) are lit as the spider passes them; anything not in the filing is listed as not found.` : "";
       const ending = mk.ending ? " Then the key findings and a one-page summary." : "";
-      if (mk.file) return `Your own document, all of it from its start${mk.length === "whole" ? `, at ${mk.speed}x reading speed` : `, in ${lenLabel(mk.length)}`}.${lit}${ending}`;
+      if (mk.file) return `Your own document, all of it from its start${mk.length === "whole" ? `, ${paceWords()}` : `, in ${lenLabel(mk.length)}`}.${lit}${ending}`;
       if (!F || F.state !== "done") return F && F.state === "loading" ? "What the clip shows is written here once the filing is read." : "";
       if (mk.scope !== "specific"){
-        const pace = mk.length === "whole" ? `at ${mk.speed}x reading speed, as long as that takes` : `in ${lenLabel(mk.length)} (a fast crawl)`;
+        const pace = mk.length === "whole" ? `${paceWords()}, as long as that takes` : `in ${lenLabel(mk.length)} (a fast crawl)`;
         const items = F.total ? ` The report's ${F.total} ${F.total === 1 ? F.noun[0] : F.noun[1]} arrive as the spider reaches each one.` : "";
         return `The entire filing: every page from the cover to the final line, ${pace}.${items}${lit}${ending}`;
       }
@@ -10210,7 +10214,7 @@ Who is the auditor?</textarea>
         ticker: mk.file ? mk.ticker : mk.list.ticker, company: mk.file ? "" : mk.list.company, cik: mk.list && !mk.file ? mk.list.cik : null,
         form: f ? f.form : "", accession: f ? f.accession : null, document: f ? f.document : null, fileName: f ? f.fileName : null,
         when: f ? f.when : "", customName: mk.file ? mk.file.name : "",
-        mode: entire ? "entire" : "specific", length: mk.length, speed: mk.speed, start: entire ? "cover" : "excerpt", ending: mk.ending, find: findList(), look: mk.look,
+        mode: entire ? "entire" : "specific", length: mk.length, speed: mk.speed, ramp: rampOn() ? {from: mk.ramp.from, secs: mk.ramp.secs} : null, start: entire ? "cover" : "excerpt", ending: mk.ending, find: findList(), look: mk.look,
         featured: !entire && x && sc && sc.featured ? {...x, missing: undefined} : null, scope: entire ? null : sc, hook: (mk.hook || "").trim().slice(0, 90),
         filing: filingOf(f), coverage: scopeText(), total: mk.found && mk.found.state === "done" ? mk.found.total : null,
         logos: {built: logo("built"), scan: logo("scan")}};
@@ -10252,7 +10256,7 @@ Who is the auditor?</textarea>
         + `<p class="mk-note">${pics.length ? "Your Quick add pictures (Studio, Pictures tab). A picture named after Claude, the ticker or the company is picked by itself; the choice is kept, the company's for each ticker." : "No pictures in Quick add yet: the clip names them in text. Add logos in the Studio (Pictures tab, Quick add) to show them here."}</p>`;
     }
     // ---- 6 Preview: the video's frame as the record window lays it out (the same proportions: the page above, the
-    // report below it clear of TikTok's caption and buttons), with this clip's hook, logos and featured finding.
+    // report a small band below it, clear of TikTok's buttons), with this clip's hook, logos and featured finding.
     // The safe-area guide is drawn here only: it is never recorded or exported. ----
     function drawPreview(){
       const box = body.querySelector("#mk-pv"); if (!box || view !== "make") return;
@@ -10260,7 +10264,7 @@ Who is the auditor?</textarea>
       const byKey = new Map(F && F.items ? F.items.map(i => [i.key, i]) : []);
       const near = sc ? sc.keys.map(k => byKey.get(k)).filter(Boolean) : F && F.state === "done" && mk.scope !== "specific" ? (F.arrivals || []).map(k => byKey.get(k)).filter(Boolean) : [];
       const fi = x && sc ? near.indexOf(x) : -1;
-      const rows = (fi >= 0 ? near.slice(Math.max(0, fi - 1), fi + 2) : near.slice(0, 3));
+      const rows = (fi >= 0 ? near.slice(Math.max(0, fi - 1), fi + 1) : near.slice(0, 2));      // the small band shows two
       const rowHTML = it => it.type === "trade"
         ? `<li class="${it === x ? "feat" : ""}"><b>${esc(it.label)}</b><q>${esc(it.shares)} shares at ${esc(it.price)}, ${esc(it.value)} on ${esc(it.date)}</q><small>${esc(it.who)}</small></li>`
         : `<li class="${it === x ? "feat" : ""}"><b>${esc(it.label)}</b><q>${esc(it.value)}</q><small>${esc(it.period)}${it.page ? " · p." + esc(it.page) : ""}</small></li>`;
@@ -10308,7 +10312,9 @@ Who is the auditor?</textarea>
           <div class="av-chips mk-len" role="radiogroup" aria-label="Clip length"><button type="button" role="radio" class="av-seg" data-len="${SHORT}">Short · ${SHORT} s</button>${LENS.map(s => `<button type="button" role="radio" class="av-seg" data-len="${s}">${s < 60 ? s + " s" : lenLabel(s)}</button>`).join("")}<label class="mk-custom">Other <input type="number" id="mk-secs" min="10" max="900" step="1" inputmode="numeric" aria-label="Clip length in seconds"> s</label><button type="button" role="radio" class="av-seg" data-len="whole">Reading speed · as long as it takes</button></div>
           <p class="mk-note" id="mk-len-note"></p>
           <div class="mk-row" style="margin-top:10px"><label id="mk-speed-l">Reading speed <select id="mk-speed">${[1, 1.5, 2, 3, 4].map(v => `<option value="${v}">${v}x</option>`).join("")}</select></label>
-            <label><input type="checkbox" id="mk-ending"> End on the key findings and a one-page summary (about 11 seconds)</label></div></li>
+            <label id="mk-ramp-l"><input type="checkbox" id="mk-ramp"> Start slow: <select id="mk-ramp-from" aria-label="Starting speed">${RAMP_FROM.map(v => `<option value="${v}">${v}x</option>`).join("")}</select> for the first <select id="mk-ramp-secs" aria-label="Seconds at the starting speed">${RAMP_SECS.map(v => `<option value="${v}">${v} s</option>`).join("")}</select>, then speed up to the reading speed</label>
+            <label><input type="checkbox" id="mk-ending"> End on the key findings and a one-page summary (about 11 seconds)</label></div>
+          <p class="mk-note err" id="mk-ramp-n" role="status"></p></li>
         <li class="mk-step"><h3><b>5</b>Look</h3>
           <p class="mk-lbl">Spider colors</p>
           <div class="mk-pals" id="mk-pals" role="radiogroup" aria-label="Spider colors">${Object.entries(pal).map(([k, p]) => `<button type="button" role="radio" class="mk-pal" data-pal="${esc(k)}" title="${esc(p.name)}">${spiderSwatch(p)}<small>${esc(p.name.replace(/ \(default\)$/, ""))}</small></button>`).join("")}</div>
@@ -10326,7 +10332,7 @@ Who is the auditor?</textarea>
               <p class="mk-note">The record window opens with all of this set. Check the frame there first: it shows what the recording will see, so a browser extension's badge or panel on the page can be switched off before you record. Then press Start recording (Chrome asks to share that tab: choose Allow). When the clip ends, the Studio opens here with it and the hook on it: add pictures, then Export downloads the video. Chrome records at the size this screen and window allow: the record window and the Studio say what the take really is.</p></div></div></li>
         </ol></div>`;
       const $m = id => body.querySelector("#" + id);
-      $m("mk-speed").value = String(mk.speed); $m("mk-ending").checked = !!mk.ending; $m("mk-find").value = mk.find || ""; $m("mk-safe").checked = !!mk.safe;
+      $m("mk-speed").value = String(mk.speed); $m("mk-ramp").checked = mk.ramp.on; $m("mk-ramp-from").value = String(mk.ramp.from); $m("mk-ramp-secs").value = String(mk.ramp.secs); $m("mk-ending").checked = !!mk.ending; $m("mk-find").value = mk.find || ""; $m("mk-safe").checked = !!mk.safe;
       // the look: spider colors and the page are tiles, pop-ups (number cards, enlarged words) are off unless ticked
       const L = mk.look = {palette: palNow, dark: lk.dark !== false, pops: !!lk.pops, quality: lk.quality === "standard" ? "standard" : "high", disk: lk.disk !== false};
       $m("mk-pops").checked = L.pops; $m("mk-q").value = L.quality; if ($m("mk-disk")) $m("mk-disk").checked = L.disk;
@@ -10381,6 +10387,9 @@ Who is the auditor?</textarea>
       });
       $m("mk-secs").addEventListener("input", e => { const v = Math.round(+e.target.value); if (v >= 10 && v <= 900){ mk.length = v; saveMk(); drawLen(); drawPreview(); } });
       $m("mk-speed").addEventListener("change", e => { mk.speed = +e.target.value || 1; saveMk(); drawLen(); drawPreview(); });
+      $m("mk-ramp").addEventListener("change", e => { mk.ramp.on = e.target.checked; saveMk(); drawLen(); drawPreview(); });
+      $m("mk-ramp-from").addEventListener("change", e => { mk.ramp.from = +e.target.value || 1; mk.ramp.on = true; $m("mk-ramp").checked = true; saveMk(); drawLen(); drawPreview(); });
+      $m("mk-ramp-secs").addEventListener("change", e => { mk.ramp.secs = +e.target.value || 10; mk.ramp.on = true; $m("mk-ramp").checked = true; saveMk(); drawLen(); drawPreview(); });
       $m("mk-ending").addEventListener("change", e => { mk.ending = e.target.checked; saveMk(); drawLen(); drawPreview(); });
       $m("mk-find").addEventListener("input", e => { mk.find = e.target.value; saveMk(); });
       body.querySelector(".mk-quick").addEventListener("click", e => {
