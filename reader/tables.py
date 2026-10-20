@@ -32,6 +32,11 @@ _CAPTION = re.compile(r"\(\s*(?:unaudited[;,]?\s*)?(?:dollars |amounts |\$ )?(?:
 _CAPTION_LINE = re.compile(r"(?im)^[ \t]*(?:(?:\$[ \t]*|dollars[ \t]+|amounts[ \t]+)?in[ \t]+(millions|billions|thousands)\b"
                            r"|(millions|billions|thousands)[ \t]+of[ \t]+(?:u\.?s\.?[ \t]+)?dollars\b)"          # Chevron: "Millions of dollars  2025  2024"
                            r"((?:,?[ \t]+except\b[^\n]{0,120})?(?:[ \t]{2,}[^\n]*)?)[ \t]*$")
+# the scale as the first column header of the year line (Union Pacific: "Millions  2025  2024  2023", "Millions, Except
+# Per Share Amounts  2025 ..."): without it the income statement's $24,510 million read as $24,510, and an MD&A
+# table under a chart's "(billions)" caption read $7,138 million as $7.1 trillion (2026-10-20)
+_CAPTION_HEAD = re.compile(r"(?im)^[ \t]*(millions|billions|thousands)((?:,[^\n]{0,80}?)?)[ \t]{2,}(?:\$[ \t]*)?(?:19|20)\d\d\b")
+_YEAR_LINE = re.compile(r"(?m)^[^\n]*\b(?:19|20)\d\d\b(?:[ \t]{2,}(?:\$[ \t]*)?(?:19|20)\d\d\b)+[ \t]*$")
 _MONTHS = {m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
 
 STATEMENTS = [
@@ -318,11 +323,16 @@ def _header_periods(line: str, context: str) -> Optional[dict]:
 def _caption(body: str, off: int) -> dict:
     """Scale and exceptions from the nearest "(In millions, except ...)" caption."""
     window = body[max(0, off - 6000):off]
-    hits = list(_CAPTION.finditer(window)) + list(_CAPTION_LINE.finditer(window))
+    heads = []
+    for h in _CAPTION_HEAD.finditer(window):
+        nl = window.find("\n", h.end())
+        if nl < 0 or not _YEAR_LINE.search(window, nl + 1):
+            heads.append(h)                     # a year line's scale belongs to its own table, not the next one
+    hits = list(_CAPTION.finditer(window)) + list(_CAPTION_LINE.finditer(window)) + heads
     if not hits:
         return {"scale": "", "shares_scale": "", "text": ""}
     m = max(hits, key=lambda x: x.end())          # the caption nearest the table
-    word, rest = ((m.group(1) or m.group(2)), m.group(3)) if m.re is _CAPTION_LINE else (m.group(1), m.group(2))
+    word, rest = ((m.group(1) or m.group(2)), m.group(3)) if m.re is _CAPTION_LINE else (m.group(1), m.group(2))   # _CAPTION and _CAPTION_HEAD
     scale = {"millions": "M", "billions": "B", "thousands": "K"}[word.lower()]
     rest = (rest or "").lower()
     shares_scale = scale

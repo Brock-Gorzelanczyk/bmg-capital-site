@@ -1042,9 +1042,19 @@ _SYN = {
 
 
 def _stem(w: str) -> str:
+    """One stem for the forms of a word, so each matches the others: "offices" and "office" are "offic", "leases",
+    "leased" and "leasing" are "leas" ("es" comes off whole only after s, x, z, ch or sh: "classes", "branches"; a final
+    e comes off, not "ee": "employee"). "delivery" and "delivered" are joined in _TEXT_SYN, not here ("factory" is not
+    "factor")."""
     for suf in ("ies", "es", "s", "ing", "ed"):
         if len(w) > len(suf) + 3 and w.endswith(suf):
-            return w[:-len(suf)] + ("y" if suf == "ies" else "")
+            if suf == "es" and not re.search(r"(?:s|x|z|ch|sh)es$", w):
+                w = w[:-1]                      # "offices" -> "office", "employees" -> "employee"
+            else:
+                w = w[:-len(suf)] + ("y" if suf == "ies" else "")
+            break
+    if len(w) > 4 and w.endswith("e") and not w.endswith("ee"):
+        w = w[:-1]                              # "office"/"offices" -> "offic", "lease"/"leased"/"leasing" -> "leas"
     return w
 
 
@@ -1059,15 +1069,28 @@ def _tok(s: str, drop: frozenset = frozenset()) -> list[str]:
 
 _TEXT_SYN = {"buyback": ("repurchase", "repurchased"), "repurchase": ("buyback",), "staff": ("employee",), "headcount": ("employee",),
              "worker": ("employee",), "workforce": ("employee",), "people": ("employee",), "sale": ("revenue",), "revenue": ("sale",),
-             "profit": ("income", "earning"), "earning": ("income",), "ceo": ("chief", "executive"), "cfo": ("chief", "financial"),
-             "debt": ("borrowing", "note"),
-             "lawsuit": ("litigation", "proceeding"), "suit": ("litigation",), "dividend": ("dividends",), "competitor": ("competition", "competitive"),
-             "tariff": ("trade",), "plant": ("facility", "manufacturing"), "factory": ("facility", "manufacturing")}
+             "profit": ("income", "earnings"), "earnings": ("income",), "ceo": ("chief", "executive"), "cfo": ("chief", "financial"),
+             "debt": ("borrowings", "notes"),
+             "lawsuit": ("litigation", "proceedings"), "suit": ("litigation",), "dividend": ("dividends",), "competitor": ("competition", "competitive"),
+             "tariff": ("trade",), "plant": ("facility", "manufacturing"), "factory": ("facility", "manufacturing"),
+             # Find's lines (2026-10-20): a 10-K says "principal executive offices", "class actions", the auditor firm's "LLP"
+             "headquarter": ("principal", "executive", "office"), "hq": ("principal", "executive", "office", "headquarter"),
+             "auditor": ("llp", "accounting"), "lawsuit": ("litigation", "proceedings", "actions", "complaints"),
+             "deal": ("transaction", "agreement", "acquisition", "merger"), "merger": ("acquisition", "merge", "transaction", "combination"),
+             "acquisition": ("acquire", "acquir", "merger"), "delivery": ("deliver",), "deliver": ("delivery",),
+             "operation": ("operating",), "operating": ("operation",)}
 # head count: a filing says employees, people, associates or team members; each word stands for the others (as _tok
 # stems them: "employees" is "employe", "employed" is "employ")
-_HEADCOUNT = ("employe", "employee", "employ", "people", "person", "associat", "workforce", "headcount", "staff", "worker", "personnel", "colleague")
+_HEADCOUNT = ("employe", "employee", "employ", "people", "person", "associat", "associate", "workforce", "headcount", "staff", "worker", "personnel", "colleague")
 for _w in _HEADCOUNT:
     _TEXT_SYN[_w] = tuple(x for x in _HEADCOUNT if x != _w)
+# the lists above in _stem's own forms (a list word that _stem would change could never match a document word)
+_HEADCOUNT = tuple(dict.fromkeys(_HEADCOUNT + tuple(_stem(x) for x in _HEADCOUNT)))
+_syn = {}
+for _k, _v in _TEXT_SYN.items():
+    _syn.setdefault(_stem(_k), [])
+    _syn[_stem(_k)] += [_stem(x) for x in _v if _stem(x) != _stem(_k)]
+_TEXT_SYN = {_k: tuple(dict.fromkeys(_v)) for _k, _v in _syn.items()}
 _HEADCOUNT_RX = r"employ\w*|people\b|persons?\b|associates?\b|staff\b|workers?\b|personnel\b|colleagues?\b|team members?\b"
 
 
@@ -1191,7 +1214,7 @@ def spans_from_map(m: list, length: int) -> list:
     return [(o, pts[k + 1][0] if k + 1 < len(pts) else length, key) for k, (o, key) in enumerate(pts)]
 
 
-def ask(question: str, rep: dict, index: Index) -> dict:
+def ask(question: str, rep: dict, index: Index, n: int = 3) -> dict:
     q = (question or "").strip()[:300]
     if not q:
         return {"question": q, "answers": [], "note": "Type a question."}
@@ -1233,7 +1256,7 @@ def ask(question: str, rep: dict, index: Index) -> dict:
             break
     co = ((rep.get("company") or {}).get("name") or "").lower()
     drop = frozenset(w for w in re.findall(r"[a-z]+", co) if w not in ("inc", "corp", "co", "the"))
-    answers += index.search(q, 3, drop)
+    answers += index.search(q, n, drop)            # Find asks for more sentences (n) and picks the one that answers
     note = "" if answers else "Not found in this document. The answer comes only from the document that was read."
     return {"question": q, "answers": answers, "note": note}
 

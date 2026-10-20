@@ -4972,10 +4972,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     function lineFigure(ws, inClip = () => true){
       const L = wordList(), n = L.els.length, k = ws.length;
       if (!k) return null;
+      // each word's stem, once per read (JPMorgan's 10-K has 180,000 words, and Find looks up several lines)
+      const st = L.stem || (L.stem = L.norm.map(stemW)), want = ws.map(stemW);
       let share = null;
       for (let i = 0; i + k <= n; i++){
         let ok = true;
-        for (let j = 0; j < k && ok; j++) ok = L.norm[i + j] === ws[j] || stemW(L.norm[i + j]) === stemW(ws[j]);
+        for (let j = 0; j < k && ok; j++) ok = L.norm[i + j] === ws[j] || st[i + j] === want[j];
         if (!ok) continue;
         for (let j = i + k; j < Math.min(n, i + k + 4); j++){
           const t = L.els[j].textContent.trim();
@@ -6104,12 +6106,145 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       // is filled in (the figures the tour reached count as reached) and the finish card lists what was asked.
       // Nothing here is computed: every value is the report's or the filing's, with its page.
       let tour = {id: 0};
-      const camY = el => V.contentY(el) - V.h() * (window.READER_VIEW_FRAC || 1) * .5;
+      // a word's place from the walk's cached word boxes (wordRect) and the document's own place, read once: a live
+      // getBoundingClientRect on a word in a block the browser is skipping (content-visibility, HTML filings) lays
+      // that block out again, about 200 ms each in Greenbrier's 10-K, and sorting the places asked for read each
+      // one many times (JPMorgan's 10-K froze for over 30 seconds)
+      const camY = (el, top = V.contentY(doc)) => wordRect(el).y + top - V.h() * (window.READER_VIEW_FRAC || 1) * .5;
+      // what people type, in the words a filing uses ("headquarters": "principal executive offices"; "CFO": "chief financial officer")
       const FSYN = {buyback: ["repurchase"], buybacks: ["repurchase"], repurchases: ["buyback"], sales: ["revenue"], revenue: ["sales"], revenues: ["sales", "revenue"],
-        earnings: ["income"], profit: ["income"], eps: ["per share"], capex: ["capital expenditure"], dividend: ["dividends"], debt: ["borrowings", "notes"]};
-      // "inventory" names "Inventories" too (stemW keeps the y)
-      const stemF = w => w.length > 4 ? w.replace(/(ies|es|s|y)$/, "") : w;
-      const namesSyn = (text, ws) => { const t = String(text || "").toLowerCase(); return ws.length > 0 && ws.every(w => t.includes(stemF(w)) || (FSYN[w] || []).some(x => t.includes(x))); };
+        earnings: ["income"], profit: ["income"], eps: ["per share"], capex: ["capital expenditure", "property and equipment"], dividend: ["dividends"], debt: ["borrowings", "notes"],
+        cfo: ["chief financial officer"], ceo: ["chief executive officer"], coo: ["chief operating officer"], chairman: ["chair"],
+        headquarters: ["principal executive offices", "principal offices", "headquartered", "located at"], hq: ["principal executive offices", "headquartered"], based: ["headquartered", "principal executive offices"],
+        headquartered: ["principal executive offices", "principal offices", "headquarters", "located at"],
+        auditor: ["registered public accounting firm", "llp"], auditors: ["registered public accounting firm", "llp"], audits: ["registered public accounting firm", "llp"],
+        lawsuit: ["litigation", "class action", "complaint", "proceeding"], lawsuits: ["litigation", "class action", "complaint", "proceeding"], litigation: ["lawsuit", "class action", "proceeding"],
+        deal: ["transaction", "agreement", "acquisition", "merger"], merger: ["acquisition", "merge", "transaction", "combination"], mergers: ["acquisition", "merge", "transaction", "combination"],
+        acquisition: ["acquired", "acquire", "merger"], acquisitions: ["acquired", "acquire", "merger"], deliveries: ["delivered"], delivered: ["deliveries"],
+        key: ["dependent", "key employee", "key personnel"], person: ["services of", "personnel"], call: ["conference call"],
+        growth: ["grew", "grow", "increase"], grew: ["growth", "increase"]};
+      const HEADS = ["employed", "employees", "people", "headcount", "workforce", "associates", "team members"];
+      ["employees", "headcount", "workforce", "staff", "people"].forEach(k => { FSYN[k] = HEADS; });
+      // one stem for a word's forms ("operations" and "operating", "deliveries" and "delivered", "inventory" and "Inventories")
+      const stemF = w => { if (w.length <= 4) return w; const s = w.replace(/(ions?|ings?|ies|es|ed|s)$/, ""); return s.length >= 4 ? s.replace(/([^aeiou])y$/, "$1") : w.replace(/(es|s)$/, ""); };
+      const atWord = (t, x) => { for (let i = t.indexOf(x); i >= 0; i = t.indexOf(x, i + 1)) if (!i || !/[a-z0-9]/.test(t[i - 1])) return true; return false; };
+      const covers = (t, w) => atWord(t, stemF(w)) || (FSYN[w] || []).some(x => atWord(t, x));
+      const namesSyn = (text, ws) => { const t = String(text || "").toLowerCase(); return ws.length > 0 && ws.every(w => covers(t, w)); };
+      // the kind of answer a line asks for
+      const QW = new Set("how many much what which who whom whose when where why does did do is are was were any there tell about me show find look give they them their have has its the".split(" "));
+      const DAY_RX = /\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\.? \d{1,2},? (19|20)\d\d\b/;
+      const DATE_RX = /\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\.? \d{1,2},? (19|20)\d\d\b|\b\d{1,2}:\d\d\s*(a\.m\.|p\.m\.|am|pm)/i;
+      function wants(q){
+        const t = q.toLowerCase(), last = (t.match(/[a-z]+(?=[^a-z]*$)/) || [""])[0];
+        // a count: "how many", or a line whose last word is what is counted ("railcar backlog units", "employees";
+        // not "patent litigation")
+        const COUNTED = /^(headcount|employees?|workforce|staff|warehouses?|stores?|locations?|branch(es)?|members?|subscribers?|customers?|users?|deliveries|delivered|vehicles?|units?|fleet|railcars?|plants?|factories|restaurants?|hotels?|countries|accounts?|clients?|aircraft|dealers?)$/;
+        const count = /\bhow many\b|\bnumber of\b/.test(t) || COUNTED.test(last);
+        return {
+          count, pct: !count && /\b(growth|grow|grew|margins?|rate|ratio|increase|decrease|decline|change|percent(age)?|yield|comps?|comparable)\b/.test(t),
+          amount: /\bhow much\b|\b(revenues?|sales|income|profit|cash|debt|margin|expenses?|spend|capex|value|returned|dividends?|buybacks?|repurchases?|backlog)\b/.test(t),
+          auditor: /\b(auditors?|audits?|accounting firm)\b/.test(t),
+          who: /^\s*who\b|\b(ceo|cfo|coo|chief \w+ officer|chair(man|woman)?|founder|president)\b/.test(t),
+          when: /^\s*when\b|\b(date|deadline)\b/.test(t),
+          where: /^\s*where\b|\b(headquarter\w*|hq|based|located)\b/.test(t),
+          list: /\b(segments|products|brands|subsidiaries|businesses|markets|regions)\b/.test(t)};
+      }
+      // names in a line ("Musk", "Apple Card"): words the filing prints with a capital nearly every time (not the company's own name)
+      function properOf(q){
+        const co = String(((state.readRes || {}).report || {}).company ? state.readRes.report.company.name || "" : "").toLowerCase(), L = wordList();
+        return [...new Set(String(q).split(/\s+/).map(w => w.replace(/^[^A-Za-z]+|[^A-Za-z&'-]+$/g, "")).filter(w => /^[A-Z][A-Za-z&'-]+$/.test(w)).map(w => normW(w)))].filter(w => {
+          if (!w || QW.has(w) || co.includes(w)) return false;
+          let up = 0, low = 0;
+          for (let i = 0; i < L.norm.length; i++) if (L.norm[i] === w){ /^[A-Z]/.test(L.els[i].textContent.trim()) ? up++ : low++; if (up + low > 400) break; }
+          return up >= 2 && up >= 4 * low;
+        });
+      }
+      // the number a sentence gives for what was asked: next to its words ("5,083 branches", "backlog was 16,600 units",
+      // "delivered approximately 1.64 million"), never a year, a date's day or a percentage
+      function numberFor(text, ws, money){
+        const t = String(text).replace(new RegExp(DATE_RX.source, "gi"), m => " ".repeat(m.length)), toks = [];
+        t.replace(/\$?\(?\d(?:[\d,]*\d)?(?:\.\d+)?\)?(?:\s*(?:million|billion|thousand|trillion)\b)?%?|[A-Za-z][\w'-]*/g, (m, at) => { toks.push({m, at, num: /^\$?\(?\d/.test(m)}); return m; });
+        const isNum = x => x.num && !/%$/.test(x.m) && !/^(19|20)\d\d$/.test(x.m) && !(t[x.at + x.m.length] === "%") && (!money || /^\$|\d\s*(million|billion|thousand|trillion)$/.test(x.m));
+        const hits = toks.map((x, i) => !x.num && ws.some(w => covers(x.m.toLowerCase(), w)) ? i : -1).filter(i => i >= 0);
+        for (const i of hits){ for (let k = i - 1; k >= Math.max(0, i - 3); k--) if (isNum(toks[k])){
+          let j = k; while (j >= 2 && /^(and|or)$/i.test(toks[j - 1].m) && isNum(toks[j - 2])) j -= 2;
+          return toks[j].m.trim();
+        } }
+        for (const i of hits){ for (let k = i + 1; k < Math.min(toks.length, i + 9); k++) if (isNum(toks[k])) return toks[k].m.trim(); }
+        return "";
+      }
+      // a percentage next to what was asked ("eCommerce sales grew 23%", "gross margin of 75.0%")
+      function pctFor(text, ws){
+        const t = String(text), toks = [];
+        t.replace(/\(?-?\d[\d,]*(?:\.\d+)?\)?\s?%|\d[\d.]*\s+percent\b|[A-Za-z][\w'-]*/g, (m, at) => { toks.push({m, at, pc: /\d/.test(m)}); return m; });
+        const hits = toks.map((x, i) => !x.pc && ws.some(w => covers(x.m.toLowerCase(), w)) ? i : -1).filter(i => i >= 0);
+        for (const i of hits) for (let k = i + 1; k < Math.min(toks.length, i + 8); k++) if (toks[k].pc) return toks[k].m.replace(/\s+/g, "");
+        for (const i of hits) for (let k = i - 1; k >= Math.max(0, i - 4); k--) if (toks[k].pc) return toks[k].m.replace(/\s+/g, "");
+        return "";
+      }
+      // of the sentences the filing gives for a line, the one that answers it: names what was asked, and has the kind of
+      // answer asked for (a number, a firm, a date, a place, a list of names); a heading or a contents line is not an answer
+      function pickSentence(q, answers){
+        const W = wants(q), ws = wordsOf(q).filter(w => !QW.has(w)), proper = properOf(q), phrase = ws.map(stemF).join(" ");
+        let best = null;
+        answers.forEach((a, k) => {
+          if (a.kind === "fact") return;
+          const t = String(a.text || "").replace(/\s+/g, " ").trim(), low = t.toLowerCase();
+          const cov = ws.length ? ws.filter(w => covers(low, w)).length / ws.length : 0;
+          let sc = Math.max(0, 12 - k) * .5 + 14 * cov + (cov === 1 ? 6 : 0);
+          if (proper.length) sc += proper.every(p => covers(low, p)) ? 12 : -12;
+          let num = (W.count || W.amount) ? numberFor(t, ws, !W.count) : "";
+          if (W.count || W.amount) sc += num ? 10 : -8;
+          // a rate or a growth ("eCommerce growth"): a percentage next to what was asked
+          if (W.pct){ const pc = pctFor(t, ws); if (pc){ num = num || pc; sc += 10; } else sc -= 4; }
+          // a part, not the whole: "In the United States, we employed 51,600", "Of the total backlog, $19.3 billion
+          // was not expected to be filled" (unless the line asks for that part)
+          if (num){
+            const before = t.slice(0, Math.max(0, t.indexOf(num))).toLowerCase();
+            const part = before.match(/\b(?:in|within|outside(?: of)?|across) (?:the )?(united states|u\.s\.|canada|mexico|europe|china|asia|north america|international\w*)|\binternationally\b|\bof (?:the )?total\b|\bof (?:which|whom)\b/);
+            if (part && !q.toLowerCase().includes(part[1] || part[0])) sc -= 8;
+          }
+          // a table row whose label is what was asked ("Paid members1 84,100 81,000"): its first figure
+          const row = new RegExp("^" + phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\w*\\s+") + "\\w*\\d?\\s+\\$?\\(?\\d", "i").test(low);
+          if (row && (W.count || W.amount)) sc += 20;
+          if (W.auditor) sc += /\bLLP\b/.test(t) ? 16 : -6;
+          else if (W.who) sc += /[A-Z][a-z]+ (?:[A-Z]\.? )?[A-Z][a-z]+/.test(t.slice(1)) ? 6 : -3;
+          if (W.when) sc += DAY_RX.test(t) ? 14 : DATE_RX.test(t) ? 6 : -6;
+          if (W.where) sc += /\b(located|headquartered|principal executive offices?)\b/i.test(t) ? 10 : 0;
+          if (W.list) sc += /:\s*[A-Z]/.test(t) ? 10 : (t.slice(1).match(/\b[A-Z][a-z]+/g) || []).length >= 4 ? 4 : 0;
+          // the words as typed, together ("Microsoft Cloud revenue increased 27% to $214.4 billion")
+          if (ws.length > 1 && new RegExp("\\b" + ws.map(w => stemF(w).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\w*[\\s-]+") , "i").test(low)) sc += 8;
+          if (t.length > 320) sc -= 4;
+          if (/^\(?[a-z0-9]{1,2}\)\s?[A-Z]/.test(t)) sc -= 4;        // a table's footnote ("(f)Represents the impact of ...") after the text itself
+          const head = !row && !/[.!?:;)][”"’]?$/.test(t) && t.length < 140;
+          if (head) sc -= 8;
+          if (/☐|☒|indicate by check mark/i.test(t) || /^(\([^)]*\)\s*)+$/.test(t)) sc -= 20;     // a check box; a cover page's caption, "(Address of principal executive offices)"
+          const firm = W.auditor ? (t.match(/\b([A-Z][\w&.'-]*(?:,? (?:[A-Z&][\w&.'-]*|&)){0,3}),? LLP\b/) || [""])[0] : "";
+          // "who is the CFO": the name printed before the role ("Amy Hood, executive vice president and chief financial officer")
+          let who = "";
+          if (W.who && !W.auditor){
+            const TITLE = /^(Executive|Senior|Vice|President|Chief|Chairman|Chair|Officer|Group|Corporate|General|Deputy|Financial|Operating|Accounting|Director|Secretary|Treasurer)$/;
+            for (const r of [ws.join(" "), ...ws.flatMap(w => FSYN[w] || []), ...ws]){
+              const at = low.indexOf(r); if (who || r.length < 3 || at < 0) continue;
+              const names = [...t.slice(Math.max(0, at - 70), at).matchAll(/[A-Z][a-z]+(?: [A-Z]\.)? [A-Z][a-z]+(?:-[A-Z][a-z]+)?/g)].map(m => m[0]).filter(n => !n.split(" ").some(x => TITLE.test(x)));
+              if (names.length) who = names[names.length - 1];
+            }
+          }
+          if (!best || sc > best.sc) best = {a, sc, cov, firm, who, head, num: row ? (t.match(/\s(\$?\(?\d(?:[\d,]*\d)?(?:\.\d+)?\)?)/) || ["", ""])[1] : num};
+        });
+        if (!best || best.sc <= 0) return null;                    // a check box, a heading, a sentence without the answer asked for
+        // a heading ("Freight Rail Coupler Investigation") names its section: the answer is the heading and the
+        // sentences that follow it, when the filing gave them too
+        if (best.head && best.a.offset != null){
+          const after = answers.filter(x => x.kind !== "fact" && x.offset != null && x.page === best.a.page).sort((x, y) => x.offset - y.offset);
+          let end = best.a.offset + String(best.a.text).length; const chain = [];
+          for (const x of after) if (x.offset >= end && x.offset - end < 8 && chain.length < 2){ chain.push(String(x.text).replace(/\s+/g, " ").trim()); end = x.offset + String(x.text).length; }
+          if (chain.length) best.quote = [String(best.a.text).replace(/\s+/g, " ").trim() + ".", ...chain].join(" ");
+        }
+        const named = proper.length && proper.every(p => covers(String(best.a.text).toLowerCase(), p));
+        if (best.cov < .5 && !named) return null;                  // it names too little of what was asked
+        return best;
+      }
       const otherNumber = ws => ws.map(w => /[^aeiou]y$/.test(w) ? w.slice(0, -1) + "ies" : /ies$/.test(w) ? w.slice(0, -3) + "y" : w);
       // the unit a table's caption prints above an amount ("(In millions)", "($ in millions)"): only for a whole amount (a
       // per-share figure or a percentage has decimals or a "%"), and only from its own table or page, never an earlier one's
@@ -6131,6 +6266,77 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       }
       // a table of contents' page number ("Legal Proceedings 34") is not a figure: a bare number of 1 to 3 digits, no "$" before it
       const notPageNo = el => { const t = el.textContent.trim(), L = wordList(), i = L.idx.get(el); return !(/^\d{1,3}$/.test(t) && !(i > 0 && /\$$/.test(L.els[i - 1].textContent.trim()))); };
+      // a table line's words: the same table row (an HTML filing) or the same printed line (a PDF)
+      const sameRow = (a, b) => { const t = a.closest && a.closest("tr"); return t ? t === (b.closest && b.closest("tr")) : Math.abs(wordRect(a).y - wordRect(b).y) <= 4; };
+      const rowLabel = el => {
+        const L = wordList(), i = L.idx.get(el), ws2 = [];
+        for (let j = i - 1; j >= 0 && i - j < 16 && sameRow(L.els[j], el); j--){ const t = L.norm[j]; if (t && /[a-z]/.test(t)) ws2.unshift(t); }
+        return ws2;
+      };
+      // the first figure on the table line whose label starts with these words, past at most six more words of its
+      // label: a table row (an HTML filing) or a printed line with two figures or more (a PDF), never a sentence
+      // ("... (corporate headquarters) is located at 2455 Paces Ferry Road" is not a line "headquarters 2455")
+      const PROSE = /^(is|are|was|were|be|been|has|have|had|at|in|on|by|to|located|which|that|who|we|our|its|their)$/;
+      const isFig = t => /^\(?\$?[\d,.]+\)?$/.test(t) && t.replace(/[^\d]/g, "").length >= 2 && !/^(19|20)\d\d$/.test(t);
+      const tableRow = (L, i) => {
+        if (L.els[i].closest && L.els[i].closest("tr")) return true;
+        let n = 0; for (let j = i; j < Math.min(L.els.length, i + 30) && sameRow(L.els[j], L.els[i]); j++) if (isFig(L.els[j].textContent.trim())) n++;
+        return n >= 2;
+      };
+      function rowFigure(ws2){
+        const L = wordList(), n = L.els.length, k = ws2.length, st = L.stem || (L.stem = L.norm.map(stemW)), want = ws2.map(stemW);
+        let share = null;
+        for (let i = 0; i + k <= n; i++){
+          let ok = true;
+          for (let j = 0; j < k && ok; j++) ok = L.norm[i + j] === ws2[j] || st[i + j] === want[j];
+          if (!ok) continue;
+          let start = true;
+          for (let j = i - 1; j >= 0 && i - j < 16 && sameRow(L.els[j], L.els[i]); j--) if (/[a-z]/.test(L.norm[j])){ start = false; break; }
+          if (!start || !tableRow(L, i)) continue;
+          let more = 0;
+          for (let j = i + k; j < Math.min(n, i + k + 14) && sameRow(L.els[j], L.els[i]); j++){
+            const t = L.els[j].textContent.trim();
+            if (/^[$(\u2014\u2013\-]+$/.test(t) || /^\(\d\)$/.test(t) || /^[([]?(?:%|[a-z])[)\]]$/i.test(t)) continue;
+            if (isFig(t)){
+              if (!notPageNo(L.els[j])) break;
+              if (/^\(?\d{1,3}\.\d\)?$/.test(t) || /^\)?%/.test(((L.els[j + 1] || {}).textContent || "").trim())){ share = share || L.els[j]; break; }
+              return L.els[j];
+            }
+            if (PROSE.test(L.norm[j]) || ++more > 6) break;
+          }
+        }
+        return share;
+      }
+      // a table's cell named by its row and its column ("pilots union": Delta's table of unions, the Delta Pilots row, the
+      // Union column, "ALPA"): a column header is a short cell without figures; the row's label names the other words
+      function tableCell(ws){
+        if (ws.length < 2) return null;
+        const L = wordList(), st = L.stem || (L.stem = L.norm.map(stemW)), want = ws.map(stemW), seen = new Set();
+        for (let i = 0; i < L.els.length; i++){
+          if (!want.some((x, k) => L.norm[i] === ws[k] || st[i] === x)) continue;
+          const td = L.els[i].closest && L.els[i].closest("td,th"), tr = td && td.closest("tr"), table = tr && tr.closest("table");
+          if (!table || seen.has(td)) continue;
+          seen.add(td);
+          const head = td.textContent.replace(/\s+/g, " ").trim(), low = head.toLowerCase();
+          if (head.length > 60 || /\d/.test(head)) continue;
+          const rest = ws.filter(x => !covers(low, x));
+          if (!rest.length || rest.length === ws.length) continue;
+          const hw = [...td.querySelectorAll(".w")]; if (!hw.length) continue;
+          const a = wordRect(hw[0]), z = wordRect(hw[hw.length - 1]), hx0 = a.x, hx1 = z.x + z.w;
+          const rows = [...table.rows];
+          for (const row of rows.slice(rows.indexOf(tr) + 1)){
+            const cells = [...row.cells].filter(c => c.textContent.trim());
+            if (cells.length < 2 || !rest.every(x => covers(cells[0].textContent.toLowerCase(), x))) continue;
+            for (const c of cells.slice(1)){
+              const cw = [...c.querySelectorAll(".w")]; if (!cw.length) continue;
+              const r0 = wordRect(cw[0]), r1 = wordRect(cw[cw.length - 1]);
+              if (r0.x <= hx1 + 4 && r1.x + r1.w >= hx0 - 4)
+                return {el: cw[0], els: cw, value: c.textContent.replace(/\s+/g, " ").trim(), row: cells.map(x => x.textContent.replace(/\s+/g, " ").trim()).join("  "), head};
+            }
+          }
+        }
+        return null;
+      }
       const pageOfEl = el => { const pg = el.closest && el.closest(".pdfpage"); if (pg) return [...docBody.querySelectorAll(".pdfpage")].indexOf(pg) + 1 || null; return htmlPageOf(el); };
       const sameNum = (w, raw) => { const a = numOf(w.textContent), b = numOf(raw); return a != null && a === b; };
       state.findReset = () => {
@@ -6146,10 +6352,25 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         const jb = document.getElementById("read-jump"); if (jb) jb.hidden = !state.jumpPage;
       };
       async function askLine(job, q){
-        try {
-          const {r, j} = await api(`/api/read/jobs/${encodeURIComponent(job)}/ask?q=${encodeURIComponent(q.slice(0, 300))}`);
-          return r.ok && j ? {answers: j.answers || []} : {error: `HTTP ${r.status}`};
-        } catch (e){ return {error: "the local server did not answer"}; }
+        const one = async x => {
+          try {
+            const {r, j} = await api(`/api/read/jobs/${encodeURIComponent(job)}/ask?q=${encodeURIComponent(x.slice(0, 300))}&n=10`);
+            return r.ok && j ? {answers: j.answers || []} : {error: `HTTP ${r.status}`};
+          } catch (e){ return {error: "the local server did not answer"}; }
+        };
+        // the words a filing answers in: "Who audits them" is answered by "... independent registered public accounting
+        // firm ... LLP", "headquarters" by "principal executive offices"; their sentences join the line's own (never its figures)
+        const W = wants(q), more = [], ws = wordsOf(q).filter(w => !QW.has(w)), syn = ws.filter(w => FSYN[w] && !GENERIC.has(w));
+        if (syn.length) more.push([...ws, ...syn.flatMap(w => FSYN[w])].join(" "));
+        if (W.auditor) more.push("independent registered public accounting firm LLP", "LLP");       // and the firm's signature, "/s/ Deloitte & Touche LLP"
+        if (W.where) more.push("principal executive offices located headquartered");
+        if (W.count && !/\bhow many\b/i.test(q)) more.push("how many " + q);
+        const names = properOf(q); if (names.length && names.length < ws.length) more.push(names.join(" "));
+        const [a, ...b] = await Promise.all([one(q), ...more.map(one)]);
+        if (a.error || !b.length) return a;
+        const seen = new Set(a.answers.map(x => x.text));
+        b.forEach(x => (x.answers || []).forEach(y => { if (y.kind !== "fact" && !seen.has(y.text)){ seen.add(y.text); a.answers.push(y); } }));
+        return a;
       }
       // one line's place: like Make a clip's find(), over the whole document, with checks that the word placed is
       // the one asked for (a failed match on an HTML filing falls back to the first word of its page)
@@ -6167,33 +6388,83 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         }
         const placeFact = a => {
           if (!drawn || a.formula) return null;
+          // a figure printed as a dash (none, read as $0): the dash on the cited line
+          if (/^[\u2014\u2013-]+$/.test(String(a.raw || "").trim())){
+            const w0 = locate(a.page, a.excerpt, a.offset, null), L = wordList(), i = w0 ? L.idx.get(w0) : null;
+            if (i == null) return null;
+            for (let k = i; k < Math.min(L.els.length, i + 24) && sameRow(L.els[k], w0); k++) if (/^[\u2014\u2013-]+$/.test(L.els[k].textContent.trim())) return L.els[k];
+            return null;
+          }
           const w = locate(a.page, a.excerpt, a.offset, a.raw);
           return w && w.classList && w.classList.contains("w") && a.raw && sameNum(w, a.raw) ? w : null;
         };
         const tryFact = a => { factOf(a); const w = placeFact(a); if (w){ out.el = taken.get(w) ? taken.get(w).el : w; } else if (drawn && !a.formula) out.note = a.page ? "not placed on the page drawn" : ""; return out; };
         if (fact) return tryFact(fact);
+        // a count ("employees", "how many branches", "railcar backlog units"): the sentence that gives it, before any table line
+        const W = wants(q), picked = pickSentence(q, answers);
+        let counted = W.count && picked && picked.num ? picked : null;
         if (drawn){
           const alt = otherNumber(phrase), altS = otherNumber(specific), lf = ws2 => lineFigure(ws2, notPageNo);
-          const el = lf(phrase) || (alt.join() !== phrase.join() ? lf(alt) : null) ||
-            (specific.length && specific.length < phrase.length ? lf(specific) || (altS.join() !== specific.join() ? lf(altS) : null) : null);
+          // "long term debt" is printed "Long-term debt"
+          const hyph = ws2 => ws2.slice(0, -1).map((w, k) => [...ws2.slice(0, k), w + "-" + ws2[k + 1], ...ws2.slice(k + 2)]);
+          const vs = [phrase, alt, specific, altS, ...hyph(specific.length ? specific : phrase)].filter(v => v.length);
+          if (counted && !/\bhow many\b|\bnumber of\b/i.test(q) && !question && vs.some(v => rowFigure(v))) counted = null;
+          let el = counted ? null : lf(phrase) || (alt.join() !== phrase.join() ? lf(alt) : null) ||
+            (specific.length && specific.length < phrase.length ? lf(specific) || (altS.join() !== specific.join() ? lf(altS) : null) : null) ||
+            hyph(specific.length ? specific : phrase).reduce((f, v) => f || lf(v), null);
+          // a line whose label only ends with the words ("Current installments of long-term debt 4,967") is another line
+          // item: the line whose label starts with them comes first, even with a few words before its figure
+          // ("Long-term debt, excluding current installments 46,341")
+          if (!el && !counted && !question && !(W.where || W.who || W.when || W.auditor)) el = vs.reduce((f, v) => f || rowFigure(v), null);
           if (el){
-            const L = wordList(), i = L.idx.get(el); let j = i; while (j > 0 && i - j < 12 && !/^[$(\u2014\u2013\-]*\d/.test(L.els[j - 1].textContent) && L.els[j - 1].getBoundingClientRect().top > el.getBoundingClientRect().top - 4) j--;
+            const lab = rowLabel(el);
+            if (!vs.some(v => lab.slice(0, v.length).join(" ") === v.join(" ") || lab.slice(0, v.length).map(stemW).join(" ") === v.map(stemW).join(" "))){
+              const better = vs.reduce((f, v) => f || rowFigure(v), null);
+              if (better) el = better;
+            }
+          }
+          if (el){
+            const L = wordList(), i = L.idx.get(el); let j = i; while (j > 0 && i - j < 12 && !/^[$(\u2014\u2013\-]*\d/.test(L.els[j - 1].textContent) && wordRect(L.els[j - 1]).y > wordRect(el).y - 4) j--;
             const label = L.els.slice(j, i).map(w => w.textContent).join(" ").replace(/[$\s]+$/, "").trim();
             const pct = /^\)?%/.test(((L.els[i + 1] || {}).textContent || "").trim()), unit = pct ? "" : unitAbove(el);
             return Object.assign(out, {kind: "number", el, value: el.textContent.trim() + (pct && !/%$/.test(el.textContent.trim()) ? "%" : ""), page: pageOfEl(el),
               label: (label ? `"${label}", as printed` : "as printed") + (unit ? `, in ${unit}` : "")});
           }
         }
-        const sent = answers.find(a => a.kind !== "fact" && namesSyn(a.text, ws)) || (question ? answers.find(a => a.kind !== "fact" && wordsOf(q).some(w => !GENERIC.has(w) && String(a.text).toLowerCase().includes(stemW(w)))) : null);
+        // a line naming a table's row and column, and no number, firm, person, place or date: the cell
+        if (drawn && !(W.count || W.amount || W.pct || W.auditor || W.who || W.where || W.when)){
+          const cell = tableCell(ws);
+          if (cell) return Object.assign(out, {kind: "text", value: cell.value, quote: cell.row, note: `the ${cell.head} column`, page: pageOfEl(cell.el), el: cell.el, light: cell.els});
+        }
+        const sent = picked ? picked.a : null;
         if (question && !sent){ const f2 = answers.find(a => a.kind === "fact" && wordsOf(q).some(w => !GENERIC.has(w) && namesSyn(a.label, [w]))); if (f2) return tryFact(f2); }
         if (sent){
-          Object.assign(out, {kind: "text", quote: String(sent.text).replace(/\s+/g, " ").trim(), page: sent.page});
+          Object.assign(out, {kind: "text", quote: picked.quote || String(sent.text).replace(/\s+/g, " ").trim(), page: sent.page, value: picked.num || picked.firm || picked.who || ""});
           if (drawn){
             const w = locate(sent.page, sent.text, sent.offset, null), first = normW(String(sent.text).trim().split(/\s+/)[0]);
-            if (w && w.classList && w.classList.contains("w") && normW(w.textContent) === first){
-              const L = wordList(), i = L.idx.get(w), want = ws.map(stemW); let at = i;
-              for (let k = i; k < Math.min(L.els.length, i + 80) && want.length; k++) if (stemW(L.norm[k]) === want[0]){ at = k; break; }
-              out.el = L.els[at]; out.light = L.els.slice(at, at + Math.max(3, want.length + 1));
+            const wn = w && w.classList && w.classList.contains("w") ? normW(w.textContent) : null;
+            if (wn != null && (wn === first || (wn && first.startsWith(wn) && wn + normW((wordList().els[wordList().idx.get(w) + 1] || {}).textContent) === first))){
+              const L = wordList(), i = L.idx.get(w), want = ws.map(stemW), end = Math.min(L.els.length, i + 120);
+              let at = i;
+              // the spider goes to the number given, else to the first word asked
+              const ans = picked.num || picked.firm || picked.who, numW = ans ? normW(ans.split(/\s+/)[0]) : "", nW = ans ? ans.split(/\s+/).length : 0;
+              let k2 = numW ? i : end; while (k2 < end && L.norm[k2] !== numW) k2++;
+              if (k2 < end){ at = k2; out.light = L.els.slice(at, at + Math.min(nW, 6)); }
+              else {
+                for (let k = i; k < end && want.length; k++) if (stemW(L.norm[k]) === want[0]){ at = k; break; }
+                out.light = L.els.slice(at, at + Math.max(3, want.length + 1));
+              }
+              out.el = L.els[at];
+              // under a heading, the quote is the heading and the two sentences printed after it, as the page has them
+              if (picked.head){
+                const hw = String(sent.text).trim().split(/\s+/).length, abbr = /^(?:[A-Z]\.)+$|^(?:Inc|Co|Corp|Ltd|No|Mr|Ms|Dr|St|vs|U\.S|a\.m|p\.m)\.$/;
+                const ws2 = []; let ends = 0;
+                for (let k = i; k < Math.min(L.els.length, i + hw + 140) && ends < 2; k++){
+                  const tx = L.els[k].textContent.trim(); if (!tx) continue; ws2.push(tx);
+                  if (k >= i + hw && /[.?!][”"’)]?$/.test(tx) && !abbr.test(tx)) ends++;
+                }
+                if (ends) out.quote = ws2.slice(0, hw).join(" ") + ". " + ws2.slice(hw).join(" ");
+              }
             } else out.note = "not placed on the page drawn";
           }
           return out;
@@ -6206,7 +6477,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (!ws.length || !state.ins || state.ins.kind !== "insider" || !state.insTargets) return null;
         const hits = [], loose = [];
         // a person as SEC prints them, surname first ("Huang Jen Hsun" for "Jensen Huang"): any word of the name
-        const named = x => ws.some(w => w.length >= 3 && String(x.insider || "").toLowerCase().split(/[^a-z]+/).includes(w));
+        const parts = n => String(n || "").toLowerCase().split(/[^a-z]+/).filter(Boolean);
+        const hit = (nm, w) => w.length >= 3 && nm.some(n => n === w || (n.length >= 3 && (w.startsWith(n) || n.startsWith(w))));
+        const allNm = (state.ins.trades || []).map(t => parts(t.insider)), nameWs = ws.filter(w => allNm.some(nm => hit(nm, w)));
+        const named = x => { const nm = parts(x.insider); return nameWs.length > 0 && nameWs.every(w => hit(nm, w)); };
         for (const [w, list] of state.insTargets()) for (const i of list){
           const x = (state.insItem || (() => null))(i); if (!x || x.kind !== "trade") continue;
           if (namesSyn(`${x.insider} ${x.title || ""} ${x.action}`, ws)) hits.push({w, i, x});
@@ -6216,52 +6490,66 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (!strict) hits.push(...loose);
         // the same match over every transaction the filing lists (the report lists the first 40 open-market ones)
         const all = state.ins.trades || [], om = t => t.code === "P" || t.code === "S";
-        const inFiling = all.filter(t => om(t) && (strict ? namesSyn(`${t.insider} ${t.title || ""} ${t.action}`, ws) : namesSyn(t.insider, ws) || named(t)));
+        const inFiling = all.filter(t => om(t) && (namesSyn(`${t.insider} ${t.title || ""} ${t.action}`, ws) || (!strict && named(t))));
         if (!hits.length){
           if (inFiling.length) return {unlisted: inFiling};          // open-market trades past the ones the report lists
-          const mine = all.filter(t => namesSyn(t.insider, ws) || named(t)), who = mine.length ? mine[0].insider : "", other = mine.filter(t => t.insider === who);
+          const mine = all.filter(t => namesSyn(`${t.insider} ${t.title || ""}`, ws) || named(t)), who = mine.length ? mine[0].insider : "", other = mine.filter(t => t.insider === who);
           if (other.length){
             const acts = [...new Set(other.map(t => t.action))].join(", ");
             return {none: `No open-market buys or sales by ${who}. The filing lists ${other.length} other transaction${other.length > 1 ? "s" : ""} by ${who} (${acts}), which the report does not list.`};
           }
           return null;
         }
-        hits.sort((a, b) => V.contentY(a.w) - V.contentY(b.w));
+        hits.sort((a, b) => wordRect(a.w).y - wordRect(b.w).y);       // cached word boxes (see camY)
         return {list: hits.slice(0, 6), listed: hits.length, inFiling: inFiling.length};
       }
-      async function resolveLines(id, lines, job, drawn){
+      async function resolveLines(id, typed, job, drawn){
         const out = [];
-        if (!job){ lines.forEach((q, i) => out.push({q, i, kind: "error", err: "no read on the server"})); return out; }
+        if (!job){ typed.forEach((q, i) => out.push({q, i, kind: "error", err: "no read on the server"})); return out; }
+        // "How many employees. Who audits them": two lines, each looked up on its own, shown under the line typed
+        const ABBR = /(?:^|\s)(?:inc|corp|ltd|co|vs|no|approx|incl|excl|avg|est|yr|mo|qtr|mr|ms|dr|st|jr|sr|etc|u\.s|e\.g|i\.e|[a-z])\.$/i;
+        const segs = typed.flatMap(q => {
+          const p = [];
+          for (const piece of q.split(/(?<=[A-Za-z0-9%)][.?!;])\s+(?=[A-Za-z])/)){ if (p.length && ABBR.test(p[p.length - 1])) p[p.length - 1] += " " + piece; else p.push(piece); }
+          const ss = p.map(x => x.trim()).filter(x => wordsOf(x).length);
+          return ss.length > 1 ? ss.map(x => ({x, line: q})) : [{x: q, line: null}];
+        }).slice(0, 12);
+        const lines = segs.map(g => g.x), lineOf = i => segs[i].line;
         const first = await askLine(job, lines[0]);
         const rest = await Promise.all(lines.slice(1).map(q => askLine(job, q)));
         if (id !== tour.id) return out;
         const asks = [first, ...rest], taken = new Map();
         for (let i = 0; i < lines.length; i++){
           const q = lines[i], a = asks[i];
-          if (a.error){ out.push({q, i, kind: "error", err: a.error}); continue; }
+          if (a.error){ out.push({q, i, kind: "error", err: a.error, line: lineOf(i)}); continue; }
           const tr = drawn ? placeTrades(q) : null;
-          if (tr && tr.none){ out.push({q, i, kind: "none", note: tr.none}); continue; }
+          if (tr && tr.none){ out.push({q, i, kind: "none", note: tr.none, line: lineOf(i)}); continue; }
           if (tr && tr.unlisted){
             const x = tr.unlisted[0];
-            out.push({q, i, kind: "trade", x, page: x.page, sub: 0, note: `in the filing, past the 40 open-market trades the report lists${tr.unlisted.length > 1 ? `; ${tr.unlisted.length} such trades in all` : ""}`});
+            out.push({q, i, kind: "trade", x, page: x.page, sub: 0, line: lineOf(i), note: `in the filing, past the 40 open-market trades the report lists${tr.unlisted.length > 1 ? `; ${tr.unlisted.length} such trades in all` : ""}`});
             continue;
           }
           if (tr){
-            tr.list.forEach((t, k) => out.push({q, i, kind: "trade", el: t.w, ins: t.i, x: t.x, page: t.x.page, sub: k,
+            tr.list.forEach((t, k) => out.push({q, i, kind: "trade", el: t.w, ins: t.i, x: t.x, page: t.x.page, sub: k, line: lineOf(i),
               more: k ? 0 : tr.listed - 1, note: k || tr.inFiling <= tr.listed ? "" : `${tr.inFiling} in the filing; the report lists its first 40 open-market trades`}));
             continue;
           }
           // guidance and outlook ("Guidance", "revenue guidance", "2027 outlook"): the report's own guidance items, quoted
           if (/\b(guidance|outlook|forecasts?)\b/i.test(q) && wordsOf(q).length <= 4){
             const ins = state.ins || {}, gs = ins.kind === "transcript" ? ((ins.call || {}).guidance || []) : (ins.guidance || []);
-            const rest = wordsOf(q).filter(w => !/^(guidance|outlook|forecasts?|their|its|the)$/.test(w) && !/^(19|20)\d\d$/.test(w));
-            const cand = rest.length ? gs.filter(g => namesSyn(g.text, rest)) : gs;
-            if (!gs.length){ out.push({q, i, kind: "none", note: "The report found no forward-looking guidance in this filing"}); continue; }
-            if (!cand.length){ out.push({q, i, kind: "none", note: `None of the report's ${gs.length} guidance item${gs.length > 1 ? "s names" : " names"} ${rest.join(" ")}`}); continue; }
+            // "next quarter", "for the year", "Q3": the period of the outlook, not what it is about
+            const rest = wordsOf(q).filter(w => !/^(guidance|outlook|forecasts?|their|its|the|next|coming|upcoming|following|current|this|quarter|quarterly|year|annual|full|fiscal|period|q[1-4]|fy\d*)$/.test(w) && !/^(19|20)\d\d$/.test(w));
+            const named = rest.length ? gs.filter(g => namesSyn(g.text, rest)) : gs, fig = g => /\$\s?\d|\d%|\d percent/.test(g.text);
+            const per = /\b(year|annual|full|fiscal|fy\d*)\b/i.test(q) && !/\bquarter|\bq[1-4]\b/i.test(q) ? /\b(fiscal|full[- ]year|year|fy\s?\d*|annual)\b/i
+              : /\bquarter|\bq[1-4]\b/i.test(q) ? /\b(quarter|q[1-4])\b/i : null;
+            const rank = g => (per && per.test(g.text) ? 0 : 2) + (fig(g) ? 0 : 1);
+            const cand = named.map((g, k) => [g, k]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]);
+            if (!gs.length){ out.push({q, i, kind: "none", line: lineOf(i), note: "The report found no forward-looking guidance in this filing"}); continue; }
+            if (!cand.length){ out.push({q, i, kind: "none", line: lineOf(i), note: `None of the report's ${gs.length} guidance item${gs.length > 1 ? "s names" : " names"} ${rest.join(" ")}`}); continue; }
             const g = cand[0]; let el = null, insI = null;
             if (drawn && state.insTargets) for (const [w, list] of state.insTargets()) for (const k of list){ const x = (state.insItem || (() => null))(k); if (x && x.kind === "guide" && x.text === g.text){ el = w; insI = k; } }
-            out.push({q, i, kind: "text", quote: String(g.text).replace(/\s+/g, " ").trim(), page: g.page, el, ins: insI,
-              note: cand.length > 1 ? (rest.length ? `the first of ${cand.length} guidance items in the report that name ${rest.join(" ")}` : `the first of ${gs.length} guidance items in the report`)
+            out.push({q, i, kind: "text", quote: String(g.text).replace(/\s+/g, " ").trim(), page: g.page, el, ins: insI, line: lineOf(i),
+              note: cand.length > 1 ? (rest.length ? `one of ${cand.length} guidance items in the report that name ${rest.join(" ")}` : `one of ${gs.length} guidance items in the report`)
                 : gs.length > 1 ? `one of ${gs.length} guidance items in the report` : "the report's guidance item"});
             if (el) taken.set(el, out[out.length - 1]);
             continue;
@@ -6276,12 +6564,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
               if (id !== tour.id) return out;
               const ph = parts.map((x, k) => pa[k].error ? {q: x, kind: "error", err: pa[k].error} : placeLine(x, pa[k].answers, drawn, taken));
               if (h.kind === "none" || ph.some(p => p.kind === "number" || p.kind === "calc")){
-                ph.forEach((hp, k) => { hp.i = i; hp.part = parts[k]; out.push(hp); if (hp.el) taken.set(hp.el, hp); });
+                ph.forEach((hp, k) => { hp.i = i; hp.part = parts[k]; hp.line = lineOf(i) || q; out.push(hp); if (hp.el) taken.set(hp.el, hp); });
                 continue;
               }
             }
           }
-          h.i = i; out.push(h); if (h.el) taken.set(h.el, h);
+          h.i = i; if (lineOf(i)){ h.part = q; h.line = lineOf(i); } out.push(h); if (h.el) taken.set(h.el, h);
         }
         return out;
       }
@@ -6292,11 +6580,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (h.kind === "none") return head + `<span class="la-no">${esc2(h.note || "Not found in this filing")}</span>`;
         if (h.kind === "error") return head + `<span class="la-no">Could not search: ${esc2(h.err)}</span>`;
         if (!h.filled) return head + `<span class="la-wait">${h.el ? "found; the spider is on its way" : "found"}</span>`;
-        if (h.kind === "text") return head + `<q class="la-q">${esc2(h.quote)}</q><small>${esc2([pg, h.note].filter(Boolean).join(" · "))}</small>`;
+        if (h.kind === "text") return head + (h.value ? `<span class="la-v">${esc2(h.value)}</span>` : "") + `<q class="la-q">${esc2(h.quote)}</q><small>${esc2([pg, h.note].filter(Boolean).join(" · "))}</small>`;
         if (h.kind === "trade"){ const x = h.x; return head + `<span class="la-v">${esc2(x.shares)} shares${x.price && x.price !== "n/a" ? " at " + esc2(x.price) : ""}${x.value && x.value !== "n/a" ? ", " + esc2(x.value) : ""}</span><small>${esc2([x.insider, x.action, x.date, pg, h.more ? `and ${h.more} more trade${h.more > 1 ? "s" : ""} in the trades below` : "", h.note].filter(Boolean).join(" · "))}</small>`; }
         const lab = h.label && h.label.toLowerCase() !== String(h.part || h.q).toLowerCase() ? h.label : "";
         const review = h.answer && h.answer.status === "Needs review" ? "needs review (see the report's sources)" : "";
-        return head + `<span class="la-v">${esc2(h.value)}</span><small>${esc2([lab, h.period, pg, h.note, review].filter(Boolean).join(" · "))}</small>`;
+        const printed = h.answer && h.answer.raw && String(h.answer.raw).trim() !== String(h.value).trim() ? `printed ${h.answer.raw}` : "";
+        return head + `<span class="la-v">${esc2(h.value)}</span><small>${esc2([lab, h.period, printed, pg, h.note, review].filter(Boolean).join(" · "))}</small>`;
       }
       function drawRow(h){ if (h.sub) return; const li = rowEl(h); if (li){ li.innerHTML = rowHTML(h); li.classList.toggle("pending", !h.filled && h.kind !== "none" && h.kind !== "error"); li.classList.toggle("no", h.kind === "none" || h.kind === "error"); } }
       const foundN = () => (tour.hits || []).filter(h => h.filled && h.sub == null || h.filled && h.sub === 0).length;
@@ -6384,9 +6673,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         await until(id, () => walking() || state.walkSkipped || tour.ended || performance.now() - t0 > 6000);
         if (id !== tour.id || tour.ended || state.walkSkipped) return;
         if (!walking()){ finishTour(id); return; }
-        const hits = tour.hits.filter(h => h.el && h.el.isConnected).sort((a, b) => camY(a.el) - camY(b.el));
+        const top = V.contentY(doc), ys = new Map(tour.hits.filter(h => h.el && h.el.isConnected).map(h => [h, camY(h.el, top)]));
+        const hits = [...ys.keys()].sort((a, b) => ys.get(a) - ys.get(b));
         const groups = [];
-        for (const h of hits){ const y = camY(h.el), g = groups[groups.length - 1]; if (g && y - g.y1 < V.h() * 1.2) { g.hits.push(h); g.y1 = y; } else groups.push({hits: [h], y0: y, y1: y}); }
+        for (const h of hits){ const y = ys.get(h), g = groups[groups.length - 1]; if (g && y - g.y1 < V.h() * 1.2) { g.hits.push(h); g.y1 = y; } else groups.push({hits: [h], y0: y, y1: y}); }
         if (!groups.length){
           const rows = tour.hits.filter(h => !h.sub);
           setStatus(rows.length && rows.every(h => h.kind === "error") ? "could not search the filing for what was asked; the full report is below"
@@ -6414,7 +6704,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
             if (id !== tour.id || tour.ended) return;          // Go to, Skip or a new read during the fade: the camera is theirs
           }
           const from = state.sy, secs = 1.4 + 1.9 * g.hits.length;
-          const path = scopePath(from, g.hits.map(h => camY(h.el)), Math.max(from + 1, y1), secs);
+          const path = scopePath(from, g.hits.map(h => ys.get(h)), Math.max(from + 1, y1), secs);
           let ran = 0;
           state.findFocus = g.hits[0].el;
           state.recordCamera = dt => { const k = (performance.now() < tour.slowUntil ? .25 : 1) * Math.max(.5, Math.min(4, state.speedMul || 1)); ran += dt * k; return path(dt * k); };
@@ -6452,7 +6742,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         liveProgress(true);
         const n = (tour.hits || []).filter(h => !h.sub), got = n.filter(h => h.filled);
         const sm = liveEl.querySelector("#lr-asked-n"); if (sm) sm.textContent = `${got.length} of ${n.length} found`;
-        state.findResults = n.map(h => ({q: h.part || h.q, html: rowHTML(h)}));
+        // what each row says, for the finish card and for checks of a read (the same values the row shows)
+        state.findResults = n.map(h => ({q: h.part || h.q, line: h.line || h.q, kind: h.kind, value: h.value || (h.x ? `${h.x.shares} shares at ${h.x.price}, ${h.x.value}` : ""), quote: h.quote || "",
+          label: h.label || (h.x ? [h.x.insider, h.x.action, h.x.date].join(" · ") : ""), printed: h.answer && h.answer.raw ? String(h.answer.raw) : "", period: h.period || "", page: h.page || null, note: h.note || "", status: h.answer ? h.answer.status || "" : "",
+          placed: !!h.el, reached: !!h.lit, filled: !!h.filled, html: rowHTML(h)}));
         const card = document.getElementById("read-report-ready");
         if (card && n.length) card.insertAdjacentHTML("afterbegin", `<div class="rp-asked"><b>You asked for</b><ul>${n.map(h => `<li>${rowHTML(h)}</li>`).join("")}</ul><small>Also at the top of the report panel. The PDF and Excel are the full report.</small></div>`);
         setStatus(n.length && n.every(h => h.kind === "error") ? "ready · could not search the filing for what was asked · the full report is filled in below"
@@ -7557,9 +7850,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   // page-break-after (after it), and a stretch with no text is not counted as a page.
   const PAGE_BREAK = /page-break-(before|after)\s*:\s*always|break-(before|after)\s*:\s*page/i;
   // the page (counted as the server counts an HTML filing's pages) that holds a word: one walk per document
-  function htmlPageOf(el){
-    const h = docBody.querySelector(".htmldoc"), L = wordList(), i = L.idx.get(el);
-    if (!h || i == null) return null;
+  // each page's first word (its index in wordList), counted once per document as the server counts pages
+  function htmlPageFirsts(h){
+    const L = wordList();
     if (!state.htmlPages || state.htmlPages.token !== state.loadToken){
       const firsts = [];
       let n = 1, hasText = false;
@@ -7575,25 +7868,19 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       })(h);
       state.htmlPages = {token: state.loadToken, firsts};
     }
+    return state.htmlPages.firsts;
+  }
+  function htmlPageOf(el){
+    const h = docBody.querySelector(".htmldoc"), i = wordList().idx.get(el);
+    if (!h || i == null) return null;
     let p = null;
-    state.htmlPages.firsts.forEach((f, k) => { if (f != null && f <= i) p = k + 1; });
+    htmlPageFirsts(h).forEach((f, k) => { if (f != null && f <= i) p = k + 1; });
     return p;
   }
+  // the first word of an HTML filing's page (from the same count: a big 10-K was walked again for every lookup)
   function htmlPageStart(root, page){
-    let n = 1, hasText = false, found = null;
-    const close = () => { if (hasText){ n++; hasText = false; } };
-    (function walk(el){
-      for (const k of el.children){
-        if (found) return;
-        const m = (k.getAttribute("style") || "").match(PAGE_BREAK), side = m ? (m[1] || m[2] || "").toLowerCase() : "";
-        if (side === "before") close();
-        if (k.classList.contains("w")){
-          if (k.textContent.trim()){ if (!hasText && n === page){ found = k; return; } hasText = true; }
-        } else if (k.children.length) walk(k);
-        if (side === "after") close();
-      }
-    })(root);
-    return found;
+    const f = htmlPageFirsts(root)[page - 1];
+    return f != null ? wordList().els[f] || null : null;
   }
   function jumpTarget(){
     if (!state.jumpPage) return null;
@@ -7692,12 +7979,23 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       for (let i = a; i < b; i++){ const w = L.els[i]; if (v !== null ? (w._num !== undefined ? w._num : (w._num = numOf(w.textContent))) === v && w.textContent.replace(/[\d,.$()%\-\s]/g, "").length <= 3 : w.textContent.includes(raw)) return w; }
     }
     const want = String(text || "").split(/\s+/).map(normW).filter(Boolean).slice(0, 6);
+    if (!want.length) return base;
     for (const k of [Math.min(5, want.length), Math.min(3, want.length)]){
       if (k < 2 && want.length >= 2) continue;
       for (let i = a; i < b - k + 1; i++){
-        if (L.norm[i] !== want[0]) continue;
-        let ok = true;
-        for (let j = 1; j < k; j++) if (L.norm[i + j] !== want[j]){ ok = false; break; }
+        // a word with no letters or digits ("&" in "Deloitte & Touche LLP") is in neither list; a word the page
+        // prints in two pieces ("members" and its footnote "1", the server's "members1"; "(a)" and "At") is one
+        let ok = true, m = i;
+        if (L.norm[i] !== want[0]){
+          if (!(L.norm[i] && want[0].startsWith(L.norm[i]) && L.norm[i] + (L.norm[i + 1] || "") === want[0])) continue;
+          m = i + 1;
+        }
+        for (let j = 1; j < k; j++){
+          m++; while (m < b && L.norm[m] === "") m++;
+          if (L.norm[m] === want[j]) continue;
+          if (L.norm[m] && want[j].startsWith(L.norm[m]) && L.norm[m] + (L.norm[m + 1] || "") === want[j]){ m++; continue; }
+          ok = false; break;
+        }
         if (ok) return L.els[i];
       }
     }

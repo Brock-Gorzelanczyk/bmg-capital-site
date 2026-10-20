@@ -2464,7 +2464,8 @@ async def edgar_holders(ticker: str = Query(..., max_length=12)):
 # Crawler: this year vs last year, and questions answered from the document
 # ----------------------------------------------------------------------
 @app.get("/api/read/jobs/{job_id}/ask")
-async def reader_job_ask(request: Request, job_id: str, q: str = Query(..., min_length=1, max_length=300)) -> JSONResponse:
+async def reader_job_ask(request: Request, job_id: str, q: str = Query(..., min_length=1, max_length=300),
+                         n: int = Query(3, ge=1, le=12)) -> JSONResponse:
     """Answers from the document that was read: report figures that match the question, then the sentences that
     best match it (BM25 over the document's sentences). Each answer carries its page and offset."""
     j = _job_or_404(request, job_id, None)
@@ -2474,10 +2475,13 @@ async def reader_job_ask(request: Request, job_id: str, q: str = Query(..., min_
     r = j.result
     idx = getattr(j, "_index", None)
     if idx is None:
-        spans = _ins.spans_from_map((r.get("insights") or {}).get("map"), len(r["text"]))
-        idx = await asyncio.to_thread(_ins.Index, r["text"], r.get("page_starts") or [], spans)
-        j._index = idx
-    return JSONResponse(content=_ins.ask(q, r["report"], idx))
+        # one build per read, shared by the requests that arrive while it runs (Find asks several lines at once)
+        fut = getattr(j, "_index_fut", None)
+        if fut is None:
+            spans = _ins.spans_from_map((r.get("insights") or {}).get("map"), len(r["text"]))
+            fut = j._index_fut = asyncio.ensure_future(asyncio.to_thread(_ins.Index, r["text"], r.get("page_starts") or [], spans))
+        idx = j._index = await fut
+    return JSONResponse(content=_ins.ask(q, r["report"], idx, n))
 
 
 _TITLE_RE = re.compile(r"^([A-Z][A-Z0-9.\-]{0,9}) (10-[KQ](?:-A)?|20-F|40-F) ((?:19|20)\d\d-\d\d-\d\d) filed ((?:19|20)\d\d-\d\d-\d\d) (\d{10}-\d\d-\d{6})")
