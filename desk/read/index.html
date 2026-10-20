@@ -479,6 +479,7 @@ body.recmode .lr-c.flash{animation:reccell 1.3s ease}@keyframes reccell{0%{backg
 .rp-ready-brand{display:flex;align-items:center;gap:4px;font:800 18px/1 'IBM Plex Sans',sans-serif;letter-spacing:-.02em;color:#161819}.rp-ready-brand svg,.rp-brand svg,.rp-foot svg{width:20px;height:17px}
 .rp-ready-txt{display:flex;flex-direction:column;gap:2px;flex:1;min-width:200px}.rp-ready-txt b{font-size:15px}.rp-ready-txt span{font-size:13px;color:#4a4a4a}
 .rp-ready button,.rp-bar button{height:38px;padding:0 16px;border-radius:8px;font-weight:600;cursor:pointer;border:1px solid #0f7d47}
+.rp-sv{display:inline-flex;gap:6px;align-items:center}.rp-svlen{width:auto;font:inherit;font-size:12px;font-weight:600;padding:7px 4px;border-radius:8px;border:1px solid #2fa66a;background:transparent;color:#2fa66a}
 .rp-ready .rp-view,.rp-bar .rp-pdf{background:#0f7d47;color:#fff}.rp-ready .rp-dl,.rp-bar .rp-close{background:#fff;color:#0f7d47}
 #bmg-report{position:fixed;inset:0;z-index:2000;background:rgba(20,22,24,.55);display:flex;flex-direction:column;align-items:center}
 #bmg-report[hidden]{display:none}
@@ -7284,10 +7285,11 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       <div class="rp-ready-txt"><b>Your BMG Capital report is ready</b><span>${esc(co.name || callCo.name || co.name_hint || res.title)}${co.period ? " &middot; " + esc(co.period) : ""}</span>
       ${docOnly ? `<span class="cov">${esc(ins.label || "")} &middot; ${esc(what)}</span></div>`
       : `<span class="cov">Coverage: <b>${esc(rep.coverage.status)}</b> &middot; ${counts.map(([g, n]) => `${n} ${esc(g.toLowerCase())}`).join(", ")} &middot; validation ${rep.validation.passed ? "passed" : "withdrew " + rep.validation.withdrawn.length + " item(s)"}</span></div>`}
-      <div class="rp-actions"><button type="button" class="rp-view">View report</button><button type="button" class="rp-dl">Download PDF</button><button type="button" class="rp-alt rp-xl" title="Every number a number, linked to its page">Download Excel</button><button type="button" class="rp-srcs">Review sources</button>${READ_MAX.local && ["annual", "quarterly"].includes((state.ins || {}).kind) ? `<button type="button" class="rp-srcs rp-yoy">This year vs last year</button><button type="button" class="rp-alt rp-redline" title="Every section and table: added, deleted or changed">Full redline</button>` : ""}${READ_MAX.local ? `<button type="button" class="rp-alt rp-grid" title="Your questions against several saved reads at once">Ask across reads</button>` : ""}<button type="button" class="rp-srcs rp-mkclip" title="Open Record mode with this filing's headline number filled in">Make a clip</button></div>
+      <div class="rp-actions"><button type="button" class="rp-view">View report</button><button type="button" class="rp-dl">Download PDF</button><button type="button" class="rp-alt rp-xl" title="Every number a number, linked to its page">Download Excel</button><button type="button" class="rp-srcs">Review sources</button>${READ_MAX.local && ["annual", "quarterly"].includes((state.ins || {}).kind) ? `<button type="button" class="rp-srcs rp-yoy">This year vs last year</button><button type="button" class="rp-alt rp-redline" title="Every section and table: added, deleted or changed">Full redline</button>` : ""}${READ_MAX.local ? `<button type="button" class="rp-alt rp-grid" title="Your questions against several saved reads at once">Ask across reads</button>` : ""}<button type="button" class="rp-srcs rp-mkclip" title="Open Record mode with this filing's headline number filled in">Make a clip</button><span class="rp-sv"><button type="button" class="rp-alt rp-scroll" title="A 9:16 video of the PDF report scrolling from top to bottom, to put at the end of a clip">Scroll video</button><select class="rp-svlen" aria-label="Scroll video length"><option value="15">15 s</option><option value="30" selected>30 s</option><option value="60">60 s</option><option value="0">Reading pace</option></select></span></div>
       ${iss.length ? `<div class="rp-issues"><b>Unresolved (${iss.length})</b><ul>${iss.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : docOnly ? "" : `<div class="rp-issues ok">No unresolved issues were recorded for the items in the report.</div>`}`;
     card.querySelector(".rp-view").onclick = () => openReport();
     card.querySelector(".rp-dl").onclick = (e) => downloadPdf(e.currentTarget);
+    card.querySelector(".rp-scroll").onclick = (e) => scrollVideo(e.currentTarget, +card.querySelector(".rp-svlen").value);
     card.querySelector(".rp-srcs").onclick = () => openReport("rp-sources");
     const yb = card.querySelector(".rp-yoy"); if (yb) yb.onclick = () => runYoy(yb);
     card.querySelector(".rp-xl").onclick = e => downloadXlsx(e.currentTarget);
@@ -7409,6 +7411,65 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
       document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     }catch(e){ showErr("PDF download failed: " + (e.message || e) + ". The on-screen report is still available."); }
+    finally{ btn.disabled = false; btn.textContent = t; }
+  }
+
+  // ---- Scroll video: the PDF report, scrolling top to bottom in a 1080 x 1920 video, for the end of a clip ----
+  // The pages are the PDF's own (pdf.js, at the video's width); the video holds on the top for a second, scrolls at
+  // an even pace (a set length, or a reading pace of about 160 px a second) and holds on the end. It is recorded in
+  // real time, so it takes as long as it lasts, and the tab must stay in front while it records.
+  async function scrollVideo(btn, secs){
+    const id = state.jobId; if (!id || !window.MediaRecorder) { if (!window.MediaRecorder) showErr("This browser cannot record a video."); return; }
+    const t = btn.textContent; btn.disabled = true; btn.textContent = "Preparing...";
+    try{
+      const r = await fetch(`/api/read/jobs/${encodeURIComponent(id)}/report.pdf`, {headers: {"X-Reader-Owner": owner()}});
+      if (r.status === 404){ jobGone(); return; }
+      if (!r.ok){ let j = {}; try{ j = await r.json(); }catch(e){} throw new Error(j.error || ("HTTP " + r.status)); }
+      const name = (((r.headers.get("content-disposition") || "").match(/filename="([^"]+)"/) || [])[1] || "BMG-Capital-report.pdf").replace(/\.pdf$/i, "");
+      const pdfjs = await loadPdfjs();
+      const pdf = await pdfjs.getDocument({data: new Uint8Array(await r.arrayBuffer()), isEvalSupported: false}).promise;
+      const W = 1080, H = 1920, GAP = 28, pages = [];
+      for (let n = 1; n <= pdf.numPages; n++){
+        btn.textContent = `Drawing page ${n} of ${pdf.numPages}...`;
+        const pg = await pdf.getPage(n), vp = pg.getViewport({scale: (W - 2 * GAP) / pg.getViewport({scale: 1}).width});
+        const c = document.createElement("canvas"); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+        await pg.render({canvasContext: c.getContext("2d"), viewport: vp}).promise;
+        pages.push(c);
+      }
+      let y = GAP; const at = pages.map(c => { const top = y; y += c.height + GAP; return top; }), total = y;
+      const travel = Math.max(0, total - H), HOLD0 = 1, HOLD1 = 1.5;
+      const scrollS = travel ? (secs > 0 ? Math.max(2, secs - HOLD0 - HOLD1) : Math.max(4, travel / 160)) : 0;
+      const dur = HOLD0 + scrollS + HOLD1;
+      const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+      const g = cv.getContext("2d");
+      const draw = top => {
+        g.fillStyle = "#0b0f0d"; g.fillRect(0, 0, W, H);
+        pages.forEach((c, k) => { const yy = at[k] - top; if (yy < H && yy + c.height > 0) g.drawImage(c, GAP, yy); });
+      };
+      const ease = u => u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+      const posAt = s => s <= HOLD0 ? 0 : s >= HOLD0 + scrollS ? travel : travel * ease((s - HOLD0) / scrollS);
+      draw(0);
+      const type = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(x => MediaRecorder.isTypeSupported(x)) || "";
+      const stream = cv.captureStream(30), rec = new MediaRecorder(stream, type ? {mimeType: type, videoBitsPerSecond: 12e6} : {videoBitsPerSecond: 12e6});
+      const chunks = []; rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      const stopped = new Promise(res => { rec.onstop = res; });
+      rec.start(1000);
+      const t0 = performance.now();
+      await new Promise(res => {
+        const tick = () => {
+          const s = (performance.now() - t0) / 1000;
+          draw(posAt(Math.min(s, dur)));
+          btn.textContent = `Recording... ${Math.max(0, Math.ceil(dur - s))} s left (keep this tab in front)`;
+          if (s >= dur) res(); else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+      rec.stop(); await stopped; stream.getTracks().forEach(x => x.stop());
+      const blob = new Blob(chunks, {type: rec.mimeType || type || "video/webm"});
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+      a.download = `${name}-scroll.${/mp4/.test(blob.type) ? "mp4" : "webm"}`;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 8000);
+    }catch(e){ showErr("Scroll video failed: " + (e.message || e) + ". The PDF download still works."); }
     finally{ btn.disabled = false; btn.textContent = t; }
   }
 
