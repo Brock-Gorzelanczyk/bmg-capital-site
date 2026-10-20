@@ -4903,7 +4903,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         }
         return `<span class="lr-logo"><small>${role}</small>${url ? `<img src="${url}" alt="${esc((x && x.text) || "")}">` : `<b>${esc((x && x.text) || "")}</b>`}</span>`;
       };
-      state.recLogos = `<div class="lr-logos">${await one("Built with", lg.built)}${await one("Scanning", lg.scan)}</div>`;
+      state.recLogos = `<div class="lr-logos">${await one("Scanning", lg.scan)}</div>`;      // the company only (no "Built with", Brock 2026-10-20)
       const head = document.querySelector("#read-live .lr-head");
       if (head && !head.querySelector(".lr-logos")) head.querySelector(".lr-brand").insertAdjacentHTML("afterend", state.recLogos);
     }
@@ -10252,7 +10252,7 @@ Who is the auditor?</textarea>
           + `<button type="button" role="radio" data-logo="text" aria-checked="${!cur}">${esc(logoText(role))}<small>name in text</small></button>`
           + pics.map(q => `<button type="button" role="radio" data-logo="${esc(q.id)}" aria-checked="${!!cur && cur.id === q.id}" title="${esc(q.name)}"><img src="${esc(q.url)}" alt="${esc(q.name)}"></button>`).join("") + `</div></div>`;
       };
-      box.innerHTML = row("built", "Built with") + row("scan", "Scanning")
+      box.innerHTML = row("scan", "Scanning")
         + `<p class="mk-note">${pics.length ? "Your Quick add pictures (Studio, Pictures tab). A picture named after Claude, the ticker or the company is picked by itself; the choice is kept, the company's for each ticker." : "No pictures in Quick add yet: the clip names them in text. Add logos in the Studio (Pictures tab, Quick add) to show them here."}</p>`;
     }
     // ---- 6 Preview: the video's frame as the record window lays it out (the same proportions: the page above, the
@@ -10274,7 +10274,7 @@ Who is the auditor?</textarea>
       box.innerHTML = `<div class="mk-pvf${L.dark === false ? " light" : ""}" role="img" aria-label="The clip's frame: the hook at the top, the filing in the middle, the report below">
           <div class="pv-page">${"<i></i>".repeat(14)}${spiderSwatch((state.recPalettes || {})[L.palette] || {main: "#6ff4ff", accent: "#ff3da6", trail: "#9fb4ff"})}</div>
           ${mk.hook ? `<p class="pv-hook">${esc(mk.hook)}</p>` : ""}
-          <div class="pv-rep"><div class="pv-head"><span class="pv-brand">${BMG_LINE}<b>BMG Capital</b> report</span>${logo("built")}${logo("scan")}</div>
+          <div class="pv-rep"><div class="pv-head"><span class="pv-brand">${BMG_LINE}<b>BMG Capital</b> report</span>${logo("scan")}</div>
             ${count ? `<p class="pv-prog">${esc(count)}</p>` : ""}<ol>${rows.map(rowHTML).join("") || "<li class='pv-empty'>The report fills here as the spider reads.</li>"}</ol></div>
           ${x && sc && sc.featured ? `<div class="pv-call"><small>Featured</small><b>${esc(x.type === "trade" ? x.who : x.label)}</b><span>${esc(x.type === "trade" ? `${x.label} · ${x.shares} shares at ${x.price}` : `${x.value} · ${x.period}`)}</span></div>` : ""}
           <div class="pv-safe"${mk.safe ? "" : " hidden"}><span class="t">TikTok top bar</span><span class="r">buttons</span><span class="b">caption and username</span></div>
