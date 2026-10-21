@@ -77,7 +77,7 @@ def _company(doc) -> dict:
         name_m = None
     # the cover's own form line ("FORM 10-K", alone or folded in with the cover's other short lines), not a mention:
     # a call transcript or an earnings release refers to "our Form 10-K" in its safe-harbor text
-    form_m = re.search(r"(?m)(?:^|(?<=  ))[ \t\u00a0]*(?:FORM[ \t\u00a0]+(10-K(?:/A)?|10-Q(?:/A)?|20-F|40-F)\b|Form[ \t\u00a0]+(10-K(?:/A)?|10-Q(?:/A)?|20-F|40-F)[ \t\u00a0]*$)", head)
+    form_m = re.search(r"(?m)(?:^|(?<=  ))[ \t\u00a0]*(?:FORM[ \t\u00a0]+(10-K(?:/A)?|10-Q(?:/A)?|20-F(?:/A)?|40-F(?:/A)?)\b|Form[ \t\u00a0]+(10-K(?:/A)?|10-Q(?:/A)?|20-F(?:/A)?|40-F(?:/A)?)[ \t\u00a0]*$)", head)
     per_m = re.search(r"for the (fiscal year|quarterly period) ended\s+([A-Z][a-z]+\s+\d{1,2},\s+\d{4})", head, re.I)
     exch_m = re.search(r"(The Nasdaq Stock Market LLC|Nasdaq Global Select Market|New York Stock Exchange|NYSE American|NYSE)", head)
     tick = None
@@ -475,6 +475,10 @@ def findings(rep: dict, fb, claims: list) -> list[dict]:
 def markdown(rep: dict, source_name: str, read_at: str) -> str:
     """The report as Markdown (saved to the vault next to report.json).
     Same data as the on-screen report and the PDF."""
+    ending_prefix = ""
+    if rep.get("document_ending"):
+        from .endings import markdown as ending_markdown
+        ending_prefix = ending_markdown(rep, source_name, read_at) + "\n## Complete reader report\n\n"
     facts, calcs = rep["evidence"]["facts"], rep["evidence"]["calcs"]
     co = rep["company"]
 
@@ -566,7 +570,7 @@ def markdown(rep: dict, source_name: str, read_at: str) -> str:
     out += ["", "## Methodology and limitations", ""] + [f"- {m}" for m in rep["methodology"]]
     if rep["coverage"]["issues"]:
         out += ["", "Unresolved issues:", ""] + [f"- {i['message']}" for i in rep["coverage"]["issues"]]
-    return "\n".join(out) + "\n"
+    return ending_prefix + "\n".join(out) + "\n"
 
 
 # ---------------------------------------------------------------------------

@@ -140,6 +140,8 @@ def run(data: bytes, kind: str, title: str, ticker: Optional[str] = None,
         ins = _insights.build(doc, rep, title)
     except Exception as e:                   # never lose a finished report to the extra analysis
         ins = {"version": 1, "kind": "other", "label": "Document", "errors": [f"insights: {e.__class__.__name__}"]}
+    if ins.get("ending"):
+        rep["document_ending"] = ins["ending"]
     timings["Insights"] = round(time.monotonic() - t_ins, 2)
     rep["timings"] = timings
     sc = rep["second_check"]

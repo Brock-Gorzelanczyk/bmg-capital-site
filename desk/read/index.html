@@ -479,6 +479,11 @@ body.recmode.rec-brand-mini #num-cards{top:15vh}body.recmode.rec-brand-intro #nu
 #rec-plan .pl-logo{height:22px;max-width:90px;object-fit:contain;vertical-align:middle;margin-right:6px;border-radius:4px}
 #rec-plan .pl-logo.chip{background:#fff;padding:2px 4px}#rec-plan .pl-logo.chip-dark{background:#05070c;padding:2px 4px}
 #rec-end .sev{font:700 10px 'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--c)}
+#rec-end .rk-document p{margin:4px 0;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
+#rec-end .rk-document small{display:block;font-size:10px;line-height:1.4;overflow-wrap:anywhere}
+#rec-end .rk-document .rk-tile b{font-size:21px;overflow-wrap:anywhere}
+#rec-end .rk-document .rk-tile p{font-size:12px}
+#rec-end .rk-document .rk-quote{grid-column:1/-1}
 .rk-one{opacity:0;transform:scale(.96);transition:opacity .5s,transform .6s}.rk-one.in{opacity:1;transform:none}
 .rk-one h2{margin:0;font-size:28px}.rk-one h2 span{color:#6ff4ff;font-size:18px}.rk-sub{margin:2px 0 14px;color:#8fa0b3;font-size:13px}
 .rk-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
@@ -783,7 +788,7 @@ body.readerfx.rec-dark:not(.rec) .htmldoc .w:is(.found,.cyanfill,.fillbox,.salmo
 .omni #edgar-status{font-size:13px;color:#5d6862}.omni #edgar-status:empty{display:none}
 .omni-funds{border-top:1px dashed #e3e3dc;padding-top:10px;display:flex;flex-direction:column;gap:8px}.omni-funds[hidden]{display:none}
 .omni-funds .of-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.omni-funds select,.omni-funds input{height:38px;border:1px solid #d6d6cf;border-radius:8px;padding:0 10px;font:14px 'IBM Plex Sans',sans-serif}
+.omni-funds select,.omni-funds input{max-width:100%;min-width:0;height:38px;border:1px solid #d6d6cf;border-radius:8px;padding:0 10px;font:14px 'IBM Plex Sans',sans-serif}
 .omni-funds button{height:38px;padding:0 14px;border-radius:8px;border:1px solid #0f7d47;background:#fff;color:#0f7d47;font-weight:600;cursor:pointer}
 .of-holders{list-style:none;margin:0;padding:0;display:grid;gap:6px}.of-holders li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 12px;border:1px solid #e6e8e4;border-radius:8px;font-size:13.5px}
 .of-holders li small{display:block;color:#6b6f76;font:12px 'IBM Plex Mono',monospace}.of-holders li.no{opacity:.6}
@@ -1058,6 +1063,7 @@ body.av-open{overflow:hidden}
 .mk-step h3 b{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#141414;color:#fff;font:700 13px 'IBM Plex Mono',monospace}.mk-step h3 small{font:500 12.5px 'IBM Plex Sans',sans-serif;color:#8a9099}
 .mk-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}.mk-row label{font-size:13.5px;color:#3a3a3a}
 .mk-row input[type=text],.mk-row select{height:36px;border:1px solid #c9cfca;border-radius:8px;padding:0 10px;font:14px 'IBM Plex Sans',sans-serif;color:#141414;background:#fff}
+#mk-fund-pick,#mk-fund-q{max-width:100%;min-width:0;flex:1 1 200px}#mk-fund-search{margin-top:8px}#mk-fund-q{height:36px;border:1px solid #c9cfca;border-radius:8px;padding:0 10px;font:14px 'IBM Plex Sans',sans-serif}
 #mk-ticker{width:230px;max-width:100%;font:600 15px 'IBM Plex Mono',monospace;text-transform:uppercase}#mk-ticker::placeholder{text-transform:none;font:14px 'IBM Plex Sans',sans-serif;color:#8a9099}
 .mk-step textarea{display:block;width:100%;box-sizing:border-box;border:1px solid #c9cfca;border-radius:8px;padding:8px 10px;font:14px/1.45 'IBM Plex Sans',sans-serif;color:#141414;background:#fff;resize:vertical}
 .mk-step input:focus,.mk-step select:focus,.mk-step textarea:focus{outline:none;border-color:#0f7d47;box-shadow:0 0 0 3px rgba(15,125,71,.12)}
@@ -1187,12 +1193,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     </div>
     <p class="mk-note cr-limit">A 10-K, 10-Q, earnings release, call transcript, insider trades or a fund's holdings: PDF, DOCX, HTML or text, up to <span id="read-max">10</span> MB.<span class="cr-words"> Words instead of a ticker search every SEC filing.</span></p>
     <div class="omni-recent" id="omni-recent" hidden aria-label="Recent companies"></div>
+    <button type="button" class="av-chip" id="cr-fund-open">Fund holdings (13F)</button>
+    <div class="omni-funds" id="omni-funds" hidden></div>
     <span id="edgar-status" role="status"></span></li>
   <li class="mk-step"><h3><b>2</b>Form</h3>
     <div id="cr-forms"><p class="mk-note">Find a company's forms in step 1, or use your own document.</p></div>
     <div class="omni-picks" id="omni-picks" hidden></div>
     <ol id="edgar-list"></ol>
-    <div class="omni-funds" id="omni-funds" hidden></div></li>
+    </li>
   <li class="mk-step"><h3><b>3</b>Find <small>optional</small></h3>
     <textarea id="cr-find" rows="4" aria-label="What should the spider find? One per line" placeholder="One per line, for example:&#10;revenue&#10;share repurchases&#10;how much cash do they have"></textarea>
     <div class="av-chips mk-quick" id="cr-quick"></div>
@@ -3834,29 +3842,39 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         say(`Loaded ${name.replace(/\.htm$/, "")}. Reading...`);
         return true;
       } catch (x){ say("Could not reach the local server.", true); return false; }
-      finally { if (found) drawPicks(found); }
+      finally { if (found && !found.fund) drawPicks(found); }
     }
     async function readGenerated(url, ticker, msg){ if (await loadGenerated(url, ticker, msg)){ list.innerHTML = ""; startRead(); } }
     async function showFunds(j){
       fundsEl.hidden = false;
-      fundsEl.innerHTML = `<div class="of-row"><b>Big funds and ${esc(j.ticker)}</b><button type="button" data-act="holders">Which funds hold ${esc(j.ticker)}?</button></div>
+      fundsEl.innerHTML = `<div class="of-row"><b>Fund holdings (13F)</b>${j && j.ticker ? `<button type="button" data-act="holders">Which funds hold ${esc(j.ticker)}?</button>` : ""}</div>
         <ol class="of-holders" id="of-holders"></ol>
-        <div class="of-row"><select id="of-pick" aria-label="A fund"><option value="">Loading funds...</option></select><button type="button" data-act="read13f">Read this fund's 13F</button>
+        <div class="of-row"><select id="of-pick" aria-label="Investment manager"><option value="">Loading funds...</option></select><button type="button" data-act="read13f">Choose a quarter</button>
           <input id="of-q" type="search" placeholder="Or search a fund by name" aria-label="Search a fund by name"><button type="button" data-act="search">Search</button></div>
         <span class="omni-note" id="of-st" role="status"></span>`;
       const sel = fundsEl.querySelector("#of-pick");
       try {
         const r = await fetch("/api/edgar/funds", {cache: "no-store"}); const d = await r.json();
+        if (!r.ok) throw new Error(d.error || "Funds unavailable");
         sel.innerHTML = (d.funds || []).map(f => `<option value="${f.cik}">${esc(f.name)}</option>`).join("");
       } catch (e){ sel.innerHTML = `<option value="">Funds unavailable</option>`; }
     }
     fundsEl.addEventListener("click", async e => {
-      const b = e.target.closest("button[data-act]"); if (!b || !found) return;
+      const b = e.target.closest("button[data-act]"); if (!b) return;
       const st = fundsEl.querySelector("#of-st"), act = b.dataset.act;
       if (act === "read13f" || act === "fund"){
         const cik = act === "fund" ? b.dataset.cik : fundsEl.querySelector("#of-pick").value;
         if (!cik) return;
-        return readGenerated(`/api/edgar/fund.html?cik=${encodeURIComponent(cik)}&ticker=${encodeURIComponent(found.ticker)}`, "", "Collecting the fund's 13F from SEC EDGAR...");
+        st.textContent = "Loading this manager's reported quarters from SEC EDGAR...";
+        try {
+          const r = await fetch("/api/edgar/fund-reports?cik=" + encodeURIComponent(cik), {cache: "no-store"}); const d = await r.json();
+          if (!r.ok) throw new Error(d.error || "Quarters unavailable");
+          found = {...d, fund: true, company: d.manager, ticker: "", filings: d.reports || []};
+          picksEl.hidden = true;
+          if (state.crFound) state.crFound(found);
+          st.textContent = found.filings.length ? d.coverage_note + " Pick a quarter in step 2, then Run crawler." : "No original 13F-HR holdings reports were found in this manager's recent SEC submissions.";
+        } catch (x){ st.textContent = x.message || "Could not load the manager's quarters."; }
+        return;
       }
       if (act === "search"){
         const q = fundsEl.querySelector("#of-q").value.trim(); if (!q) return;
@@ -3865,10 +3883,11 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (!r.ok){ st.textContent = d.error || "Search failed."; return; }
         const sel = fundsEl.querySelector("#of-pick");
         sel.innerHTML = (d.funds || []).map(f => `<option value="${f.cik}">${esc(f.name)} (CIK ${f.cik})</option>`).join("") || `<option value="">No match</option>`;
-        st.textContent = d.funds.length ? "Pick one, then Read this fund's 13F. A filer that does not file 13F has no holdings to show." : "No SEC filer matched.";
+        st.textContent = d.funds.length ? "Pick a manager, then Choose a quarter. A filer that does not file 13F has no holdings to show." : "No SEC filer matched.";
         return;
       }
       if (act === "holders"){
+        if (!found || !found.ticker) return;
         const ol = fundsEl.querySelector("#of-holders");
         st.textContent = `Checking each fund's latest 13F for ${found.ticker} (the first time downloads each filing; up to a few minutes)...`;
         b.disabled = true;
@@ -3894,9 +3913,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     });
     async function readFiling(f){ if (await loadFiling(f)){ list.innerHTML = ""; startRead(); } }
     // step 2's pick, loaded when Run crawler is pressed: a filing, or the company's insider trades
-    state.crLoad = (it, j) => { found = j; return it.ins ? loadGenerated(`/api/edgar/insiders.html?ticker=${encodeURIComponent(found.ticker)}`, found.ticker, `Collecting ${found.ticker}'s Form 4 filings from SEC EDGAR (the first time takes up to a minute)...`)
+    state.crLoad = (it, j) => { found = j; return it.fund ? loadGenerated(fundDocumentUrl({cik: j.cik, accession: it.f.accession, period: it.f.period}), "", "Collecting the selected manager's 13F from SEC EDGAR...") : it.ins ? loadGenerated(`/api/edgar/insiders.html?ticker=${encodeURIComponent(found.ticker)}`, found.ticker, `Collecting ${found.ticker}'s Form 4 filings from SEC EDGAR (the first time takes up to a minute)...`)
       : loadFiling(it.f); };
-    state.crFunds = j => { if (j){ found = j; showFunds(j); } };
+    state.crFunds = j => { if (j) found = j; showFunds(j); };
+    document.getElementById("cr-fund-open").addEventListener("click", () => showFunds(null));
     async function loadFiling(f){
       list.querySelectorAll("button").forEach(x => { x.disabled = true; });
       say(`Downloading ${f.form} filed ${f.filed} from SEC EDGAR...`);
@@ -4015,6 +4035,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     state.crFindList = findList;
     function items(){
       const j = cr.found; if (!j) return [];
+      if (j.fund) return fundFormItems(j).map(f => ({f, fund: true, key: f.accession, label: f.label, when: f.when}));
       return j.filings.map((f, i) => {
         const base = f.form.replace("/A", ""), annual = /^(10-K|20-F|40-F)$/.test(base);
         return {f, key: f.accession, label: f.form.endsWith("/A") ? base + " (amended)" : f.form,
@@ -4037,12 +4058,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const j = cr.found;
       if (!j){ formsEl.innerHTML = `<p class="mk-note">${READ_MAX.local ? "Find a company's forms in step 1, or use your own document." : "Use your own document in step 1."}</p>`; return; }
       const it = items(), firsts = new Set();
-      formsEl.innerHTML = `<p class="mk-co"><b>${esc(j.company || j.ticker)}</b> · ${esc(j.ticker)} · its 10-Ks, 10-Qs and earnings releases on SEC EDGAR, newest first (up to 40). Pick one:</p>
+      formsEl.innerHTML = `<p class="mk-co"><b>${esc(j.company || j.ticker)}</b>${j.fund ? " · its original 13F-HR reporting quarters" : " · " + esc(j.ticker) + " · its 10-Ks, 10-Qs and earnings releases"} on SEC EDGAR, newest first${j.fund ? "" : " (up to 40)"}. Pick one:</p>
         <ul class="mk-flist" role="radiogroup" aria-label="Form">${it.map((x, i) => {
           const latest = !x.ins && !firsts.has(x.f.form); if (!x.ins) firsts.add(x.f.form);
           return `<li${i >= 9 && !cr.all && !x.ins ? " hidden" : ""}><button type="button" role="radio" aria-checked="${cr.pick === i}" data-crf="${i}"><b>${esc(x.label)}</b><span>${esc(x.when)}</span>${latest ? "<i>latest</i>" : ""}</button></li>`;
         }).join("")}</ul>
-        <div class="av-chips" style="margin-top:8px">${it.length > 10 && !cr.all ? `<button type="button" class="av-chip" data-crall>Show all ${it.length - 1} filings</button>` : ""}<button type="button" class="av-chip" data-crfunds>Big funds that hold ${esc(j.ticker)}</button></div>`;
+        <div class="av-chips" style="margin-top:8px">${it.length > 10 && !cr.all ? `<button type="button" class="av-chip" data-crall>Show all ${j.fund ? it.length : it.length - 1} filings</button>` : ""}${j.fund ? `<p class="mk-note">${esc(j.coverage_note || "")}</p>` : `<button type="button" class="av-chip" data-crfunds>Big funds that hold ${esc(j.ticker)}</button>`}</div>`;
     }
     const resetLabel = () => { if (!runRead.disabled) runRead.textContent = "Run crawler"; };
     state.crFound = j => {
@@ -4146,7 +4167,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // while it reads, the steps fold into one line (Change opens them again)
     state.crCollapse = find => {
       const it = cr.pick != null && !cr.own && !cr.paste ? items()[cr.pick] : null, f = chosen;      // the file going up now
-      const what = it && f && cr.loaded === it.key && f === cr.loadedFile ? `${cr.found.ticker} · ${it.label} · ${it.when}` : f ? f.name : "Pasted text";
+      const what = it && f && cr.loaded === it.key && f === cr.loadedFile ? `${cr.found.manager || cr.found.ticker} · ${it.label} · ${it.when}` : f ? f.name : "Pasted text";
       sumT.innerHTML = `Reading <b>${esc(what)}</b>${find && find.length ? ` · finding ${esc(find.join(" · "))}` : " · the whole form"}`;
       const had = steps.contains(document.activeElement);
       sumEl2.hidden = false; steps.hidden = true;
@@ -4919,7 +4940,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
             : excerpt ? `${secs(plan.length)}: the excerpt, then 2 seconds on the report` : `${secs(plan.length)}: the spider's speed is set so it covers every page in this time`}</dd>
           <dt>Starts at</dt><dd>${excerpt ? "Just above the excerpt's first figure" : "The cover page"}</dd>
           <dt>Finds</dt><dd>${(plan.find || []).length ? esc(plan.find.join(" · ")) + (excerpt ? " (the clip goes to each)" : " (lit as the spider passes)") : "Nothing asked for"}</dd>
-          <dt>Ends on</dt><dd>${plan.ending ? (plan.source === "insiders" ? "The largest trades, then what insiders bought and sold" : "Key findings, then a one-page summary") : "The last line read"}</dd>
+          <dt>Ends on</dt><dd>${plan.ending ? esc(endingWords(plan.kind || (plan.source === "insiders" ? "insider" : plan.source === "fund" ? "holdings" : "other"))) : "The last line read"}</dd>
           ${bp ? `<dt>Branding</dt><dd id="pl-brand"></dd>` : ""}
           <dt>Video</dt><dd id="pl-video"></dd></dl>
         <p class="pl-st" id="pl-st" role="status"></p>
@@ -4969,7 +4990,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const loaded = f => {
         const dt = new DataTransfer(); dt.items.add(f);
         fileIn.files = dt.files; fileIn.dispatchEvent(new Event("change"));
-        const tk = document.getElementById("read-ticker"); if (tk && plan.ticker) tk.value = plan.ticker;
+        const tk = document.getElementById("read-ticker"); if (tk) tk.value = plan.ticker || "";
         go.disabled = false; planSay("Loaded. Press Start recording when you are ready.");
       };
       if (plan.source === "custom"){
@@ -4987,12 +5008,13 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       (async () => {
         try {
           const url = plan.source === "insiders" ? "/api/edgar/insiders.html?ticker=" + encodeURIComponent(plan.ticker)
+            : plan.source === "fund" ? fundDocumentUrl(plan)
             : "/api/edgar/document?" + new URLSearchParams({cik: plan.cik, accession: plan.accession, document: plan.document});
           const r = await fetch(url, {cache: "no-store"});
           if (!r.ok){ let m = "SEC EDGAR did not return it."; try { m = (await r.json()).error || m; } catch (x) {} throw new Error(m); }
           const blob = await r.blob();
           // the file name carries the filing's identity into the report's source line, as the Crawler names it
-          const name = plan.source === "insiders" ? (r.headers.get("X-Doc-Name") || `${plan.ticker} Form 4 insider trades.htm`) : plan.fileName;
+          const name = plan.source === "insiders" || plan.source === "fund" ? (r.headers.get("X-Doc-Name") || plan.fileName || `${plan.company || plan.ticker} holdings.htm`) : plan.fileName;
           loaded(new File([blob], name, {type: blob.type || "text/html"}));
         } catch (e){ planSay((e && e.message) || "Could not load the filing.", true); }
       })();
@@ -5216,7 +5238,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       tlFx("lit", {el, pink: true});
       const x = fr.x, card = document.createElement("div"); card.id = "rec-feat";
       card.innerHTML = fr.unit === "trade"
-        ? `<small>Featured · Form 4</small><b>${esc(x.insider)}</b><span>${x.title ? esc(x.title) + " · " : ""}${esc(x.action)} · ${esc(x.date)}</span><em>${esc(x.shares)} shares at ${esc(x.price)}${x.value && x.value !== "n/a" ? " · " + esc(x.value) : ""}</em>`
+        ? x.kind === "holding" ? `<small>Featured · Form 13F-HR</small><b>${esc(x.issuer)}</b><span>${esc([x.class, x.put_call].filter(Boolean).join(" · "))}</span><em>${esc(x.value)} · ${esc(x.shares)} ${x.position_kind === "PRN" ? "principal" : "shares"} · ${esc(x.weight)}</em>`
+          : `<small>Featured · Form 4</small><b>${esc(x.insider)}</b><span>${x.title ? esc(x.title) + " · " : ""}${esc(x.action)} · ${esc(x.date)}</span><em>${esc(x.shares)} shares at ${esc(x.price)}${x.value && x.value !== "n/a" ? " · " + esc(x.value) : ""}</em>`
         : `<small>Featured · ${esc(plan.form || "filing")}</small><b>${esc(fr.label)}</b><em>${esc(fr.cell.display)}</em><span>${esc(fr.period || "")}${fr.cell.page ? " · p." + esc(fr.cell.page) : ""}</span>`;
       B.appendChild(card);
       setTimeout(() => {
@@ -5225,7 +5248,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           const li = liveEl && liveEl.querySelector(`.lr-ins li[data-x="${fr.i}"]`);
           if (!li){ featBusy = false; return; }
           li.classList.remove("pending"); li.classList.add("incoming", "feat");      // in place, unseen, until the chip lands
-          fly(el, li, `${x.shares} shares · ${x.value && x.value !== "n/a" ? x.value : x.price}`, false, () => {
+          fly(el, li, x.kind === "holding" ? String(x.value) : `${x.shares} shares · ${x.value && x.value !== "n/a" ? x.value : x.price}`, false, () => {
             li.classList.remove("incoming"); li.classList.add("arrived"); setTimeout(() => li.classList.remove("arrived"), 500);
             liveProgress(); featBusy = false;
           });
@@ -6270,7 +6293,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const end = document.createElement("div"); end.id = "rec-end";
       if (highlights) end.classList.add("rec-highlight-ending");
       const ins = (state.readRes.insights || {}).kind === "insider" ? state.readRes.insights.summary : null;
+      const specialized = (state.readRes.insights || {}).ending || rep.document_ending;
       if (ins) end.innerHTML = insiderEnding(ins, co);
+      else if (specialized) end.innerHTML = documentEnding(specialized, co);
       else end.innerHTML = `<div class="rk-phase rk-keys"><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span></div>
           <h3>Key findings &middot; ${esc(co.name || "")}</h3>
           <ol>${kf.map(x => `<li class="s-${x.severity}"><span class="sev s-${x.severity}">${SEV[x.severity].l}</span><b>${esc(x.headline)}</b><small>${esc(pageOf(x.refs))}</small></li>`).join("")}</ol></div>
@@ -6304,6 +6329,42 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       end.style.zoom = "";
       const cs = getComputedStyle(end), need = ph.offsetHeight + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
       if (need > innerHeight + 1) end.style.zoom = Math.max(0.5, innerHeight / need).toFixed(3);
+    }
+    // Other document types use the same two report screens. Their content and source labels come from the
+    // finished analysis, shared with the completed report and downloads; nothing is inferred by this renderer.
+    function documentEnding(model, co){
+      const citeOne = s => {
+        const loc = [];
+        if (s.printed_page != null) loc.push("p." + s.printed_page);
+        else if (s.pdf_page != null) loc.push("PDF p." + s.pdf_page);
+        else if (s.page != null) loc.push("p." + s.page);
+        if (s.location) loc.push(s.location);
+        if (s.accession) loc.push("accession " + s.accession);
+        if (!loc.length && s.offset != null) loc.push("document location " + s.offset);
+        return [...new Set(loc)].join(" · ");
+      };
+      const cite = item => [...new Set([item.source || {}, ...(item.sources || [])].map(citeOne).filter(Boolean))].join("; ");
+      const detail = x => [x.period, x.basis, cite(x)].filter(Boolean).map(esc).join(" · ");
+      const name = model.name || co.name || co.name_hint || "Document";
+      const keys = (model.keys || []).slice(0, 4), groups = (model.groups || []).filter(g => (g.items || []).length);
+      // The one-page screen samples each content group before adding a second item. The completed report and
+      // PDF keep every item; the video never turns into a wall of tiny text or drops the cash-flow group for a quarter.
+      const shown = groups.map(g => ({title: g.title, items: []}));
+      let slots = 4;
+      for (let row = 0; row < 2 && slots; row++) for (let i = 0; i < groups.length && slots; i++){
+        const item = groups[i].items[row]; if (item){ shown[i].items.push(item); slots--; }
+      }
+      const li = x => `<li class="s-observation"><span class="sev s-observation">${esc(x.label || "Finding")}</span><b>${esc(x.value || x.text || "")}</b>${x.value && x.text ? `<p>${esc(x.text)}</p>` : ""}<small>${detail(x)}</small></li>`;
+      const group = g => `<h3>${esc(g.title || "Reported findings")}</h3><div class="rk-tiles">${(g.items || []).map(x => `<div class="rk-tile${x.value ? "" : " rk-quote"}"><span>${esc(x.label || "Finding")}</span><b>${esc(x.value || "")}</b>${x.text ? `<p>${esc(x.text)}</p>` : ""}<small>${detail(x)}</small></div>`).join("")}</div>`;
+      const note = (model.notes || []).map(esc).join(" ");
+      return `<div class="rk-phase rk-keys rk-document"><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span></div>
+          <h3>${esc(model.title || "Document findings")} &middot; ${esc(name)}</h3>
+          <ol>${keys.map(li).join("") || `<li class="s-observation"><b>No sourced findings available for this document</b></li>`}</ol></div>
+        <div class="rk-phase rk-one rk-document" hidden><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span><em>${esc(model.summary_title || model.title || "Document summary")}</em></div>
+          <h2>${esc(name)} <span>${esc(model.ticker || co.ticker || co.ticker_hint || "")}</span></h2>
+          <p class="rk-sub">${esc(model.subtitle || "")}</p>
+          ${shown.filter(g => g.items.length).map(group).join("") || `<ul class="rk-mini">${keys.map(li).join("")}</ul>`}
+          ${note ? `<p class="rk-foot">${note}</p>` : ""}</div>`;
     }
     // An insider-trades document (Form 4) has no statement figures: its ending is the trades. First the largest
     // open-market trades, then one page with what insiders bought and sold, every value as the document prints it
@@ -7479,7 +7540,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           // the first screen's cards: the report's key findings, or for insider trades its largest trades (one card when there are none);
           // the first comes in at once, each other one 0.55 s later
           const insE = state.readRes && state.readRes.insights && state.readRes.insights.kind === "insider" ? state.readRes.insights.summary : null;
-          const n = insE ? Math.min(4, Math.max(1, (insE.largest || []).length)) : Math.min(4, ((state.readRes && state.readRes.report && state.readRes.report.exec_findings) || []).length);
+          const docE = state.readRes && ((state.readRes.insights || {}).ending || (state.readRes.report || {}).document_ending);
+          const n = insE ? Math.min(4, Math.max(1, (insE.largest || []).length)) : docE ? Math.min(4, Math.max(1, (docE.keys || []).length)) : Math.min(4, ((state.readRes && state.readRes.report && state.readRes.report.exec_findings) || []).length);
           const rest = planned.length - counted / 1000 - 0.15, one = Math.min(PLAN_ONE, Math.max(2, rest * 0.45));
           await finishRecording(Math.max(1.2, rest - one - Math.max(0, n - 1) * 0.55), one, false);      // the first card needs no wait
         } else await finishRecording(keySecs, oneSecs, highlights);
@@ -7568,7 +7630,24 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     return out;
   }
   // the filing a clip is made from, as picked in Make a clip: company, form, period, filing date and accession
-  const filingWords = g => !g ? "" : g.own ? `Your document: ${g.name}` : [g.company ? `${g.company} (${g.ticker})` : g.ticker, g.label || g.form, g.when, g.accession ? "accession " + g.accession : ""].filter(Boolean).join(" \u00b7 ");
+  const filingWords = g => !g ? "" : g.own ? `Your document: ${g.name}` : [g.manager || (g.company ? `${g.company}${g.ticker ? " (" + g.ticker + ")" : ""}` : g.ticker), g.label || g.form, g.when, g.accession ? "accession " + g.accession : ""].filter(Boolean).join(" \u00b7 ");
+  function fundDocumentUrl(f){
+    return "/api/edgar/fund.html?" + new URLSearchParams({cik: f.cik, accession: f.accession || "", period: f.period || ""});
+  }
+  function fundFormItems(j){
+    return (j.reports || j.filings || []).map(f => ({...f, holdings: true, label: "13F-HR holdings",
+      when: `Quarter ended ${f.period} · filed ${f.filed}${(f.amendments || []).length ? " · amendment exists: original filing shown, no quarter comparison" : ""}`,
+      fileName: `${j.manager || j.company} 13F-HR holdings ${f.period} filed ${f.filed} ${f.accession}.htm`}));
+  }
+  function endingWords(kind){
+    return ({insider: "The largest trades, then what insiders bought and sold", holdings: "The largest reported positions, then this manager's quarter-end holdings summary",
+      quarterly: "Quarterly findings, then a quarterly results summary with year-to-date periods labeled", release: "Earnings-release findings, then reported results and disclosed guidance",
+      transcript: "Attributed call findings, then management commentary and questions", current: "The disclosed event and findings, then a current-report summary",
+      annual: "Annual filing findings, then a one-page annual summary", other: "Sourced document findings, then a document summary"})[kind] || "Sourced document findings, then a document summary";
+  }
+  function holdingKey(x){
+    return "holding|" + [x.rank, x.issuer, x.class, x.put_call || "", x.value, x.shares, x.weight].join("|");
+  }
   // a take's quality in words: what was recorded (from the file) against what Record mode asked for
   function qualityWords(q){
     if (!q) return "";
@@ -8147,6 +8226,22 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       title: {top: y(top), px: TITLE.size * 1080 / k, w: TITLE.wrap * 1080 / k}};
   }
   const NF = "Not found in the reviewed filing";
+  // The completed report uses the same sourced document summary as the recording's ending and the PDF.
+  function documentSummaryHTML(model){
+    const sourceOne = (s, x) => {
+      const label = [s.printed_page != null ? "p." + s.printed_page : s.pdf_page != null ? "PDF p." + s.pdf_page : "", s.location, s.accession].filter(Boolean).join(" · ");
+      if (s.pdf_page) return `<a class="rp-src" href="#" data-page="${esc(String(s.pdf_page))}" data-q="${esc((s.excerpt || x.text || "").slice(0, 160))}" data-off="${s.offset != null ? esc(String(s.offset)) : ""}">${esc(label)}</a>`;
+      if (/^https:\/\/(?:www\.)?sec\.gov\//.test(s.url || "")) return `<a class="rp-src" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(label || "SEC filing")}</a>`;
+      return `<span class="rp-note">${esc(label || (s.offset != null ? "document location " + s.offset : ""))}</span>`;
+    };
+    const source = x => [...new Set([x.source || {}, ...(x.sources || [])].map(s => sourceOne(s, x)))].join(" ");
+    const row = x => `<li><b>${esc(x.label || "Finding")}${x.value != null && x.value !== "" ? ": " + esc(String(x.value)) : ""}</b>${x.text ? `<blockquote>${esc(x.text)}</blockquote>` : ""}<p class="rp-note">${[x.period, x.basis].filter(Boolean).map(esc).join(" · ")} ${source(x)}</p></li>`;
+    return `<section class="rp-doc-summary"><h2>${esc(model.summary_title || model.title || "Document summary")}</h2><p class="rp-note">${esc(model.subtitle || "")}</p>
+      <ul class="rp-risks">${(model.keys || []).map(row).join("")}</ul>
+      ${(model.groups || []).map(g => `<h3>${esc(g.title)}</h3><ul class="rp-risks">${(g.items || []).map(row).join("")}</ul>`).join("")}
+      ${(model.notes || []).map(n => `<p class="rp-note">${esc(n)}</p>`).join("")}</section>`;
+  }
+
   function reportHTML(rep, res){
     const F = rep.evidence.facts, C = rep.evidence.calcs;
     const ev = id => (id && (F[id] || C[id])) || null;
@@ -8219,10 +8314,11 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // observations (risks, red flags, guidance, the call), and where every figure comes from.
     const T = {summary: [], statements: [], segments: [], ratios: [], scores: [], history: [], peers: [], changes: [], guidehist: [], tone: [], observations: [], notes: [], sources: []};
     const ins = res.insights || {};
+    const specific = ins.ending || rep.document_ending;
     const docOnly = ins.kind === "insider" || ins.kind === "holdings" || ins.kind === "transcript";
     const callCo = (ins.kind === "transcript" && (ins.call || {}).company) || {};    // named in the transcript itself
     const pagesWord = `${rep.source.pages} page${rep.source.pages === 1 ? "" : "s"}`;
-    const kindName = {release: "Earnings Release", transcript: "Earnings Call", insider: "Insider Trades", holdings: "Fund Holdings", quarterly: "Company Report", annual: "Company Report"}[ins.kind] || "Company Report";
+    const kindName = {release: "Earnings Release", transcript: "Earnings Call", insider: "Insider Trades", holdings: "Fund Holdings", quarterly: "Quarterly Report", annual: "Company Report", current: "Current Report", other: "Document Report"}[ins.kind] || "Company Report";
     const head = `
       <header class="rp-head"><div class="rp-brand"><span>BMG Capital</span>${BMG_LINE}</div><div class="rp-kind">${esc(kindName)}</div></header>
       <h1>${esc(co.name || callCo.name || co.name_hint || (ins.kind === "insider" || ins.kind === "holdings" ? res.title.replace(/\.htm$/, "") : "Company not identified"))} <span class="rp-tk">${esc(co.ticker || co.ticker_hint || callCo.ticker || "")}</span></h1>
@@ -8233,7 +8329,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         : !co.name && co.name_hint ? `<p class="rp-note">The document does not name the company in a form the reader recognizes; ${esc(co.name_hint)} is SEC EDGAR's name for ${esc(co.ticker || co.ticker_hint || "the ticker")}, the filer it was downloaded from.</p>` : ""}
       ${docOnly ? "" : `<p class="rp-cov">Coverage: <b>${esc(rep.coverage.status)}</b> &middot; ${rep.coverage.facts_published} headline figures &middot; ${rep.coverage.checks_run} checks, ${rep.coverage.checks_failed} failed &middot; validation ${rep.validation.passed ? "passed" : "withdrew " + rep.validation.withdrawn.length + " item(s)"}</p>
       ${secondCheck(rep.second_check)}
-      <section class="rp-tiles">${tile("revenue", "Revenue")}${tile("net_income", "Net income")}${tile("eps_diluted", "Diluted EPS")}${tile("fcf", "Free cash flow")}</section>`}`);
+      ${specific ? "" : `<section class="rp-tiles">${tile("revenue", "Revenue")}${tile("net_income", "Net income")}${tile("eps_diluted", "Diluted EPS")}${tile("fcf", "Free cash flow")}</section>`}`}`);
+    if (specific) T.summary.push(documentSummaryHTML(specific));
     if (ins.kind !== "insider" && ins.kind !== "holdings") T.summary.push(summaryBox());
     const insight = insightsHTML(ins, state.yoy, srcOf);
     T.summary.push(...insight.lead);
@@ -8357,7 +8454,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     }
     if (ins.kind === "holdings"){
       const hs = ins.holdings || [];
-      lead.push(`<h2 id="rp-holdings">Largest positions</h2><div class="rp-tw"><table class="rp-table"><tr><th>Issuer</th><th class="num">Value</th><th class="num">Shares</th><th class="num">Weight</th><th>Change</th><th>Row</th></tr>
+      lead.push(`<h2 id="rp-holdings">Largest positions</h2><p class="rp-note">Showing ${Math.min(50, hs.length)} of ${hs.length} reported positions. The generated filing contains every reported position.</p><div class="rp-tw"><table class="rp-table"><tr><th>Issuer</th><th class="num">Value</th><th class="num">Shares</th><th class="num">Weight</th><th>Change</th><th>Row</th></tr>
         ${hs.slice(0, 50).map(x => `<tr><td>${x.rank}. ${esc(x.issuer)}${x.class ? `<small>${esc(x.class)}</small>` : ""}</td><td class="num">${esc(x.value)}</td><td class="num">${esc(x.shares)}</td><td class="num">${esc(x.weight)}</td><td>${esc(x.change)}</td><td>${qchip({...x, text: holdingCells(x)})}</td></tr>`).join("")}</table></div>`);
     }
     if (yoy && yoy.risks){
@@ -9212,8 +9309,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     }
     if (ins.kind === "holdings"){
       const hs = ins.holdings || [];
-      parts.push(insSection("holds", "Largest positions", "as reported in the 13F", hs.slice(0, 15).map(x => insLi({...x, kind: "holding", raw: null, text: holdingCells(x)},
-        `<b>${esc(x.rank)}. ${esc(x.issuer)}</b> <q>${esc(x.value)} · ${esc(x.weight)} · ${esc(x.change)}</q>`))));
+      parts.push(insSection("holds", "Largest positions", `showing ${Math.min(15, hs.length)} of ${hs.length} positions reported in the 13F`, hs.slice(0, 15).map(x => insLi({...x, position_kind: x.kind, kind: "holding", raw: null, text: holdingCells(x)},
+        `<b>${esc(x.rank)}. ${esc(x.issuer)}${x.class || x.put_call ? " (" + esc([x.class, x.put_call].filter(Boolean).join(", ")) + ")" : ""}</b> <q>${esc(x.value)} · ${esc(x.weight)} · ${esc(x.change)}</q>`))));
     }
     const html = parts.filter(Boolean).join("");
     if (!html) return;
@@ -10254,10 +10351,10 @@ Who is the auditor?</textarea>
     // Specific findings is an excerpt: the report's findings around the one you feature, and each Find request. Each
     // scope keeps its own length, so switching back never carries an excerpt, or a start other than the cover, into
     // the entire filing. (The scope itself is not kept: a reopened page starts on the entire filing again.)
-    const mk = {ticker: "", scope: "entire", length: "whole", lenBy: {entire: "whole", specific: 60}, speed: 1, ending: true, find: "", look: {}, list: null, pick: null, pickKey: null, file: null, all: false, recording: false,
+    const mk = {ticker: "", fundCik: "", scope: "entire", length: "whole", lenBy: {entire: "whole", specific: 60}, speed: 1, ending: true, find: "", look: {}, list: null, pick: null, pickKey: null, file: null, all: false, recording: false,
       found: null, feat: null, featBy: {}, hook: "", hookBy: {}, hookMine: {}, logos: {built: "", scan: {}}, safe: true, ramp: {on: false, from: 1, secs: 10},
       brand: {intro: false, mini: false, report: false}, coLogo: {}};
-    const MK_KEEP = ["ticker", "lenBy", "speed", "ramp", "ending", "find", "look", "pickKey", "featBy", "hookBy", "hookMine", "logos", "safe", "brand", "coLogo"];
+    const MK_KEEP = ["ticker", "fundCik", "lenBy", "speed", "ramp", "ending", "find", "look", "pickKey", "featBy", "hookBy", "hookMine", "logos", "safe", "brand", "coLogo"];
     // a length either scope can run at: the entire filing at reading speed ("whole") or a set time; an excerpt a set time
     const okLen = (v, scope) => v === "whole" ? (scope === "entire" ? v : 60) : typeof v === "number" && v >= 10 && v <= 900 && !(scope === "entire" && v === SHORT) ? v : scope === "entire" ? "whole" : 60;
     try {
@@ -10299,7 +10396,7 @@ Who is the auditor?</textarea>
       t = String(t || "").trim().toUpperCase().replace(/^\$/, "");
       if (!/^[A-Z][A-Z0-9.\-]{0,9}$/.test(t)){ mkSay("mk-st1", "Enter a ticker, for example NVDA.", true); return; }
       if (t !== mk.ticker) mk.pickKey = null;              // the form picked before is kept only for the same ticker
-      mk.ticker = t; mk.file = null; mk.list = null; mk.pick = null; saveMk(); drawForms();
+      mk.ticker = t; mk.fundCik = ""; mk.file = null; mk.list = null; mk.pick = null; saveMk(); drawForms();
       if (coLogo.tk !== t) resolveCoLogo();                // the previous company's logo goes at once
       if (mk.found){ readSeq++; mk.found = null; mk.feat = null; drawFinding(); drawPreview(); }
       mkSay("mk-st1", `Looking up ${t} on SEC EDGAR...`);
@@ -10318,6 +10415,37 @@ Who is the auditor?</textarea>
       finally { if (btn) btn.disabled = false; }
       drawForms();
     }
+    async function findFundReports(cik){
+      if (!cik) return;
+      const same = String(mk.fundCik) === String(cik), seq = ++readSeq;
+      mk.fundCik = String(cik); mk.ticker = ""; mk.file = null; mk.list = null; mk.pick = null;
+      if (!same) mk.pickKey = null;
+      mk.found = null; mk.feat = null; saveMk(); drawForms(); drawFinding(); resolveCoLogo();
+      mkSay("mk-st1", "Loading this manager's reported quarters from SEC EDGAR...");
+      try {
+        const {r, j} = await api("/api/edgar/fund-reports?cik=" + encodeURIComponent(cik));
+        if (!r.ok || !j) throw new Error(j && j.error || "The manager's quarters did not load.");
+        if (seq !== readSeq || mk.fundCik !== String(cik)) return;
+        mk.list = {fund: true, manager: j.manager, company: j.manager, ticker: "", cik: j.cik, coverage_note: j.coverage_note, items: fundFormItems(j)};
+        mk.all = false;
+        if (mk.pickKey){ const i = mk.list.items.findIndex(it => itemKey(it) === mk.pickKey); mk.pick = i >= 0 ? i : null; }
+        mkSay("mk-st1", j.reports.length ? "Pick the reporting quarter below." : "No original 13F-HR reports were found in this manager's recent SEC submissions.");
+        drawForms(); drawLogos(); resolveCoLogo(); drawPreview(); saveMk();
+        if (mk.pick != null) loadFindings();
+      } catch (e){ if (seq === readSeq) mkSay("mk-st1", e.message || String(e), true); }
+    }
+    async function loadFundManagers(q){
+      const sel = body.querySelector("#mk-fund-pick"); if (!sel) return;
+      mkSay("mk-st1", q ? "Searching SEC managers..." : "Loading investment managers...");
+      try {
+        const {r, j} = await api("/api/edgar/funds?q=" + encodeURIComponent(q || ""));
+        if (!r.ok || !j) throw new Error(j && j.error || "Managers unavailable.");
+        if (!body.contains(sel)) return;
+        sel.innerHTML = (j.funds || []).map(f => `<option value="${f.cik}">${esc(f.name)}</option>`).join("") || '<option value="">No manager matched</option>';
+        if ([...sel.options].some(o => o.value === mk.fundCik)) sel.value = mk.fundCik;
+        mkSay("mk-st1", "Pick a manager, then Choose a quarter. A manager without a 13F-HR has no holdings report to show.");
+      } catch (e){ mkSay("mk-st1", e.message || String(e), true); }
+    }
     function drawForms(){
       const box = body.querySelector("#mk-forms"); if (!box || view !== "make") return;
       if (mk.file){
@@ -10327,13 +10455,13 @@ Who is the auditor?</textarea>
       }
       if (!mk.list){ box.innerHTML = `<p class="mk-note">Find a ticker's forms in step 1, or use your own document.</p>`; return; }
       const items = mk.list.items, firsts = new Set();
-      box.innerHTML = `<p class="mk-co"><b>${esc(mk.list.company || mk.list.ticker)}</b> · ${esc(mk.list.ticker)} · ${items.length - 1} filings on SEC EDGAR, newest first. Pick one:</p>
+      box.innerHTML = `<p class="mk-co"><b>${esc(mk.list.company || mk.list.ticker)}</b>${mk.list.ticker ? " · " + esc(mk.list.ticker) : ""} · ${mk.list.fund ? items.length : items.length - 1} filings on SEC EDGAR, newest first. Pick one:</p>${mk.list.fund ? `<p class="mk-note">${esc(mk.list.coverage_note || "")}</p>` : ""}
         <ul class="mk-flist" role="radiogroup" aria-label="Form">${items.map((f, i) => {
           const latest = !f.insiders && !firsts.has(f.form);
           firsts.add(f.form);
           return `<li${i >= 9 && !mk.all && !f.insiders ? " hidden" : ""}><button type="button" role="radio" aria-checked="${mk.pick === i}" data-f="${i}"><b>${esc(f.label)}</b><span>${esc(f.when)}</span>${latest ? "<i>latest</i>" : ""}</button></li>`;
         }).join("")}</ul>
-        ${items.length > 10 && !mk.all ? `<button type="button" class="av-chip" data-allforms style="margin-top:8px">Show all ${items.length - 1} filings</button>` : ""}`;
+        ${items.length > 10 && !mk.all ? `<button type="button" class="av-chip" data-allforms style="margin-top:8px">Show all ${mk.list.fund ? items.length : items.length - 1} filings</button>` : ""}`;
     }
     function drawLen(){
       const box = body.querySelector(".mk-len"); if (!box) return;
@@ -10374,6 +10502,7 @@ Who is the auditor?</textarea>
     // ticker and owner within the hour: it opens at once there), and the report's own findings are listed to pick one
     // to feature. Every value shown is the report's, with its source: nothing is typed, computed or guessed here. ----
     const formUrl = f => f.insiders ? "/api/edgar/insiders.html?ticker=" + encodeURIComponent(mk.list.ticker)
+      : f.holdings ? fundDocumentUrl({cik: mk.list.cik, accession: f.accession, period: f.period})
       : "/api/edgar/document?" + new URLSearchParams({cik: mk.list.cik, accession: f.accession, document: f.document});
     const tradeKey = x => [x.accession, x.date, x.code, x.shares, x.price, x.insider].join("|");
     const shortName = n => String(n || "").replace(/,?\s+(inc|corp|corporation|co|company|ltd|plc|holdings)\.?$/i, "").trim();
@@ -10396,6 +10525,15 @@ Who is the auditor?</textarea>
           + `${other ? `, and ${other} grants, tax withholdings, exercises or gifts, which the report does not list` : ""}. The report lists ${inRep.length}${open > inRep.length ? ` (the first ${inRep.length} of the ${open} open-market trades, buys first)` : ""}.`;
         const arrivals = items.slice().sort((a, b) => a.order - b.order).map(x => x.key);
         return {kind: "insider", company, noun: ["trade", "trades"], total: inRep.length, items, arrivals, note};
+      }
+      if (ins.kind === "holdings"){
+        const hs = ins.holdings || [], summary = ins.holdings_summary || {}, shown = hs.slice(0, 15);
+        const items = shown.map(x => ({key: holdingKey(x), type: "holding", order: x.offset, label: x.issuer + (x.class ? " (" + x.class + ")" : "") + (x.put_call ? " " + x.put_call : ""),
+          value: x.value, shares: x.shares, weight: x.weight, period: summary.period || "", page: x.page, pdfPage: x.page, section: "13F information table", accession: summary.accession || "",
+          missing: [x.value && x.value !== "n/a" ? "" : "value", x.page ? "" : "source page"].filter(Boolean)}));
+        return {kind: "holdings", company: summary.manager || company, form: "13F-HR", noun: ["position", "positions"], total: items.length, items,
+          arrivals: items.slice().sort((a, b) => a.order - b.order).map(x => x.key),
+          note: `The live report and Specific findings list ${items.length} of ${hs.length} reported positions, ranked by value. The entire generated filing includes every reported position; use Entire filing to read all rows. Values are reported quarter-end holdings, not purchases or sales.`};
       }
       const L = rep.live;
       if (L && L.sections && L.cells){
@@ -10434,7 +10572,7 @@ Who is the auditor?</textarea>
       try {
         const r = await fetch(formUrl(f), {cache: "no-store"});
         if (!r.ok){ let m = "SEC EDGAR did not return it."; try { m = (await r.json()).error || m; } catch (x) {} throw new Error(m); }
-        const blob = await r.blob(), name = f.insiders ? (r.headers.get("X-Doc-Name") || `${mk.list.ticker} Form 4 insider trades.htm`) : f.fileName;
+        const blob = await r.blob(), name = f.insiders || f.holdings ? (r.headers.get("X-Doc-Name") || f.fileName || `${mk.list.ticker} Form 4 insider trades.htm`) : f.fileName;
         if (seq !== readSeq) return;
         const fd = new FormData(); fd.append("file", new File([blob], name, {type: blob.type || "text/html"})); fd.append("ticker", mk.list.ticker);
         const up = await fetch("/api/read/jobs", {method: "POST", body: fd, headers: {"X-Reader-Owner": owner()}});
@@ -10452,7 +10590,7 @@ Who is the auditor?</textarea>
         const {r: rr, j: res} = await api(`/api/read/jobs/${encodeURIComponent(job.job_id)}/result`);
         if (seq !== readSeq) return;
         if (!rr.ok || !res) throw new Error("The read finished but its result did not come. Pick the form again.");
-        mk.found = {state: "done", key, form: f.form, ...findingsOf(res)};
+        mk.found = {state: "done", key, form: f.form, docKind: (res.insights || {}).kind || "other", ...findingsOf(res)};
         if (!mk.found.form) mk.found.form = f.label || f.form;            // the report names no form (an earnings release): the one picked
         // the finding picked before for this filing, else the largest trade or the first figure, whichever has its data
         const kept = mk.featBy[key], ok = mk.found.items.filter(x => !x.missing.length);
@@ -10489,6 +10627,7 @@ Who is the auditor?</textarea>
     }
     // what the entire filing shows of the report: every item it has, each as the spider reaches it
     const entireLine = F => (F.kind === "insider" ? `Every page, cover to final line: the ${F.total} trades the report lists arrive as the spider reaches each one.`
+      : F.kind === "holdings" ? F.note
       : F.kind === "financial" ? `Every page, cover to final line: the report's ${F.total} figures arrive as the spider reaches each one, each with its page.`
       : "Every page, cover to final line.") + " No featured number to pick; choose Specific findings to feature one.";
     // Specific findings needs the report's findings, read here (your own document is read in the record window)
@@ -10551,12 +10690,12 @@ Who is the auditor?</textarea>
       while (s0 > 0 && row[all[s0]] && row[all[s0 - 1]] === row[all[s0]]) s0--;
       while (s1 < all.length && row[all[s1]] && row[all[s1]] === row[all[s1 - 1]]) s1++;
       const keys = all.slice(s0, s1);
-      return {unit: F.kind === "insider" ? "trade" : "cell", keys, total: F.total, all: all.length, noun: F.noun, featured: fi >= 0 && keys.includes(x.key) ? x.key : null};
+      return {unit: F.kind === "insider" || F.kind === "holdings" ? "trade" : "cell", keys, total: F.total, all: all.length, noun: F.noun, featured: fi >= 0 && keys.includes(x.key) ? x.key : null};
     }
     function scopeText(){
       const F = mk.found, sc = clipScope(), x = featItem(), asks = findList();
       const lit = asks.length ? ` Find requests (${asks.join(", ")}) are lit as the spider passes them; anything not in the filing is listed as not found.` : "";
-      const ending = mk.ending ? (F && F.kind === "insider" ? " Then the largest trades and what insiders bought and sold." : " Then the key findings and a one-page summary.") : "";
+      const ending = mk.ending ? " Then " + endingWords(F && F.docKind || "other").replace(/^The /, "the ") + "." : "";
       if (mk.file) return `Your own document, all of it from its start${mk.length === "whole" ? `, ${paceWords()}` : `, in ${lenLabel(mk.length)}`}.${lit}${ending}`;
       if (!F || F.state !== "done") return F && F.state === "loading" ? "What the clip shows is written here once the filing is read." : "";
       if (mk.scope !== "specific"){
@@ -10579,7 +10718,7 @@ Who is the auditor?</textarea>
     function filingOf(f){
       if (mk.file) return {own: true, name: mk.file.name, ticker: mk.ticker || ""};
       if (!f || !mk.list) return null;
-      return {company: mk.list.company || "", ticker: mk.list.ticker, cik: mk.list.cik, form: f.form, label: f.label, accession: f.accession || "", document: f.document || "",
+      return {company: mk.list.company || "", manager: mk.list.manager || "", ticker: mk.list.ticker, cik: mk.list.cik, form: f.form, label: f.label, accession: f.accession || "", document: f.document || "",
         period: f.period || "", filed: f.filed || "", when: f.when || ""};
     }
     function makeRecord(){
@@ -10604,8 +10743,9 @@ Who is the auditor?</textarea>
     function planOf(f){
       const entire = mk.scope !== "specific" || !!mk.file;
       const x = featItem(), sc = clipScope(), logo = role => { const q = logoFor(role); return {media: q ? q.id : null, text: logoText(role)}; };
-      return {at: Date.now(), source: mk.file ? "custom" : f.insiders ? "insiders" : "edgar",
+      return {at: Date.now(), source: mk.file ? "custom" : f.insiders ? "insiders" : f.holdings ? "fund" : "edgar",
         ticker: mk.file ? mk.ticker : mk.list.ticker, company: mk.file ? "" : mk.list.company, cik: mk.list && !mk.file ? mk.list.cik : null,
+        manager: !mk.file && mk.list ? mk.list.manager || "" : "", period: f ? f.period || "" : "", filed: f ? f.filed || "" : "", kind: mk.found && mk.found.docKind || (f && f.holdings ? "holdings" : "other"),
         form: f ? f.form : "", accession: f ? f.accession : null, document: f ? f.document : null, fileName: f ? f.fileName : null,
         when: f ? f.when : "", customName: mk.file ? mk.file.name : "",
         mode: entire ? "entire" : "specific", length: mk.length, speed: mk.speed, ramp: rampOn() ? {from: mk.ramp.from, secs: mk.ramp.secs} : null, start: entire ? "cover" : "excerpt", ending: mk.ending, find: findList(), look: mk.look,
@@ -10628,7 +10768,7 @@ Who is the auditor?</textarea>
     const nameHas = (n, w) => w && w.length >= 3 && new RegExp("(^|[^a-z])" + w.toLowerCase().replace(/[^a-z0-9]+/g, ".?") + "([^a-z]|$)").test(String(n || "").toLowerCase());
     const coWord = () => shortName(mk.list && mk.list.company).split(/\s+/)[0] || "";
     function logoFor(role){
-      const pics = quickPics || [], tk = mk.list ? mk.list.ticker : mk.ticker;
+      const pics = quickPics || [], tk = logoTk();
       const kept = role === "built" ? mk.logos.built : (mk.logos.scan || {})[tk];
       if (kept === "text") return null;
       const byId = kept && pics.find(q => q.id === kept);
@@ -10656,7 +10796,7 @@ Who is the auditor?</textarea>
     // without a logo. The previous company's logo is cleared the moment the company changes. ----
     let coLogo = {tk: "", state: "none"}, coSeq = 0, pvPhase = "crawl";
     const brandOn = () => !!(mk.brand.intro || mk.brand.mini || mk.brand.report);
-    const logoTk = () => !mk.file && mk.list ? mk.list.ticker : /^[A-Z][A-Z0-9.\-]{0,9}$/.test(mk.ticker || "") ? mk.ticker : "";
+    const logoTk = () => !mk.file && mk.list ? (mk.list.fund ? "CIK" + mk.list.cik : mk.list.ticker) : /^[A-Z][A-Z0-9.\-]{0,9}$/.test(mk.ticker || "") ? mk.ticker : "";
     const coReady = () => coLogo.state === "ready" && coLogo.tk === logoTk() ? coLogo : null;
     async function logoPixels(url){
       const img = new Image(); img.src = url; await img.decode();
@@ -10677,7 +10817,7 @@ Who is the auditor?</textarea>
           const r = await studioDB.get("media", id);
           if (r && r.blob && /^image\//.test(r.blob.type)){ blob = r.blob; from = kind; media = id; }
         }
-        if (!blob){
+        if (!blob && !(mk.list && mk.list.fund)){
           const r = await fetch(`/api/company-logo?ticker=${encodeURIComponent(tk)}`);
           if (r.ok && /^image\//.test(r.headers.get("content-type") || "")){ blob = await r.blob(); from = r.headers.get("x-logo-source") || "server"; }
           else if (r.status === 403) why = "Company logos are looked up on the local crawler only.";
@@ -10722,7 +10862,7 @@ Who is the auditor?</textarea>
         return;
       }
       box.hidden = false;
-      const name = mk.list && mk.list.ticker === tk ? mk.list.company : "", lg = coReady();
+      const name = mk.list && logoTk() === tk ? mk.list.company : "", lg = coReady();
       const from = {upload: "your upload", quick: "the Quick add picture you picked", site: `this site's own logo for ${tk}`, fmp: `the public logo kept for ${tk} (Financial Modeling Prep, by ticker)`}[coLogo.from] || "the server's copy";
       box.innerHTML = `<div class="mk-cl-pic">${lg ? `<img src="${esc(lg.url)}" alt="${esc(tk)} logo">` : `<i>${coLogo.state === "loading" ? "..." : "No logo"}</i>`}</div>
         <div class="mk-cl-txt"><p class="mk-cl-co"><b>${esc(name || tk)}</b> <span>${esc(tk)}</span></p>
@@ -10793,9 +10933,10 @@ Who is the auditor?</textarea>
       const bandLogo = !(lg && (inOpening || BR.mini));        // one copy of the logo at a time: the band's waits while one floats
       if (ph === "end"){
         const ins = F && F.kind === "insider", co = (F && F.company) || (mk.list && shortName(mk.list.company)) || mk.ticker || "";
+        const title = ({insider: "Largest insider trades", holdings: "Largest reported positions", quarterly: "Quarterly findings", release: "Earnings release findings", transcript: "Call findings", current: "Current report findings", annual: "Annual filing findings"})[F && F.docKind] || "Document findings";
         box.innerHTML = `<div class="mk-pvf pv-endf" role="img" aria-label="The final report, with the company's logo beside BMG Capital">
           <div class="pv-end"><div class="pv-ebrand">${BMG_LINE}<b>BMG Capital</b>${lg ? `<i class="pv-esep"></i><img class="pv-elogo${logoChip(lg, true)}" src="${esc(lg.url)}" alt="">` : ""}</div>
-            <p class="pv-eh">${ins ? "Largest insider trades" : "Key findings"} &middot; ${esc(co)}</p>${"<i class='pv-ecard'></i>".repeat(3)}</div>
+            <p class="pv-eh">${esc(title)} &middot; ${esc(co)}</p>${"<i class='pv-ecard'></i>".repeat(3)}</div>
           ${studioHook && !(lg && BR.mini) ? `<p class="pv-hook"><span>${esc(hook)}</span></p>` : ""}
           <div class="pv-safe"${mk.safe ? "" : " hidden"}><span class="t">TikTok top bar</span><span class="r">buttons</span><span class="b">caption and username</span></div></div>`;
         const st = body.querySelector("#mk-scope"); if (st) st.textContent = scopeText();
@@ -10828,6 +10969,9 @@ Who is the auditor?</textarea>
         <li class="mk-step"><h3><b>1</b>Company and filing</h3>
           <form class="mk-row" id="mk-tk"><input id="mk-ticker" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="Ticker, for example NVDA" aria-label="Ticker" value="${esc(mk.ticker)}"><button type="submit" class="av-btn">Find its forms</button>
             <span class="mk-or">or</span><label class="av-btn mk-own">Use my own document<input type="file" id="mk-file" accept=".pdf,.docx,.pptx,.htm,.html,.txt,.md" hidden></label></form>
+          <details class="mk-also" id="mk-fund-box"${mk.fundCik ? " open" : ""}><summary>Fund holdings (13F): choose a manager and reporting quarter</summary>
+            <div class="mk-row"><select id="mk-fund-pick" aria-label="Investment manager"><option value="">Loading managers...</option></select><button type="button" class="av-chip" id="mk-fund-quarters">Choose a quarter</button></div>
+            <form class="mk-row" id="mk-fund-search"><input type="search" id="mk-fund-q" maxlength="60" placeholder="Search a manager by name" aria-label="Search an investment manager"><button type="submit" class="av-chip">Search managers</button></form></details>
           <p class="mk-st" id="mk-st1" role="status"></p>
           <div class="mk-cl" id="mk-cologo" hidden></div>
           <div id="mk-forms"></div></li>
@@ -10889,6 +11033,9 @@ Who is the auditor?</textarea>
       $m("mk-pals").addEventListener("click", e => { const b = e.target.closest("[data-pal]"); if (!b) return; L.palette = b.dataset.pal; saveMk(); drawLook(); });
       body.querySelector(".mk-pgs").addEventListener("click", e => { const b = e.target.closest("[data-dark]"); if (!b) return; L.dark = b.dataset.dark === "1"; saveMk(); drawLook(); });
       $m("mk-tk").addEventListener("submit", e => { e.preventDefault(); findForms($m("mk-ticker").value); });
+      $m("mk-fund-quarters").addEventListener("click", () => findFundReports($m("mk-fund-pick").value));
+      $m("mk-fund-search").addEventListener("submit", e => { e.preventDefault(); loadFundManagers($m("mk-fund-q").value.trim()); });
+      $m("mk-fund-box").addEventListener("toggle", e => { if (e.currentTarget.open && !$m("mk-fund-pick").dataset.loaded){ $m("mk-fund-pick").dataset.loaded = "1"; loadFundManagers(""); } });
       $m("mk-file").addEventListener("change", e => {
         const f = e.target.files[0]; if (!f) return;
         mk.file = f; mk.pick = null; mk.pickKey = null; setScope("entire"); saveMk();
@@ -10942,7 +11089,7 @@ Who is the auditor?</textarea>
       });
       $m("mk-logos").addEventListener("click", e => {
         const b = e.target.closest("button[data-logo]"); if (!b) return;
-        const role = b.closest("[data-role]").dataset.role, tk = mk.list ? mk.list.ticker : mk.ticker;
+        const role = b.closest("[data-role]").dataset.role, tk = logoTk();
         if (role === "built") mk.logos.built = b.dataset.logo; else if (tk) (mk.logos.scan || (mk.logos.scan = {}))[tk] = b.dataset.logo;
         saveMk(); drawLogos(); drawPreview();
         if (role === "scan" && !(mk.coLogo || {})[logoTk()]) resolveCoLogo();    // a picture picked here is the branding's logo too
@@ -10966,7 +11113,9 @@ Who is the auditor?</textarea>
       drawForms(); drawFinding(); drawHook(); drawLen(); drawLogos(); drawPreview(); loadQuickPics();
       if (coLogo.tk !== logoTk() || coLogo.state === "none") resolveCoLogo(); else { drawCoLogo(); drawBrand(); }
       if (mk.recording && recOpen()) recStatus(state.recPhase || "setup"); else mk.recording = false;
-      if (!mk.list && !mk.file && mk.ticker) findForms(mk.ticker);       // the last ticker's forms, ready to pick
+      if (mk.fundCik){ $m("mk-fund-pick").dataset.loaded = "1"; loadFundManagers(""); }
+      if (!mk.list && !mk.file && mk.fundCik) findFundReports(mk.fundCik);
+      else if (!mk.list && !mk.file && mk.ticker) findForms(mk.ticker);       // the last ticker's forms, ready to pick
       else if (mk.list && mk.pick != null && !(mk.found && mk.found.key === mk.list.ticker + "|" + itemKey(mk.list.items[mk.pick]) && mk.found.state !== "error")) loadFindings();
     }
     const PLAT = {tiktok: "TikTok", instagram: "Instagram", x: "X"};
@@ -11218,7 +11367,7 @@ Who is the auditor?</textarea>
   state.insTargets = () => insTargets;
   state.insItem = i => insItems[i]; state.revealIns = revealIns;         // a Find read's trades (the Find tour)
   state.insFind = key => {
-    const i = insItems.findIndex(x => x.kind === "trade" && [x.accession, x.date, x.code, x.shares, x.price, x.insider].join("|") === key);
+    const i = insItems.findIndex(x => x.kind === "holding" ? holdingKey(x) === key : x.kind === "trade" && [x.accession, x.date, x.code, x.shares, x.price, x.insider].join("|") === key);
     if (i < 0) return null;
     for (const [w, list] of insTargets) if (list.includes(i)) return {i, el: w, x: insItems[i]};
     return {i, el: null, x: insItems[i]};

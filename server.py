@@ -2471,37 +2471,95 @@ async def edgar_funds(q: str = Query("", max_length=60)):
                       for h in hits[:12] if str(h.get("_id", "")).isdigit()]}
 
 
-async def _latest_13f(client, cik: int, n: int = 2) -> tuple[str, list]:
-    """The fund's EDGAR name and its last n quarters of 13F-HR holdings: [{period, filed, accession, url, rows}]."""
-    from reader import ownership as _own
+async def _fund_reports(client, cik: int) -> tuple[str, list]:
+    """List recent original holdings reports without downloading their information tables.
+
+    Amendments remain visible as separate metadata; they are never silently combined with an original.
+    """
     sub = await _sec_fetch_json(f"https://data.sec.gov/submissions/CIK{cik:010d}.json", TTL_SUBMISSIONS, client) or {}
     rec = (sub.get("filings") or {}).get("recent") or {}
-    out, seen = [], set()
+    originals, amendments = {}, {}
     for i, f in enumerate(rec.get("form", [])):
-        if f != "13F-HR" or rec["reportDate"][i] in seen:
+        if f not in ("13F-HR", "13F-HR/A"):
             continue
-        acc = rec["accessionNumber"][i]
-        key = (cik, acc)
-        if key not in _13F_CACHE:
-            idx = await _filing_index(client, cik, acc)
-            doc = next((d["document"] for d in idx["docs"] if "INFORMATION TABLE" in d["type"] and d["document"].lower().endswith(".xml")), None)
-            if not doc:
-                continue
-            data = await _edgar_bytes(client, cik, acc, doc)
-            _13F_CACHE[key] = {"period": rec["reportDate"][i], "filed": rec["filingDate"][i], "accession": acc,
-                               "url": f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/{acc}-index.htm",
-                               "rows": _own.parse_13f(data.decode("utf-8", errors="replace"))}
-        out.append(_13F_CACHE[key])
-        seen.add(rec["reportDate"][i])
-        if len(out) >= n:
-            break
-    return sub.get("name") or str(cik), out
+        try:
+            period, filed, acc = rec["reportDate"][i], rec["filingDate"][i], rec["accessionNumber"][i]
+        except (KeyError, IndexError):
+            continue
+        if not re.fullmatch(r"\d{4}-(03-31|06-30|09-30|12-31)", period or ""):
+            continue
+        row = {"form": f, "period": period, "filed": filed, "accession": acc,
+               "url": f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/{acc}-index.htm"}
+        if f.endswith("/A"):
+            amendments.setdefault(period, []).append(row)
+        else:
+            originals.setdefault(period, row)
+    name = sub.get("name") or str(cik)
+    reports = [{**row, "manager": name, "cik": cik, "amendments": amendments.get(period, [])}
+               for period, row in sorted(originals.items(), reverse=True)]
+    return name, reports
+
+
+@app.get("/api/edgar/fund-reports")
+async def edgar_fund_reports(cik: int = Query(..., ge=1, le=9999999999)):
+    """Selectable original 13F-HR quarters for a manager, with their exact filing identities."""
+    denied = _edgar_denied()
+    if denied:
+        return denied
+    client = HTTP_CLIENT or httpx.AsyncClient(timeout=30.0, follow_redirects=True)
+    try:
+        name, reports = await _fund_reports(client, cik)
+    except (httpx.HTTPError, ValueError) as e:
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return the manager's quarters ({type(e).__name__})."})
+    return {"manager": name, "cik": cik, "reports": reports,
+            "coverage_note": "Original 13F-HR reports in this manager's recent SEC submissions. An amendment is flagged; it is not combined with the original. 13F-NT notices do not contain a holdings table."}
+
+
+async def _read_13f(client, cik: int, report: dict) -> dict:
+    from reader import ownership as _own
+    key = (cik, report["accession"])
+    if key not in _13F_CACHE:
+        idx = await _filing_index(client, cik, report["accession"])
+        doc = next((d["document"] for d in idx["docs"] if "INFORMATION TABLE" in d["type"] and d["document"].lower().endswith(".xml")), None)
+        if not doc:
+            raise ValueError("The selected 13F has no readable XML information table")
+        data = await _edgar_bytes(client, cik, report["accession"], doc)
+        rows = _own.parse_13f(data.decode("utf-8", errors="replace"))
+        if not rows:
+            raise ValueError("The selected 13F information table has no readable positions")
+        # SEC Form 13F FAQ 36 and 62: filings before January 3, 2023 report value in thousands.
+        if report["filed"] < "2023-01-03":
+            rows = [{**r, "value": r["value"] * 1000 if r["value"] is not None else None} for r in rows]
+        _13F_CACHE[key] = rows
+    return {**report, "rows": _13F_CACHE[key], "value_note": "The SEC information table reports value in thousands of U.S. dollars. This document displays dollars (reported value multiplied by 1,000)." if report["filed"] < "2023-01-03" else "Values are reported in U.S. dollars in this filing's information table."}
+
+
+def _previous_13f_period(period: str) -> str:
+    year, month = int(period[:4]), int(period[5:7])
+    return f"{year - 1}-12-31" if month == 3 else f"{year}-{ {6: '03-31', 9: '06-30', 12: '09-30'}[month]}"
+
+
+async def _latest_13f(client, cik: int, n: int = 2) -> tuple[str, list]:
+    """Compatibility for holder lookups: only compare consecutive, unamended quarters."""
+    name, reports = await _fund_reports(client, cik)
+    if not reports:
+        return name, []
+    cur = await _read_13f(client, cik, reports[0])
+    out = [cur]
+    prior = next((r for r in reports[1:] if r["period"] == _previous_13f_period(cur["period"])), None)
+    if n > 1 and prior and not cur["amendments"] and not prior["amendments"]:
+        try:
+            out.append(await _read_13f(client, cik, prior))
+        except (httpx.HTTPError, ValueError):
+            pass  # The selected quarter remains readable when comparison data is unavailable.
+    return name, out
 
 
 @app.get("/api/edgar/fund.html")
-async def edgar_fund(cik: int = Query(..., ge=1, le=9999999999), ticker: str = Query("", max_length=12)):
-    """A fund's latest 13F-HR as one document: the 50 largest positions with weight and the change from the
-    quarter before, new and exited positions, and, when a ticker is given, where that company sits."""
+async def edgar_fund(cik: int = Query(..., ge=1, le=9999999999), ticker: str = Query("", max_length=12),
+                     accession: str = Query("", max_length=20, pattern=r"^(\d{10}-\d{2}-\d{6})?$"),
+                     period: str = Query("", max_length=10, pattern=r"^(\d{4}-(03-31|06-30|09-30|12-31))?$")):
+    """Read the exact original 13F-HR selected, or the latest original when no selection is supplied."""
     denied = _edgar_denied()
     if denied:
         return denied
@@ -2513,13 +2571,22 @@ async def edgar_fund(cik: int = Query(..., ge=1, le=9999999999), ticker: str = Q
             tmap = await _ticker_map(client)
             row = tmap.get(re.sub(r"[^A-Z0-9.\-]", "", ticker.upper()))
             highlight = row.get("title") if row else None
-        name, qs = await _latest_13f(client, cik)
+        name, reports = await _fund_reports(client, cik)
+        selected = next((r for r in reports if (not accession or r["accession"] == accession) and (not period or r["period"] == period)), None)
+        if not selected:
+            return JSONResponse(status_code=404, content={"error": f"{name} has no matching original 13F-HR in its recent filings. Choose a listed quarter; the latest filing was not substituted."})
+        cur = await _read_13f(client, cik, selected)
+        previous = next((r for r in reports if r["period"] == _previous_13f_period(cur["period"])), None)
+        prior = None
+        if previous and not cur["amendments"] and not previous["amendments"]:
+            try:
+                prior = await _read_13f(client, cik, previous)
+            except (httpx.HTTPError, ValueError):
+                cur["comparison_note"] = "The preceding quarter's information table could not be read. The selected quarter is shown without changes from the prior quarter."
+        if cur["amendments"] or previous and previous["amendments"]:
+            cur["comparison_note"] = "An amendment is listed for this or the preceding quarter. The selected original is shown, and quarter comparisons are not made."
     except (httpx.HTTPError, ValueError) as e:
         return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return the 13F ({type(e).__name__}: {e})."})
-    if not qs:
-        return JSONResponse(status_code=404, content={"error": f"{name} has no 13F-HR holdings report in its recent filings."})
-    cur = qs[0]
-    prior = {"period": qs[1]["period"], "rows": qs[1]["rows"]} if len(qs) > 1 else None
     return _html_doc(_own.holdings_document(name, cik, cur, cur["rows"], prior, highlight), f"{name} 13F holdings {cur['period']}.htm")
 
 

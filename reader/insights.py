@@ -174,25 +174,24 @@ def kind_of(doc, title: str = "") -> str:
     turns = len(re.findall(r"(?m)^(?:Operator|OPERATOR)\b", doc.body)) + len(re.findall(r"(?i)question[- ]and[- ]answer|first question (?:comes|is) from", doc.body))
     if turns >= 2 and re.search(r"(?i)\b(?:earnings|conference) call\b|\bconference\b|\bcall participants\b|\bcorporate (?:speakers|participants)\b", head):
         return "transcript"
-    if "earnings release" in t or re.search(r"\b8-k\b", t):
-        return "release"
-    if re.search(r"\b10-k\b|annual report", t):
-        return "annual"
-    if re.search(r"\b10-q\b|quarterly report", t):
-        return "quarterly"
     cover = head[:6000]
-    own = re.search(r"(?m)^[ \t\u00a0]*FORM[ \t\u00a0]+(10-K|10-Q|8-K|20-F|40-F)\b", cover)     # the cover's own form line, not a mention
-    form = own.group(1) if own else ""
-    if form in ("10-K", "20-F", "40-F") or (not form and re.search(r"(?i)annual\s+report\s+(?:pursuant\s+to|under)\s+section\s+13", cover)):
+    own = re.search(r"(?im)^[ \t\u00a0]*FORM[ \t\u00a0]+(10-K|10-Q|8-K|20-F|40-F)(/A)?\b", cover)
+    form = own.group(1).upper() if own else ""
+    # The filing's cover wins over references to other forms and over a filename.
+    if form in ("10-K", "20-F", "40-F"):
         return "annual"
-    if form == "10-Q" or (not form and re.search(r"(?i)quarterly\s+report\s+(?:pursuant\s+to|under)\s+section\s+13", cover)):
+    if form == "10-Q":
         return "quarterly"
-    first = head[:3000]
-    if re.search(r"(?i)\b(?:reports?|announces?|posts?|delivers?)\b[^\n]{0,120}\b(?:quarter|year|fiscal)[^\n]{0,60}\bresults\b", first) \
-            or re.search(r"(?i)\bpress release\b|\bexhibit 99\.1\b", first[:1500]):
+    results = re.search(r"(?i)\b(?:reports?|announces?|posts?|delivers?)\b[^\n]{0,120}\b(?:quarter|year|fiscal)[^\n]{0,60}\bresults\b", head[:3000])
+    if "earnings release" in t or results:
         return "release"
-    if form == "8-K" or (re.search(r"(?i)\bform\s+8-K\b", cover[:1500]) and re.search(r"(?i)current\s+report", cover)):
+    if form == "8-K" or re.search(r"\b8-k(?:/a)?\b", t):
         return "current"
+    if re.search(r"\b(?:10-k|20-f|40-f)\b|annual report", t) or re.search(r"(?i)annual\s+report\s+(?:pursuant\s+to|under)\s+section\s+13", cover):
+        return "annual"
+    if re.search(r"\b10-q\b|quarterly report", t) or re.search(r"(?i)quarterly\s+report\s+(?:pursuant\s+to|under)\s+section\s+13", cover):
+        return "quarterly"
+    # A press release or an Exhibit 99.1 can concern any event. Neither alone establishes earnings.
     return "other"
 
 
@@ -1372,17 +1371,39 @@ def insider(doc) -> dict:
 
 def holdings(doc) -> dict:
     rows, out = _rows(doc), []
-    head = None
+    head, summary = None, {}
     for off, cells in rows:
+        line = " ".join(cells)
+        source = {**doc.location(off), "offset": off, "excerpt": line[:900]}
+        if line.startswith("BMG fund holdings: "):
+            summary["manager"] = line[len("BMG fund holdings: "):]
+        if m := re.match(r"Manager: (.+)\. Quarter ended ([0-9-]+)\. Filed ([0-9-]+)\. Form ([^ ]+)\. Accession ([0-9-]+)\.", line):
+            summary.update(manager=m[1], period=m[2], filed=m[3], form=m[4], accession=m[5], source=source)
+        if m := re.match(r"Reported holdings value: (\$[0-9,]+) USD; positions: (\d+)\.", line):
+            summary.update(total=m[1], total_raw=float(m[1].replace("$", "").replace(",", "")), positions=int(m[2]), totals_source=source)
+        if m := re.match(r"The 10 largest positions are ([0-9.]+%) of the reported value", line):
+            summary.update(top10_weight=m[1], concentration_source=source)
+        if "amendment exists" in line.lower():
+            summary["amendment_note"] = line
+        if line.startswith("Value units: "):
+            summary["value_note"] = line[len("Value units: "):]
+        if line.startswith("Comparison: ") or "changes are not compared" in line.lower() or "previous 13F-HR could not be read" in line:
+            summary["comparison_note"] = line
+        if m := re.search(r"the quarter ended ([0-9-]+), accession ([0-9-]+), filed ([0-9-]+)", line):
+            summary["prior"] = {"period": m[1], "accession": m[2], "filed": m[3], "source": {**source, "accession": m[2]}}
         if cells[:2] == ["Rank", "Issuer"]:
             head = cells
             continue
         if head and len(cells) == len(head) and cells[0].isdigit():
             r = dict(zip(head, cells))
-            m = re.match(r"(.*?) \(([^()]*)\)$", r["Issuer"])          # "ALPHABET INC (CAP STK CL C)": the class rides with the issuer
-            out.append({"rank": int(r["Rank"]), "issuer": m[1] if m else r["Issuer"], "class": m[2] if m else "", "value": r.get("Value"),
-                        "shares": r.get("Shares"), "weight": r.get("Weight"), "change": r.get("Change"), **_loc(doc, off)})
-    return {"holdings": out}
+            m = re.match(r"(.*?) \(([^()]*)\)$", r["Issuer"])
+            security = m[2] if m else ""
+            parts = [x.strip() for x in security.split(",")]
+            put_call = next((x for x in parts if x in ("PUT", "CALL")), "")
+            out.append({"rank": int(r["Rank"]), "issuer": m[1] if m else r["Issuer"], "class": ", ".join(x for x in parts if x not in ("PUT", "CALL")),
+                        "put_call": put_call, "kind": r.get("Amount type") or "", "value": r.get("Value"),
+                        "shares": r.get("Shares"), "weight": r.get("Weight"), "change": r.get("Change"), **_loc(doc, off), "source": source})
+    return {"holdings": out, "holdings_summary": summary}
 
 
 # ---------------------------------------------------------------------- all of it
@@ -1415,4 +1436,8 @@ def build(doc, rep: dict, title: str = "") -> dict:
         out["map"] = section_map(doc, kind, {**rep, "_call": out.get("call") or {}})
     except Exception as e:
         out["map"], out.setdefault("errors", []).append(f"map: {e.__class__.__name__}")
+    from . import endings
+    ending = endings.build(doc, rep, out, title)
+    if ending is not None:
+        out["ending"] = ending
     return out

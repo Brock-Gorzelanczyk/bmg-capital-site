@@ -233,12 +233,13 @@ def parse_13f(xml_text: str) -> list[dict]:
         if _local(it.tag) != "infoTable":
             continue
         g = lambda name: next(((x.text or "").strip() for x in it.iter() if _local(x.tag) == name), "")
-        key = (g("cusip"), g("putCall"), g("titleOfClass"))
+        key = (g("cusip"), g("putCall"), g("titleOfClass"), g("sshPrnamtType"))
         row = agg.setdefault(key, {"issuer": g("nameOfIssuer"), "class": g("titleOfClass"), "cusip": g("cusip"), "put_call": g("putCall"),
                                    "value": 0.0, "shares": 0.0, "kind": g("sshPrnamtType")})
-        row["value"] += _num(g("value")) or 0.0
-        row["shares"] += _num(g("sshPrnamt")) or 0.0
-    rows = sorted(agg.values(), key=lambda r: -r["value"])
+        for field, tag in (("value", "value"), ("shares", "sshPrnamt")):
+            val = _num(g(tag))
+            row[field] = row[field] + val if row[field] is not None and val is not None else None
+    rows = sorted(agg.values(), key=lambda r: -(r["value"] if r["value"] is not None else -1))
     return rows
 
 
@@ -269,23 +270,24 @@ def same_company(a: str, b: str) -> bool:
 
 def holdings_document(fund: str, cik: int, filing: dict, rows: list, prior: Optional[dict], highlight: Optional[str]) -> str:
     """filing: {period, filed, accession, url}; prior: {period, rows} or None; highlight: a company name to look for."""
-    total = sum(r["value"] for r in rows)
-    pmap = {(r["cusip"], r["put_call"], r["class"]): r for r in (prior or {}).get("rows", [])}
-    cmap = {(r["cusip"], r["put_call"], r["class"]) for r in rows}
+    complete = all(r.get("value") is not None for r in rows)
+    total = sum(r["value"] for r in rows) if complete else None
+    pmap = {(r["cusip"], r["put_call"], r["class"], r.get("kind", "SH")): r for r in (prior or {}).get("rows", [])}
+    cmap = {(r["cusip"], r["put_call"], r["class"], r.get("kind", "SH")) for r in rows}
 
     def change(r):
-        p = pmap.get((r["cusip"], r["put_call"], r["class"]))
+        p = pmap.get((r["cusip"], r["put_call"], r["class"], r.get("kind", "SH")))
         if not prior:
             return NA
         if not p:
             return "New position"
-        if not p["shares"]:
+        if not p["shares"] or r.get("shares") is None:
             return NA
         d = (r["shares"] / p["shares"] - 1) * 100
-        return "Unchanged" if abs(d) < 0.05 else f"{'+' if d > 0 else ''}{d:.1f}% shares"
-    new = [r for r in rows if prior and (r["cusip"], r["put_call"], r["class"]) not in pmap]
+        return "Unchanged" if d == 0 else f"{'+' if d > 0 else ''}{d:.1f}% shares"
+    new = [r for r in rows if prior and (r["cusip"], r["put_call"], r["class"], r.get("kind", "SH")) not in pmap]
     gone = [p for k, p in pmap.items() if k not in cmap]
-    top = rows[:50]
+    top = rows[:]
     hl = [r for r in rows if highlight and same_company(r["issuer"], highlight)]
     for r in hl:
         if r not in top:
@@ -294,15 +296,19 @@ def holdings_document(fund: str, cik: int, filing: dict, rows: list, prior: Opti
     # The class (and put or call) rides with the issuer, and the CUSIP stays out of the table: six columns fit the
     # reading column, and a nine-digit CUSIP is not a figure for the spider to lift.
     label = lambda r: r["issuer"] + (f" ({', '.join(x for x in (r['class'], r['put_call']) if x)})" if r["class"] or r["put_call"] else "")
-    table = [[str(rank[id(r)]), _E(label(r)), _money(r["value"]), _int(r["shares"]), f"{(r['value'] / total * 100) if total else 0:.2f}%", _E(change(r))]
+    table = [[str(rank[id(r)]), _E(label(r)), _money(r["value"]), _int(r["shares"]), (f"{r['value'] / total * 100:.2f}%" if total and r.get("value") is not None else NA), _E(change(r)), _E(r.get("kind") or NA)]
              for r in top]
     lines = [f"{len(rows)} positions worth {_money(total)} in total, as reported for the quarter ended {filing['period']} (filed {filing['filed']}).",
-             f"The 10 largest positions are {sum(r['value'] for r in rows[:10]) / total * 100 if total else 0:.1f}% of the reported value."]
+             (f"The 10 largest positions are {sum(r['value'] for r in rows[:10]) / total * 100:.1f}% of the reported value." if total else "Concentration is unavailable because the reported values are incomplete or zero.")]
+    if total is not None:
+        lines.append(f"Reported holdings value: ${total:,.0f} USD; positions: {len(rows)}. This is the sum of the reported positions, not assets under management.")
     if prior:
         pl = lambda n, w: f"{n} {w}{'' if n == 1 else 's'}"
         lines.append(f"Against the quarter ended {prior['period']}: {pl(len(new), 'new position')}, {pl(len(gone), 'position')} no longer reported.")
     else:
-        lines.append("The manager's previous 13F-HR could not be read, so changes from the prior quarter are not shown.")
+        lines.append(("Comparison: " + filing["comparison_note"]) if filing.get("comparison_note") else "The manager's previous 13F-HR could not be read, so changes from the prior quarter are not shown.")
+    if filing.get("value_note"):
+        lines.append("Value units: " + filing["value_note"])
     if highlight:
         if hl:
             lines += [f"{highlight} appears in this filing as {r['issuer']} ({r['class']}): {_int(r['shares'])} shares worth {_money(r['value'])}, "
@@ -310,17 +316,22 @@ def holdings_document(fund: str, cik: int, filing: dict, rows: list, prior: Opti
         else:
             lines.append(f"{highlight} does not appear in this filing (matched by issuer name).")
     body = (f"<h1>BMG fund holdings: {_E(fund)}</h1>"
-            f"<p>Form 13F-HR from SEC EDGAR, CIK {cik}, accession <a href=\"{_E(filing['url'])}\"{_LINK}>{_E(filing['accession'])}</a>. "
-            "A 13F lists the U.S.-listed stocks and options a large investment manager held at the quarter end; it is filed up to 45 days later, "
-            "and it leaves out cash, shorts, bonds and non-U.S. holdings.</p>"
+            f"<p>Manager: {_E(fund)}. Quarter ended {filing['period']}. Filed {filing['filed']}. Form {_E(filing.get('form') or '13F-HR')}."
+            f" Accession {_E(filing['accession'])}.</p>"
+            + ("<p>This is the original filing. An amendment exists for this quarter; this document does not combine it with the original.</p>" if filing.get("amendments") else "")
+            + f"<p>Form 13F-HR from SEC EDGAR, CIK {cik}, accession <a href=\"{_E(filing['url'])}\"{_LINK}>{_E(filing['accession'])}</a>. "
+            "A 13F reports specified Section 13(f) securities held at quarter end, generally filed up to 45 days later. "
+            "It is not a full portfolio or assets under management: cash, short positions and securities outside the official 13F list are excluded; "
+            "confidential positions and permitted small holdings may be omitted. Reported options refer to the underlying shares, not option premiums.</p>"
             "<h2>Summary</h2>" + "".join(f"<p>{_E(x)}</p>" for x in lines)
-            + "<h2>Largest positions</h2><p>The 50 largest positions by reported value"
+            + "<h2>Largest positions</h2><p>All reported positions, ranked by reported value"
             + (f" (and every line for {_E(highlight)})" if hl and any(r not in rows[:50] for r in hl) else "")
             + ". Weight is the position's value over the filing's total; change compares shares with "
-            + (f"the quarter ended {_E(prior['period'])}." if prior else "the prior quarter, which was not available.") + "</p>"
-            + _table(["Rank", "Issuer", "Value", "Shares", "Weight", "Change"], {0, 2, 3, 4}, set(), table)
-            + (("<h2>New positions</h2>" + "".join(f"<p>{_E(r['issuer'])} ({_E(r['class'])}): {_int(r['shares'])} shares, {_money(r['value'])}.</p>" for r in new[:15])) if new else "")
-            + (("<h2>No longer reported</h2>" + "".join(f"<p>{_E(p['issuer'])} ({_E(p['class'])}): {_int(p['shares'])} shares in the quarter ended {_E(prior['period'])}.</p>" for p in gone[:15])) if gone else "")
+            + (f"the quarter ended {_E(prior['period'])}, accession {_E(prior.get('accession') or 'not supplied')}, filed {_E(prior.get('filed') or 'not supplied')}." if prior else "the prior quarter, which was not available.") + "</p>"
+            + _table(["Rank", "Issuer", "Value", "Shares", "Weight", "Change", "Amount type"], {0, 2, 3, 4}, set(), table)
+            + (("<h2>New positions</h2>" + "".join(f"<p>{_E(r['issuer'])} ({_E(r['class'])}): {_int(r['shares'])} shares, {_money(r['value'])}.</p>" for r in new)) if new else "")
+            + (("<h2>No longer reported</h2>" + "".join(f"<p>{_E(p['issuer'])} ({_E(p['class'])}): {_int(p['shares'])} shares in the quarter ended {_E(prior['period'])}.</p>" for p in gone)) if gone else "")
             + f'<p{_NOTE}>Values and shares are summed across the manager\'s rows for each security, as reported. Weight is the position\'s value over '
-              "the filing's total reported value. Not investment advice.</p>")
+              "the filing's total reported value, both calculations on reported figures. Changes compare quarter-end amounts; they do not identify trades, execution dates, prices or profits. "
+              "SH means shares (underlying shares for PUT/CALL positions); PRN means principal amount, not a count of shares. Not investment advice.</p>")
     return _page(f"BMG fund holdings: {fund}", "fund-holdings", body)

@@ -152,6 +152,9 @@ def render(rep: dict) -> bytes:
                             title=f"BMG Capital Company Report: {name}", author="BMG Capital", subject="Company Report")
     W = letter[0] - 1.5 * inch
     story = []
+    if rep.get("document_ending"):
+        story.extend(_document_ending_story(rep))
+        story.append(PageBreak())
     used = set()
 
     def pages_of(fid, depth=0):
@@ -479,3 +482,28 @@ def render_compare(cmp: dict) -> bytes:
     running = f"{na} vs {nb} | Company comparison"
     doc.build(story, canvasmaker=lambda *x, **k: _Numbered(*x, meta={"running": running}, **k))
     return buf.getvalue()
+
+
+def _document_ending_story(rep: dict) -> list:
+    """The same sourced form-specific summary used by the screen and recording."""
+    from .endings import citation, item_text
+    model = rep["document_ending"]
+    story = [Spacer(1, 22), P(e(model.get("name") or rep["source"]["name"]), "h1"), P(e(model["summary_title"]), "h2")]
+    ident = model.get("identity") or {}
+    story.append(P(" &middot; ".join(e(ident.get(k)) for k in ("form", "period", "filed", "accession") if ident.get(k)), "small"))
+    story.append(P("Source: " + e(rep["source"]["name"]) + "; sha256 " + e(rep["source"]["sha256"]), "small"))
+    for group in model["groups"]:
+        story.append(P(e(group["title"]), "h2"))
+        if group.get("note"):
+            story.append(P(e(group["note"]), "small"))
+        for item in group["items"]:
+            story.extend([P(e(item.get("label")), "h3"), P(e(item_text(item))),
+                          P(e("; ".join(x for x in (item.get("period"), item.get("basis"), citation(item)) if x)), "small")])
+    for note in model["notes"]:
+        story.append(P(e(note), "small"))
+    for detail in model.get("details") or []:
+        story.append(P(e(detail["title"]), "h2"))
+        for item in detail["items"]:
+            story.extend([P(e(item.get("label")), "h3"), P(e(item_text(item))),
+                          P(e("; ".join(x for x in (item.get("period"), item.get("basis"), citation(item)) if x)), "small")])
+    return story
