@@ -1176,10 +1176,28 @@ function mount(root, opts){
   // measured the same way). Under the small company logo alone it sits a little lower, clear of it, and ends when the
   // final report appears, as the logo does. A take whose video already shows the hook (hookShown) gets none.
   const TITLE = {style: "classic", color: "#ffffff", bg: "outline", size: 0.072, wrap: 0.76, top: 0.125};
+  // a time in the take (the record window's) in the edit, after any cut
+  const toEdit = t => P.segs.reduce((a, s) => a + Math.max(0, Math.min(s.out, t) - s.in), 0);
+  // the moments a take's page could not draw (noted by the record window in the take's own time) are cut from a new
+  // edit, a frame of each kept: the clip plays on without the still. More than a quarter of the take is never cut.
+  function cutFreezes(){
+    const fz = (P.take && P.take.meta && P.take.meta.freezes) || [];
+    if (!fz.length || P.segs.length !== 1 || P.segs[0].in !== 0) return;
+    const dur = P.segs[0].out, segs = []; let at = 0, cut = 0;
+    for (const [a, b] of fz){
+      const s = Math.min(dur, a + 1 / 30), e = Math.min(dur, b);
+      if (e - s < 0.03 || s < at) continue;
+      if (s > at) segs.push({id: uid(), in: at, out: s});
+      cut += e - s; at = e;
+    }
+    if (at < dur) segs.push({id: uid(), in: at, out: dur});
+    if (segs.length > 1 && cut <= dur / 4){ P.segs = segs; commit(); }
+  }
   function hookItem(){
     const h = P.take && P.take.meta && String(P.take.meta.hook || "").trim(), brand = (P.take && P.take.meta && P.take.meta.brand) || {};
     if (!h || brand.hookShown || P.items.some(x => x.kind === "text" && x.text === h)) return;
-    const intro = !!brand.introTitle, until = intro ? Math.min(4, editDur()) : brand.mini && brand.reportAt > 0 && brand.reportAt < editDur() ? brand.reportAt : null;
+    const rep = brand.reportAt > 0 ? toEdit(brand.reportAt) : 0;
+    const intro = !!brand.introTitle, until = intro ? Math.min(toEdit(4), editDur()) : brand.mini && rep > 0 && rep < editDur() ? rep : null;
     const it = Object.assign({id: "i-" + uid(), kind: "text", text: h, wrap: TITLE.wrap, x: 0.5, rot: 0, t0: 0, t1: until == null ? editDur() : until, whole: until == null},
       textDefaults, {style: TITLE.style, color: TITLE.color, bg: TITLE.bg, size: TITLE.size});
     it.y = ((intro || !brand.mini ? TITLE.top : 0.145) * H + textLayout(it).h / 2) / H;
@@ -2472,7 +2490,7 @@ function mount(root, opts){
   return {
     show(){ shown = true; ready.then(() => { zoomFit(); renderItems(); drawWave(); listTakes(); }); st.focus({preventScroll: true}); },
     hide(){ shown = false; pause(); if (listenNode) listen($('[data-a="listen"]')); },
-    async openTake(id, o = {}){ await ready; if (o.clean) cleanEdit(); showTab(o.tab || "takes", true); await openTake(id, o.note); if (o.clean) hookItem(); },
+    async openTake(id, o = {}){ await ready; if (o.clean) cleanEdit(); showTab(o.tab || "takes", true); await openTake(id, o.note); if (o.clean){ cutFreezes(); hookItem(); } },
     async takeArrived(id){ await ready; const all = await listTakes(); if (!P.take && all && all.some(t => t.id === id)) await openTake(id); else flash("A new take is in Takes."); },
     // the page waits before loading a new version: an export (from its click), an edit not yet saved, a video not
     // downloaded or still downloading, the edit or a song playing
