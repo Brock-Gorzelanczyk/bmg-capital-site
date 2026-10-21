@@ -431,7 +431,11 @@ body.recmode.rec-social{--rec-h:28vh}
 /* Record mode: the spider is drawn above everything on the page, the chips flying into the report included (they
    start on the word the spider zapped, under its legs); the featured card stays above it (Brock 2026-10-20) */
 body.recmode .stage .doc{isolation:auto}body.recmode svg.spider{z-index:46}body.recmode #rec-feat{z-index:47}
-body.recmode.rec-social .read-side{padding:.8vh 11.6vw 0 3.4vw!important}
+/* A clip's frame inside what TikTok shows: a tall phone trims about 3.4% off each side of a 9:16 video, which cut
+   the report's first letters (Costco Form 4, 2026-10-21), and its buttons cover the right side. The report keeps
+   6.4% on the left; an HTML filing ends where the report does, clear of the buttons (a PDF page has its own margins) */
+body.recmode.rec-social .read-side{padding:.8vh 11.6vw 0 6.4vw!important}
+body.recmode.rec-social .htmldoc{border-width:0 4.6vw 0 0}
 body.rec-social .lr-ins li q{-webkit-line-clamp:2}body.rec-social .lr-ins li .go{display:none}body.rec-social .lr-sum{display:none}
 body.rec-social .lr-ins li.incoming{visibility:hidden}
 body.rec-social .lr-ins li.feat,body.rec-social tr.feat td{background:color-mix(in srgb,var(--crawler-main,#6ff4ff) 16%,#fff)}body.rec-social .lr-ins li.feat{box-shadow:inset .9vw 0 0 var(--crawler-main,#6ff4ff)}body.rec-social tr.feat td:first-child{box-shadow:inset .9vw 0 0 var(--crawler-main,#6ff4ff)}
@@ -3577,11 +3581,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (!wrap || !wrap.isConnected) return;
     wrap.style.zoom = ""; wrap.style.borderLeftWidth = wrap.style.borderRightWidth = "";
     // inside the page margin (borders, outside the scroll width, so the filing's own width is measured as before)
-    const avail = wrap.clientWidth, natural = wrap.scrollWidth, margin = parseFloat(getComputedStyle(wrap).borderLeftWidth) || 0;
+    const cs = getComputedStyle(wrap), avail = wrap.clientWidth, natural = wrap.scrollWidth;
+    const ml = parseFloat(cs.borderLeftWidth) || 0, mr = parseFloat(cs.borderRightWidth) || 0;
     const z = natural > avail + 1 ? Math.max(0.15, avail / natural) : 1;
     wrap.style.zoom = z === 1 ? "" : z.toFixed(4);
-    // the margin keeps its size on screen when a wide filing is zoomed out to fit
-    if (z !== 1) wrap.style.borderLeftWidth = wrap.style.borderRightWidth = (margin / z).toFixed(2) + "px";
+    // each margin keeps its size on screen when a wide filing is zoomed out to fit (a clip's right one is wider)
+    if (z !== 1){ wrap.style.borderLeftWidth = (ml / z).toFixed(2) + "px"; wrap.style.borderRightWidth = (mr / z).toFixed(2) + "px"; }
     wrap.dataset.fit = z.toFixed(3);
   }
   let rehold = 0, fitW = innerWidth;
