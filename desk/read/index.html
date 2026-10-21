@@ -2778,10 +2778,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const h1Rect = h1.getBoundingClientRect();
     state.body = {x: Math.max(HI_REACH, dRect.width * 0.42), y: h1Rect.bottom - dRect.top + 60};
     {
-      const rs = visualRows(), gaps = [];
-      for (let k = 1; k < rs.length; k++){ const g = rs[k].y - rs[k - 1].y; if (g > 6 && g < 60) gaps.push(g); }
-      gaps.sort((a, b) => a - b);
-      const lh = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 14;
+      const lh = spiderLineHeight(visualRows());
       // Size and speed follow the text (1/14 of a line, as in the first video).
       // The old 0.8 floor made the spider 31% too big on narrow Record pages.
       U = Math.max(0.5, Math.min(2.2, lh / 14));
@@ -2821,6 +2818,27 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (t0 > 0 && tMax > t0) return Math.max(4, Math.min(22, (tMax - t0)/1000));
     }
     return 10;
+  }
+
+  function spiderLineHeight(rows){
+    const gaps = [];
+    for (let k = 1; k < rows.length; k++){ const g = rows[k].y - rows[k - 1].y; if (g > 6 && g < 60) gaps.push(g); }
+    gaps.sort((a, b) => a - b);
+    const lh = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 14;
+    const wrap = docBody.querySelector('.htmldoc[data-bmg-doc="insider-trades"]');
+    if (!wrap) return lh;
+    // Generated insider-trades tables have padded cells. On a wide page their row pitch can dominate the
+    // median, almost doubling the spider even though the text is unchanged. Bound that pitch by the text's
+    // own line height, in the same zoomed CSS pixels as the row positions; ordinary filings keep their scale.
+    const zoom = parseFloat(wrap.style.zoom) || 1, lines = [];
+    for (const row of rows){
+      const word = row.els[0];
+      if (!word) continue;
+      const h = parseFloat(getComputedStyle(word).lineHeight) * zoom;
+      if (Number.isFinite(h) && h > 0) lines.push(h);
+    }
+    lines.sort((a, b) => a - b);
+    return lines.length ? Math.min(lh, lines[Math.floor(lines.length / 2)]) : lh;
   }
 
   function visualRows(){
@@ -3358,6 +3376,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // The filing's own layout and inline styles; scripts, external
     // styles, frames, forms, event handlers and hidden XBRL are dropped.
     const d = new DOMParser().parseFromString(html, "text/html");
+    const insiderTrades = !!d.querySelector('meta[name="bmg-doc"][content="insider-trades"]');
     d.querySelectorAll("script,style,link,meta,iframe,object,embed,form,base,noscript,img").forEach(e => e.remove());
     d.querySelectorAll("*").forEach(e => {
       if (e.tagName.toLowerCase() === "ix:header" || /display\s*:\s*none/i.test(e.getAttribute("style") || "")){ e.remove(); return; }
@@ -3392,6 +3411,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       t.replaceWith(...tmp.childNodes);
     }
     const wrap = document.createElement("div"); wrap.className = "htmldoc";
+    if (insiderTrades) wrap.dataset.bmgDoc = "insider-trades";
     wrap.innerHTML = d.body.innerHTML;
     into.appendChild(wrap);
     fitHtml(wrap);
