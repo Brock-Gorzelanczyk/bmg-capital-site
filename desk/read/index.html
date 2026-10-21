@@ -470,8 +470,6 @@ body.recmode .lr-c.flash{animation:reccell 1.3s ease}@keyframes reccell{0%{backg
 #rec-brand .rb-logo{position:absolute;object-fit:contain;transform-origin:50% 50%;box-sizing:border-box;filter:drop-shadow(0 1px 3px rgba(0,0,0,.45))}
 #rec-brand .rb-logo.chip{background:rgba(255,255,255,.94);border-radius:10px;filter:none}
 #rec-brand .rb-logo.chip-dark{background:rgba(5,7,12,.84);border-radius:10px;filter:none}
-#rec-brand .rb-hook{position:absolute;margin:0;text-align:center;font-weight:800;line-height:1.45;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#141414}
-#rec-brand .rb-hook span{background:#fff;border-radius:.22em;padding:.12em .36em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 body.rec-brand-float .lr-logos{display:none!important}
 body.recmode.rec-brand-mini #num-cards{top:15vh}body.recmode.rec-brand-intro #num-cards{top:44vh}
 #rec-end .rk-brand .rk-co-sep{width:1px;height:22px;background:rgba(238,243,248,.28);flex:none}
@@ -1106,13 +1104,11 @@ html[data-theme="dark"] #mk-pv{filter:invert(1) hue-rotate(180deg)}   /* the vie
 .mk-pvf .pv-page{position:absolute;inset:0 0 28% 0;padding:9% 6% 0;display:flex;flex-direction:column;gap:3.2%}.mk-pvf .pv-page i{display:block;height:1.4cqw;border-radius:1cqw;background:#3a3f47;width:88%}.mk-pvf .pv-page i:nth-child(3n){width:62%}.mk-pvf .pv-page i:nth-child(4n){width:76%}
 .mk-pvf.light{background:#fff}.mk-pvf.light .pv-page i{background:#d6d9dd}
 .mk-pvf .mk-sw{position:absolute;left:38%;top:24%;width:24%;height:auto;background:none}.mk-pvf.light .mk-sw{box-shadow:none}
-.mk-pvf .pv-hook{position:absolute;left:9.22%;width:76%;top:11.5%;transform:translateY(-50%);margin:0;color:#141414;font:800 5cqw/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;text-align:center}
-.mk-pvf .pv-hook.low{top:18.5%}
-.mk-pvf .pv-hook span,.mk-pvf .pv-bhook span{background:#fff;border-radius:.22em;padding:.12em .36em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.mk-pvf .pv-hook{position:absolute;left:12%;width:76%;top:12.5%;margin:0;color:#fff;font:800 7.2cqw/1.17 system-ui,-apple-system,"Helvetica Neue","Segoe UI",Roboto,Arial,sans-serif;text-align:center;-webkit-text-stroke:.14em #141414;paint-order:stroke fill}
+.mk-pvf .pv-hook.low{top:14.5%}
 /* company branding in the preview, placed as the record window places it (brandGeom, in cqw) */
 .mk-pvf .pv-blogo{position:absolute;object-fit:contain;box-sizing:border-box;filter:drop-shadow(0 .2cqw .6cqw rgba(0,0,0,.45))}
 .mk-pvf .pv-blogo.chip{background:rgba(255,255,255,.94);border-radius:1.8cqw;filter:none}.mk-pvf .pv-blogo.chip-dark{background:rgba(5,7,12,.84);border-radius:1.8cqw;filter:none}
-.mk-pvf .pv-bhook{position:absolute;margin:0;text-align:center;font-weight:800;line-height:1.45;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#141414}
 .mk-pvf.pv-endf{background:#05070c}
 .pv-end{position:absolute;inset:0;padding:0 4.07cqw;display:flex;flex-direction:column;justify-content:center;color:#eef3f8}
 .pv-ebrand{display:flex;align-items:center;gap:1.85cqw;font:700 3.33cqw 'IBM Plex Sans',sans-serif;margin-bottom:2.6cqw}.pv-ebrand svg{width:6.3cqw;flex:none}.pv-ebrand em{margin-left:auto;font-style:normal;font-weight:400;font-size:2.4cqw;color:#8fa0b3;white-space:nowrap}
@@ -5040,15 +5036,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (!b || !(b.intro || b.mini || b.report)) return;
       brand.on = true; brand.t0 = performance.now();
       const lg = brand.logo, hook = b.intro ? String(plan.hook || "").trim() : "";
-      state.brandMeta = {intro: !!(b.intro && (lg || hook)), hookShown: !!hook, mini: !!(b.mini && lg), report: !!(b.report && lg && plan.ending), logo: lg ? lg.from : ""};
-      if (!(b.intro && (lg || hook)) && !(b.mini && lg)) return;         // nothing floats (the report logo comes at the end)
+      state.brandMeta = {intro: !!(b.intro && (lg || hook)), introTitle: !!hook, mini: !!(b.mini && lg), report: !!(b.report && lg && plan.ending), logo: lg ? lg.from : ""};
+      if (!lg || !(b.intro || b.mini)) return;          // nothing floats (the title is the Studio's; the report logo comes at the end)
       const el = brand.el = document.createElement("div"); el.id = "rec-brand"; el.setAttribute("aria-hidden", "true");
       if (lg){
         brand.img = new Image(); brand.img.src = lg.url; brand.img.alt = "";
         brand.img.className = "rb-logo" + logoChip(lg, !(plan.look && plan.look.dark === false));
         el.appendChild(brand.img); B.classList.add("rec-brand-float");
       }
-      if (hook){ brand.hook = document.createElement("p"); brand.hook.className = "rb-hook"; brand.hook.innerHTML = `<span>${esc(hook)}</span>`; el.appendChild(brand.hook); }
       brand.step = b.intro && (lg || hook) ? "intro" : "mini";
       brandLayout();
       B.appendChild(el);
@@ -5059,7 +5054,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     }
     function brandLayout(){
       if (!brand.el) return;
-      const W = innerWidth, H = innerHeight, g = brandGeom(brand.logo, W, H);
+      const W = innerWidth, H = innerHeight, g = brandGeom(brand.logo, W, H, plan.brand.intro && plan.hook);
       if (brand.img){
         // laid out at its opening size; the small spot is the same picture scaled down (sharp, moved by transform only)
         const s = brand.img.style;
@@ -5072,14 +5067,13 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           brand.step = "mini"; s.transform = brand.small;
         }
       }
-      if (brand.hook){ const s = brand.hook.style; s.top = g.hookTop + "px"; s.width = g.hookW + "px"; s.left = (W / 2 - g.hookW / 2) + "px"; s.fontSize = g.hookPx + "px"; }
     }
     function brandAfterIntro(){
-      // 4 seconds of recording: the hook fades; the logo shrinks to its small spot (or fades, without the small logo)
+      // 4 seconds of recording: the title ends (the Studio's text item); the logo shrinks to its small spot (or fades,
+      // without the small logo)
       brand.timer = 0;
       const ease = "cubic-bezier(.4,0,.2,1)", out = el => el.animate([{opacity: 1}, {opacity: 0}], {duration: 500, easing: "ease", fill: "forwards"});
       B.classList.remove("rec-brand-intro");
-      if (brand.hook){ const h = brand.hook, a = out(h); a.onfinish = () => { h.remove(); if (brand.hook === h) brand.hook = null; }; brand.anims.push(a); }
       if (brand.img && plan.brand.mini){
         brand.step = "moving"; B.classList.add("rec-brand-mini");
         const a = brand.img.animate([{transform: "none"}, {transform: brand.small}], {duration: 900, easing: ease, fill: "forwards"});
@@ -7737,13 +7731,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     skipBtn.hidden = false;
     // PDFs and HTML filings (everything loaded by ticker from EDGAR) both get Jump to statements
     state.jumpPage = fname.endsWith(".pdf") || /\.html?$/.test(fname) ? statementsPage(rp) : null;
-    state.jumpEl = null;
+    state.jumpEl = null; state.jumpAt = null;
     if (jumpBtn) jumpBtn.hidden = !state.jumpPage;
     const ok = await loadDocAndWalk({type: "document", doc_id: "job-" + res.sha256, host: res.title, title: res.title,
       doc_type: (res.kind || "").toUpperCase(), ticker: co.ticker || "", has_text: true, fetched_at: new Date().toISOString()});
     if (!ok){ if (state.doneHook){ state.doneHook = null; done(res); } return; }
     toolsDocReady();
     if (state.findRun && state.findStart) state.findStart(res, true);        // Find lines: the spider goes only to those places
+    if (!state.jumpPage && jumpBtn && !state.walkSkipped && (state.jumpAt = statementsInPage())) jumpBtn.hidden = false;
     // Skip (or reduced motion) while the document was still drawing: the
     // walk is queued to start just after this; stop it as it starts.
     if (REDUCED || state.walkSkipped){ state.walkSkipped = true; setTimeout(() => { skipWalk(); setStatus(`ready \u00b7 ${state.panelIds.size} findings`); }, 120); }
@@ -8086,15 +8081,32 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   function logoChip(lg, darkSurface){
     return !lg || !(lg.see > 0.05) ? "" : darkSurface && lg.tone === "dark" ? " chip" : !darkSurface && lg.tone === "light" ? " chip-dark" : "";
   }
-  // Where the branding sits in a W x H (9:16) window: the opening logo centered (about 46% of the width at most,
-  // 15% of the height) with the hook under it; the small logo at the top center, about 15% of the width (6.5% of
-  // the height at most), just inside TikTok's top bar (5.6%). Proportions kept; both within the safe margins.
-  function brandGeom(lg, W, H){
+  // The clip's title (the hook) is a Studio text item, editable there: Classic, white with a black outline (Brock's
+  // Microsoft clip), 7.2% of the frame's width, wrapped at 76%, its top just under TikTok's top bar (12.5% of the
+  // 1080 x 1920 frame). The opening logo sits under it, so the title is measured here as the Studio lays it out.
+  const TITLE = {top: 0.125, size: 0.072, wrap: 0.76, gap: 0.014, lh: 1.17, font: '800 {s}px system-ui, -apple-system, "Helvetica Neue", "Segoe UI", Roboto, Arial, sans-serif'};
+  function titleHeight(text){
+    text = String(text || "").trim(); if (!text) return 0;
+    const px = TITLE.size * 1080, c = titleHeight.c || (titleHeight.c = document.createElement("canvas").getContext("2d"));
+    c.font = TITLE.font.replace("{s}", px.toFixed(2));
+    let n = 0;
+    for (const para of text.split("\n")){
+      const words = para.split(/\s+/).filter(Boolean); let line = words.shift() || "";
+      for (const w of words){ if (c.measureText(line + " " + w).width <= TITLE.wrap * 1080) line += " " + w; else { n++; line = w; } }
+      n++;
+    }
+    return n * px * TITLE.lh + px * 0.28;          // in the frame's pixels, its outline's padding included
+  }
+  // Where the branding sits in a W x H window, through the frame the Studio fits it into: the title at the top, the
+  // opening logo centered under it (about 46% of the width at most, 15% of the height); the small logo at the top
+  // center, about 15% of the width (6.5% of the height at most). Proportions kept; both within the safe margins.
+  function brandGeom(lg, W, H, hook){
     const fit = (mw, mh) => { if (!lg || !lg.w || !lg.h) return {w: 0, h: 0}; const k = Math.min(mw / lg.w, mh / lg.h); return {w: Math.round(lg.w * k), h: Math.round(lg.h * k)}; };
-    const intro = fit(W * 0.46, H * 0.15), mini = fit(W * 0.15, H * 0.065);
-    const icy = Math.round(H * 0.2);
-    return {intro: {...intro, cx: Math.round(W / 2), cy: icy}, mini: {...mini, cx: Math.round(W / 2), cy: Math.round(H * 0.063 + mini.h / 2)},
-      hookTop: Math.round(intro.h ? icy + intro.h / 2 + H * 0.025 : H * 0.17), hookW: Math.round(W * 0.76), hookPx: Math.round(W * 0.05)};
+    const R = 9 / 16, r = W / H, fill = Math.abs(r - R) / R < 0.03, k = (r > R) === fill ? 1920 / H : 1080 / W, y = Y => (Y - (1920 - H * k) / 2) / k;
+    const top = 1920 * TITLE.top, th = titleHeight(hook);
+    const intro = fit(W * 0.46, H * 0.15), mini = fit(W * 0.15, H * 0.065), logoTop = y(th ? top + th + 1920 * TITLE.gap : top);
+    return {intro: {...intro, cx: Math.round(W / 2), cy: Math.round(logoTop + intro.h / 2)}, mini: {...mini, cx: Math.round(W / 2), cy: Math.round(H * 0.063 + mini.h / 2)},
+      title: {top: y(top), px: TITLE.size * 1080 / k, w: TITLE.wrap * 1080 / k}};
   }
   const NF = "Not found in the reviewed filing";
   function reportHTML(rep, res){
@@ -8615,7 +8627,21 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const f = htmlPageFirsts(root)[page - 1];
     return f != null ? wordList().els[f] || null : null;
   }
+  // A 10-K whose read found no statement figure (Tesla's, 2026-10-21) still gets Jump to statements: the statements
+  // are found in the filing itself, at the first statement title in capitals followed by a statement's rows (8
+  // figures and a Total line before the next title), so a contents or index entry is passed over.
+  function statementsInPage(){
+    const els = wordList().els, txt = els.map(e => e.textContent.trim());
+    for (let i = 0; i < txt.length - 4; i++){
+      if (!/^(CONSOLIDATED|COMBINED)$/.test(txt[i]) || !/^(BALANCE SHEETS?|STATEMENTS? OF (OPERATIONS|INCOME|EARNINGS|CASH FLOWS|COMPREHENSIVE))/.test(txt.slice(i + 1, i + 5).join(" "))) continue;
+      let n = i + 1; while (n < Math.min(txt.length, i + 120) && !/^(CONSOLIDATED|COMBINED)$/.test(txt[n])) n++;     // up to the next title
+      const next = txt.slice(i, n);
+      if (next.filter(w => /^\(?\$?\d{1,3}(,\d{3})+\)?$/.test(w)).length >= 8 && next.some(w => /^Total$/i.test(w))) return els[i];
+    }
+    return null;
+  }
   function jumpTarget(){
+    if (state.jumpAt) return state.jumpAt.isConnected ? state.jumpAt : null;
     if (!state.jumpPage) return null;
     const pg = docBody.querySelectorAll(".pdfpage")[state.jumpPage - 1];
     if (pg) return pg;
@@ -8642,7 +8668,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (!state.walkState || state.walkState.done || state.scrollPos == null){ setTimeout(go, 150); return; }
       // land with the first statement page just below the reading line, so every row is read in view
       // facts before the landing page were read by the server, not shown in this walk
-      if (state.live){
+      if (state.live && state.jumpPage){
         const offs = Object.entries(state.live.plan.fact_pages || {}).filter(([f, p]) => p >= state.jumpPage).map(([f]) => state.live.plan.fact_offsets[f]).filter(x => x != null);
         if (offs.length) applyLive(state.live.markEarlier(Math.min(...offs)));
       }
@@ -10722,7 +10748,7 @@ Who is the auditor?</textarea>
         pp.hidden = !phases.length;
         pp.innerHTML = phases.map(k => `<button type="button" role="radio" class="av-seg" data-ph="${k}" aria-checked="${k === ph}">${{open: "Opening, first 4 s", crawl: "During the crawl", end: "Final report"}[k]}</button>`).join("");
       }
-      const g = brandGeom(lg, 100, 177.78), cq = v => (+v).toFixed(2) + "cqw";
+      const g = brandGeom(lg, 100, 177.78, BR.intro && hook), cq = v => (+v).toFixed(2) + "cqw";
       const logoAt = (r, cls) => `<img class="pv-blogo${logoChip(lg, cls === "end" || dark)}" src="${esc(lg.url)}" alt="" style="left:${cq(r.cx - r.w / 2)};top:${cq(r.cy - r.h / 2)};width:${cq(r.w)};height:${cq(r.h)};padding:${cq(Math.min(r.w, r.h) * 0.08)}">`;
       const inOpening = ph === "open" && opening, small = lg && BR.mini && (ph === "crawl" || (ph === "open" && !opening));
       const studioHook = hook && !opening;                    // the Studio's hook item (the whole video) unless the opening shows it
@@ -10743,7 +10769,7 @@ Who is the auditor?</textarea>
           <div class="pv-page">${"<i></i>".repeat(14)}${spiderSwatch((state.recPalettes || {})[L.palette] || {main: "#6ff4ff", accent: "#ff3da6", trail: "#9fb4ff"})}</div>
           ${studioHook ? `<p class="pv-hook${lg && BR.mini ? " low" : ""}"><span>${esc(hook)}</span></p>` : ""}
           ${inOpening && lg ? logoAt(g.intro, "") : small ? logoAt(g.mini, "") : ""}
-          ${inOpening && hook ? `<p class="pv-bhook" style="top:${cq(g.hookTop)};left:${cq(50 - g.hookW / 2)};width:${cq(g.hookW)};font-size:${cq(g.hookPx)}"><span>${esc(hook)}</span></p>` : ""}
+          ${inOpening && hook ? `<p class="pv-hook"><span>${esc(hook)}</span></p>` : ""}
           <div class="pv-rep"><div class="pv-head"><span class="pv-brand">${BMG_LINE}<b>BMG Capital</b> report</span>${!bandLogo ? "" : brandOn() && lg ? `<span class="pv-logo"><small>Scanning</small><img src="${esc(lg.url)}" alt=""></span>` : logo("scan")}</div>
             ${count ? `<p class="pv-prog">${esc(count)}</p>` : ""}<ol>${rows.map(rowHTML).join("") || "<li class='pv-empty'>The report fills here as the spider reads.</li>"}</ol></div>
           ${x && sc && sc.featured ? `<div class="pv-call"><small>Featured</small><b>${esc(x.type === "trade" ? x.who : x.label)}</b><span>${esc(x.type === "trade" ? `${x.label} · ${x.shares} shares at ${x.price}` : `${x.value} · ${x.period}`)}</span></div>` : ""}

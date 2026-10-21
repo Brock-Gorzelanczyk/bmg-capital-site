@@ -1169,17 +1169,21 @@ function mount(root, opts){
     P = Object.assign(newProject(), {fit: P.fit, fps: P.fps, origVol: P.origVol, take: P.take, segs: P.segs});
     selected = null; textCache.clear();
   }
-  // a Make a clip take carries the hook written there: it goes on as a text item in a white box at the top, inside
-  // TikTok's safe area (its right side clear of the buttons), for the whole video, and stays editable like any text.
-  // A take with the company branding's opening already shows the hook (under the logo, its first 4 seconds): nothing
-  // is added then. Under the small company logo at the top, the hook sits a little lower, clear of it, and ends when
-  // the final report appears, as the logo does (that low, it would sit over the report's header).
+  // a Make a clip take carries the hook written there: it goes on as the clip's title, a text item at the top in the
+  // default title look (Classic, white with a black outline, 7.2% of the width: Brock's Microsoft clip), its top just
+  // under TikTok's top bar (12.5% of the frame), and stays editable like any text. With the company branding's
+  // opening it is the opening's title for its 4 seconds, over the logo (the record window placed the logo under it,
+  // measured the same way). Under the small company logo alone it sits a little lower, clear of it, and ends when the
+  // final report appears, as the logo does. A take whose video already shows the hook (hookShown) gets none.
+  const TITLE = {style: "classic", color: "#ffffff", bg: "outline", size: 0.072, wrap: 0.76, top: 0.125};
   function hookItem(){
     const h = P.take && P.take.meta && String(P.take.meta.hook || "").trim(), brand = (P.take && P.take.meta && P.take.meta.brand) || {};
     if (!h || brand.hookShown || P.items.some(x => x.kind === "text" && x.text === h)) return;
-    const until = brand.mini && brand.reportAt > 0 && brand.reportAt < editDur() ? brand.reportAt : null;
-    P.items.push(Object.assign({id: "i-" + uid(), kind: "text", text: h, wrap: 0.76, x: 0.4722, y: brand.mini ? 0.185 : 0.115, rot: 0, t0: 0, t1: until == null ? editDur() : until, whole: until == null},
-      textDefaults, {bg: "box", color: "#ffffff", size: 0.05}));
+    const intro = !!brand.introTitle, until = intro ? Math.min(4, editDur()) : brand.mini && brand.reportAt > 0 && brand.reportAt < editDur() ? brand.reportAt : null;
+    const it = Object.assign({id: "i-" + uid(), kind: "text", text: h, wrap: TITLE.wrap, x: 0.5, rot: 0, t0: 0, t1: until == null ? editDur() : until, whole: until == null},
+      textDefaults, {style: TITLE.style, color: TITLE.color, bg: TITLE.bg, size: TITLE.size});
+    it.y = ((intro || !brand.mini ? TITLE.top : 0.145) * H + textLayout(it).h / 2) / H;
+    P.items.push(it);
     renderItems(); drawTimeline(); panels(); commit(); renderAt();
   }
   async function addVideoFile(file){
