@@ -332,6 +332,10 @@ def guidance(doc, kind: str = "other", limit: int = 14) -> list[dict]:
     taken = {(x["offset"]) for x in tables}
     spans = [(x["offset"], x["end"]) for x in tables]
     for m in _GUIDE.finditer(body):
+        ls, le = _line_bounds(body, m.start())
+        own_line = body[ls:le].strip()
+        if re.fullmatch(r"(?i)(?:(?:20\d\d|fiscal(?: year)? 20\d\d|full[- ]year|business|financial|company|updated|revised)\s+)*(?:outlook|guidance|targets?)\s*:?", own_line):
+            continue  # A standalone heading is context for following rows, not the preceding historical sentence.
         if m.group(0)[:1] == "T" and re.search(r"[,&]\s*$|[a-z]\s+$", body[max(0, m.start() - 3):m.start()]):
             continue                    # "Barnes & Noble, Target, Dick's": the retailer, not a target (Simon Property's property list)
         s, e = _own_line(body, *sentence_at(body, m.start()), m.start())
@@ -1402,7 +1406,7 @@ def holdings(doc) -> dict:
             put_call = next((x for x in parts if x in ("PUT", "CALL")), "")
             out.append({"rank": int(r["Rank"]), "issuer": m[1] if m else r["Issuer"], "class": ", ".join(x for x in parts if x not in ("PUT", "CALL")),
                         "put_call": put_call, "kind": r.get("Amount type") or "", "value": r.get("Value"),
-                        "shares": r.get("Shares"), "weight": r.get("Weight"), "change": r.get("Change"), **_loc(doc, off), "source": source})
+                        "shares": r.get("Amount") or r.get("Shares"), "weight": r.get("Weight"), "change": r.get("Change"), **_loc(doc, off), "source": source})
     return {"holdings": out, "holdings_summary": summary}
 
 

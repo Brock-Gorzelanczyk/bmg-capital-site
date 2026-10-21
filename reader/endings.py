@@ -73,40 +73,115 @@ def _financial(doc, rep, metrics, quarter=False, historical=False):
         if fs:
             item = _fact(doc, fs[0], all_facts)
             if item:
+                financials = rep.get("financials") or {}
+                rows = (financials.get("performance") or []) + (financials.get("calculated") or []) + ((rep.get("position") or {}).get("rows") or [])
+                row = next((r for r in rows if r.get("current") == fs[0].get("id")), None)
+                prior = all_facts.get((row or {}).get("prior"))
+                change = ((row or {}).get("change") or {}).get("display")
+                if prior and change and (prior.get("period") or {}).get("type") == (fs[0].get("period") or {}).get("type"):
+                    item["text"] = "Change vs " + (prior.get("period") or {}).get("label", "the cited prior period") + ": " + change
+                    item["basis"] += "; change calculated from the cited matching periods"
+                    if prior.get("source"):
+                        item.setdefault("sources", []).append(prior["source"])
+                    item["refs"].append(prior["id"])
                 out.append(item)
     return out
 
 
 def _prose(doc, event=False, limit=4):
-    """Actual event paragraphs or document findings, never a generated interpretation."""
+    """Actual event terms or substantive numeric sentences, never cover boilerplate."""
     out, seen = [], set()
     starts = list(re.finditer(r"(?im)^\s*Item\s+(\d+\.\d+)\.?\s+([^\n]{4,160})", doc.body)) if event else []
+    candidates = []
     for n, m in enumerate(starts):
+        if m[1] == "9.01":
+            continue  # An exhibit index describes attachments, not the event's terms.
         end = starts[n + 1].start() if n + 1 < len(starts) else len(doc.body)
-        body = doc.body[m.end():end]
-        # Skip an empty index entry; the later real Item heading remains eligible.
-        paras = list(re.finditer(r"(?m)^\s*([^\n]{45,1000})", body))
-        chosen = next((p for p in paras if not re.match(r"(?i)Item\s+\d|SIGNATURES|EXHIBIT INDEX|Pursuant to", p[1].strip())), None)
-        if chosen:
-            off = m.end() + chosen.start(1)
-            text = chosen[1].strip()
-            if text not in seen:
-                out.append(_quoted(doc, {"text": text, "offset": off}, f"Item {m[1]}. {m[2].strip()}"))
-                seen.add(text)
+        pos = m.end()
+        while pos < end:
+            while pos < end and doc.body[pos].isspace():
+                pos += 1
+            a, b = insights.sentence_at(doc.body, pos, limit=1200)
+            a, b = max(pos, a), min(end, b)
+            if b <= pos:
+                break
+            text = insights._ws(doc.body[a:b])
+            pos = b + 1
+            if len(text) < 40 or re.search(r"(?i)incorporated by reference|does not purport to be complete|pursuant to the requirements|not applicable", text):
+                continue
+            if not re.search(r"\d", text):
+                continue
+            score = 4 * len(re.findall(r"\$\s?\d|\b\d[\d,.]*\s?(?:million|billion)\b", text)) + 2 * len(re.findall(r"\d(?:[\d.]*)%", text))
+            candidates.append((score, a, text, f"Item {m[1]}. {m[2].strip()}"))
+    # A credit facility's amount and maturity often follow the opening agreement paragraph.
+    # Numeric terms outrank introductory dates and cross references, regardless of the issuer.
+    for _, off, text, label in sorted(candidates, key=lambda x: (-x[0], x[1])):
+        if text not in seen:
+            out.append(_quoted(doc, {"text": text, "offset": off}, label))
+            seen.add(text)
         if len(out) >= limit:
             return out
     if out:
         return out
     for m in re.finditer(r"(?m)^([^\n]{70,850})$", doc.body):
         text = m[1].strip()
-        if not re.search(r"\d", text) or re.search(r"(?i)forward.looking|safe harbor|table of contents|commission file|washington,? d\.?c|not investment advice", text):
+        if not insights._GNUM.search(text) or re.search(r"(?i)forward.looking|safe harbor|table of contents|commission file|washington,? d\.?c|not investment advice|indicate by check|securities.*registered|par value|section 1[235]|rule [0-9]", text):
             continue
-        # Avoid cover tables, numeric table fragments and boilerplate.
         if len(re.findall(r"[A-Za-z]{3,}", text)) < 10 or len(text.split("  ")) > 4:
             continue
         if text not in seen:
             out.append(_quoted(doc, {"text": text, "offset": m.start()}, "As stated in the document"))
             seen.add(text)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _annual_findings(doc, limit=4):
+    """Foreign annual disclosures stay in their printed currency, without USD inference.
+
+    Prefer complete financial sentences from the operating review. Source tables in a
+    different currency can still be read on screen; this summary never relabels them.
+    """
+    body, out, used = doc.body, [], set()
+    sections = [s for s in doc.sections if s.item == "5"]
+    starts = [s.offset for s in sections]
+    if not starts:
+        starts = [m.start() for m in re.finditer(r"(?im)^[ \t]*ITEM\s+5[. ][^\n]*$", body)
+                  if not re.search(r"\s\d+\s*$", m.group())]
+    start = starts[-1] if starts else min(10000, len(body) // 5)
+    later = [s.offset for s in doc.sections if s.offset > start]
+    next_item = re.search(r"(?im)^[ \t]*ITEM\s+(?:6|7|8|9|1[0-9])[. ][^\n]*$", body[start + 1:])
+    if next_item:
+        later.append(start + 1 + next_item.start())
+    end = min(later) if later else len(body)
+    # If an index entry was the only heading, require actual financial content after it.
+    targets = [("Revenue", r"\b(?:net )?revenues?\b"), ("Profit and earnings", r"\bnet (?:income|profit)|\bincome from operations\b"),
+               ("Liquidity and cash flows", r"\b(?:cash flows?|cash and cash equivalents|liquidity)\b"),
+               ("Capital spending", r"\b(?:capital expenditures?|capital spending|property, plant and equipment)\b")]
+    for label, rx in targets:
+        for m in re.finditer(r"(?m)^[A-Z][^\n]{25,}", body[start:end]):
+            a = start + m.start()
+            # Start on a prose line, not a numeric table row. A sentence may wrap across several visual rows.
+            if re.search(r"\S {2,}\S", m.group()) or not insights._GNUM.search(m.group()):
+                continue
+            stop = re.search(r"[.!?](?=\s+[A-Z]|\s*$)", body[a:min(end, a + 1500)])
+            if not stop:
+                continue
+            b = a + stop.end()
+            text = insights._ws(body[a:b])
+            if not re.search(rx, m.group(), re.I) or a in used or not 50 <= len(text) <= 850 or not insights._GNUM.search(text):
+                continue
+            if re.search(r"(?i)\b(?:could|may|might|risk|hypothetical|sensitivity|impairment|forecast|expect\w*|anticipat\w*|assumptions?|accounting policies|determination|not found)\b|par value|indicate by check|table sets forth|following table", text):
+                continue
+            if not re.search(r"(?i)(?:NT|US|HK|C|A)?\$|\b(?:EUR|GBP|JPY|CNY|RMB|USD|CAD|dollars?|euros?|yen|pounds?|million|billion)\b|[0-9.]%", text):
+                continue
+            # A numeric multi-column row needs its own header to be interpretable; prefer prose here.
+            if len(re.findall(r"\S {2,}\S", body[a:b])) >= 2:
+                continue
+            out.append(_quoted(doc, {"text": text, "offset": a}, label, "Quoted annual disclosure in the currency and units stated by the filing"))
+            used.add(a)
+            break
         if len(out) >= limit:
             break
     return out
@@ -143,7 +218,7 @@ def build(doc, rep: dict, ins: dict, title: str = ""):
         adjusted = []
         for m in re.finditer(r"(?im)^([^\n]*(?:non-GAAP|adjusted)[^\n]*)$", doc.body):
             text = m[1].strip()
-            if len(text) >= 20 and re.search(r"\d", text) and not insights._GUIDE.search(text) and not insights._BOILER.search(text):
+            if len(text) >= 20 and insights._GNUM.search(text) and not insights._GUIDE.search(text) and not insights._BOILER.search(text):
                 adjusted.append(_quoted(doc, {"text": text, "offset": m.start()}, "Adjusted result as stated", "Company's stated non-GAAP measure; not a GAAP figure"))
             if len(adjusted) >= 4:
                 break
@@ -196,6 +271,9 @@ def build(doc, rep: dict, ins: dict, title: str = ""):
         out["notes"].append("Quarter-end changes do not establish trades, execution dates, prices or profits. PUT/CALL rows refer to underlying securities.")
     elif kind == "transcript":
         call = ins.get("call") or {}
+        named = call.get("company") or {}
+        out["name"] = named.get("name") or out["name"]
+        out["ticker"] = named.get("ticker") or out["ticker"]
         claims = [_quoted(doc, x, x.get("speaker") or "Management statement", "Attributed management statement; not an independently checked statement figure") for x in call.get("claims") or []][:4]
         guidance = [_quoted(doc, x, x.get("speaker") or "Management outlook", "Attributed forward-looking guidance; not historical results") for x in call.get("guidance") or []][:4]
         questions = [_quoted(doc, x, x.get("analyst") or "Analyst question", "Attributed analyst question") for x in call.get("questions") or []][:4]
@@ -205,7 +283,7 @@ def build(doc, rep: dict, ins: dict, title: str = ""):
         out["keys"] = (claims[:2] + guidance[:1] + questions[:1])[:4]
         out["notes"].append("These are attributed transcript statements and questions, kept apart from checked statement figures. No answer, motive or forecast is inferred.")
     else:
-        items = _prose(doc, event=kind == "current")
+        items = _annual_findings(doc) if kind == "annual" else _prose(doc, event=kind == "current")
         out["keys"] = items
         group("Reported event and terms" if kind == "current" else "Sourced findings", items)
         if kind == "annual":

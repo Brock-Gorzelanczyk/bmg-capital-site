@@ -275,6 +275,9 @@ def holdings_document(fund: str, cik: int, filing: dict, rows: list, prior: Opti
     pmap = {(r["cusip"], r["put_call"], r["class"], r.get("kind", "SH")): r for r in (prior or {}).get("rows", [])}
     cmap = {(r["cusip"], r["put_call"], r["class"], r.get("kind", "SH")) for r in rows}
 
+    def amount_unit(r):
+        return "principal amount" if r.get("kind") == "PRN" else "underlying shares" if r.get("put_call") else "shares"
+
     def change(r):
         p = pmap.get((r["cusip"], r["put_call"], r["class"], r.get("kind", "SH")))
         if not prior:
@@ -284,7 +287,7 @@ def holdings_document(fund: str, cik: int, filing: dict, rows: list, prior: Opti
         if not p["shares"] or r.get("shares") is None:
             return NA
         d = (r["shares"] / p["shares"] - 1) * 100
-        return "Unchanged" if d == 0 else f"{'+' if d > 0 else ''}{d:.1f}% shares"
+        return "Unchanged" if d == 0 else f"{'+' if d > 0 else ''}{d:.1f}% {amount_unit(r)}"
     new = [r for r in rows if prior and (r["cusip"], r["put_call"], r["class"], r.get("kind", "SH")) not in pmap]
     gone = [p for k, p in pmap.items() if k not in cmap]
     top = rows[:]
@@ -293,8 +296,8 @@ def holdings_document(fund: str, cik: int, filing: dict, rows: list, prior: Opti
         if r not in top:
             top.append(r)
     rank = {id(r): i + 1 for i, r in enumerate(rows)}
-    # The class (and put or call) rides with the issuer, and the CUSIP stays out of the table: six columns fit the
-    # reading column, and a nine-digit CUSIP is not a figure for the spider to lift.
+    # Class and PUT/CALL identify each security. Amount type distinguishes shares from principal amount;
+    # CUSIPs stay out of the visual table because identifiers are not figures for the spider to lift.
     label = lambda r: r["issuer"] + (f" ({', '.join(x for x in (r['class'], r['put_call']) if x)})" if r["class"] or r["put_call"] else "")
     table = [[str(rank[id(r)]), _E(label(r)), _money(r["value"]), _int(r["shares"]), (f"{r['value'] / total * 100:.2f}%" if total and r.get("value") is not None else NA), _E(change(r)), _E(r.get("kind") or NA)]
              for r in top]
@@ -311,7 +314,7 @@ def holdings_document(fund: str, cik: int, filing: dict, rows: list, prior: Opti
         lines.append("Value units: " + filing["value_note"])
     if highlight:
         if hl:
-            lines += [f"{highlight} appears in this filing as {r['issuer']} ({r['class']}): {_int(r['shares'])} shares worth {_money(r['value'])}, "
+            lines += [f"{highlight} appears in this filing as {label(r)}: {_int(r['shares'])} {amount_unit(r)} worth {_money(r['value'])}, "
                       f"rank {rank[id(r)]} of {len(rows)}, {change(r).lower()}." for r in hl]
         else:
             lines.append(f"{highlight} does not appear in this filing (matched by issuer name).")
@@ -326,11 +329,11 @@ def holdings_document(fund: str, cik: int, filing: dict, rows: list, prior: Opti
             "<h2>Summary</h2>" + "".join(f"<p>{_E(x)}</p>" for x in lines)
             + "<h2>Largest positions</h2><p>All reported positions, ranked by reported value"
             + (f" (and every line for {_E(highlight)})" if hl and any(r not in rows[:50] for r in hl) else "")
-            + ". Weight is the position's value over the filing's total; change compares shares with "
+            + ". Weight is the position's value over the filing's total; change compares the reported amounts with "
             + (f"the quarter ended {_E(prior['period'])}, accession {_E(prior.get('accession') or 'not supplied')}, filed {_E(prior.get('filed') or 'not supplied')}." if prior else "the prior quarter, which was not available.") + "</p>"
-            + _table(["Rank", "Issuer", "Value", "Shares", "Weight", "Change", "Amount type"], {0, 2, 3, 4}, set(), table)
-            + (("<h2>New positions</h2>" + "".join(f"<p>{_E(r['issuer'])} ({_E(r['class'])}): {_int(r['shares'])} shares, {_money(r['value'])}.</p>" for r in new)) if new else "")
-            + (("<h2>No longer reported</h2>" + "".join(f"<p>{_E(p['issuer'])} ({_E(p['class'])}): {_int(p['shares'])} shares in the quarter ended {_E(prior['period'])}.</p>" for p in gone)) if gone else "")
+            + _table(["Rank", "Issuer", "Value", "Amount", "Weight", "Change", "Amount type"], {0, 2, 3, 4}, set(), table)
+            + (("<h2>New positions</h2>" + "".join(f"<p>{_E(label(r))}: {_int(r['shares'])} {amount_unit(r)}, {_money(r['value'])}.</p>" for r in new)) if new else "")
+            + (("<h2>No longer reported</h2>" + "".join(f"<p>{_E(label(p))}: {_int(p['shares'])} {amount_unit(p)} in the quarter ended {_E(prior['period'])}.</p>" for p in gone)) if gone else "")
             + f'<p{_NOTE}>Values and shares are summed across the manager\'s rows for each security, as reported. Weight is the position\'s value over '
               "the filing's total reported value, both calculations on reported figures. Changes compare quarter-end amounts; they do not identify trades, execution dates, prices or profits. "
               "SH means shares (underlying shares for PUT/CALL positions); PRN means principal amount, not a count of shares. Not investment advice.</p>")

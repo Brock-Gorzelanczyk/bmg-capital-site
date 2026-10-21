@@ -1193,7 +1193,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     </div>
     <p class="mk-note cr-limit">A 10-K, 10-Q, earnings release, call transcript, insider trades or a fund's holdings: PDF, DOCX, HTML or text, up to <span id="read-max">10</span> MB.<span class="cr-words"> Words instead of a ticker search every SEC filing.</span></p>
     <div class="omni-recent" id="omni-recent" hidden aria-label="Recent companies"></div>
-    <button type="button" class="av-chip" id="cr-fund-open">Fund holdings (13F)</button>
+    <button type="button" class="av-chip" id="cr-fund-open" hidden>Fund holdings (13F)</button>
     <div class="omni-funds" id="omni-funds" hidden></div>
     <span id="edgar-status" role="status"></span></li>
   <li class="mk-step"><h3><b>2</b>Form</h3>
@@ -3917,6 +3917,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       : loadFiling(it.f); };
     state.crFunds = j => { if (j) found = j; showFunds(j); };
     document.getElementById("cr-fund-open").addEventListener("click", () => showFunds(null));
+    document.addEventListener("bmg-local", () => { document.getElementById("cr-fund-open").hidden = !READ_MAX.local; });
     async function loadFiling(f){
       list.querySelectorAll("button").forEach(x => { x.disabled = true; });
       say(`Downloading ${f.form} filed ${f.filed} from SEC EDGAR...`);
@@ -6336,7 +6337,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const citeOne = s => {
         const loc = [];
         if (s.printed_page != null) loc.push("p." + s.printed_page);
-        else if (s.pdf_page != null) loc.push("PDF p." + s.pdf_page);
+        else if (s.pdf_page != null) loc.push("p." + s.pdf_page);
         else if (s.page != null) loc.push("p." + s.page);
         if (s.location) loc.push(s.location);
         if (s.accession) loc.push("accession " + s.accession);
@@ -8229,7 +8230,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   // The completed report uses the same sourced document summary as the recording's ending and the PDF.
   function documentSummaryHTML(model){
     const sourceOne = (s, x) => {
-      const label = [s.printed_page != null ? "p." + s.printed_page : s.pdf_page != null ? "PDF p." + s.pdf_page : "", s.location, s.accession].filter(Boolean).join(" · ");
+      const label = [s.printed_page != null ? "p." + s.printed_page : s.pdf_page != null ? "p." + s.pdf_page : "", s.location, s.accession].filter(Boolean).join(" · ");
       if (s.pdf_page) return `<a class="rp-src" href="#" data-page="${esc(String(s.pdf_page))}" data-q="${esc((s.excerpt || x.text || "").slice(0, 160))}" data-off="${s.offset != null ? esc(String(s.offset)) : ""}">${esc(label)}</a>`;
       if (/^https:\/\/(?:www\.)?sec\.gov\//.test(s.url || "")) return `<a class="rp-src" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(label || "SEC filing")}</a>`;
       return `<span class="rp-note">${esc(label || (s.offset != null ? "document location " + s.offset : ""))}</span>`;
@@ -8321,8 +8322,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const kindName = {release: "Earnings Release", transcript: "Earnings Call", insider: "Insider Trades", holdings: "Fund Holdings", quarterly: "Quarterly Report", annual: "Company Report", current: "Current Report", other: "Document Report"}[ins.kind] || "Company Report";
     const head = `
       <header class="rp-head"><div class="rp-brand"><span>BMG Capital</span>${BMG_LINE}</div><div class="rp-kind">${esc(kindName)}</div></header>
-      <h1>${esc(co.name || callCo.name || co.name_hint || (ins.kind === "insider" || ins.kind === "holdings" ? res.title.replace(/\.htm$/, "") : "Company not identified"))} <span class="rp-tk">${esc(co.ticker || co.ticker_hint || callCo.ticker || "")}</span></h1>
-      <p class="rp-sub">${[co.form, co.period, co.exchange, co.amendment ? "Amendment" : "", ins.label && ins.kind !== "annual" && ins.kind !== "quarterly" ? ins.label : ""].filter(Boolean).map(esc).join(" &middot; ")}</p>`;
+      <h1>${esc((specific && specific.name) || co.name || callCo.name || co.name_hint || (ins.kind === "insider" || ins.kind === "holdings" ? res.title.replace(/\.htm$/, "") : "Company not identified"))} <span class="rp-tk">${esc(specific ? specific.ticker || "" : co.ticker || co.ticker_hint || callCo.ticker || "")}</span></h1>
+      <p class="rp-sub">${[(specific && specific.form) || co.form, (specific && specific.subtitle) || co.period, co.exchange, co.amendment ? "Amendment" : "", ins.label && ins.kind !== "annual" && ins.kind !== "quarterly" ? ins.label : ""].filter(Boolean).map(esc).join(" &middot; ")}</p>`;
     T.summary.push(`
       <p class="rp-meta">Generated ${esc(new Date(rep.generated_at).toLocaleString())} from <b>${esc(rep.source.name)}</b> (${pagesWord}). ${esc(rep.review)}</p>
       ${!co.name && callCo.name ? `<p class="rp-note">${esc(callCo.name)} is named in the transcript's ${esc(callCo.how)} <a class="rp-src" href="#" data-page="${callCo.page}" data-q="${esc(callCo.name)}" data-off="${callCo.offset != null ? callCo.offset : ""}">p. ${callCo.page}</a>.</p>`
