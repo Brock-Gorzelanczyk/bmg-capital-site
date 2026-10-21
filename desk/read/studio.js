@@ -1179,19 +1179,19 @@ function mount(root, opts){
   // a time in the take (the record window's) in the edit, after any cut
   const toEdit = t => P.segs.reduce((a, s) => a + Math.max(0, Math.min(s.out, t) - s.in), 0);
   // the moments a take's page could not draw (noted by the record window in the take's own time) are cut from a new
-  // edit, a frame of each kept: the clip plays on without the still. More than a quarter of the take is never cut.
+  // edit, a frame of each kept: the clip plays on without the still. More than a third of the take is never cut.
   function cutFreezes(){
     const fz = (P.take && P.take.meta && P.take.meta.freezes) || [];
     if (!fz.length || P.segs.length !== 1 || P.segs[0].in !== 0) return;
     const dur = P.segs[0].out, segs = []; let at = 0, cut = 0;
     for (const [a, b] of fz){
       const s = Math.min(dur, a + 1 / 30), e = Math.min(dur, b);
-      if (e - s < 0.03 || s < at) continue;
+      if (e - s < 0.015 || s < at) continue;
       if (s > at) segs.push({id: uid(), in: at, out: s});
       cut += e - s; at = e;
     }
     if (at < dur) segs.push({id: uid(), in: at, out: dur});
-    if (segs.length > 1 && cut <= dur / 4){ P.segs = segs; commit(); }
+    if (segs.length > 1 && cut <= dur / 3){ P.segs = segs; commit(); }
   }
   function hookItem(){
     const h = P.take && P.take.meta && String(P.take.meta.hook || "").trim(), brand = (P.take && P.take.meta && P.take.meta.brand) || {};

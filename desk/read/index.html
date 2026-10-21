@@ -6207,18 +6207,42 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     }
     // A pause or a rewind holds the recording (MediaRecorder pause): nothing is captured until it goes on again.
     // -- A moment the page could not draw (the browser laying out a long filing) stays in a real-time take as a still
-    // frame, which showed in posted clips (Palantir's 10-K, 2026-10-21). Each one over 0.1 s is noted in the take's own
-    // time (the recorder's running time, holds left out) and the Studio cuts it, a frame kept. The crawl steps at
+    // frame, which showed in posted clips (Palantir's 10-K, 2026-10-21). Each hitch over 0.05 s is noted in the take's
+    // own time (the recorder's running time, holds left out) and the Studio cuts it, a frame kept. The crawl steps at
     // most 0.05 s a frame, so after a freeze the spider goes on from where it stood and the cut does not show.
     const freezes = []; let fzLast = 0, fzRun = 0;
+    const takeNow = () => fzRun + (fzLast && rec && rec.state === "recording" ? performance.now() - fzLast : 0);
     function freezeWatch(t){
       if (!rec || rec.state === "inactive") return;
       if (rec.state === "recording"){
-        if (fzLast){ const g = t - fzLast; if (g > 100) freezes.push([Math.round(fzRun) / 1000, Math.round(fzRun + g) / 1000]); fzRun += g; }
+        if (fzLast){ const g = t - fzLast; if (g > 50) freezes.push([fzRun / 1000, (fzRun + g) / 1000]); fzRun += g; }
         fzLast = t;
       } else fzLast = 0;                                        // held: no time passes in the take
       requestAnimationFrame(freezeWatch);
     }
+    // The capture's own frames too: a gap in them while the spider reads is a still in the video, whatever its cause
+    // (the page, or the capture falling behind, which the page cannot see). Read from a copy of the captured track.
+    async function captureWatch(){
+      const tr = stream && stream.getVideoTracks()[0];
+      if (!tr || !window.MediaStreamTrackProcessor) return;
+      const copy = tr.clone(), reader = new MediaStreamTrackProcessor({track: copy}).readable.getReader();
+      let last = 0;
+      try {
+        for (;;){
+          const {value: f, done} = await reader.read();
+          if (done) break;
+          const ts = f.timestamp / 1000; f.close();
+          if (!rec || rec.state === "inactive") break;
+          const reading = rec.state === "recording" && walking() && !state.paused;
+          if (last && reading && ts - last > 50){ const e = takeNow(); freezes.push([Math.max(0, e - (ts - last)) / 1000, e / 1000]); }
+          last = reading ? ts : 0;
+        }
+      } catch (e) { /* the capture ended */ } finally { copy.stop(); }
+    }
+    // overlapping notes from the two watches, as one list of stills in order
+    const freezeList = () => freezes.slice().sort((a, b) => a[0] - b[0]).reduce((o, [a, b]) => {
+      const p = o[o.length - 1]; if (p && a <= p[1] + 0.02) p[1] = Math.max(p[1], b); else o.push([a, b]); return o;
+    }, []).slice(0, 800).map(([a, b]) => [Math.round(a * 1000) / 1000, Math.round(b * 1000) / 1000]);
     function holdCapture(on){
       if (!rec) return false;
       try {
@@ -6477,7 +6501,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           filing: pl ? pl.filing || null : null, cover, coverage: pl ? pl.coverage || "" : "", quality: state.takeQuality || null,
           find: pl ? {asked: pl.find || [], missing: planMissing.slice(), outside: planBefore.slice()} : null,
           brand: pl ? state.brandMeta || null : null,              // the company branding the take shows (the Studio adds no second hook)
-          freezes: freezes.slice(0, 400)},                         // moments the page could not draw: the Studio cuts them
+          freezes: freezeList()},                         // moments the page could not draw: the Studio cuts them
         name: [ticker || "Crawler", co.form || "", cover === "entire" ? "entire filing" : cover, "take", when.toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})].filter(Boolean).join(" ")};
       if (blob.disk) take.handle = blob.handle; else take.blob = blob;
       // A take saved to disk is also copied into the browser now, while its file is certainly whole, and the Studio
@@ -7395,7 +7419,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           state.speedMul = 1.5;
         }
         if (planned && brand.ready) await Promise.race([brand.ready, sleep(5000)]);     // the company logo, decoded before the take (never a wait inside it)
-        if (rec){ refreshCaptureDetails(); rec.start(500); requestAnimationFrame(freezeWatch); }   // the clip starts here; sample the settled window as recording starts
+        if (rec){ refreshCaptureDetails(); rec.start(500); requestAnimationFrame(freezeWatch); captureWatch(); }   // the clip starts here; sample the settled window as recording starts
         state.tlMark();                                             // a rewind goes back no further than this
         if (planned) brandStart();                                  // the company branding, from the take's first frame
         if (holds.size) holdCapture(true);                          // paused under the curtain: the recording waits too
