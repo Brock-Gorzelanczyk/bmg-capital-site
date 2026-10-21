@@ -124,6 +124,7 @@ _NUM = ' style="text-align:right;white-space:nowrap"'
 _NOWRAP = ' style="white-space:nowrap"'
 _NOTE = ' style="font-size:12px;color:#555"'
 _GROUP = ' style="background:#f4f6f5;font-weight:600"'
+_LINK = ' style="color:inherit;text-decoration:none;border:0"'   # the filing's link reads as the filing's text, not the site's green link
 
 
 def _table(head: list, numeric: set, nowrap: set, rows: list) -> str:
@@ -203,7 +204,7 @@ def form4_document(company: str, ticker: str, cik: int, filings: list, months: i
     # fit the reading column, where eleven split words and numbers.
     table = []
     for f, who, role, mine in groups:
-        table.append(f"Filed {_E(f['filed'])} by {_E(_who(who, role, 60))}, filing <a href=\"{_E(f['url'])}\">{_E(f['accession'])}</a>")
+        table.append(f"Filed {_E(f['filed'])} by {_E(_who(who, role, 60))}, filing <a href=\"{_E(f['url'])}\"{_LINK}>{_E(f['accession'])}</a>")
         table += [[_E(r["date"] or NA), _E(r["code"] or NA), _E(r["action"] + (" (10b5-1 plan)" if r["plan"] and r["code"] == "S" else "")),
                    _int(r["shares"]), f"${r['price']:,.2f}" if r["price"] else NA, _money(r["value"]), _int(r["owned_after"])] for r in mine]
     body = (f"<h1>BMG insider trades: {_E(company)} ({_E(ticker)})</h1>"
@@ -309,7 +310,7 @@ def holdings_document(fund: str, cik: int, filing: dict, rows: list, prior: Opti
         else:
             lines.append(f"{highlight} does not appear in this filing (matched by issuer name).")
     body = (f"<h1>BMG fund holdings: {_E(fund)}</h1>"
-            f"<p>Form 13F-HR from SEC EDGAR, CIK {cik}, accession <a href=\"{_E(filing['url'])}\">{_E(filing['accession'])}</a>. "
+            f"<p>Form 13F-HR from SEC EDGAR, CIK {cik}, accession <a href=\"{_E(filing['url'])}\"{_LINK}>{_E(filing['accession'])}</a>. "
             "A 13F lists the U.S.-listed stocks and options a large investment manager held at the quarter end; it is filed up to 45 days later, "
             "and it leaves out cash, shorts, bonds and non-U.S. holdings.</p>"
             "<h2>Summary</h2>" + "".join(f"<p>{_E(x)}</p>" for x in lines)
