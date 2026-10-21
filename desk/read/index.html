@@ -877,7 +877,7 @@ body.readerfx.rec-dark .stage .strip{background:#fff}
 .fl-none{color:#8a9099;font-size:12px}
 .lr-ins{list-style:none;margin:0;padding:0}
 .lr-ins li{border-top:1px solid #f0f0ec;padding:5px 2px;display:grid;grid-template-columns:1fr auto;gap:2px 8px}
-.lr-ins li.pending{display:none}.lr-ins li.arrived{animation:report-row-in .42s cubic-bezier(.2,.8,.2,1)}
+.lr-ins li.pending{display:none}.lr-ins li.incoming{visibility:hidden}.lr-ins li.arrived{animation:report-row-in .42s cubic-bezier(.2,.8,.2,1)}
 .lr-ins li q{grid-column:1;quotes:none;color:#2a2a2a;font-size:12px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .lr-ins li small{grid-column:1;color:#9aa0a8;font:10px 'IBM Plex Mono',monospace}
 .lr-ins li .go{grid-column:2;grid-row:1/span 2;align-self:center}
@@ -5773,6 +5773,17 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       tlFx("obs", {el, sig: sg.id, text: sg.headline});
     }, 120);
     state.zapFly = (f, el, changes) => { zapQ.push({f, el, changes, at: performance.now()}); pumpZaps(); };
+    // A trade, a fund's holding or a guidance line the spider reaches goes to the report as a figure does: its words
+    // are zapped, then a chip flies from them into its row, which waits in place, unseen, until the chip lands
+    // (land() shows it). Out of sight or out of the eyes' reach, it returns false and the row simply appears.
+    state.insFly = (w, lis, text, land) => {
+      if (!lis.length || !text || !readerSourceVisible(w) || !zapTo(w, false, true)) return false;
+      lis.forEach(li => { li.classList.remove("pending"); li.classList.add("incoming"); });
+      w.classList.add("hl-zap"); setTimeout(() => w.classList.remove("hl-zap"), 1100);
+      launch(() => fly(w, lis[0], text, false, land));
+      tlFx("fly", {el: w, dest: lis[0], text});
+      return true;
+    };
     // Something the viewer saw leave the page and not yet land: a zap waiting its turn, a chip about to leave, waiting
     // for the panel or in the air, the featured moment. The end of a take lets these land. An observation still queued
     // behind the numbers, or the report finishing itself once the walk is over, does not hold it on a still page.
@@ -9100,8 +9111,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   }
   function revealIns(i, quiet){
     const li = liveEl && liveEl.querySelector(`.lr-ins li[data-x="${i}"]`);
-    if (!li || !li.classList.contains("pending")) return;
-    li.classList.remove("pending");
+    if (!li || !(li.classList.contains("pending") || li.classList.contains("incoming"))) return;
+    li.classList.remove("pending", "incoming");
     liveProgress();                                   // the report's count includes it now
     if (!quiet){ li.classList.add("arrived"); setTimeout(() => li.classList.remove("arrived"), 500); liveFollow(li); }
     else li.querySelector("small").insertAdjacentText("beforeend", " · full read");
@@ -9112,7 +9123,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const b = e.target.closest(".lr-ins button.go"); if (!b) return;
     const x = insItems[+b.dataset.x]; if (x) goTo(x, {raw: x.raw, n: x.kind === "trade" || x.kind === "holding" ? 10 : 14});
   });
-  // the spider reaches a quote: its row in the report appears
+  // the spider reaches a quote: it is zapped and flies into its row (state.insFly), or the row simply appears
+  const insChip = x => !x ? "" : x.kind === "trade" ? `${x.shares} shares · ${x.value && x.value !== "n/a" ? x.value : x.price}`
+    : x.kind === "holding" && x.value ? String(x.value) : String(x.raw || x.text || "").replace(/\s+/g, " ").trim().slice(0, 48);
   const baseOnRow = state.onRow;
   state.onRow = (els) => {
     baseOnRow(els);
@@ -9122,8 +9135,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (!list) continue;
       insTargets.delete(w);
       const feat = state.featIns ? state.featIns(w, list) : -1;     // a clip's featured trade: its own moment first
-      list.forEach(i => { if (i !== feat) revealIns(i); });
-      zapTo(w, false, true);
+      const rest = list.filter(i => i !== feat);
+      const lis = rest.map(i => liveEl && liveEl.querySelector(`.lr-ins li[data-x="${i}"]`)).filter(li => li && li.classList.contains("pending"));
+      const flew = state.insFly && state.insFly(w, lis, insChip(insItems[rest[0]]), () => rest.forEach(i => revealIns(i)));
+      if (!flew){ rest.forEach(i => revealIns(i)); zapTo(w, false, true); }
       tlFx("ins", {el: w, ids: list});
     }
   };
