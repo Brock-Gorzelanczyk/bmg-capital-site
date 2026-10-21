@@ -5513,6 +5513,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       return panelGeo;
     }
     const FLY_MS = 650, ZAP_LAND = 130;
+    // a chip leaves ZAP_LAND after its zap: until then it is on its way too (the end of a take waits for it)
+    let launching = 0;
+    const launch = fn => { launching++; setTimeout(() => { launching--; fn(); }, ZAP_LAND); };
     function flyFrom(el, td, text, obs){
       const s0 = el.getBoundingClientRect();
       const chip = document.createElement("div"); chip.className = "rec-fly" + (obs ? " obs" : "");
@@ -5546,7 +5549,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       }
       setTimeout(() => { zapBusy = false; pumpZaps(); }, zapQ.length > 4 ? 90 : 180);
       el.classList.add("hl-zap"); setTimeout(() => el.classList.remove("hl-zap"), 1100);
-      setTimeout(() => {
+      launch(() => {
         const plan = state.live && state.live.plan;
         const isCell = ch => ch.kind !== "signal" && ch.op === "show" && ch.state !== "withdrawn" && plan && plan.cells[ch.id] &&
           (plan.cells[ch.id].requires || []).some(id => plan.fact_to_finding[id] === f.id);
@@ -5562,7 +5565,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         }
         // observations fly in once the numbers have landed, so the panel is not pulled two ways
         for (const ch of sigs) obsQ.push({ch, el, at: performance.now()});
-      }, ZAP_LAND);
+      });
     }
     // One flight: the panel moves to the destination and holds it until the chip lands.
     // Flights take turns: a chip launches when the panel is free or its destination
@@ -5601,10 +5604,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const dest = ph && !ph.hidden ? ph : ol && (ol.lastElementChild || ol);   // where the new observation will appear
       if (!sg || !dest || !readerSourceVisible(el) || performance.now() - at > 6000){ applyLive([ch]); return; }
       zapTo(el, true, true);
-      setTimeout(() => fly(el, dest, sg.headline, true, () => applyLive([ch])), ZAP_LAND);
+      launch(() => fly(el, dest, sg.headline, true, () => applyLive([ch])));
       tlFx("obs", {el, sig: sg.id, text: sg.headline});
     }, 120);
     state.zapFly = (f, el, changes) => { zapQ.push({f, el, changes, at: performance.now()}); pumpZaps(); };
+    // Something the viewer saw leave the page and not yet land: a zap waiting its turn, a chip about to leave, waiting
+    // for the panel or in the air, the featured moment. The end of a take lets these land. An observation still queued
+    // behind the numbers, or the report finishing itself once the walk is over, does not hold it on a still page.
+    const reportMoving = () => zapQ.length > 0 || launching > 0 || flightQ.length > 0 || (state.chipsInFlight || 0) > 0 || featBusy;
     // A rewind replays a flight: the figure, observation or heading leaves the page again and lands on its place
     // in the report, which flashes; the report itself is already filled and does not change.
     state.tlFly = x => {
@@ -5661,7 +5668,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const el = els.find(w => readerSourceVisible(w) && nearSpider(w, 1.3)) || els[0];
       if (!readerSourceVisible(el) || !zapTo(el, true, true)){ revealFound(tr); return; }
       els.slice(0, 6).forEach(w => { w.classList.add("hl-zap"); setTimeout(() => w.classList.remove("hl-zap"), 1100); });
-      setTimeout(() => fly(el, tr.querySelector("td"), title, true, () => revealFound(tr)), ZAP_LAND);
+      launch(() => fly(el, tr.querySelector("td"), title, true, () => revealFound(tr)));
       if (state.tlFx) state.tlFx("sec", {el, dest: tr.querySelector("td"), text: title, words: els.slice(0, 6)});
     };
 
@@ -6021,8 +6028,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       B.appendChild(end);
       return (async () => {
         const items = [...end.querySelectorAll(".rk-keys li")];
-        for (const li of items){ await sleep(highlights ? 150 : 550); li.classList.add("in"); }
-        await sleep(highlights ? Math.max(0, 3000 - items.length * 150) : keySecs * 1000);                                   // hold once every finding is on screen
+        // the first card comes in with the screen (the crawl cuts straight to it; drawn hidden first, so it still
+        // slides in), then one every 0.55 s
+        for (const [i, li] of items.entries()){ if (i) await sleep(highlights ? 150 : 550); else li.getBoundingClientRect(); li.classList.add("in"); }
+        await sleep(highlights ? Math.max(0, 3000 - Math.max(0, items.length - 1) * 150) : keySecs * 1000);                    // hold once every finding is on screen
         end.querySelector(".rk-keys").hidden = true;
         const one = end.querySelector(".rk-one"); one.hidden = false;
         requestAnimationFrame(() => one.classList.add("in"));
@@ -7167,17 +7176,23 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         }
         startOverlays();
         // count only time that is not paused
-        let left = finishAt * 1000, last = Date.now(), tail = 1200, counted = 0;
+        let left = finishAt * 1000, last = Date.now(), tail = 1200, counted = 0, walked = false;
         // (nor time the recording holds for a rewind: the clip's length is what is recorded). The clip also ends once
-        // the spider has read the filing's last line, a moment later so that line is seen: it used to wait out the
-        // rest of its time on the last page. No time limit here: a whole 10-K at reading speed takes many minutes.
+        // the spider has read the filing's last line: at once when nothing is still on its way into the report, at most
+        // 1.2 s later when something is (the last page used to stand still for 1.2 s before the ending; before that it
+        // waited out the rest of its time). Only once this take's walk has run (a PDF can still be drawing as the take
+        // starts), and not in a clip of findings, which keeps its moment on the report. No time limit here: a whole 10-K
+        // at reading speed takes many minutes.
         await wait(() => {
           const now = Date.now(), paused = (document.getElementById("ctl-pause") || {}).textContent === "Resume";
-          if (!paused && !holds.size && !settling){ left -= now - last; counted += now - last; if (!walking()) tail -= now - last; }
+          const live = !paused && !holds.size && !settling;
+          if (walking()) walked = true;
+          if (live){ left -= now - last; counted += now - last; if (!walking()) tail -= now - last; }
           if (scopeRun && scopeDone()) left = Math.min(left, PLAN_HOLD * 1000);     // a clip of findings: 2 s on the report, then it ends
           last = now;
-          return left <= 0 || tail <= 0;
-        }, 100, Infinity);
+          const read = walked && !scopeRun && live && !walking();
+          return left <= 0 || tail <= 0 || (read && !reportMoving());
+        }, 40, Infinity);
         state.recordCamera = null;
         clearInterval(clipWatch);
         if (clip || (planned && !planned.ending)){
@@ -7191,11 +7206,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         }
         if (planned && planned.length !== "whole"){
           // a clip of a set length: the ending takes what is left of it, so the take comes out at the length chosen
-          // the first screen's cards: the report's key findings, or for insider trades its largest trades (one card when there are none)
+          // the first screen's cards: the report's key findings, or for insider trades its largest trades (one card when there are none);
+          // the first comes in at once, each other one 0.55 s later
           const insE = state.readRes && state.readRes.insights && state.readRes.insights.kind === "insider" ? state.readRes.insights.summary : null;
           const n = insE ? Math.min(4, Math.max(1, (insE.largest || []).length)) : Math.min(4, ((state.readRes && state.readRes.report && state.readRes.report.exec_findings) || []).length);
           const rest = planned.length - counted / 1000 - 0.15, one = Math.min(PLAN_ONE, Math.max(2, rest * 0.45));
-          await finishRecording(Math.max(1.2, rest - one - n * 0.55), one, false);
+          await finishRecording(Math.max(1.2, rest - one - Math.max(0, n - 1) * 0.55), one, false);      // the first card needs no wait
         } else await finishRecording(keySecs, oneSecs, highlights);
       } catch (e) {
         console.error("record mode stopped early:", e);
