@@ -2210,6 +2210,111 @@ async def edgar_filings(ticker: str = Query(..., max_length=12), fresh: bool = F
             "checked": time.strftime("%Y-%m-%d %H:%M:%S")}
 
 
+# ----------------------------------------------------------------------
+# Company logo for Make a clip's optional branding (owner's Mac only). Only a picture kept for that ticker: the
+# site's own logos (assets/logos/<ticker>.png, e.g. GATX), else the public logo Financial Modeling Prep keeps for
+# the ticker, fetched once and kept in the cache. Nothing is drawn or guessed: no picture is a JSON answer
+# {"found": false} (not an error status, so the browser logs nothing), and the page then asks for an upload. The
+# page also refuses a picture that looks like a photo rather than a logo.
+# ----------------------------------------------------------------------
+LOGO_ASSET_DIR = STATIC_ROOT / "assets" / "logos"
+LOGO_CACHE_DIR = CACHE_DIR / "logos"
+LOGO_REMOTE = "https://financialmodelingprep.com/image-stock/{t}.png"
+LOGO_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; BMG-Capital-Crawler company logo)"}
+LOGO_MAX_BYTES = 2 * 1024 * 1024
+TTL_LOGO = 30 * 86400          # a company's logo rarely changes
+TTL_LOGO_NONE = 12 * 3600      # none found: asked again after half a day
+
+
+def _logo_kind(data: bytes) -> Optional[str]:
+    """The picture's type from its first bytes (PNG, JPEG, GIF or WebP only), or None. A PNG or GIF under 24 px
+    on a side is refused: it is an icon or a placeholder, not a logo."""
+    if data[:8] == b"\x89PNG\r\n\x1a\n" and len(data) >= 24:
+        w, h = int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+        return "image/png" if min(w, h) >= 24 else None
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:6] in (b"GIF87a", b"GIF89a") and len(data) >= 10:
+        w, h = int.from_bytes(data[6:8], "little"), int.from_bytes(data[8:10], "little")
+        return "image/gif" if min(w, h) >= 24 else None
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+def _logo_cached(t: str) -> Optional[tuple]:
+    """(bytes, type, source) kept for the ticker, ("", "", "none") for a recent miss, or None."""
+    meta = LOGO_CACHE_DIR / f"{t}.json"
+    try:
+        m = json.loads(meta.read_text())
+    except (OSError, ValueError):
+        return None
+    age = time.time() - float(m.get("at") or 0)
+    if m.get("source") == "none":
+        return ("", "", "none") if age < TTL_LOGO_NONE else None
+    if age >= TTL_LOGO:
+        return None
+    try:
+        data = (LOGO_CACHE_DIR / f"{t}.img").read_bytes()
+    except OSError:
+        return None
+    kind = _logo_kind(data)
+    return (data, kind, m.get("source") or "") if kind else None
+
+
+def _logo_keep(t: str, data: bytes, source: str) -> None:
+    try:
+        LOGO_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        if data:
+            (LOGO_CACHE_DIR / f"{t}.img").write_bytes(data)
+        (LOGO_CACHE_DIR / f"{t}.json").write_text(json.dumps({"source": source, "at": time.time()}))
+    except OSError as e:
+        log.warning("logo cache write failed for %s: %s", t, e)
+
+
+@app.get("/api/company-logo")
+async def company_logo(ticker: str = Query(..., max_length=12)):
+    """The logo kept for a ticker, as the picture itself (X-Logo-Source says where it came from), or {"found": false}."""
+    denied = _edgar_denied()
+    if denied:
+        return denied
+    t = re.sub(r"[^A-Z0-9.\-]", "", ticker.upper())
+    if not re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,9}", t):
+        return JSONResponse(status_code=400, content={"error": "Enter a ticker, for example AMZN."})
+    none = JSONResponse(content={"found": False, "error": "No logo found. Upload a company logo.", "ticker": t})
+    for ext in ("png", "webp", "jpg", "jpeg"):
+        p = LOGO_ASSET_DIR / f"{t.lower()}.{ext}"
+        if p.is_file():
+            data = p.read_bytes()
+            kind = _logo_kind(data)
+            if kind:
+                return Response(content=data, media_type=kind, headers={"X-Logo-Source": "site", "X-Logo-Ticker": t})
+    kept = _logo_cached(t)
+    if kept:
+        if kept[2] == "none":
+            return none
+        return Response(content=kept[0], media_type=kept[1], headers={"X-Logo-Source": kept[2], "X-Logo-Ticker": t})
+    client = HTTP_CLIENT or httpx.AsyncClient(timeout=8.0, follow_redirects=True)
+    try:
+        r = await client.get(LOGO_REMOTE.format(t=t.replace(".", "-")), headers=LOGO_HEADERS, timeout=8.0)
+    except httpx.HTTPError as e:
+        # not kept as a miss: the network may be back in a minute
+        log.info("logo fetch failed for %s: %s", t, type(e).__name__)
+        return JSONResponse(content={"found": False, "error": "No logo found (the logo source did not answer). Upload a company logo.", "ticker": t})
+    data = r.content if r.status_code == 200 else b""
+    kind = _logo_kind(data) if 0 < len(data) <= LOGO_MAX_BYTES else None
+    # kept as "no logo" only when the source says it has none (404) or sends a picture that is not a usable logo;
+    # anything else (busy, down, refused, a network's sign-in page) is asked again next time
+    pictured = r.status_code == 200 and (r.headers.get("content-type") or "").startswith("image/")
+    if not kind and r.status_code != 404 and not pictured:
+        return JSONResponse(content={"found": False, "error": "No logo found (the logo source did not answer). Upload a company logo.", "ticker": t})
+    if not kind:
+        _logo_keep(t, b"", "none")
+        return none
+    _logo_keep(t, data, "fmp")
+    return Response(content=data, media_type=kind, headers={"X-Logo-Source": "fmp", "X-Logo-Ticker": t})
+
+
 @app.get("/api/edgar/document")
 async def edgar_document(cik: int, accession: str, document: str):
     """The filing's primary document, fetched once from SEC EDGAR and then served from the local cache. "a.htm+b.htm"

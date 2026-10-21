@@ -1170,11 +1170,15 @@ function mount(root, opts){
     selected = null; textCache.clear();
   }
   // a Make a clip take carries the hook written there: it goes on as a text item in a white box at the top, inside
-  // TikTok's safe area (its right side clear of the buttons), for the whole video, and stays editable like any text
+  // TikTok's safe area (its right side clear of the buttons), for the whole video, and stays editable like any text.
+  // A take with the company branding's opening already shows the hook (under the logo, its first 4 seconds): nothing
+  // is added then. Under the small company logo at the top, the hook sits a little lower, clear of it, and ends when
+  // the final report appears, as the logo does (that low, it would sit over the report's header).
   function hookItem(){
-    const h = P.take && P.take.meta && String(P.take.meta.hook || "").trim();
-    if (!h || P.items.some(x => x.kind === "text" && x.text === h)) return;
-    P.items.push(Object.assign({id: "i-" + uid(), kind: "text", text: h, wrap: 0.76, x: 0.4722, y: 0.115, rot: 0, t0: 0, t1: editDur(), whole: true},
+    const h = P.take && P.take.meta && String(P.take.meta.hook || "").trim(), brand = (P.take && P.take.meta && P.take.meta.brand) || {};
+    if (!h || brand.hookShown || P.items.some(x => x.kind === "text" && x.text === h)) return;
+    const until = brand.mini && brand.reportAt > 0 && brand.reportAt < editDur() ? brand.reportAt : null;
+    P.items.push(Object.assign({id: "i-" + uid(), kind: "text", text: h, wrap: 0.76, x: 0.4722, y: brand.mini ? 0.185 : 0.115, rot: 0, t0: 0, t1: until == null ? editDur() : until, whole: until == null},
       textDefaults, {bg: "box", color: "#ffffff", size: 0.05}));
     renderItems(); drawTimeline(); panels(); commit(); renderAt();
   }
@@ -2474,5 +2478,5 @@ function mount(root, opts){
 }
 
 // parts: the pure pieces, for the tests (site/server/tests/test_studio.py)
-window.BMGStudio = {mount, version: 1, parts: {gainCurve, curveAt, videoFill, videoRect, linkKind, mp4File, fixWebmDuration, pickType, describeType, aiffDecode, fpsFor, qualityNote}};
+window.BMGStudio = {mount, version: 1, parts: {gainCurve, curveAt, videoFill, videoRect, linkKind, mp4File, fixWebmDuration, pickType, describeType, aiffDecode, fpsFor, qualityNote, shrinkImage}};
 })();

@@ -459,6 +459,23 @@ body.recmode .lr-c.flash{animation:reccell 1.3s ease}@keyframes reccell{0%{backg
 .rk-keys li{border-left:4px solid var(--c,#6ff4ff);background:rgba(255,255,255,.05);border-radius:0 10px 10px 0;padding:10px 12px;margin:0 0 10px;opacity:0;transform:translateX(-30px);transition:opacity .45s,transform .55s cubic-bezier(.2,1.4,.4,1)}
 .rk-keys li.in{opacity:1;transform:none}.rk-keys li b small{font-size:13px;font-weight:400;color:#8fa0b3}.rk-keys li b.rk-amt{display:inline;font-size:inherit;color:var(--c)}.rk-keys li.s-buy>small,.rk-keys li.s-sell>small{display:block;margin-top:2px}.rk-keys li b{display:block;font-size:18px;margin-top:3px}.rk-keys li small{color:#8fa0b3;font-family:'IBM Plex Mono',monospace}
 #rec-end .s-watch{--c:#ffb020}#rec-end .s-flag{--c:#ff4d6d}#rec-end .s-observation{--c:#6ff4ff}#rec-end .s-sell{--c:#ff4d6d}#rec-end .s-buy{--c:#2fdc74}
+/* company branding (Make a clip, optional): the logo and the hook over the take's opening, then a small logo at the top
+   center; on the final report, the logo beside "BMG Capital". Placed once in px from the window's size, moved only by
+   transform and opacity. A see-through logo of the surface's own tone sits on a plain chip; the picture is untouched. */
+#rec-brand{position:fixed;inset:0;z-index:2950;pointer-events:none}
+#rec-brand .rb-logo{position:absolute;object-fit:contain;transform-origin:50% 50%;box-sizing:border-box;filter:drop-shadow(0 1px 3px rgba(0,0,0,.45))}
+#rec-brand .rb-logo.chip{background:rgba(255,255,255,.94);border-radius:10px;filter:none}
+#rec-brand .rb-logo.chip-dark{background:rgba(5,7,12,.84);border-radius:10px;filter:none}
+#rec-brand .rb-hook{position:absolute;margin:0;text-align:center;font-weight:800;line-height:1.45;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#141414}
+#rec-brand .rb-hook span{background:#fff;border-radius:.22em;padding:.12em .36em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+body.rec-brand-float .lr-logos{display:none!important}
+body.recmode.rec-brand-mini #num-cards{top:15vh}body.recmode.rec-brand-intro #num-cards{top:44vh}
+#rec-end .rk-brand .rk-co-sep{width:1px;height:22px;background:rgba(238,243,248,.28);flex:none}
+#rec-end .rk-brand .rk-co{height:30px;width:auto;max-width:min(120px,24vw);object-fit:contain;flex:0 1 auto;min-width:0;box-sizing:border-box}
+#rec-end .rk-brand .rk-co.chip{background:#fff;border-radius:6px;padding:3px 6px}
+#rec-end .rk-brand em{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#rec-plan .pl-logo{height:22px;max-width:90px;object-fit:contain;vertical-align:middle;margin-right:6px;border-radius:4px}
+#rec-plan .pl-logo.chip{background:#fff;padding:2px 4px}#rec-plan .pl-logo.chip-dark{background:#05070c;padding:2px 4px}
 #rec-end .sev{font:700 10px 'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--c)}
 .rk-one{opacity:0;transform:scale(.96);transition:opacity .5s,transform .6s}.rk-one.in{opacity:1;transform:none}
 .rk-one h2{margin:0;font-size:28px}.rk-one h2 span{color:#6ff4ff;font-size:18px}.rk-sub{margin:2px 0 14px;color:#8fa0b3;font-size:13px}
@@ -1085,7 +1102,27 @@ html[data-theme="dark"] #mk-pv{filter:invert(1) hue-rotate(180deg)}   /* the vie
 .mk-pvf .pv-page{position:absolute;inset:0 0 28% 0;padding:9% 6% 0;display:flex;flex-direction:column;gap:3.2%}.mk-pvf .pv-page i{display:block;height:1.4cqw;border-radius:1cqw;background:#3a3f47;width:88%}.mk-pvf .pv-page i:nth-child(3n){width:62%}.mk-pvf .pv-page i:nth-child(4n){width:76%}
 .mk-pvf.light{background:#fff}.mk-pvf.light .pv-page i{background:#d6d9dd}
 .mk-pvf .mk-sw{position:absolute;left:38%;top:24%;width:24%;height:auto;background:none}.mk-pvf.light .mk-sw{box-shadow:none}
-.mk-pvf .pv-hook{position:absolute;left:8%;right:14%;top:7.5%;margin:0;padding:1.6cqw 2.6cqw;border-radius:2cqw;background:rgba(0,0,0,.72);color:#fff;font:700 6.2cqw/1.18 'IBM Plex Sans',sans-serif;text-align:center}
+.mk-pvf .pv-hook{position:absolute;left:9.22%;width:76%;top:11.5%;transform:translateY(-50%);margin:0;color:#141414;font:800 5cqw/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;text-align:center}
+.mk-pvf .pv-hook.low{top:18.5%}
+.mk-pvf .pv-hook span,.mk-pvf .pv-bhook span{background:#fff;border-radius:.22em;padding:.12em .36em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+/* company branding in the preview, placed as the record window places it (brandGeom, in cqw) */
+.mk-pvf .pv-blogo{position:absolute;object-fit:contain;box-sizing:border-box;filter:drop-shadow(0 .2cqw .6cqw rgba(0,0,0,.45))}
+.mk-pvf .pv-blogo.chip{background:rgba(255,255,255,.94);border-radius:1.8cqw;filter:none}.mk-pvf .pv-blogo.chip-dark{background:rgba(5,7,12,.84);border-radius:1.8cqw;filter:none}
+.mk-pvf .pv-bhook{position:absolute;margin:0;text-align:center;font-weight:800;line-height:1.45;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#141414}
+.mk-pvf.pv-endf{background:#05070c}
+.pv-end{position:absolute;inset:0;padding:0 4.07cqw;display:flex;flex-direction:column;justify-content:center;color:#eef3f8}
+.pv-ebrand{display:flex;align-items:center;gap:1.85cqw;font:700 3.33cqw 'IBM Plex Sans',sans-serif;margin-bottom:2.6cqw}.pv-ebrand svg{width:6.3cqw;flex:none}.pv-ebrand em{margin-left:auto;font-style:normal;font-weight:400;font-size:2.4cqw;color:#8fa0b3;white-space:nowrap}
+.pv-esep{width:.19cqw;height:4.1cqw;background:rgba(238,243,248,.28);flex:none}
+.pv-elogo{height:5.55cqw;max-width:22.2cqw;object-fit:contain;box-sizing:border-box}.pv-elogo.chip{background:#fff;border-radius:1.1cqw;padding:.55cqw 1.1cqw}
+.pv-eh{margin:0 0 2.6cqw;font:600 2.4cqw 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#6ff4ff}
+.pv-ecard{display:block;height:11cqw;margin:0 0 1.85cqw;border-left:.75cqw solid #ff4d6d;background:rgba(255,255,255,.05);border-radius:0 1.85cqw 1.85cqw 0}
+/* the company's logo in step 1, on squares that show where it is see-through */
+.mk-cl{display:flex;gap:12px;align-items:flex-start;margin:8px 0 10px;padding:10px;border:1px solid #e3e3df;border-radius:10px}
+.mk-cl-pic{flex:none;width:128px;height:76px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:repeating-conic-gradient(#80858e 0 25%,#9a9fa8 0 50%) 0 0/14px 14px}
+html[data-theme="dark"] .mk-cl-pic{filter:invert(1) hue-rotate(180deg)}
+.mk-cl-pic img{max-width:116px;max-height:66px;object-fit:contain}.mk-cl-pic i{font-style:normal;color:#fff;font-size:12px}
+.mk-cl-txt{min-width:0;flex:1}.mk-cl-txt .mk-note{margin:2px 0 8px}.mk-cl-co{margin:0}.mk-cl-co span{font:600 12px 'IBM Plex Mono',monospace;color:#6b6f76;margin-left:4px}
+.mk-brand{display:flex;flex-direction:column;gap:6px;margin-top:4px}.mk-pvph{margin:0 0 10px}
 .mk-pvf .pv-rep{position:absolute;left:0;right:0;bottom:0;top:72%;background:#fff;border-radius:4cqw 4cqw 0 0;padding:2.4cqw 11.2cqw 0 3.4cqw;box-sizing:border-box;overflow:hidden;color:#141414}
 .mk-pvf .pv-head{display:flex;align-items:center;gap:3cqw;padding-bottom:1.6cqw;border-bottom:1px solid #eceee9}.mk-pvf .pv-brand{display:flex;align-items:center;gap:1.2cqw;font-size:3.6cqw;margin-right:auto;white-space:nowrap}.mk-pvf .pv-brand .bmg-line{width:4cqw;height:3.4cqw}
 .mk-pvf .pv-logo{display:flex;align-items:center;gap:1cqw;font-size:2.6cqw;color:#6b6f76;white-space:nowrap}.mk-pvf .pv-logo img{max-height:5cqw;max-width:14cqw;object-fit:contain}.mk-pvf .pv-logo i{font-style:normal;font-weight:700;color:#141414;max-width:20cqw;overflow:hidden;text-overflow:ellipsis}
@@ -4626,6 +4663,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const PLAN_LS = "bmg-clip-plan", PLAN_KEYS = 3.5, PLAN_ONE = 5, PLAN_ENDING = 11, PLAN_SLOW = 3, PLAN_RAMP = 4;     // the ending: about 11 seconds
     // a clip of findings: 2 s on the report after the last one, and the featured one's moment (1.6 s, the page at 15%)
     const PLAN_HOLD = 2, PLAN_FEAT = 1.6, PLAN_FEAT_PACE = .15;
+    // the company branding's state (see brandStart): declared here, before the plan is set up as the window loads
+    const brand = {on: false, logo: null, el: null, img: null, hook: null, timer: 0, left: 0, at: 0, anims: [], step: "", held: false, small: "", ready: null, t0: 0, heldMs: 0, holdAt: 0};
     let plan = null, planMissing = [], planBefore = [], planSay = () => {}, planPending = null;
     const planExcerpt = p => !!(p && p.mode !== "entire" && p.scope && p.length !== "whole");
     if (isRecord && /[?&]plan=1\b/.test(location.search)){
@@ -4815,6 +4854,11 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       B.classList.add("rec-social"); document.documentElement.classList.add("rec-social-root"); state.recSocial = true;   // a clip for social video: a small report, clear of TikTok's buttons
       state.recExcerpt = planExcerpt(plan);         // an excerpt ends on its last arrival: no review of earlier rows
       if (plan.logos) setTimeout(() => recLogos(plan.logos));
+      const bp = plan.brand && (plan.brand.intro || plan.brand.mini || plan.brand.report) ? plan.brand : null;
+      if (bp && bp.logo) brand.ready = new Promise(r => setTimeout(r)).then(() => brandLoad(bp.logo)).then(l => {
+        brand.ready = null; if (brand.on) return null;              // too late for this take: it goes on without it, as it began
+        brand.logo = l; drawBrand(); return l;
+      });
       const q = id => setup.querySelector("#" + id), lk = plan.look || {};
       const set = (id, v) => {
         const el = q(id); if (!el || v == null) return;
@@ -4838,6 +4882,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           <dt>Starts at</dt><dd>${excerpt ? "Just above the excerpt's first figure" : "The cover page"}</dd>
           <dt>Finds</dt><dd>${(plan.find || []).length ? esc(plan.find.join(" · ")) + (excerpt ? " (the clip goes to each)" : " (lit as the spider passes)") : "Nothing asked for"}</dd>
           <dt>Ends on</dt><dd>${plan.ending ? (plan.source === "insiders" ? "The largest trades, then what insiders bought and sold" : "Key findings, then a one-page summary") : "The last line read"}</dd>
+          ${bp ? `<dt>Branding</dt><dd id="pl-brand"></dd>` : ""}
           <dt>Video</dt><dd id="pl-video"></dd></dl>
         <p class="pl-st" id="pl-st" role="status"></p>
         <div class="pl-check"><button type="button" id="pl-check">Check the frame</button><span id="pl-clean" role="status"></span></div>
@@ -4852,6 +4897,18 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         card.querySelector("#pl-video").textContent = `${high ? "High Quality asks for 1080 \u00d7 1920 at 60 fps" : "Standard asks for 30 fps"}. This window gives about ${px} pixels (${innerWidth} \u00d7 ${innerHeight} at ${devicePixelRatio}x); the last screen says what was really recorded.`;
       };
       drawVideo(); addEventListener("resize", drawVideo);
+      // the company branding chosen in Make a clip, and whether its logo is ready (loaded before the take starts)
+      function drawBrand(){
+        const dd = card.querySelector("#pl-brand"); if (!dd || !bp) return;
+        if (brand.ready){ dd.textContent = "Loading the company logo..."; return; }
+        const lg = brand.logo, hook = String(plan.hook || "").trim(), parts = [];
+        if (bp.intro) parts.push(lg ? (hook ? "The logo above the hook for the first 4 seconds" : "The logo for the first 4 seconds (no hook written)") : hook ? "The hook for the first 4 seconds (no logo)" : "No opening: no logo and no hook");
+        if (bp.mini) parts.push(lg ? "a small logo at the top center during the crawl" : "no small logo (no logo)");
+        if (bp.report) parts.push(!plan.ending ? "no report logo (the clip does not end on the report)" : lg ? "the logo beside BMG Capital on the final report" : "no report logo (no logo)");
+        dd.innerHTML = (lg ? `<img class="pl-logo${logoChip(lg, false)}" src="${lg.url}" alt="">` : "") + esc(parts.join("; ") + ".")
+          + (!lg ? (bp.logo ? " The logo could not be loaded: the take goes on without it." : " No logo was chosen in Make a clip.") : "");
+      }
+      drawBrand();
       cleanCheck(card.querySelector("#pl-clean"));
       card.querySelector("#pl-check").addEventListener("click", () => previewFrame(card.querySelector("#pl-clean")));
       const st = card.querySelector("#pl-st"), go = card.querySelector("#pl-start");
@@ -4901,7 +4958,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     async function recLogos(lg){
       const one = async (role, x) => {
         let url = "";
-        if (x && x.media && window.bmgStudioDB){
+        if (role === "Scanning" && brand.ready){ try { await brand.ready; } catch (e) {} }
+        if (role === "Scanning" && brand.logo) url = brand.logo.url;          // with company branding: the same picture as the branding's
+        else if (x && x.media && window.bmgStudioDB){
           try { const r = await window.bmgStudioDB.get("media", x.media); if (r && r.blob && /^image\//.test(r.blob.type)) url = URL.createObjectURL(r.blob); } catch (e) {}
         }
         return `<span class="lr-logo"><small>${role}</small>${url ? `<img src="${url}" alt="${esc((x && x.text) || "")}">` : `<b>${esc((x && x.text) || "")}</b>`}</span>`;
@@ -4909,6 +4968,112 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       state.recLogos = `<div class="lr-logos">${await one("Scanning", lg.scan)}</div>`;      // the company only (no "Built with", Brock 2026-10-20)
       const head = document.querySelector("#read-live .lr-head");
       if (head && !head.querySelector(".lr-logos")) head.querySelector(".lr-brand").insertAdjacentHTML("afterend", state.recLogos);
+    }
+    // ---- Company branding (Make a clip, optional: three settings of the plan). The company's logo above the hook for
+    // the first 4 seconds of the take while the crawl runs under them; then the hook fades and the logo shrinks to a
+    // small spot at the top center for the rest of the crawl; when the final report appears, the floating logo goes
+    // and the same logo sits beside "BMG Capital" in the report's header. Timed on the recording itself (a pause, a
+    // rewind or a skip holds it with the recording); drawn once and moved only by transform and opacity, so nothing is
+    // measured or drawn per frame. One copy of the logo shows at a time: the report band's logo is hidden while it floats.
+    async function brandLoad(lg){
+      // the plan's logo, decoded before the take: a picture kept in this browser (an upload), else the server's kept copy
+      try {
+        let blob = null;
+        if (lg.media && window.bmgStudioDB){ const r = await window.bmgStudioDB.get("media", lg.media); if (r && r.blob && /^image\//.test(r.blob.type)) blob = r.blob; }
+        else if (lg.ticker){ const r = await fetch(`/api/company-logo?ticker=${encodeURIComponent(lg.ticker)}`); if (r.ok && /^image\//.test(r.headers.get("content-type") || "")) blob = await r.blob(); }
+        if (!blob) return null;
+        const url = URL.createObjectURL(blob), img = new Image();
+        img.src = url; await img.decode();
+        return {url, w: img.naturalWidth, h: img.naturalHeight, tone: lg.tone || "mid", see: +lg.see || 0, from: lg.from || ""};
+      } catch (e){ return null; }
+    }
+    function brandStart(){
+      const b = plan && plan.brand;
+      if (!b || !(b.intro || b.mini || b.report)) return;
+      brand.on = true; brand.t0 = performance.now();
+      const lg = brand.logo, hook = b.intro ? String(plan.hook || "").trim() : "";
+      state.brandMeta = {intro: !!(b.intro && (lg || hook)), hookShown: !!hook, mini: !!(b.mini && lg), report: !!(b.report && lg && plan.ending), logo: lg ? lg.from : ""};
+      if (!(b.intro && (lg || hook)) && !(b.mini && lg)) return;         // nothing floats (the report logo comes at the end)
+      const el = brand.el = document.createElement("div"); el.id = "rec-brand"; el.setAttribute("aria-hidden", "true");
+      if (lg){
+        brand.img = new Image(); brand.img.src = lg.url; brand.img.alt = "";
+        brand.img.className = "rb-logo" + logoChip(lg, !(plan.look && plan.look.dark === false));
+        el.appendChild(brand.img); B.classList.add("rec-brand-float");
+      }
+      if (hook){ brand.hook = document.createElement("p"); brand.hook.className = "rb-hook"; brand.hook.innerHTML = `<span>${esc(hook)}</span>`; el.appendChild(brand.hook); }
+      brand.step = b.intro && (lg || hook) ? "intro" : "mini";
+      brandLayout();
+      B.appendChild(el);
+      addEventListener("resize", brandLayout);
+      if (brand.step === "intro"){ brand.left = 4000; brand.at = performance.now(); brand.timer = setTimeout(brandAfterIntro, brand.left); B.classList.add("rec-brand-intro"); }
+      else B.classList.add("rec-brand-mini");
+      if (holds.size || settling){ brand.held = false; brandHold(true); }      // the recording is held as the take starts: so is the opening
+    }
+    function brandLayout(){
+      if (!brand.el) return;
+      const W = innerWidth, H = innerHeight, g = brandGeom(brand.logo, W, H);
+      if (brand.img){
+        // laid out at its opening size; the small spot is the same picture scaled down (sharp, moved by transform only)
+        const s = brand.img.style;
+        s.left = (g.intro.cx - g.intro.w / 2) + "px"; s.top = (g.intro.cy - g.intro.h / 2) + "px"; s.width = g.intro.w + "px"; s.height = g.intro.h + "px";
+        if (/chip/.test(brand.img.className)) s.padding = Math.round(Math.min(g.intro.w, g.intro.h) * 0.08) + "px";      // the chip's margin, from the logo's own size
+        brand.small = `translate(0px, ${(g.mini.cy - g.intro.cy).toFixed(1)}px) scale(${(g.mini.w / g.intro.w).toFixed(4)})`;
+        if (brand.step === "moving" || brand.step === "mini"){
+          // placed again (the window changed size): the logo goes straight to its small spot; the hook's fade is kept
+          brand.anims = brand.anims.filter(a => { if (a.effect && a.effect.target === brand.img){ a.cancel(); return false; } return true; });
+          brand.step = "mini"; s.transform = brand.small;
+        }
+      }
+      if (brand.hook){ const s = brand.hook.style; s.top = g.hookTop + "px"; s.width = g.hookW + "px"; s.left = (W / 2 - g.hookW / 2) + "px"; s.fontSize = g.hookPx + "px"; }
+    }
+    function brandAfterIntro(){
+      // 4 seconds of recording: the hook fades; the logo shrinks to its small spot (or fades, without the small logo)
+      brand.timer = 0;
+      const ease = "cubic-bezier(.4,0,.2,1)", out = el => el.animate([{opacity: 1}, {opacity: 0}], {duration: 500, easing: "ease", fill: "forwards"});
+      B.classList.remove("rec-brand-intro");
+      if (brand.hook){ const h = brand.hook, a = out(h); a.onfinish = () => { h.remove(); if (brand.hook === h) brand.hook = null; }; brand.anims.push(a); }
+      if (brand.img && plan.brand.mini){
+        brand.step = "moving"; B.classList.add("rec-brand-mini");
+        const a = brand.img.animate([{transform: "none"}, {transform: brand.small}], {duration: 900, easing: ease, fill: "forwards"});
+        a.onfinish = () => { if (brand.step === "moving"){ brand.step = "mini"; brand.img.style.transform = brand.small; } };
+        brand.anims.push(a);
+      } else if (brand.img){
+        brand.step = "gone"; const a = out(brand.img);
+        a.onfinish = () => { B.classList.remove("rec-brand-float"); if (brand.el){ brand.el.remove(); brand.el = null; } };   // the band's logo again
+        brand.anims.push(a);
+      } else brand.step = "gone";
+      if (brand.held) brand.anims.forEach(a => a.pause());
+    }
+    // the recording holds (a pause, a rewind, a skip, the moment it settles): the 4 seconds and any move wait with it
+    function brandHold(on){
+      if (!brand.on || brand.held === on) return;
+      brand.held = on;
+      if (on) brand.holdAt = performance.now(); else brand.heldMs += performance.now() - brand.holdAt;
+      if (on){
+        if (brand.timer){ clearTimeout(brand.timer); brand.timer = 0; brand.left -= performance.now() - brand.at; }
+        brand.anims.forEach(a => { if (a.playState === "running") a.pause(); });
+      } else {
+        if (brand.step === "intro" && !brand.timer){ brand.at = performance.now(); brand.timer = setTimeout(brandAfterIntro, Math.max(0, brand.left)); }
+        brand.anims.forEach(a => { if (a.playState === "paused") a.play(); });
+      }
+    }
+    // the final report's reveal (ending(), before #rec-end is shown, in the same frame): the floating logo goes, and
+    // the same logo sits beside "BMG Capital" in every header row of the report, whatever its template
+    function brandReport(end){
+      if (!brand.on) return;
+      const t = performance.now();          // the take's own time at the reveal (holds left out): the Studio's hook under the small logo ends here
+      if (state.brandMeta) state.brandMeta.reportAt = Math.round(Math.max(0, t - brand.t0 - brand.heldMs - (brand.held ? t - brand.holdAt : 0))) / 1000;
+      clearTimeout(brand.timer); brand.timer = 0; brand.anims.forEach(a => a.cancel()); brand.anims = []; brand.step = "report";
+      if (brand.el){ brand.el.remove(); brand.el = null; }
+      removeEventListener("resize", brandLayout);
+      B.classList.remove("rec-brand-float", "rec-brand-mini", "rec-brand-intro");
+      if (!(plan.brand.report && brand.logo)) return;
+      end.querySelectorAll(".rk-brand").forEach(row => {
+        const name = row.querySelector(":scope > span"); if (!name) return;
+        const sep = document.createElement("i"); sep.className = "rk-co-sep";
+        const img = new Image(); img.src = brand.logo.url; img.alt = ""; img.className = "rk-co" + logoChip(brand.logo, true);
+        name.after(sep, img);
+      });
     }
     // ---- A clip of findings (Make a clip, a set length): the stretch of the filing with the report's items the clip
     // shows, in the filing's order (the plan's scope). Each item's place is the word the spider reaches it by. The page
@@ -6025,7 +6190,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           <div class="rk-tiles">${tile("revenue", "Revenue")}${tile("net_income", "Net income")}${tile("eps_diluted", "Diluted EPS")}${tile("fcf", "Free cash flow")}</div>
           <ul class="rk-mini">${kf.slice(0, 3).map(x => `<li class="s-${x.severity}"><b>${esc(x.headline)}</b> <small>${esc(pageOf(x.refs))}</small></li>`).join("")}</ul>
           <p class="rk-foot">${rep.coverage ? esc(rep.coverage.facts_published + " headline figures · " + rep.coverage.checks_run + " checks") + " &middot; " : ""}every figure cites its page in the filing</p></div>`;
+      brandReport(end);                                       // the floating company logo goes; the same logo joins the header, same frame
       B.appendChild(end);
+      fitEnd(end, end.querySelector(".rk-keys"));
       return (async () => {
         const items = [...end.querySelectorAll(".rk-keys li")];
         // the first card comes in with the screen (the crawl cuts straight to it; drawn hidden first, so it still
@@ -6034,10 +6201,19 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         await sleep(highlights ? Math.max(0, 3000 - Math.max(0, items.length - 1) * 150) : keySecs * 1000);                    // hold once every finding is on screen
         end.querySelector(".rk-keys").hidden = true;
         const one = end.querySelector(".rk-one"); one.hidden = false;
+        fitEnd(end, one);
         requestAnimationFrame(() => one.classList.add("in"));
         await sleep(oneSecs * 1000);
         return end;
       })();
+    }
+    // The report screens are laid out in px: one taller than a small record window is shown scaled down to fit, never
+    // clipped (measured once, as each screen appears; a screen that fits is left as it is)
+    function fitEnd(end, ph){
+      if (!ph) return;
+      end.style.zoom = "";
+      const cs = getComputedStyle(end), need = ph.offsetHeight + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+      if (need > innerHeight + 1) end.style.zoom = Math.max(0.5, innerHeight / need).toFixed(3);
     }
     // An insider-trades document (Form 4) has no statement figures: its ending is the trades. First the largest
     // open-market trades, then one page with what insiders bought and sold, every value as the document prints it
@@ -6142,15 +6318,15 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (on) holds.add(why); else holds.delete(why);
       if (holds.size && !was){
         if (settling){ clearTimeout(settleTimer); settling = false; state.paused = false; }
-        holdCapture(true);
+        holdCapture(true); brandHold(true);
       }
       drawRwStrip();
       if (!holds.size && was){
-        if (!rec || rec.state === "inactive") return;
+        if (!rec || rec.state === "inactive"){ brandHold(false); return; }
         // The capture re-sends a still page now and then, so for a moment it can still hold a frame with the strip:
         // the crawl waits a third of a second with the strip gone, then the crawl and the recording go on together.
         settling = true; state.paused = true;
-        settleTimer = setTimeout(() => { settling = false; state.paused = false; if (!holds.size) holdCapture(false); }, 350);
+        settleTimer = setTimeout(() => { settling = false; state.paused = false; if (!holds.size){ holdCapture(false); brandHold(false); } }, 350);
       }
     }
     function drawRwStrip(){
@@ -6233,7 +6409,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const pl = fmt === "plan" && plan ? plan : null, cover = pl ? (planExcerpt(pl) ? "excerpt" : "entire") : "";
       const take = {id: "take-" + when.getTime().toString(36), created: when.getTime(), size: blob.size, type: blob.type, meta: {ticker, hook, form: co.form || "", source: "record", report,
           filing: pl ? pl.filing || null : null, cover, coverage: pl ? pl.coverage || "" : "", quality: state.takeQuality || null,
-          find: pl ? {asked: pl.find || [], missing: planMissing.slice(), outside: planBefore.slice()} : null},
+          find: pl ? {asked: pl.find || [], missing: planMissing.slice(), outside: planBefore.slice()} : null,
+          brand: pl ? state.brandMeta || null : null},             // the company branding the take shows (the Studio adds no second hook)
         name: [ticker || "Crawler", co.form || "", cover === "entire" ? "entire filing" : cover, "take", when.toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})].filter(Boolean).join(" ")};
       if (blob.disk) take.handle = blob.handle; else take.blob = blob;
       // A take saved to disk is also copied into the browser now, while its file is certainly whole, and the Studio
@@ -7150,8 +7327,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           intro = clipIntro(clip.hook, clip.big, clip.small, co.name || (clip.filing && clip.filing.company) || clip.ticker);
           state.speedMul = 1.5;
         }
+        if (planned && brand.ready) await Promise.race([brand.ready, sleep(5000)]);     // the company logo, decoded before the take (never a wait inside it)
         if (rec){ refreshCaptureDetails(); rec.start(500); }       // the clip starts here; sample the settled window as recording starts
         state.tlMark();                                             // a rewind goes back no further than this
+        if (planned) brandStart();                                  // the company branding, from the take's first frame
         if (holds.size) holdCapture(true);                          // paused under the curtain: the recording waits too
         if (pics.length){ drawPics(); picLayer.hidden = false; }
         if (highlights){ await sleep(2000); startHighlights(pace); }
@@ -7826,6 +8005,38 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
 
   // ---- the report on screen (same report JSON as the PDF) ----
   const BMG_LINE = '<svg class="bmg-line" viewBox="-4 -4 114 94" aria-hidden="true"><polyline points="6,80 40,46 62,64 92,22" fill="none" stroke="#2fdc74" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><circle cx="92" cy="16" r="14" fill="#2fdc74"/></svg>';
+  // ---- Company branding (Make a clip, optional). What a logo picture is like, read once from its pixels (RGBA): a
+  // picture with no see-through part whose colors spread like a photograph's (its eight commonest colors cover under
+  // 70% of it) is a photo, not a logo, and is never used as one. tone says whether its visible part is dark or light,
+  // so a see-through logo that would vanish on the surface behind it is given a plain chip (the picture is untouched).
+  function logoLook(px){
+    let n = 0, clear = 0, vis = 0, lum = 0;
+    const counts = new Map();
+    for (let i = 0; i + 3 < px.length; i += 4){
+      const a = px[i + 3]; n++;
+      if (a < 250) clear++;
+      if (a >= 40){ vis += a; lum += a * (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]); }
+      if (a >= 250){ const k = (px[i] >> 4) << 8 | (px[i + 1] >> 4) << 4 | px[i + 2] >> 4; counts.set(k, (counts.get(k) || 0) + 1); }
+    }
+    const solid = n - clear, top = [...counts.values()].sort((a, b) => b - a).slice(0, 8).reduce((s, v) => s + v, 0);
+    const L = vis ? lum / vis : 128, see = n ? clear / n : 0;
+    return {see: Math.round(see * 1000) / 1000, photo: see < 0.01 && solid > 0 && top / solid < 0.7, empty: vis === 0,
+      tone: L < 70 ? "dark" : L > 190 ? "light" : "mid"};
+  }
+  // A see-through logo on a surface of its own tone gets a chip: dark on a dark surface, light on a light one.
+  function logoChip(lg, darkSurface){
+    return !lg || !(lg.see > 0.05) ? "" : darkSurface && lg.tone === "dark" ? " chip" : !darkSurface && lg.tone === "light" ? " chip-dark" : "";
+  }
+  // Where the branding sits in a W x H (9:16) window: the opening logo centered (about 46% of the width at most,
+  // 15% of the height) with the hook under it; the small logo at the top center, about 15% of the width (6.5% of
+  // the height at most), just inside TikTok's top bar (5.6%). Proportions kept; both within the safe margins.
+  function brandGeom(lg, W, H){
+    const fit = (mw, mh) => { if (!lg || !lg.w || !lg.h) return {w: 0, h: 0}; const k = Math.min(mw / lg.w, mh / lg.h); return {w: Math.round(lg.w * k), h: Math.round(lg.h * k)}; };
+    const intro = fit(W * 0.46, H * 0.15), mini = fit(W * 0.15, H * 0.065);
+    const icy = Math.round(H * 0.2);
+    return {intro: {...intro, cx: Math.round(W / 2), cy: icy}, mini: {...mini, cx: Math.round(W / 2), cy: Math.round(H * 0.063 + mini.h / 2)},
+      hookTop: Math.round(intro.h ? icy + intro.h / 2 + H * 0.025 : H * 0.17), hookW: Math.round(W * 0.76), hookPx: Math.round(W * 0.05)};
+  }
   const NF = "Not found in the reviewed filing";
   function reportHTML(rep, res){
     const F = rep.evidence.facts, C = rep.evidence.calcs;
@@ -9917,8 +10128,9 @@ Who is the auditor?</textarea>
     // scope keeps its own length, so switching back never carries an excerpt, or a start other than the cover, into
     // the entire filing. (The scope itself is not kept: a reopened page starts on the entire filing again.)
     const mk = {ticker: "", scope: "entire", length: "whole", lenBy: {entire: "whole", specific: 60}, speed: 1, ending: true, find: "", look: {}, list: null, pick: null, pickKey: null, file: null, all: false, recording: false,
-      found: null, feat: null, featBy: {}, hook: "", hookBy: {}, hookMine: {}, logos: {built: "", scan: {}}, safe: true, ramp: {on: false, from: 1, secs: 10}};
-    const MK_KEEP = ["ticker", "lenBy", "speed", "ramp", "ending", "find", "look", "pickKey", "featBy", "hookBy", "hookMine", "logos", "safe"];
+      found: null, feat: null, featBy: {}, hook: "", hookBy: {}, hookMine: {}, logos: {built: "", scan: {}}, safe: true, ramp: {on: false, from: 1, secs: 10},
+      brand: {intro: false, mini: false, report: false}, coLogo: {}};
+    const MK_KEEP = ["ticker", "lenBy", "speed", "ramp", "ending", "find", "look", "pickKey", "featBy", "hookBy", "hookMine", "logos", "safe", "brand", "coLogo"];
     // a length either scope can run at: the entire filing at reading speed ("whole") or a set time; an excerpt a set time
     const okLen = (v, scope) => v === "whole" ? (scope === "entire" ? v : 60) : typeof v === "number" && v >= 10 && v <= 900 && !(scope === "entire" && v === SHORT) ? v : scope === "entire" ? "whole" : 60;
     try {
@@ -9961,6 +10173,7 @@ Who is the auditor?</textarea>
       if (!/^[A-Z][A-Z0-9.\-]{0,9}$/.test(t)){ mkSay("mk-st1", "Enter a ticker, for example NVDA.", true); return; }
       if (t !== mk.ticker) mk.pickKey = null;              // the form picked before is kept only for the same ticker
       mk.ticker = t; mk.file = null; mk.list = null; mk.pick = null; saveMk(); drawForms();
+      if (coLogo.tk !== t) resolveCoLogo();                // the previous company's logo goes at once
       if (mk.found){ readSeq++; mk.found = null; mk.feat = null; drawFinding(); drawPreview(); }
       mkSay("mk-st1", `Looking up ${t} on SEC EDGAR...`);
       const btn = body.querySelector("#mk-tk button[type=submit]"); if (btn) btn.disabled = true;
@@ -9973,6 +10186,7 @@ Who is the auditor?</textarea>
         mkSay("mk-st1", "");
         if (mk.pick != null) setTimeout(loadFindings);               // the form picked before: its findings again
         drawLogos(); drawPreview();                                  // the company's logo, by its name
+        if (coLogo.tk !== mk.list.ticker) resolveCoLogo(); else drawCoLogo();     // the branding logo, with the company's name
       } catch (e){ if (mk.ticker === t) mkSay("mk-st1", (e && e.message) || String(e), true); }
       finally { if (btn) btn.disabled = false; }
       drawForms();
@@ -10247,6 +10461,7 @@ Who is the auditor?</textarea>
       if (mk.length !== "whole" && !(mk.length >= 10)){ mkSay("mk-rst", "Choose how long the clip is in step 4.", true); return; }
       if (mk.found && mk.found.state === "loading"){ mkSay("mk-rst", "The filing is still being read for its findings: a moment.", true); return; }
       if (mk.scope === "specific" && !mk.file && !clipScope()){ mkSay("mk-rst", "Specific findings needs the filing's findings: wait for its read, or choose Entire filing.", true); return; }
+      if (brandOn() && coLogo.state === "loading"){ mkSay("mk-rst", "The company's logo is still being looked up: a moment.", true); return; }
       const plan = planOf(f);
       try { localStorage.setItem("bmg-clip-plan", JSON.stringify(plan)); } catch (e) { mkSay("mk-rst", "This browser could not keep the plan (storage full?).", true); return; }
       state.clipWin = null; state.clipFile = null;        // nothing from an earlier one-click clip goes to this window
@@ -10269,7 +10484,7 @@ Who is the auditor?</textarea>
         mode: entire ? "entire" : "specific", length: mk.length, speed: mk.speed, ramp: rampOn() ? {from: mk.ramp.from, secs: mk.ramp.secs} : null, start: entire ? "cover" : "excerpt", ending: mk.ending, find: findList(), look: mk.look,
         featured: !entire && x && sc && sc.featured ? {...x, missing: undefined} : null, scope: entire ? null : sc, hook: (mk.hook || "").trim().slice(0, 90),
         filing: filingOf(f), coverage: scopeText(), total: mk.found && mk.found.state === "done" ? mk.found.total : null,
-        logos: {built: logo("built"), scan: logo("scan")}};
+        logos: {built: logo("built"), scan: logo("scan")}, brand: brandPlan()};
     }
     // ---- the logos: "Built with" (Claude) and "Scanning" (the company), from the pictures kept in the Studio's Quick
     // add. A picture is offered for a role by its name ("claude", the ticker or the company's name), and the one
@@ -10307,6 +10522,117 @@ Who is the auditor?</textarea>
       box.innerHTML = row("scan", "Scanning")
         + `<p class="mk-note">${pics.length ? "Your Quick add pictures (Studio, Pictures tab). A picture named after Claude, the ticker or the company is picked by itself; the choice is kept, the company's for each ticker." : "No pictures in Quick add yet: the clip names them in text. Add logos in the Studio (Pictures tab, Quick add) to show them here."}</p>`;
     }
+    // ---- Company branding (optional). The company's logo for the recording, shown in step 1 exactly as it will be
+    // recorded. Only a picture tied to this ticker is used: your upload for it, the Quick add picture you picked for it
+    // in Look, this site's own logo, or the public logo kept for the ticker (the server fetches it once). A picture that
+    // looks like a photo is refused. Nothing is invented: without one, step 1 asks for an upload, and the clip records
+    // without a logo. The previous company's logo is cleared the moment the company changes. ----
+    let coLogo = {tk: "", state: "none"}, coSeq = 0, pvPhase = "crawl";
+    const brandOn = () => !!(mk.brand.intro || mk.brand.mini || mk.brand.report);
+    const logoTk = () => !mk.file && mk.list ? mk.list.ticker : /^[A-Z][A-Z0-9.\-]{0,9}$/.test(mk.ticker || "") ? mk.ticker : "";
+    const coReady = () => coLogo.state === "ready" && coLogo.tk === logoTk() ? coLogo : null;
+    async function logoPixels(url){
+      const img = new Image(); img.src = url; await img.decode();
+      const c = document.createElement("canvas"); c.width = c.height = 64;
+      const g = c.getContext("2d", {willReadFrequently: true}); g.drawImage(img, 0, 0, 64, 64);
+      return {img, px: g.getImageData(0, 0, 64, 64).data};
+    }
+    async function resolveCoLogo(){
+      const tk = logoTk(), seq = ++coSeq;
+      if (coLogo.url) URL.revokeObjectURL(coLogo.url);
+      coLogo = {tk, state: tk ? "loading" : "none"};
+      drawCoLogo(); drawBrand(); drawPreview();
+      if (!tk) return;
+      let blob = null, from = "", media = null, why = "";
+      try {
+        for (const [id, kind] of [[(mk.coLogo || {})[tk], "upload"], [(mk.logos.scan || {})[tk], "quick"]]){
+          if (blob || !id || id === "text") continue;
+          const r = await studioDB.get("media", id);
+          if (r && r.blob && /^image\//.test(r.blob.type)){ blob = r.blob; from = kind; media = id; }
+        }
+        if (!blob){
+          const r = await fetch(`/api/company-logo?ticker=${encodeURIComponent(tk)}`);
+          if (r.ok && /^image\//.test(r.headers.get("content-type") || "")){ blob = await r.blob(); from = r.headers.get("x-logo-source") || "server"; }
+          else if (r.status === 403) why = "Company logos are looked up on the local crawler only.";
+          else { try { const j = await r.json(); if (/did not answer/.test(j.error || "")) why = "The logo source did not answer."; } catch (e) {} }    // none: a plain answer, not an error
+        }
+      } catch (e){ why = "The logo could not be looked up."; }
+      if (seq !== coSeq) return;
+      if (!blob){ coLogo = {tk, state: "missing", why}; drawCoLogo(); drawBrand(); drawPreview(); return; }
+      const url = URL.createObjectURL(blob);
+      try {
+        const {img, px} = await logoPixels(url), look = logoLook(px);
+        if (seq !== coSeq){ URL.revokeObjectURL(url); return; }
+        if (!media && (look.photo || look.empty)){
+          URL.revokeObjectURL(url);
+          coLogo = {tk, state: "missing", why: look.photo ? `The picture found for ${tk} looks like a photo, not a logo, so it is not used.` : `The picture found for ${tk} is empty.`};
+        } else coLogo = {tk, state: "ready", url, from, media, w: img.naturalWidth, h: img.naturalHeight, see: look.see, tone: look.tone};
+      } catch (e){ URL.revokeObjectURL(url); if (seq === coSeq) coLogo = {tk, state: "missing", why: "The picture found could not be read."}; }
+      if (seq === coSeq){ drawCoLogo(); drawBrand(); drawPreview(); }
+    }
+    // an upload goes through the Studio's own picture check (a picture the browser can read, at most 1600 px, kept as
+    // a PNG when any part is see-through) into Quick add, and is kept as this ticker's logo
+    async function uploadCoLogo(f){
+      const tk = logoTk(); if (!tk || !f) return;
+      if (!/^image\//.test(f.type)){ mkSay("mk-cl-st", `${f.name || "That file"} is not a picture.`, true); return; }
+      mkSay("mk-cl-st", "Reading the picture...");
+      let im;
+      try { im = await (await loadStudio()).parts.shrinkImage(f); }
+      catch (e){ mkSay("mk-cl-st", `${f.name || "That file"} is not a picture the browser can read.`, true); return; }
+      try {
+        const id = "m-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        await studioDB.put("media", {id, blob: im.blob, name: `${tk} logo.${im.blob.type === "image/png" ? "png" : "jpg"}`, kind: "picture", added: Date.now(), quick: Date.now()});
+        (mk.coLogo || (mk.coLogo = {}))[tk] = id; (mk.logos.scan || (mk.logos.scan = {}))[tk] = id; saveMk();
+      } catch (e){ mkSay("mk-cl-st", "This browser could not keep the picture (storage full?).", true); return; }
+      mkSay("mk-cl-st", ""); loadQuickPics(); resolveCoLogo();
+    }
+    function drawCoLogo(){
+      const box = body.querySelector("#mk-cologo"); if (!box || view !== "make") return;
+      const tk = coLogo.tk;
+      if (!tk){
+        box.hidden = !(mk.file && brandOn());              // your own document with branding on: the logo needs a ticker
+        box.innerHTML = box.hidden ? "" : `<div class="mk-cl-pic"><i>No logo</i></div><div class="mk-cl-txt"><p class="mk-note err">Enter the company's ticker in step 1 (then press Use my own document again, or Find its forms) to find or upload its logo.</p></div>`;
+        return;
+      }
+      box.hidden = false;
+      const name = mk.list && mk.list.ticker === tk ? mk.list.company : "", lg = coReady();
+      const from = {upload: "your upload", quick: "the Quick add picture you picked", site: `this site's own logo for ${tk}`, fmp: `the public logo kept for ${tk} (Financial Modeling Prep, by ticker)`}[coLogo.from] || "the server's copy";
+      box.innerHTML = `<div class="mk-cl-pic">${lg ? `<img src="${esc(lg.url)}" alt="${esc(tk)} logo">` : `<i>${coLogo.state === "loading" ? "..." : "No logo"}</i>`}</div>
+        <div class="mk-cl-txt"><p class="mk-cl-co"><b>${esc(name || tk)}</b> <span>${esc(tk)}</span></p>
+          <p class="mk-note${coLogo.state === "missing" ? " err" : ""}">${coLogo.state === "loading" ? "Looking for the company's logo..."
+            : lg ? `Logo for the recording: ${esc(from)}, ${lg.w} &times; ${lg.h}. This exact picture is the one recorded (the squares show where it is see-through).`
+            : `No logo found. Upload a company logo.${coLogo.why ? " " + esc(coLogo.why) : ""} Without one, the clip records without a logo.`}</p>
+          <div class="mk-row"><label class="av-chip mk-cl-up">${lg ? "Replace logo" : "Upload a company logo"}<input type="file" id="mk-cl-file" accept="image/*" hidden></label>
+            ${coLogo.from === "upload" || coLogo.from === "quick" ? `<button type="button" class="av-chip" id="mk-cl-undo">Use the logo found for ${esc(tk)} instead</button>` : ""}
+            ${coLogo.state === "missing" && !/local crawler/.test(coLogo.why || "") ? `<button type="button" class="av-chip" id="mk-cl-again">Look again</button>` : ""}</div>
+          <p class="mk-st" id="mk-cl-st" role="status"></p></div>`;
+    }
+    function drawBrand(){
+      const B = mk.brand, $b = id => body.querySelector("#" + id); if (!$b("mk-b-intro") || view !== "make") return;
+      $b("mk-b-intro").checked = !!B.intro; $b("mk-b-mini").checked = !!B.mini; $b("mk-b-report").checked = !!B.report;
+      $b("mk-b-all").setAttribute("aria-checked", String(!!(B.intro && B.mini && B.report)));
+      $b("mk-b-off").setAttribute("aria-checked", String(!brandOn()));
+      const lg = coReady(), hook = !!String(mk.hook || "").trim(), notes = [];
+      if (brandOn() && !lg){
+        if (coLogo.state === "loading") notes.push("Looking for the company's logo (step 1).");
+        else {
+          notes.push(logoTk() ? "No logo found. Upload a company logo in step 1." : "Enter the company's ticker in step 1 to find or upload its logo.");
+          notes.push(`Without one, ${B.intro ? (hook ? "the opening shows the hook alone, " : "there is no opening, ") : ""}${B.mini || B.report ? "the small and report logos are left out, " : ""}and the clip records normally.`);
+        }
+      }
+      if (B.intro && lg) notes.push(hook ? "Opening: the logo above your hook for the first 4 seconds; then the hook fades (the Studio adds no second hook)." : "No hook in step 3: the opening shows the logo alone.");
+      if (B.mini && lg && !B.intro && hook) notes.push("The hook sits under the small logo and leaves with it when the report appears.");
+      if (B.report && !mk.ending) notes.push("The report logo needs the clip to end on the report (step 4).");
+      $b("mk-b-note").textContent = notes.join(" ");
+      $b("mk-b-note").classList.toggle("err", brandOn() && !lg && coLogo.state !== "loading");
+    }
+    // what the plan carries: the three settings, and the logo as a picture kept in this browser or the server's copy
+    function brandPlan(){
+      if (!brandOn()) return null;
+      const lg = coReady();
+      return {intro: !!mk.brand.intro, mini: !!mk.brand.mini, report: !!mk.brand.report,
+        logo: lg ? {from: lg.from, media: lg.media || null, ticker: lg.tk, w: lg.w, h: lg.h, see: lg.see, tone: lg.tone} : null};
+    }
     // ---- 6 Preview: the video's frame as the record window lays it out (the same proportions: the page above, the
     // report a small band below it, clear of TikTok's buttons), with this clip's hook, logos and featured finding.
     // The safe-area guide is drawn here only: it is never recorded or exported. ----
@@ -10323,10 +10649,39 @@ Who is the auditor?</textarea>
       const logo = role => { const q = logoFor(role); return `<span class="pv-logo"><small>${role === "built" ? "Built with" : "Scanning"}</small>${q ? `<img src="${esc(q.url)}" alt="">` : `<i>${esc(logoText(role))}</i>`}</span>`; };
       const tot = sc ? sc.total : F && F.state === "done" && mk.scope !== "specific" ? F.total : 0;
       const count = tot ? `0 of ${tot} ${tot === 1 ? F.noun[0] : F.noun[1]} shown` : "";
+      // company branding: the moment shown (the opening's 4 seconds, the crawl, the final report), placed as recorded
+      const BR = mk.brand, lg = coReady(), hook = String(mk.hook || "").trim(), dark = L.dark !== false;
+      const opening = !!(BR.intro && (lg || hook));
+      const phases = !brandOn() ? [] : [...(opening ? ["open"] : []), "crawl", ...(BR.report && mk.ending ? ["end"] : [])];
+      if (!phases.includes(pvPhase)) pvPhase = phases[0] || "crawl";
+      const ph = phases.length ? pvPhase : "crawl", pp = body.querySelector("#mk-pvph");
+      if (pp){
+        pp.hidden = !phases.length;
+        pp.innerHTML = phases.map(k => `<button type="button" role="radio" class="av-seg" data-ph="${k}" aria-checked="${k === ph}">${{open: "Opening, first 4 s", crawl: "During the crawl", end: "Final report"}[k]}</button>`).join("");
+      }
+      const g = brandGeom(lg, 100, 177.78), cq = v => (+v).toFixed(2) + "cqw";
+      const logoAt = (r, cls) => `<img class="pv-blogo${logoChip(lg, cls === "end" || dark)}" src="${esc(lg.url)}" alt="" style="left:${cq(r.cx - r.w / 2)};top:${cq(r.cy - r.h / 2)};width:${cq(r.w)};height:${cq(r.h)};padding:${cq(Math.min(r.w, r.h) * 0.08)}">`;
+      const inOpening = ph === "open" && opening, small = lg && BR.mini && (ph === "crawl" || (ph === "open" && !opening));
+      const studioHook = hook && !opening;                    // the Studio's hook item (the whole video) unless the opening shows it
+      const bandLogo = !(lg && (inOpening || BR.mini));        // one copy of the logo at a time: the band's waits while one floats
+      if (ph === "end"){
+        const ins = F && F.kind === "insider", co = (F && F.company) || (mk.list && shortName(mk.list.company)) || mk.ticker || "";
+        box.innerHTML = `<div class="mk-pvf pv-endf" role="img" aria-label="The final report, with the company's logo beside BMG Capital">
+          <div class="pv-end"><div class="pv-ebrand">${BMG_LINE}<b>BMG Capital</b>${lg ? `<i class="pv-esep"></i><img class="pv-elogo${logoChip(lg, true)}" src="${esc(lg.url)}" alt="">` : ""}</div>
+            <p class="pv-eh">${ins ? "Largest insider trades" : "Key findings"} &middot; ${esc(co)}</p>${"<i class='pv-ecard'></i>".repeat(3)}</div>
+          ${studioHook && !(lg && BR.mini) ? `<p class="pv-hook"><span>${esc(hook)}</span></p>` : ""}
+          <div class="pv-safe"${mk.safe ? "" : " hidden"}><span class="t">TikTok top bar</span><span class="r">buttons</span><span class="b">caption and username</span></div></div>`;
+        const st = body.querySelector("#mk-scope"); if (st) st.textContent = scopeText();
+        const fl = body.querySelector("#mk-filing"), f = !mk.file && mk.list && mk.pick != null ? mk.list.items[mk.pick] : null;
+        if (fl) fl.textContent = filingWords(filingOf(f)) || "Pick a filing in step 1.";
+        drawHook(); drawBrand(); return;
+      }
       box.innerHTML = `<div class="mk-pvf${L.dark === false ? " light" : ""}" role="img" aria-label="The clip's frame: the hook at the top, the filing in the middle, the report below">
           <div class="pv-page">${"<i></i>".repeat(14)}${spiderSwatch((state.recPalettes || {})[L.palette] || {main: "#6ff4ff", accent: "#ff3da6", trail: "#9fb4ff"})}</div>
-          ${mk.hook ? `<p class="pv-hook">${esc(mk.hook)}</p>` : ""}
-          <div class="pv-rep"><div class="pv-head"><span class="pv-brand">${BMG_LINE}<b>BMG Capital</b> report</span>${logo("scan")}</div>
+          ${studioHook ? `<p class="pv-hook${lg && BR.mini ? " low" : ""}"><span>${esc(hook)}</span></p>` : ""}
+          ${inOpening && lg ? logoAt(g.intro, "") : small ? logoAt(g.mini, "") : ""}
+          ${inOpening && hook ? `<p class="pv-bhook" style="top:${cq(g.hookTop)};left:${cq(50 - g.hookW / 2)};width:${cq(g.hookW)};font-size:${cq(g.hookPx)}"><span>${esc(hook)}</span></p>` : ""}
+          <div class="pv-rep"><div class="pv-head"><span class="pv-brand">${BMG_LINE}<b>BMG Capital</b> report</span>${!bandLogo ? "" : brandOn() && lg ? `<span class="pv-logo"><small>Scanning</small><img src="${esc(lg.url)}" alt=""></span>` : logo("scan")}</div>
             ${count ? `<p class="pv-prog">${esc(count)}</p>` : ""}<ol>${rows.map(rowHTML).join("") || "<li class='pv-empty'>The report fills here as the spider reads.</li>"}</ol></div>
           ${x && sc && sc.featured ? `<div class="pv-call"><small>Featured</small><b>${esc(x.type === "trade" ? x.who : x.label)}</b><span>${esc(x.type === "trade" ? `${x.label} · ${x.shares} shares at ${x.price}` : `${x.value} · ${x.period}`)}</span></div>` : ""}
           <div class="pv-safe"${mk.safe ? "" : " hidden"}><span class="t">TikTok top bar</span><span class="r">buttons</span><span class="b">caption and username</span></div>
@@ -10334,7 +10689,7 @@ Who is the auditor?</textarea>
       const st = body.querySelector("#mk-scope"); if (st) st.textContent = scopeText();
       const fl = body.querySelector("#mk-filing"), f = !mk.file && mk.list && mk.pick != null ? mk.list.items[mk.pick] : null;
       if (fl) fl.textContent = filingWords(filingOf(f)) || "Pick a filing in step 1.";
-      drawHook();
+      drawHook(); drawBrand();
     }
     function renderMake(){
       const lk = mk.look, pal = state.recPalettes || {};
@@ -10347,6 +10702,7 @@ Who is the auditor?</textarea>
           <form class="mk-row" id="mk-tk"><input id="mk-ticker" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="Ticker, for example NVDA" aria-label="Ticker" value="${esc(mk.ticker)}"><button type="submit" class="av-btn">Find its forms</button>
             <span class="mk-or">or</span><label class="av-btn mk-own">Use my own document<input type="file" id="mk-file" accept=".pdf,.docx,.pptx,.htm,.html,.txt,.md" hidden></label></form>
           <p class="mk-st" id="mk-st1" role="status"></p>
+          <div class="mk-cl" id="mk-cologo" hidden></div>
           <div id="mk-forms"></div></li>
         <li class="mk-step"><h3><b>2</b>Finding <small>what the clip covers, from the filing itself</small></h3>
           <div class="av-chips mk-scope" role="radiogroup" aria-label="What the clip covers"><button type="button" role="radio" class="av-seg" data-scope="entire">Entire filing</button><button type="button" role="radio" class="av-seg" data-scope="specific">Specific findings</button></div>
@@ -10372,13 +10728,20 @@ Who is the auditor?</textarea>
           <div class="mk-pals" id="mk-pals" role="radiogroup" aria-label="Spider colors">${Object.entries(pal).map(([k, p]) => `<button type="button" role="radio" class="mk-pal" data-pal="${esc(k)}" title="${esc(p.name)}">${spiderSwatch(p)}<small>${esc(p.name.replace(/ \(default\)$/, ""))}</small></button>`).join("")}</div>
           <p class="mk-lbl">Page</p>
           <div class="av-chips mk-pgs" role="radiogroup" aria-label="Page"><button type="button" role="radio" class="av-seg" data-dark="1">Dark page</button><button type="button" role="radio" class="av-seg" data-dark="0">Light page</button></div>
+          <p class="mk-lbl" style="margin-top:14px">Company branding <small>optional, with the logo shown in step 1</small></p>
+          <div class="mk-brand">
+            <div class="av-chips" role="radiogroup" aria-label="Branding preset"><button type="button" role="radio" class="av-seg" id="mk-b-all">Company-branded posting</button><button type="button" role="radio" class="av-seg" id="mk-b-off">Normal</button></div>
+            <label><input type="checkbox" id="mk-b-intro"> Show logo and hook intro, 4 seconds</label>
+            <label><input type="checkbox" id="mk-b-mini"> Keep a small company logo during the crawl</label>
+            <label><input type="checkbox" id="mk-b-report"> Show company logo beside BMG Capital on the final report</label>
+            <p class="mk-note" id="mk-b-note" role="status"></p></div>
           <p class="mk-lbl" style="margin-top:14px">Logos <small>small, in the report's header</small></p><div id="mk-logos"></div>
           <div class="mk-row" style="margin-top:14px"><label><input type="checkbox" id="mk-pops"> Pop-ups: a big number card for each figure, and words that grow on the page</label></div>
           <div class="mk-row" style="margin-top:8px"><label>Video <select id="mk-q"><option value="high">High Quality · asks for 1080 &times; 1920 at 60 fps</option><option value="standard">Standard · asks for 30 fps</option></select></label>
             ${window.showSaveFilePicker ? `<label><input type="checkbox" id="mk-disk"> Save to disk while recording (long clips use no extra memory)</label>` : ""}</div></li>
         <li class="mk-step"><h3><b>6</b>Preview and record</h3>
           <div class="mk-pvw"><div id="mk-pv"></div>
-            <div class="mk-pvs"><p class="mk-lbl">Filing</p><p class="mk-note" id="mk-filing"></p><p class="mk-lbl">What the clip shows</p><p class="mk-note" id="mk-scope"></p>
+            <div class="mk-pvs"><div class="av-chips mk-pvph" id="mk-pvph" role="radiogroup" aria-label="The moment the preview shows" hidden></div><p class="mk-lbl">Filing</p><p class="mk-note" id="mk-filing"></p><p class="mk-lbl">What the clip shows</p><p class="mk-note" id="mk-scope"></p>
               <label class="mk-safe"><input type="checkbox" id="mk-safe"> TikTok safe area (here only, never in the video)</label>
               <div class="mk-row" style="margin-top:14px"><button type="button" class="av-btn mk-go" id="mk-record">Record</button><span class="mk-st" id="mk-rst" role="status"></span></div>
               <p class="mk-note">The record window opens with all of this set. Check the frame there first: it shows what the recording will see, so a browser extension's badge or panel on the page can be switched off before you record. Then press Start recording (Chrome asks to share that tab: choose Allow). When the clip ends, the Studio opens here with it and the hook on it: add pictures, then Export downloads the video. Chrome records at the size this screen and window allow: the record window and the Studio say what the take really is.</p></div></div></li>
@@ -10403,10 +10766,10 @@ Who is the auditor?</textarea>
         const f = e.target.files[0]; if (!f) return;
         mk.file = f; mk.pick = null; mk.pickKey = null; setScope("entire"); saveMk();
         const t = $m("mk-ticker").value.trim().toUpperCase(); if (/^[A-Z][A-Z0-9.\-]{0,9}$/.test(t)) mk.ticker = t;
-        mkSay("mk-st1", ""); drawForms(); loadFindings();
+        mkSay("mk-st1", ""); drawForms(); loadFindings(); resolveCoLogo();
       });
       $m("mk-forms").addEventListener("click", e => {
-        if (e.target.closest("[data-clearfile]")){ mk.file = null; drawForms(); loadFindings(); return; }
+        if (e.target.closest("[data-clearfile]")){ mk.file = null; drawForms(); loadFindings(); resolveCoLogo(); return; }
         if (e.target.closest("[data-allforms]")){ mk.all = true; drawForms(); return; }
         const b = e.target.closest("button[data-f]"); if (!b) return;
         const was = mk.pick;
@@ -10455,11 +10818,26 @@ Who is the auditor?</textarea>
         const role = b.closest("[data-role]").dataset.role, tk = mk.list ? mk.list.ticker : mk.ticker;
         if (role === "built") mk.logos.built = b.dataset.logo; else if (tk) (mk.logos.scan || (mk.logos.scan = {}))[tk] = b.dataset.logo;
         saveMk(); drawLogos(); drawPreview();
+        if (role === "scan" && !(mk.coLogo || {})[logoTk()]) resolveCoLogo();    // a picture picked here is the branding's logo too
       });
       $m("mk-safe").addEventListener("change", e => { mk.safe = e.target.checked; saveMk(); drawPreview(); });
+      // company branding: the logo (step 1), its three settings and the preset (step 5), the preview's moments (step 6)
+      $m("mk-cologo").addEventListener("change", e => { if (e.target.id !== "mk-cl-file") return; const f = e.target.files[0]; e.target.value = ""; if (f) uploadCoLogo(f); });
+      $m("mk-cologo").addEventListener("click", e => {
+        if (e.target.closest("#mk-cl-again")){ resolveCoLogo(); return; }
+        if (!e.target.closest("#mk-cl-undo")) return;
+        const tk = logoTk(); if (mk.coLogo) delete mk.coLogo[tk]; if (mk.logos.scan && mk.logos.scan[tk] && mk.logos.scan[tk] !== "text") delete mk.logos.scan[tk];
+        saveMk(); drawLogos(); resolveCoLogo();
+      });
+      const brandSet = (k, v) => { mk.brand = {...mk.brand, [k]: v}; if (k === "intro" && v) pvPhase = "open"; else if (k === "report" && v) pvPhase = "end"; saveMk(); drawBrand(); drawPreview(); };
+      for (const k of ["intro", "mini", "report"]) $m("mk-b-" + k).addEventListener("change", e => brandSet(k, e.target.checked));
+      $m("mk-b-all").addEventListener("click", () => { mk.brand = {intro: true, mini: true, report: true}; pvPhase = "open"; saveMk(); drawBrand(); drawPreview(); });
+      $m("mk-b-off").addEventListener("click", () => { mk.brand = {intro: false, mini: false, report: false}; saveMk(); drawBrand(); drawPreview(); });
+      $m("mk-pvph").addEventListener("click", e => { const b = e.target.closest("[data-ph]"); if (!b) return; pvPhase = b.dataset.ph; drawPreview(); });
       for (const id of ["mk-pops", "mk-q", "mk-disk"]) if ($m(id)) $m(id).addEventListener("change", look);
       $m("mk-record").addEventListener("click", makeRecord);
       drawForms(); drawFinding(); drawHook(); drawLen(); drawLogos(); drawPreview(); loadQuickPics();
+      if (coLogo.tk !== logoTk() || coLogo.state === "none") resolveCoLogo(); else { drawCoLogo(); drawBrand(); }
       if (mk.recording && recOpen()) recStatus(state.recPhase || "setup"); else mk.recording = false;
       if (!mk.list && !mk.file && mk.ticker) findForms(mk.ticker);       // the last ticker's forms, ready to pick
       else if (mk.list && mk.pick != null && !(mk.found && mk.found.key === mk.list.ticker + "|" + itemKey(mk.list.items[mk.pick]) && mk.found.state !== "error")) loadFindings();
