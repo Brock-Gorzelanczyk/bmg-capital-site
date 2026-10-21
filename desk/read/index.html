@@ -4572,11 +4572,28 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   state.recWin = null; state.recPhase = "";
   const recOpen = () => { try { return !!(state.recWin && !state.recWin.closed); } catch (e) { return false; } };
   const recPhaseNow = () => { try { return (state.recWin.bmgRec || {}).phase || state.recPhase || "setup"; } catch (e) { return state.recPhase || "setup"; } };
+  // Record mode records the window it is in, so it is always its own tall window. A window found by the name that is
+  // not one (this Crawler page itself, or a full-size tab: Chrome's "Show as tab" makes the record window a tab that
+  // keeps the name, and every Record after it loaded the clip there, wide) is let go unless a take is under way in
+  // it: it loses the name, closes if it is an idle record page, is never taken back for its messages, and a tall
+  // window opens in its place.
+  const recGone = new WeakSet();
+  const recWide = win => { try { return win === window ? !/[?&]mode=rec\b/.test(location.search) : win.innerWidth > win.innerHeight && (win.bmgRec || {}).phase !== "busy"; } catch (e) { return false; } };
+  const recFound = win => { try { return win.location.href !== "about:blank"; } catch (e) { return false; } };   // not one just opened
+  const recLetGo = win => {
+    recGone.add(win);
+    try { win.name = ""; } catch (e) {}
+    try { if (win !== window && /[?&]mode=rec\b/.test(win.location.search)) win.close(); } catch (e) {}
+    if (state.recWin === win) state.recWin = null;
+  };
   function recordWindow(url = REC_URL, replace = false){
     let win = recOpen() ? state.recWin : null, fresh = false;
+    if (win && recWide(win)){ recLetGo(win); win = null; }
     if (!win){
       const h = Math.min(960, (screen.availHeight || 900) - 60), w = Math.round(h * 9 / 16);
-      win = window.open("", "bmg-record", `popup=yes,width=${w},height=${h}`);   // "" finds an open one without loading it again
+      const open = () => window.open("", "bmg-record", `popup=yes,width=${w},height=${h}`);   // "" finds an open one without loading it again
+      win = open();
+      if (win && recFound(win) && recWide(win)){ recLetGo(win); win = open(); }
       if (!win) return null;
       let here = "";
       try { here = win.location.href; } catch (e) {}
@@ -4614,7 +4631,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (!recChipTimer) recChipTimer = setInterval(recChip, 1000);
   }
   addEventListener("message", e => {
-    if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-rec" || !e.source || document.body.classList.contains("rec")) return;
+    if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-rec" || !e.source || recGone.has(e.source) || document.body.classList.contains("rec")) return;
     if (e.data.phase === "closed"){ if (state.recWin === e.source) state.recPhase = "closed"; }
     else { state.recWin = e.source; state.recPhase = e.data.phase; }
     recChip();
@@ -4894,7 +4911,13 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       // the video asked for, and about what this window gives: Chrome captures a tab at about the window's own size
       const drawVideo = () => {
         const high = (q("rec-quality") || {}).value !== "standard", px = `${Math.round(innerWidth * devicePixelRatio)} \u00d7 ${Math.round(innerHeight * devicePixelRatio)}`;
-        card.querySelector("#pl-video").textContent = `${high ? "High Quality asks for 1080 \u00d7 1920 at 60 fps" : "Standard asks for 30 fps"}. This window gives about ${px} pixels (${innerWidth} \u00d7 ${innerHeight} at ${devicePixelRatio}x); the last screen says what was really recorded.`;
+        const v = card.querySelector("#pl-video");
+        v.textContent = `${high ? "High Quality asks for 1080 \u00d7 1920 at 60 fps" : "Standard asks for 30 fps"}. This window gives about ${px} pixels (${innerWidth} \u00d7 ${innerHeight} at ${devicePixelRatio}x); the last screen says what was really recorded.`;
+        if (innerWidth > innerHeight){                                // a tab or a full-size window: the video would be wide
+          const s = document.createElement("span"); s.className = "pl-dirty";
+          s.textContent = " This window is wide, so the video would be wide too, not TikTok's 9:16. Close it and press Record again in the Crawler window: Record mode opens in its own tall window.";
+          v.append(s);
+        }
       };
       drawVideo(); addEventListener("resize", drawVideo);
       // the company branding chosen in Make a clip, and whether its logo is ready (loaded before the take starts)
