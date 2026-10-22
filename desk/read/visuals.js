@@ -66,7 +66,11 @@ function buildModel(raw){
   };
   if (legacy){
     (legacy.figures || []).forEach((x, i) => add({...x, source: {...(x.source || {}), ...(x.page ? {pdf_page: x.page} : {}), ...(x.accession ? {accession: x.accession} : {})}}, "legacy-" + i, "Saved report"));
-    (legacy.findings || []).forEach((x, i) => add({...x, label: x.headline || "Finding", text: x.headline, value: "", sources: (x.pages || []).filter(Boolean).map(p => ({pdf_page: p}))}, "legacy-finding-" + i, "Saved report"));
+    (legacy.findings || []).forEach((x, i) => {
+      const pages = Array.isArray(x.pages) ? x.pages.map(p => { const m = /^(?:p\.\s*)?(\d+)$/.exec(str(p)); return m ? +m[1] : null; }).filter(p => p > 0)
+        : Array.from(str(x.pages).matchAll(/\bp\.\s*(\d+)\b/g), m => +m[1]).filter(p => p > 0);
+      add({...x, label: x.headline || "Finding", text: x.headline, value: "", sources: pages.map(p => ({pdf_page: p}))}, "legacy-finding-" + i, "Saved report");
+    });
     model.notes.push("This saved take contains a compact report. Only evidence saved with that take is available here.");
   } else {
     (end.keys || []).forEach((x, i) => add(x, "key-" + i, "Key findings"));
@@ -110,16 +114,37 @@ function buildModel(raw){
       if (!hasLocation(rowSource) || !r.issuer || !r.value || /^(n\/a|not supplied)$/i.test(str(r.value))) return;
       const amountKind = str(r.kind || ""), klass = str(r.class), put = str(r.put_call), label = r.issuer + (klass ? " · " + klass : "") + (put ? " · " + put : "");
       const h = {id: "holding-" + n, issuer: str(r.issuer), class: klass, put_call: put, amountKind, shares: str(r.shares),
-        weight: str(r.weight), value: str(r.value), period: hs.period || model.period, source, citation: sourceText(source),
+        weight: str(r.weight), value: str(r.value), change: str(r.change), period: hs.period || model.period, source, citation: sourceText(source),
         label, unit: "USD", currency: "USD", basis: "Reported quarter-end holding; weight from the report", text: ""};
       h.text = (h.shares ? h.shares + (amountKind === "PRN" ? " principal amount" : put ? " underlying shares" : " shares") : "Amount not supplied") + (h.weight && h.weight !== "n/a" ? " · " + h.weight : "");
       model.holdings.push(h); add(h, h.id, "Reported positions");
     });
+    const prior = hs.prior || {};
+    if (ins.kind === "holdings" && prior.period && prior.accession && hs.accession){
+      const span = prior.period + " to " + (hs.period || model.period), priorSource = {...(prior.source || {}), accession: prior.accession};
+      const rows = model.holdings.filter(h => shareChange(h.change)).map(h => {
+        const sources = [{...h.source}, priorSource], citation = sourceText(h.source) + "; prior quarter SEC " + prior.accession;
+        const unit = h.amountKind === "PRN" ? "principal amount" : h.put_call ? "underlying shares" : "shares";
+        return {id: "change-" + h.id, kind: "share-change", label: h.label, value: h.change, period: span, citation, sources,
+          unit, basis: "Change in reported " + unit + " between two quarter-end 13F filings; not a trade",
+          current: {id: h.id, label: h.label, value: h.shares ? h.shares + " " + unit : "Amount not supplied", text: "", period: "Quarter ended " + (hs.period || model.period),
+            source: {...h.source}, sources: [], citation: sourceText(h.source)},
+          prior: {id: h.id + "-prior", label: h.label, value: h.change, text: "", period: span, source: priorSource, sources, citation: "SEC " + prior.accession + " and SEC " + hs.accession}};
+      });
+      // positions whose reported amount moved first, then the unchanged ones, each in the report's rank order
+      model.comparisons.push(...rows.filter(r => r.value !== "Unchanged"), ...rows.filter(r => r.value === "Unchanged"));
+    }
     model.notes = (end.notes || []).map(str);
     if (ins.kind === "holdings") model.notes.push("Reported 13F securities are a partial, delayed view, not assets under management. Quarter-end holdings do not establish trades or profits.");
   }
   model.notes = Array.from(new Set(model.notes));
   return model;
+}
+// The document's own Change cell: a signed percent of reported amount, Unchanged or New position. Never a trade word.
+function shareChange(c){
+  c = str(c).trim();
+  if (!c || /\b(?:buy|bought|buys|sell|sold|sells|purchas|sale)/i.test(c)) return false;
+  return /^(?:Unchanged|New position|[+-]\d+(?:\.\d+)?% (?:shares|underlying shares|principal amount))$/.test(c);
 }
 function weightOf(h){
   const m = /^\s*(\d+(?:\.\d+)?)\s*%\s*$/.exec(str(h.weight));
@@ -131,7 +156,8 @@ function styleAvailability(model){
   out.map = {enabled: !!(model && model.kind === "holdings" && model.holdings.some(h => weightOf(h) != null)),
     reason: "A portfolio map needs actual 13F positions with sourced reported weights. Choose a 13F holdings report."};
   out.scoreboard = {enabled: !!(model && model.comparisons && model.comparisons.length),
-    reason: "This report has no sourced current/prior pair with matching period types, units and currency. No comparison is inferred."};
+    reason: model && model.kind === "holdings" ? "This 13F report has no cited prior quarter, so changes in reported shares are not shown."
+      : "This report has no sourced current/prior pair with matching period types, units and currency. No comparison is inferred."};
   if (out.map.enabled) out.map.reason = "";
   if (out.scoreboard.enabled) out.scoreboard.reason = "";
   return out;
@@ -199,7 +225,7 @@ function drawFrame(g, model, options, time){
   for (let y = 35; y < H; y += 70){ g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
   textBlock(g, "BMG CAPITAL", 72, 102, 560, 50, 27, "#edf6fa", 800);
   rounded(g, 846, 96, 162, 46, 23, accent + "18", accent + "50"); textBlock(g, "REPORT", 846, 107, 162, 30, 18, accent, 800, "center");
-  const title = style === "map" ? "The portfolio, revealed." : style === "scoreboard" ? "The periods, side by side." : style === "spotlight" ? "One finding. Full focus." : style === "transform" ? "From evidence to clarity." : style === "takeover" ? "The report takes the stage." : "Follow the evidence.";
+  const title = style === "map" ? "The portfolio, revealed." : style === "scoreboard" ? (model.kind === "holdings" ? "The quarter, compared." : "The periods, side by side.") : style === "spotlight" ? "One finding. Full focus." : style === "transform" ? "From evidence to clarity." : style === "takeover" ? "The report takes the stage." : "Follow the evidence.";
   textBlock(g, title, 72, 190, 936, 110, 52, "#f6fafc", 800);
   textBlock(g, model.company, 72, 300, o.logo ? 810 : 936, 70, 31, accent, 700);
   textBlock(g, [model.form, model.period].filter(Boolean).join(" · "), 72, 359, 936, 62, 22, "#a0afbc", 500);
@@ -264,11 +290,13 @@ function drawFrame(g, model, options, time){
     selected.forEach((pair, n) => {
       const y = 460 + n * 370, a = ramp(t, .35 + n * .3, .7); g.save(); g.globalAlpha = a; g.translate(0, (1 - a) * 40);
       rounded(g, 72, y, 936, 340, 25, "#111b25", accent + "4b"); textBlock(g, pair.label, 100, y + 27, 880, 55, 31, "#e2eaf0", 700);
-      const cols = [{it: pair.prior, x: 102, color: "#a8bdca"}, {it: pair.current, x: 558, color: accent}];
+      const cols = pair.kind === "share-change"
+        ? [{it: {...pair.current, period: pair.current.period + ", reported " + pair.unit}, x: 102, color: "#a8bdca"}, {it: {...pair.prior, period: "Change in reported " + pair.unit + ", " + pair.period}, x: 558, color: accent}]
+        : [{it: pair.prior, x: 102, color: "#a8bdca"}, {it: pair.current, x: 558, color: accent}];
       cols.forEach(c => { textBlock(g, c.it.period, c.x, y + 99, 410, 70, 22, "#9aafbd", 500); textBlock(g, c.it.value, c.x, y + 173, 410, 83, 62, c.color, 800); textBlock(g, c.it.citation, c.x, y + 266, 410, 53, 18, "#7f9bad", 500); });
       g.strokeStyle = "#ffffff20"; g.beginPath(); g.moveTo(532, y + 101); g.lineTo(532, y + 308); g.stroke(); g.restore();
     });
-    textBlock(g, "As reported, using matching period types and units. No forecast is implied.", 80, 1620, 920, 78, 24, "#9fb5c4", 500);
+    textBlock(g, model.kind === "holdings" ? "Change in reported shares between quarter-end 13F filings. Not a record of trades, prices or timing." : "As reported, using matching period types and units. No forecast is implied.", 80, 1620, 920, 78, 24, "#9fb5c4", 500);
   } else if (style === "transform"){
     sourceBox(featured, 72, 460, 936, 430, 0);
     const a = ramp(t, .5, 1.2); g.save(); g.globalAlpha = a; g.strokeStyle = accent; g.lineWidth = 4;
@@ -288,15 +316,16 @@ function mount(host, opts){
   if (!host) throw new Error("The Visuals panel needs a place to open.");
   const state = {visible: false, sources: [], sourceId: "", model: buildModel({}), selected: [], feature: "", style: "evidence", duration: 10,
     accent: accents[0].color, playing: false, time: 0, loading: false, exporting: false, logo: null, itemLogos: {}, reduced: false};
-  let raf = 0, last = 0, loadToken = 0, recorder = null, stream = null, cancel = false, exportBlob = null, exportMeta = null, exportUrl = "", logoUrl = "";
+  let raf = 0, exportRaf = 0, rejectExport = null, last = 0, loadToken = 0, recorder = null, stream = null, cancel = false, exportBlob = null, exportMeta = null, exportUrl = "", logoUrl = "";
   const urls = new Set(), logoUrls = new Map(), disposers = [], mm = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : null;
   state.reduced = !!(mm && mm.matches);
   host.innerHTML = `<style>
-    .vp-shell{--vp-accent:#68edfa;color:var(--ink,#edf4f8);font:inherit}.vp-shell *{box-sizing:border-box}.vp-shell button,.vp-shell select,.vp-shell input{font:inherit}.vp-shell button{cursor:pointer}.vp-shell button:disabled{cursor:not-allowed;opacity:.48}.vp-shell [hidden]{display:none!important}
+    html[data-theme="dark"] .vp-screen canvas{filter:invert(1) hue-rotate(180deg)}
+    .vp-shell{--vp-accent:#68edfa;--ink:#141414;--muted:#5d636b;--paper:#fff;--line:#c9cfca;--vp-accent-ink:color-mix(in srgb,var(--vp-accent) 42%,#000);color:var(--ink,#edf4f8);font:inherit}.vp-shell *{box-sizing:border-box}.vp-shell button,.vp-shell select,.vp-shell input{font:inherit}.vp-shell button{cursor:pointer}.vp-shell button:disabled{cursor:not-allowed;opacity:.48}.vp-shell [hidden]{display:none!important}
     .vp-title{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin:24px 0}.vp-title h2{margin:0 0 8px;font-size:28px}.vp-note{color:var(--muted,#94a5b4);font-size:14px;line-height:1.6;margin:5px 0}.vp-tag{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--vp-accent);background:#0b1820;padding:5px 9px;border-radius:20px;white-space:nowrap}
     .vp-source{display:grid;grid-template-columns:minmax(180px,1fr) auto auto;gap:10px;align-items:end;padding:18px;border:1px solid var(--line,#29323a);border-radius:16px}.vp-label{display:block;font-size:13px;font-weight:700;margin-bottom:7px}.vp-shell select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line,#38444f);background:var(--paper,#101820);color:var(--ink,#edf4f8);min-width:0}.vp-btn{border:1px solid var(--line,#38444f);border-radius:10px;padding:11px 15px;background:transparent;color:inherit;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:7px}.vp-btn.vp-primary{background:var(--vp-accent);border-color:var(--vp-accent);color:#071015;font-weight:800}.vp-btn:focus-visible,.vp-shell input:focus-visible,.vp-shell select:focus-visible,.vp-style:focus-visible{outline:3px solid var(--vp-accent);outline-offset:3px}
-    .vp-grid{display:grid;grid-template-columns:minmax(300px,1fr) minmax(280px,410px);gap:30px;margin-top:24px;align-items:start}.vp-styles{display:grid;grid-template-columns:1fr 1fr;gap:10px}.vp-style{position:relative;min-width:0;padding:15px;text-align:left;border:1px solid var(--line,#2e3e49);border-radius:14px;background:transparent;color:inherit}.vp-style[aria-pressed=true]{background:#68edfa0b;border-color:var(--vp-accent);box-shadow:inset 0 0 0 1px var(--vp-accent)}.vp-style b{display:block;margin:8px 0 6px;font-size:15px}.vp-style small{display:block;font-size:12px;line-height:1.5;color:var(--muted,#94a5b4)}.vp-glyph{font-size:25px;line-height:1;color:var(--vp-accent)}.vp-style .vp-tag{font-size:9px;float:right}.vp-section{border-top:1px solid var(--line,#27353e);margin-top:22px;padding-top:20px}.vp-section h3{font-size:16px;margin:0 0 12px}.vp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.vp-palette{display:flex;gap:9px}.vp-swatch{width:29px;height:29px;border-radius:50%;border:2px solid transparent;padding:0}.vp-swatch[aria-pressed=true]{outline:2px solid currentColor;outline-offset:3px}.vp-mini{max-width:140px}.vp-logo{width:36px;height:36px;object-fit:contain;background:#0b1420;border-radius:7px}
-    .vp-items{max-height:355px;overflow:auto;border:1px solid var(--line,#293944);border-radius:12px}.vp-item{display:flex;align-items:flex-start;gap:10px;padding:12px;border-bottom:1px solid var(--line,#293944);cursor:pointer}.vp-item:last-child{border-bottom:0}.vp-item input{margin-top:4px;accent-color:var(--vp-accent)}.vp-item span{min-width:0;overflow-wrap:anywhere}.vp-item b{display:block;font-size:13px}.vp-item small{display:block;font-size:12px;line-height:1.5;color:var(--muted,#94a5b4)}.vp-item em{font-style:normal;color:var(--vp-accent)}
+    .vp-grid{display:grid;grid-template-columns:minmax(300px,1fr) minmax(280px,410px);gap:30px;margin-top:24px;align-items:start}.vp-styles{display:grid;grid-template-columns:1fr 1fr;gap:10px}.vp-style{position:relative;min-width:0;padding:15px;text-align:left;border:1px solid var(--line,#2e3e49);border-radius:14px;background:transparent;color:inherit}.vp-style[aria-pressed=true]{background:#68edfa0b;border-color:var(--vp-accent);box-shadow:inset 0 0 0 1px var(--vp-accent)}.vp-style b{display:block;margin:8px 0 6px;font-size:15px}.vp-style small{display:block;font-size:12px;line-height:1.5;color:var(--muted,#94a5b4)}.vp-glyph{font-size:25px;line-height:1;color:var(--vp-accent-ink)}.vp-style .vp-tag{font-size:9px;float:right}.vp-section{border-top:1px solid var(--line,#27353e);margin-top:22px;padding-top:20px}.vp-section h3{font-size:16px;margin:0 0 12px}.vp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.vp-palette{display:flex;gap:9px}.vp-swatch{width:29px;height:29px;border-radius:50%;border:2px solid transparent;padding:0}.vp-swatch[aria-pressed=true]{outline:2px solid currentColor;outline-offset:3px}.vp-mini{max-width:140px}.vp-logo{width:36px;height:36px;object-fit:contain;background:#0b1420;border-radius:7px}
+    .vp-items{max-height:355px;overflow:auto;border:1px solid var(--line,#293944);border-radius:12px}.vp-item{display:flex;align-items:flex-start;gap:10px;padding:12px;border-bottom:1px solid var(--line,#293944);cursor:pointer}.vp-item:last-child{border-bottom:0}.vp-item input{margin-top:4px;accent-color:var(--vp-accent)}.vp-item span{min-width:0;overflow-wrap:anywhere}.vp-item b{display:block;font-size:13px}.vp-item small{display:block;font-size:12px;line-height:1.5;color:var(--muted,#94a5b4)}.vp-item em{font-style:normal;color:var(--vp-accent-ink)}
     .vp-preview{position:sticky;top:20px;min-width:0}.vp-screen{overflow:hidden;border:1px solid #294250;border-radius:21px;background:#080c12;box-shadow:0 12px 35px #0003;max-width:410px;margin:auto;aspect-ratio:9/16}.vp-screen canvas{display:block;width:100%;height:100%}.vp-controls{display:flex;align-items:center;gap:8px;margin:12px 0}.vp-controls input{flex:1;min-width:40px;accent-color:var(--vp-accent)}.vp-clock{font-variant-numeric:tabular-nums;font-size:12px;white-space:nowrap;min-width:63px}.vp-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.vp-actions .vp-primary{grid-column:1/-1}.vp-actions .vp-btn{font-size:13px}.vp-status{min-height:26px;font-size:13px;line-height:1.55;margin:12px 0;overflow-wrap:anywhere}.vp-status[data-error=true]{color:#ee876f}.vp-empty{padding:24px;border:1px dashed var(--line,#344952);border-radius:14px;margin-top:20px}.vp-done{margin-top:14px;border:1px solid var(--vp-accent);border-radius:12px;padding:13px}.vp-done video{display:block;width:100%;max-height:350px;background:#080c12;margin-bottom:12px}.vp-progress{height:5px;background:#29323a;border-radius:4px;overflow:hidden;margin-top:12px}.vp-progress i{display:block;height:100%;width:0;background:var(--vp-accent)}
     @media(max-width:950px){.vp-grid{grid-template-columns:minmax(0,1fr) minmax(250px,340px);gap:18px}.vp-style{padding:12px}.vp-style .vp-tag{display:none}.vp-source{grid-template-columns:minmax(0,1fr) auto}.vp-source>button:last-child{grid-column:1/-1}}
     @media(max-width:650px){.vp-grid{grid-template-columns:minmax(0,1fr)}.vp-preview{position:static;grid-row:1}.vp-screen{max-width:300px}.vp-title{margin:18px 0}.vp-title h2{font-size:24px}.vp-title>.vp-tag{display:none}.vp-source{padding:13px;grid-template-columns:minmax(0,1fr)}.vp-source>button:last-child{grid-column:auto}.vp-styles{gap:8px}.vp-style b{font-size:13px}.vp-style small{font-size:11px}.vp-actions{max-width:410px;margin:auto}.vp-row{gap:12px}.vp-items{max-height:260px}.vp-controls{max-width:410px;margin:12px auto}}
@@ -323,6 +352,11 @@ function mount(host, opts){
     drawFrame(g, state.model, state, state.time); $("#vp-time").value = state.time; $("#vp-clock").textContent = state.time.toFixed(1) + " / " + state.duration + " s";
   };
   function pause(){ state.playing = false; if (raf) cancelAnimationFrame(raf); raf = 0; $("#vp-play").textContent = "Play"; $("#vp-play").setAttribute("aria-label", "Play preview"); }
+  function abortExport(reason){
+    if (!state.exporting) return;
+    cancel = true;
+    if (rejectExport) rejectExport(new Error(reason || "Export cancelled. Your original takes are unchanged."));
+  }
   function tick(now){
     if (!state.visible || !state.playing || state.exporting){ raf = 0; return; }
     state.time = Math.min(state.duration, state.time + (last ? Math.min(.1, (now - last) / 1000) : 0)); last = now; render();
@@ -347,8 +381,8 @@ function mount(host, opts){
     if (reset) state.selected = list.slice(0, max).map(i => i.id);
     else state.selected = state.selected.filter(id => list.some(i => i.id === id)).slice(0, max);
     if (!state.selected.includes(state.feature)) state.feature = state.selected[0] || "";
-    $("#vp-selection-title").textContent = state.style === "map" ? "Positions to show" : state.style === "scoreboard" ? "Comparisons to show" : "Findings to show";
-    $("#vp-selection-note").textContent = "Choose up to " + max + ". " + list.length + " sourced " + (state.style === "map" ? "positions" : state.style === "scoreboard" ? "matched comparisons" : "findings") + " available." + (list.length > 80 ? " The first 80 are listed here." : "");
+    $("#vp-selection-title").textContent = state.style === "map" ? "Positions to show" : state.style === "scoreboard" ? (state.model.kind === "holdings" ? "Share changes to show" : "Comparisons to show") : "Findings to show";
+    $("#vp-selection-note").textContent = "Choose up to " + max + ". " + list.length + " sourced " + (state.style === "map" ? "positions" : state.style === "scoreboard" ? (state.model.kind === "holdings" ? "changes in reported shares" : "matched comparisons") : "findings") + " available." + (list.length > 80 ? " The first 80 are listed here." : "");
     $("#vp-items").innerHTML = list.slice(0, 80).map(i => `<label class="vp-item"><input type="checkbox" data-vp-item="${esc(i.id)}" ${state.selected.includes(i.id) ? "checked" : ""}><span><b>${esc(i.label)}</b><small><em>${esc(i.value || i.current && i.current.value || i.text)}</em>${i.period ? " · " + esc(i.period) : ""}</small><small>${esc(i.citation || i.current && i.current.citation || "")}</small></span></label>`).join("");
     $("#vp-feature").innerHTML = list.filter(i => state.selected.includes(i.id)).map(i => `<option value="${esc(i.id)}">${esc(i.label)}</option>`).join("");
     $("#vp-feature").value = state.feature;
@@ -406,19 +440,21 @@ function mount(host, opts){
       recorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
       recorder.start(500); started = performance.now();
       await new Promise((resolve, reject) => {
+        rejectExport = reject;
         const draw = now => {
           if (cancel || !state.visible || document.hidden){ reject(new Error("Export cancelled because the tab was hidden or closed. Your original takes are unchanged.")); return; }
           const elapsed = (now - started) / 1000; state.time = Math.min(frozen.duration, elapsed); drawFrame(g, frozen.model, frozen, state.time); frames++;
           $("#vp-progress i").style.width = Math.min(100, elapsed / frozen.duration * 100) + "%";
           $("#vp-clock").textContent = state.time.toFixed(1) + " / " + frozen.duration + " s";
-          if (elapsed >= frozen.duration) resolve(); else raf = requestAnimationFrame(draw);
-        }; raf = requestAnimationFrame(draw);
+          if (elapsed >= frozen.duration){ rejectExport = null; resolve(); } else exportRaf = requestAnimationFrame(draw);
+        }; exportRaf = requestAnimationFrame(draw);
       });
       const mime = recorder.mimeType || type; recorder.stop(); await stopped;
       if (error) throw error;
       let blob = new Blob(chunks, {type: mime.split(";")[0]});
       if (!blob.size) throw new Error("The browser produced an empty file. Try again.");
       if (/webm/i.test(mime) && parts.fixWebmDuration) blob = await parts.fixWebmDuration(blob, frozen.duration * 1000);
+      if (cancel || !state.visible || document.hidden) throw new Error("Export cancelled. Your original takes are unchanged.");
       const name = fileStem() + (/mp4/i.test(mime) ? ".mp4" : ".webm"); exportBlob = blob;
       exportMeta = {name, duration: frozen.duration, snapshot: sourceSnapshot, model: frozen.model, style: frozen.style, selected: frozen.selected,
         feature: frozen.feature, accent: frozen.accent, requestedFps: 30, canvasFramesDrawn: frames, mime, reducedMotion: frozen.reduced};
@@ -429,7 +465,7 @@ function mount(host, opts){
       say("Ready. Download the ending, or add it to Studio as a new take.");
     } catch (e){ say(e.message || str(e), true); }
     finally {
-      if (raf) cancelAnimationFrame(raf); raf = 0;
+      rejectExport = null; if (exportRaf) cancelAnimationFrame(exportRaf); exportRaf = 0;
       if (recorder && recorder.state !== "inactive") try { recorder.stop(); } catch (e) {}
       if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; recorder = null;
       state.exporting = false; updateControls(); state.time = state.duration; render();
@@ -441,7 +477,8 @@ function mount(host, opts){
     try {
       const e = exportMeta, m = e.model;
       const selected = e.style === "map" ? m.holdings.filter(i => e.selected.includes(i.id))
-        : e.style === "scoreboard" ? m.comparisons.filter(i => e.selected.includes(i.id)).flatMap(i => [i.current, i.prior])
+        : e.style === "scoreboard" ? m.comparisons.filter(i => e.selected.includes(i.id)).flatMap(i => i.kind === "share-change"
+          ? [i.current, {id: i.id, label: i.label + " · change in reported " + i.unit, value: i.value, period: i.period, source: i.prior.source, accession: i.prior.source.accession}] : [i.current, i.prior])
         : m.items.filter(i => e.selected.includes(i.id));
       const id = "visual-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7), created = Date.now();
       const compact = {company: m.company, ticker: m.ticker, form: m.form, period: m.period, accession: m.accession,
@@ -467,7 +504,7 @@ function mount(host, opts){
   $$("[data-vp-color]").forEach(b => on(b, "click", () => { clearExport(); state.accent = b.dataset.vpColor; $(".vp-shell").style.setProperty("--vp-accent", state.accent); $$("[data-vp-color]").forEach(x => x.setAttribute("aria-pressed", x === b)); render(); }));
   on($("#vp-play"), "click", () => state.playing ? pause() : play()); on($("#vp-replay"), "click", () => { pause(); state.time = 0; render(); play(); });
   on($("#vp-time"), "input", e => { pause(); state.time = +e.target.value; render(); }); on($("#vp-final"), "click", () => { pause(); state.time = state.duration; render(); });
-  on($("#vp-export"), "click", exportVideo); on($("#vp-png"), "click", savePicture); on($("#vp-cancel"), "click", () => { cancel = true; say("Cancelling this export..."); });
+  on($("#vp-export"), "click", exportVideo); on($("#vp-png"), "click", savePicture); on($("#vp-cancel"), "click", () => { abortExport(); say("Cancelling this export..."); });
   on($("#vp-logo"), "change", async e => {
     const file = e.target.files && e.target.files[0]; if (!file) return;
     if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 12e6){ say("Choose a PNG, JPG or WebP image smaller than 12 MB.", true); return; }
@@ -482,9 +519,9 @@ function mount(host, opts){
   on($("#vp-logo-target"), "change", e => { const target = e.target.value, u = logoUrls.get(target); $("#vp-logo-preview").hidden = !u; if (u) $("#vp-logo-preview").src = u; $("#vp-logo-clear").hidden = !u; $("#vp-logo").value = ""; });
   on($("#vp-logo-clear"), "click", () => { const target = $("#vp-logo-target").value, u = logoUrls.get(target); if (u) URL.revokeObjectURL(u); logoUrls.delete(target);
     if (target === "header") state.logo = null; else delete state.itemLogos[target]; logoUrl = ""; $("#vp-logo-preview").hidden = true; $("#vp-logo-clear").hidden = true; $("#vp-logo").value = ""; clearExport(); render(); });
-  on(document, "visibilitychange", () => { if (document.hidden){ pause(); if (state.exporting) cancel = true; } });
+  on(document, "visibilitychange", () => { if (document.hidden){ pause(); abortExport("Export cancelled because the tab was hidden. Keep it visible and try again."); } });
   if (mm){ const motion = e => { state.reduced = e.matches; if (state.reduced){ pause(); state.time = state.duration; } updateControls(); render(); }; if (mm.addEventListener){ mm.addEventListener("change", motion); disposers.push(() => mm.removeEventListener("change", motion)); } }
-  function hide(){ state.visible = false; pause(); if (state.exporting) cancel = true; const v = $("#vp-done video"); if (v) v.pause(); }
+  function hide(){ state.visible = false; pause(); abortExport("Export cancelled because Visuals was closed. Your original takes are unchanged."); const v = $("#vp-done video"); if (v) v.pause(); }
   function destroy(){ hide(); ++loadToken; if (stream) stream.getTracks().forEach(t => t.stop()); for (const off of disposers) off(); clearExport(); for (const u of logoUrls.values()) URL.revokeObjectURL(u); logoUrls.clear(); state.logo = null; state.itemLogos = {}; for (const u of urls) URL.revokeObjectURL(u); urls.clear(); }
   const api = {show(){ state.visible = true; render(); if (!state.sources.length && !state.loading) return refresh(); }, hide, busy: () => state.exporting || state.loading, refresh,
     state: () => ({visible: state.visible, sourceId: state.sourceId, sources: state.sources.map(s => ({id: s.id, label: s.label})), model: state.model,
