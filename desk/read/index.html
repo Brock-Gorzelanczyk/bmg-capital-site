@@ -10919,6 +10919,12 @@ Who is the auditor?</textarea>
       return {company: mk.list.company || "", manager: mk.list.manager || "", ticker: mk.list.ticker, cik: mk.list.cik, form: f.form, label: f.label, accession: f.accession || "", document: f.document || "",
         period: f.period || "", filed: f.filed || "", when: f.when || ""};
     }
+    // Report style (step 5): Classic is today's report; a Live crawl style draws the report band and the ending with
+    // Posting > Visuals' panel (visuals-live.js) while the spider crawls exactly as before. The names are that module's.
+    const MK_STYLES = [["", "Classic", "Today's report band and ending."],
+      ["evidence", "Live crawl: Evidence board", "Each finding lands as a card with its source receipt."],
+      ["scoreboard", "Live crawl: Scoreboard", "Reported figures land in a compact grid."],
+      ["spotlight", "Live crawl: Spotlight", "The featured finding leads, with the rest close by."]];
     let mkLiveLook = null;                // Posting > Visuals > Live crawl sets this for one Record (window.bmgOpenRecord)
     function makeRecord(){
       const f = !mk.file && mk.list && mk.pick != null ? mk.list.items[mk.pick] : null;
@@ -11199,6 +11205,9 @@ Who is the auditor?</textarea>
           <div class="mk-pals" id="mk-pals" role="radiogroup" aria-label="Spider colors">${Object.entries(pal).map(([k, p]) => `<button type="button" role="radio" class="mk-pal" data-pal="${esc(k)}" title="${esc(p.name)}">${spiderSwatch(p)}<small>${esc(p.name.replace(/ \(default\)$/, ""))}</small></button>`).join("")}</div>
           <p class="mk-lbl">Page</p>
           <div class="av-chips mk-pgs" role="radiogroup" aria-label="Page"><button type="button" role="radio" class="av-seg" data-dark="1">Dark page</button><button type="button" role="radio" class="av-seg" data-dark="0">Light page</button></div>
+          <p class="mk-lbl" style="margin-top:14px">Report style <small>the spider crawls exactly the same; only the report band and the ending change</small></p>
+          <div class="av-chips mk-pgs mk-rs" id="mk-rs" role="radiogroup" aria-label="Report style">${MK_STYLES.map(([id, n]) => `<button type="button" role="radio" class="av-seg" data-rs="${id}">${esc(n)}</button>`).join("")}</div>
+          <p class="mk-note" id="mk-rs-note"></p>
           <p class="mk-lbl" style="margin-top:14px">Company branding <small>optional, with the logo shown in step 1</small></p>
           <div class="mk-brand">
             <div class="av-chips" role="radiogroup" aria-label="Branding preset"><button type="button" role="radio" class="av-seg" id="mk-b-all">Company-branded posting</button><button type="button" role="radio" class="av-seg" id="mk-b-off">Normal</button></div>
@@ -11220,18 +11229,22 @@ Who is the auditor?</textarea>
       const $m = id => body.querySelector("#" + id);
       $m("mk-speed").value = String(mk.speed); $m("mk-ramp").checked = mk.ramp.on; $m("mk-ramp-from").value = String(mk.ramp.from); $m("mk-ramp-secs").value = String(mk.ramp.secs); $m("mk-ending").checked = !!mk.ending; $m("mk-find").value = mk.find || ""; $m("mk-safe").checked = !!mk.safe;
       // the look: spider colors and the page are tiles, pop-ups (number cards, enlarged words) are off unless ticked
-      const L = mk.look = {palette: palNow, dark: lk.dark !== false, pops: !!lk.pops, quality: lk.quality === "standard" ? "standard" : "high", disk: lk.disk !== false};
+      const L = mk.look = {palette: palNow, dark: lk.dark !== false, pops: !!lk.pops, quality: lk.quality === "standard" ? "standard" : "high", disk: lk.disk !== false,
+        live: MK_STYLES.some(([id]) => id && id === lk.live) ? lk.live : ""};
       $m("mk-pops").checked = L.pops; $m("mk-q").value = L.quality; if ($m("mk-disk")) $m("mk-disk").checked = L.disk;
       const drawLook = () => {
         $m("mk-pals").classList.toggle("light", !L.dark);
         $m("mk-pals").querySelectorAll("[data-pal]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.pal === L.palette)));
         body.querySelectorAll(".mk-pgs [data-dark]").forEach(b => b.setAttribute("aria-checked", String((b.dataset.dark === "1") === L.dark)));
+        $m("mk-rs").querySelectorAll("[data-rs]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.rs === (L.live || ""))));
+        $m("mk-rs-note").textContent = (MK_STYLES.find(([id]) => id === (L.live || "")) || [])[2] || "";
         drawPreview();
       };
       const look = () => { L.pops = $m("mk-pops").checked; L.quality = $m("mk-q").value; L.disk = $m("mk-disk") ? $m("mk-disk").checked : false; saveMk(); };
       look(); drawLook();
       $m("mk-pals").addEventListener("click", e => { const b = e.target.closest("[data-pal]"); if (!b) return; L.palette = b.dataset.pal; saveMk(); drawLook(); });
       body.querySelector(".mk-pgs").addEventListener("click", e => { const b = e.target.closest("[data-dark]"); if (!b) return; L.dark = b.dataset.dark === "1"; saveMk(); drawLook(); });
+      $m("mk-rs").addEventListener("click", e => { const b = e.target.closest("[data-rs]"); if (!b) return; L.live = b.dataset.rs; saveMk(); drawLook(); });
       $m("mk-tk").addEventListener("submit", e => { e.preventDefault(); findForms($m("mk-ticker").value); });
       $m("mk-fund-quarters").addEventListener("click", () => findFundReports($m("mk-fund-pick").value));
       $m("mk-fund-search").addEventListener("submit", e => { e.preventDefault(); loadFundManagers($m("mk-fund-q").value.trim()); });
