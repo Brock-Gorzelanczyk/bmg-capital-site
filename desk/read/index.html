@@ -20,7 +20,10 @@
 .doc{position:relative;max-width:none;margin:0;padding:24px 28px 120px;opacity:1}
 .stage h1{font:600 20px/1.3 ui-monospace,monospace;color:#e6e8eb;margin:0 0 16px}
 .stage p{margin:0 0 12px}
-.w{display:inline;transition:color .2s ease,outline-color .2s ease;word-break:break-word;overflow-wrap:anywhere}
+.w{display:inline;transition:color .2s ease;word-break:break-word;overflow-wrap:anywhere}
+/* a word's outline colour eases only while it has an outline (.touch-fade, below, still sets the fade): once the
+   outline is taken off it is not drawn, and easing its colour ran 0.2 s of style work on every cleared word */
+.w:where(.touch-t1,.touch-t2,.touch-t3,.touch-t4,.touch-t5){transition:color .2s ease,outline-color .2s ease}
 .a{color:#6ea8ff;border-bottom:1px solid rgba(110,168,255,.5)}
 .a.link{color:#8fd9e6;border-bottom-color:#27e3ff}
 .touch-t1{outline:1px solid var(--t1);outline-offset:1px;border-radius:2px}
@@ -431,6 +434,11 @@ body.recmode.rec-social{--rec-h:28vh}
 /* Record mode: the spider is drawn above everything on the page, the chips flying into the report included (they
    start on the word the spider zapped, under its legs); the featured card stays above it (Brock 2026-10-20) */
 body.recmode .stage .doc{isolation:auto}body.recmode svg.spider{z-index:46}body.recmode #rec-feat{z-index:47}
+/* Record mode: an empty box over the filing, under the report (40) and every control (2900 and up), takes the pointer.
+   While the take scrolls, the browser hit-tests the spot under the pointer on every frame to update hover; through the
+   filing that walked its blocks (1.4 s in 25 s of the Amazon 10-K), on this box it stops at once. It paints nothing,
+   nothing in the filing needs the pointer in Record mode, and the wheel still scrolls the page. */
+body.recmode::after{content:"";position:fixed;inset:0;z-index:39}
 /* A clip's frame inside what TikTok shows: a tall phone trims about 3.4% off each side of a 9:16 video, which cut
    the report's first letters (Costco Form 4, 2026-10-21), and its buttons cover the right side. The report keeps
    6.4% on the left; an HTML filing ends where the report does, clear of the buttons (a PDF page has its own margins) */
@@ -1500,7 +1508,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
 
   function spiderWindow(width, height, scrollTop, viewportHeight){
     const h = Math.min(height, viewportHeight + 256);
-    const top = Math.max(0, Math.min(height - h, Math.floor(scrollTop - 128)));
+    // The window moves in 64 px steps, not with every pixel the page scrolls: each move restyled and laid out the
+    // spider's SVG and repainted and re-rastered all of it (721 moves in 25 s of the Amazon 10-K). It still covers the
+    // screen with 128 px to spare above and more than 64 px below, and the drawing stays in document coordinates.
+    const top = Math.max(0, Math.min(height - h, Math.floor((scrollTop - 128) / 64) * 64));
     return {width, height: h, top};
   }
   function sizeSvg(){
@@ -1575,15 +1586,15 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       hd.setAttribute("class", "head"); hd.setAttribute("r", Math.max(2.5, 3.6 * U));
       spiderSvg.append(b, hd);
     }
-    b.setAttribute("x", clampN(state.body.x - BODY_WID * U / 2));
-    b.setAttribute("y", clampN(state.body.y - BODY_LEN * U / 2));
+    b.setAttribute("x", attrN(state.body.x - BODY_WID * U / 2));
+    b.setAttribute("y", attrN(state.body.y - BODY_LEN * U / 2));
     // The body faces where it is going (mostly down the page), eye at the
     // front end, as in the reference clip.
     const hd0 = state.faceHeading == null ? Math.PI / 2 : state.faceHeading;
-    b.setAttribute("transform", `rotate(${(hd0 * 180 / Math.PI - 90).toFixed(2)} ${clampN(state.body.x)} ${clampN(state.body.y)})`);
+    b.setAttribute("transform", `rotate(${(hd0 * 180 / Math.PI - 90).toFixed(2)} ${attrN(state.body.x)} ${attrN(state.body.y)})`);
     const hx = state.body.x + Math.cos(hd0) * 16 * U, hy = state.body.y + Math.sin(hd0) * 16 * U;
-    hd.setAttribute("cx", clampN(hx));
-    hd.setAttribute("cy", clampN(hy));
+    hd.setAttribute("cx", attrN(hx));
+    hd.setAttribute("cy", attrN(hy));
     // Keep the body on top of legs and threads.
     if (spiderSvg.lastElementChild !== hd || hd.previousElementSibling !== b){
       spiderSvg.appendChild(b); spiderSvg.appendChild(hd);
@@ -1607,6 +1618,13 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (v < -100000) return -100000;
     return Math.round(v * 100) / 100;
   }
+  // clampN(v) as the exact text setAttribute would make of it, in a short-lived string. A number handed to
+  // setAttribute (or put in a template) is turned into text through V8's number cache, which allocates every such
+  // string in the old generation, and Blink keeps an external copy of an old string it is given: each new spider
+  // coordinate then lived until the next full collection, which finalized tens of thousands of them one by one
+  // (V8.GC_MC_CLEAR_EXTERNAL_STRING_TABLE: 13.5 of 30.6 ms and 22.2 of 32.7 ms in the Amazon 10-K trace, 41 of 53 ms
+  // in NVIDIA's). JSON.stringify writes a finite number as ToString does (ECMA-262), into a young string.
+  function attrN(v){ return JSON.stringify(clampN(v)); }
   function legEl(i){
     // One polyline + foot + knee per leg, created once and updated in place.
     let L = state.legEls[i];
@@ -1643,10 +1661,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const hip = {x: state.body.x + ux * along + sx * 0.5 * BODY_WID * U, y: state.body.y + uy * along + sy * 0.5 * BODY_WID * U};
       const pts = solveLeg(i, hip, f, sx, sy);
       L.poly.style.display = L.foot.style.display = L.knee.style.display = L.ankle.style.display = "";
-      L.poly.setAttribute("points", pts.map(q => `${clampN(q.x)},${clampN(q.y)}`).join(" "));
-      L.foot.setAttribute("cx", clampN(pts[3].x)); L.foot.setAttribute("cy", clampN(pts[3].y));
-      L.knee.setAttribute("cx", clampN(pts[1].x)); L.knee.setAttribute("cy", clampN(pts[1].y));
-      L.ankle.setAttribute("cx", clampN(pts[2].x)); L.ankle.setAttribute("cy", clampN(pts[2].y));
+      L.poly.setAttribute("points", pts.map(q => attrN(q.x) + "," + attrN(q.y)).join(" "));
+      // A planted foot stands still, but writing the same cx and cy again still restyled and re-laid out its circle
+      // every frame (all 8 foot circles were restyled in every frame of the Amazon 10-K trace). The same numbers make
+      // the same text, so an unchanged foot is left as it is (JSON.stringify: the same text, in a short-lived string).
+      const fcx = clampN(pts[3].x), fcy = clampN(pts[3].y);
+      if (fcx !== L.fcx || fcy !== L.fcy){ L.fcx = fcx; L.fcy = fcy; L.foot.setAttribute("cx", JSON.stringify(fcx)); L.foot.setAttribute("cy", JSON.stringify(fcy)); }
+      L.knee.setAttribute("cx", attrN(pts[1].x)); L.knee.setAttribute("cy", attrN(pts[1].y));
+      L.ankle.setAttribute("cx", attrN(pts[2].x)); L.ankle.setAttribute("cy", attrN(pts[2].y));
       if (DEBUG) L.foot.style.fill = state.legAnim[i] ? "#ff9f1c" : "#3ddc84";
     }
   }
@@ -1769,8 +1791,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const e = eyeXY(), c = docSpaceCenter(z.el);
       const grow = Math.min(1, t / 0.3), fade = t < 0.55 ? 1 : Math.max(0, 1 - (t - 0.55) / 0.45);
       z.l.style.display = ""; z.l.style.opacity = fade.toFixed(2);
-      z.l.setAttribute("x1", clampN(e.x)); z.l.setAttribute("y1", clampN(e.y));
-      z.l.setAttribute("x2", clampN(e.x + (c.x - e.x) * grow)); z.l.setAttribute("y2", clampN(e.y + (c.y - e.y) * grow));
+      z.l.setAttribute("x1", attrN(e.x)); z.l.setAttribute("y1", attrN(e.y));
+      z.l.setAttribute("x2", attrN(e.x + (c.x - e.x) * grow)); z.l.setAttribute("y2", attrN(e.y + (c.y - e.y) * grow));
     }
   }
   function drawEye(){
@@ -1808,8 +1830,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const grow = Math.min(1, t / 0.25);
     const fade = t < 0.55 ? 1 : Math.max(0, 1 - (t - 0.55) / 0.45);
     l.style.display = ""; l.style.opacity = fade.toFixed(2);
-    l.setAttribute("x1", clampN(hx)); l.setAttribute("y1", clampN(hy));
-    l.setAttribute("x2", clampN(hx + (c.x - hx) * grow)); l.setAttribute("y2", clampN(hy + (c.y - hy) * grow));
+    l.setAttribute("x1", attrN(hx)); l.setAttribute("y1", attrN(hy));
+    l.setAttribute("x2", attrN(hx + (c.x - hx) * grow)); l.setAttribute("y2", attrN(hy + (c.y - hy) * grow));
     state.eyeAt = {x: c.x, y: c.y};
   }
   function drawSilk(){
@@ -1829,8 +1851,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const ang = h + Math.PI + (Math.random() - 0.5) * 0.6;
       state.silkAnchor = {x: Math.min(dr.width - 10, Math.max(10, tx + Math.cos(ang) * 260)), y: ty + Math.min(-120, Math.sin(ang) * 260)};
     }
-    state.silkEl.setAttribute("x1", clampN(tx)); state.silkEl.setAttribute("y1", clampN(ty));
-    state.silkEl.setAttribute("x2", clampN(state.silkAnchor.x)); state.silkEl.setAttribute("y2", clampN(state.silkAnchor.y));
+    state.silkEl.setAttribute("x1", attrN(tx)); state.silkEl.setAttribute("y1", attrN(ty));
+    state.silkEl.setAttribute("x2", attrN(state.silkAnchor.x)); state.silkEl.setAttribute("y2", attrN(state.silkAnchor.y));
   }
   // camera first: scrolling while the layout is still clean avoids a forced
   // re-layout of the whole document every frame
@@ -2164,28 +2186,22 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
 
   function redrawThreads(){
     const bx = clampN(state.body.x), by = clampN(state.body.y);
-    const pts = [];
-    state.threads = state.threads.filter(t => {
-      if (!t.el.isConnected){ t.line.remove(); if (t.node) t.node.remove(); return false; }
-      const c = docSpaceCenter(t.el);
-      // Threads are a local web: past ~2.5x leg reach they are hidden, so
-      // words scrolled far away do not streak lines across the page.
-      const far = Math.hypot(c.x - bx, c.y - by) > HI_REACH * 2.5;
-      t.line.style.display = "none"; if (t.node) t.node.style.display = "none";
-      if (far) return true;
-      pts.push(c);
-      t.line.setAttribute("x1", bx); t.line.setAttribute("y1", by);
-      t.line.setAttribute("x2", clampN(c.x)); t.line.setAttribute("y2", clampN(c.y));
-      if (t.node){ t.node.setAttribute("cx", clampN(c.x)); t.node.setAttribute("cy", clampN(c.y)); }
-      return true;
-    });
-    for (const f of state.feet) if (f && finite(f.x)) pts.push(f);
-    // Trail: where the feet have been stay as web nodes, so the spider
-    // leaves a net behind it (reference clip).
-    for (const t of state.trail || []){
-      const c = t.el && t.el.isConnected ? docSpaceCenter(t.el) : t;
-      if (Math.hypot(c.x - bx, c.y - by) < HI_REACH * 2.2) pts.push(c);
+    // Only the ping line (drawLinks) is drawn here. addThread never puts a thread's line or node in the page (they are
+    // bookkeeping), and the web is drawn with no points (drawMesh([])), so writing those detached elements' attributes
+    // and display every frame, and gathering web points nobody draws, changed nothing on screen: it was 40% of the
+    // page's setAttribute calls, about 10 ms a second (Amazon 10-K trace, 2026-10-22). A thread whose word left the page
+    // is still dropped, and each word's box is still read at the moment it always was (wordRect), so the cached boxes,
+    // and the gait that reads them, stay exactly as before.
+    const th = state.threads;
+    let kept = 0;
+    for (let i = 0; i < th.length; i++){
+      const t = th[i];
+      if (!t.el.isConnected){ t.line.remove(); if (t.node) t.node.remove(); continue; }
+      wordRect(t.el);
+      th[kept++] = t;
     }
+    th.length = kept;
+    for (const t of state.trail || []) if (t.el && t.el.isConnected) wordRect(t.el);
     drawMesh([]);
     drawLinks(bx, by);
   }
@@ -2405,11 +2421,19 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     }
     const left = o.ttl - o.age;
     if (left < 600) op = Math.max(0, left / 600);
-    // only touch the style when it changes (settled marks cost nothing)
-    const tf = `rotate(${rot.toFixed(1)}deg) scale(${sc.toFixed(3)})`, os = op.toFixed(2);
+    // only touch the style when it changes (settled marks cost nothing); the text is only made when a number changed,
+    // since the same numbers make the same text (up to 34 marks, every frame, most of them holding still)
+    if (rot !== o._rot || sc !== o._sc){
+      o._rot = rot; o._sc = sc;
+      const tf = `rotate(${rot.toFixed(1)}deg) scale(${sc.toFixed(3)})`;
+      if (tf !== o._tf){ o.d.style.transform = tf; o._tf = tf; }
+    }
+    if (op !== o._opN){
+      o._opN = op;
+      const os = op.toFixed(2);
+      if (os !== o._op){ o.d.style.opacity = os; if (o.veil) o.veil.style.opacity = os; o._op = os; }
+    }
     const z = o.kind === "accent" && !o.settled ? 5 : o.kind === "strip" ? 4 : o.kind === "fill" ? 2 : 1;
-    if (tf !== o._tf){ o.d.style.transform = tf; o._tf = tf; }
-    if (os !== o._op){ o.d.style.opacity = os; if (o.veil) o.veil.style.opacity = os; o._op = os; }
     if (z !== o._z){ o.d.style.zIndex = z; o._z = z; }
   }
   function fxOff(o){
@@ -2483,8 +2507,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const grow = Math.min(1, t / 0.25);           // shoots out
     const fade = t < 0.55 ? 1 : Math.max(0, 1 - (t - 0.55) / 0.45);
     l.style.display = ""; l.style.opacity = fade.toFixed(2);
-    l.setAttribute("x1", clampN(hx)); l.setAttribute("y1", clampN(hy));
-    l.setAttribute("x2", clampN(hx + (c.x - hx) * grow)); l.setAttribute("y2", clampN(hy + (c.y - hy) * grow));
+    l.setAttribute("x1", attrN(hx)); l.setAttribute("y1", attrN(hy));
+    l.setAttribute("x2", attrN(hx + (c.x - hx) * grow)); l.setAttribute("y2", attrN(hy + (c.y - hy) * grow));
   }
 
 
@@ -4323,11 +4347,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const wy = docSpaceCenter(w).y / H;
       let k = -1, best = 1e9;
       // holds(w, f.value), with each word's and each figure's number parsed once instead of on every comparison
-      const wn = w._num !== undefined ? w._num : (w._num = numOf(w.textContent));
+      const wt = w.textContent;      // read once per word, not once per pending figure (nothing in the loop below changes it)
+      const wn = w._num !== undefined ? w._num : (w._num = numOf(wt));
       pend.forEach((f, j) => {
         if (f._at){ if (f._at === w && best > -1){ best = -1; k = j; } return; }     // a clip of findings placed it on this word
         const fv = f._num !== undefined ? f._num : (f._num = numOf(f.value));
-        if (!(fv !== null && wn !== null ? wn === fv && w.textContent.replace(/[\d,.$()%\-\s]/g, "").length <= 3 : w.textContent.includes(f.value))) return;
+        if (!(fv !== null && wn !== null ? wn === fv && wt.replace(/[\d,.$()%\-\s]/g, "").length <= 3 : wt.includes(f.value))) return;
         let d;
         if (wp && f.page) d = Math.abs(f.page - wp) <= 1 ? Math.abs(f.page - wp) : 1e9;
         else { const fy = total && f.char_offset >= 0 ? f.char_offset / total : wy; d = Math.abs(fy - wy) < 0.15 ? Math.abs(fy - wy) : 1e9; }
