@@ -6423,7 +6423,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
             source: !calc && x.source && x.source.pdf_page ? x.source : pg([row.current])};
         };
         return {kind: "report", name: c.name || "", form: c.form || "", subtitle: c.period || "", title: "Key findings", summary_title: "Company report",
-          keys: findings.map(x => ({key: x.id, kind: "observation", label: (SEV[x.severity] || {}).l || "Finding", text: x.headline, source: pg(x.refs)})),
+          keys: findings.map(x => ({key: x.id, kind: "observation", label: (SEV[x.severity] || {}).l || "Finding", text: x.headline, source: x.source && (x.source.pdf_page || x.source.printed_page) ? x.source : pg(x.refs)})),
           groups: [{title: "Headline figures", items: [fig("revenue", "Revenue"), fig("net_income", "Net income"), fig("eps_diluted", "Diluted EPS"), fig("fcf", "Free cash flow")].filter(Boolean)}],
           notes: [(rp.coverage ? `${rp.coverage.facts_published} headline figures, ${rp.coverage.checks_run} checks. ` : "") + "Every figure cites its page in the filing."]};
       };
