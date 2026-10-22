@@ -6403,13 +6403,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         const pg = refs => { const m = pageOf(refs).match(/\d+/); return m ? {pdf_page: +m[0]} : null; };
         if (S){
           const b = S.buys || {}, sl = S.sells || {};
+          const docSrc = {pdf_page: 1, location: `${S.filings || "the"} Form 4 filings in this document`};   // the totals line of the generated insider-trades document
           const trade = t => ({key: "trade:" + [t.insider, t.date, t.value].join("|"), kind: "trade", label: (t.code === "P" ? "Purchase" : "Sale") + (t.insider ? ": " + t.insider : ""),
             value: t.value || "", text: t.shares != null ? `${t.shares} shares at ${t.price}` : "", period: t.date || "", source: {accession: t.accession || ""}});
           return {kind: "insider", name: S.company || c.name || "", form: "Form 4", title: "Largest insider trades", summary_title: "Insider trades",
             subtitle: S.first && S.last ? `${S.first} to ${S.last}` : "", keys: (S.largest || []).slice(0, 4).map(trade),
             groups: [{title: "Open-market trades", items: [
-              {key: "buys", label: "Insiders bought", value: b.count ? (b.value || "") : "$0", text: `${b.count || 0} ${b.count === 1 ? "buy" : "buys"}`, basis: "Sum of the reported open-market purchases"},
-              {key: "sells", label: "Insiders sold", value: sl.count ? (sl.value || "") : "$0", text: `${sl.count || 0} ${sl.count === 1 ? "sale" : "sales"}`, basis: "Sum of the reported open-market sales"}]}],
+              {key: "buys", label: "Insiders bought", value: b.count ? (b.value || "") : "$0", text: `${b.count || 0} ${b.count === 1 ? "buy" : "buys"}`, basis: "Sum of the reported open-market purchases", source: docSrc},
+              {key: "sells", label: "Insiders sold", value: sl.count ? (sl.value || "") : "$0", text: `${sl.count || 0} ${sl.count === 1 ? "sale" : "sales"}`, basis: "Sum of the reported open-market sales", source: docSrc}]}],
             notes: ["Sales are often planned in advance (Rule 10b5-1) or pay tax on vesting shares. Not investment advice."]};
         }
         const Fx = rp.evidence.facts, Cx = rp.evidence.calcs;
