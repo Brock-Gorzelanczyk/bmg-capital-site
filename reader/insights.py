@@ -285,6 +285,10 @@ def _guidance_bullets(doc) -> list[dict]:
         if not t:
             continue
         bm = _BULLET_ITEM.match(line)
+        if bm and not ctx:
+            continue                    # a bullet is a sibling, never the heading of a list: GATX's "Company raises 2026
+                                        # guidance" highlight did not make the next highlights (fleet utilization, the
+                                        # quarter's investment volume) guidance
         if bm and ctx:
             item = bm.group(1).strip()
             if _GNUM.search(item) and len(item) <= 300 and not _BOILER.search(item) and not _ACCOUNTING.search(item):
@@ -320,6 +324,12 @@ def _own_line(body: str, s: int, e: int, pos: int) -> tuple[int, int]:
         if a <= pos < b:
             return a, b
     return s, e
+
+
+def _guide_nums(x: dict) -> frozenset:
+    """The figures a guidance line states, normalized: a headline and a quote with the same range ("$9.90\u2013$10.30"
+    and "$9.90 \u2013 $10.30 per diluted share", GATX) are one statement."""
+    return frozenset(re.sub(r"[\s$,]", "", v).lower() for v in x.get("numbers") or [])
 
 
 def guidance(doc, kind: str = "other", limit: int = 14) -> list[dict]:
@@ -370,8 +380,8 @@ def guidance(doc, kind: str = "other", limit: int = 14) -> list[dict]:
     out.sort(key=lambda x: -x["score"])
     uniq = []
     for x in out:                       # the same sentence printed twice (summary and MD&A) is listed once
-        w = _words(x["text"])
-        if not any(len(w & _words(y["text"])) >= 0.8 * max(1, len(w | _words(y["text"]))) for y in uniq):
+        w, n = _words(x["text"]), _guide_nums(x)
+        if not any(len(w & _words(y["text"])) >= 0.8 * max(1, len(w | _words(y["text"]))) or (len(n) >= 2 and n == _guide_nums(y)) for y in uniq):
             uniq.append(x)
     out = uniq
     keep = sorted(out[:max(4, limit - len(tables))] + tables[:limit], key=lambda x: x["offset"])
