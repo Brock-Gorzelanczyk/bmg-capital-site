@@ -38,8 +38,8 @@ function normalize(x){
   const quote = (x.kind === "observation" || x.kind === "guidance") && !supplied && citation ? text(x.text || x.headline) : "";
   const value = supplied && citation ? text(raw) : quote || "Not supplied";
   return {key: text(x.key || x.id), kind: Object.hasOwn(kinds,x.kind) ? x.kind : "figure", label: text(x.label || x.name || x.headline) || "Finding",
-    value, text: quote ? "" : text(x.text), period: period(x.period), source: citation || "Source not supplied", featured: !!x.featured,
-    basis: text(x.basis), calculated: x.kind === "ratio" || /calculat/i.test(text(x.basis)) || x.calculated === true, missing: (!supplied && !quote) || !citation};
+    value, text: quote || text(x.text) === value ? "" : text(x.text), period: period(x.period), source: citation || "Source not supplied", featured: !!x.featured,
+    basis: text(x.basis), calculated: x.kind === "ratio" || /^calculat|\bcalculation\b/i.test(text(x.basis)) || x.calculated === true, missing: (!supplied && !quote) || !citation};
 }
 function appearance(look){
   look = look || {};
@@ -49,8 +49,8 @@ function appearance(look){
 }
 const CSS = `
 .vl-root,.vl-ending{--vl-accent:#6ff4ff;--vl-bg:#090d13;--vl-card:#131a24;--vl-ink:#f4f7fb;--vl-muted:#afbdcd;--vl-line:#354151;
-  box-sizing:border-box;background:var(--vl-bg);color:var(--vl-ink);font:500 12px/1.35 system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;text-align:left;isolation:isolate}
-.vl-root *,.vl-ending *{box-sizing:border-box}.vl-light{--vl-bg:#f6f8fb;--vl-card:#fff;--vl-ink:#151d2b;--vl-muted:#4d5f72;--vl-line:#becbd8}
+  box-sizing:border-box;background:var(--vl-bg);color:var(--vl-ink);font:500 12px/1.35 system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;text-align:left;isolation:isolate;color-scheme:dark}
+.vl-root *,.vl-ending *{box-sizing:border-box}.vl-light{--vl-bg:#f6f8fb;--vl-card:#fff;--vl-ink:#151d2b;--vl-muted:#4d5f72;--vl-line:#becbd8;color-scheme:light}
 .vl-root{height:100%;min-height:0;display:flex;flex-direction:column;container-type:inline-size;padding:10px 11.6% 9px 6.4%;overflow:hidden}
 .vl-header{display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--vl-line);padding-bottom:7px;flex:none}
 .vl-brand{font-size:12px;font-weight:800;white-space:nowrap}.vl-mark{color:var(--vl-accent);margin-right:5px}.vl-company{min-width:0;font-size:10px;color:var(--vl-muted);margin-left:auto;text-align:right;overflow-wrap:anywhere}
@@ -141,12 +141,12 @@ function ending(model, company){
   const keys = unique((model.keys || model.figures || []).filter(Boolean));
   const groups = (model.groups || []).filter(g => g && Array.isArray(g.items)), all = unique(groups.flatMap(g => g.items).filter(Boolean));
   const summary = [], seen = new Set();
-  for (let i = 0; summary.length < 6 && groups.some(g => g.items.length > i); i++) for (const g of groups){
-    const x = g.items[i]; if (!x || summary.length === 6) continue;
+  for (let i = 0; summary.length < 4 && groups.some(g => g.items.length > i); i++) for (const g of groups){
+    const x = g.items[i]; if (!x || summary.length === 4) continue;
     const k = [text(x.label),text(x.value != null ? x.value : x.display),period(x.period),sourceLabel(x.source)].join("|");
     if (!seen.has(k)){ seen.add(k); summary.push(x); }
   }
-  if (!summary.length) summary.push(...keys.slice(0,6));
+  if (!summary.length) summary.push(...keys.slice(0,4));
   const first = keys.length ? keys.slice(0,4) : summary.slice(0,4), count = all.length || keys.length;
   const title = text(model.name) || companyName(co) || "Filing report", identity = model.identity || {};
   const subtitle = [model.form || co.form,model.subtitle || period(identity.period || co.period)].filter(Boolean).join(" · ");
