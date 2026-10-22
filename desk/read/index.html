@@ -4432,7 +4432,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const td = el.closest("td.lr-c[data-cell]"); if (td) return "cell:" + td.dataset.cell;
     const sg = el.closest("[data-sig]"); if (sg) return "sig:" + sg.dataset.sig;
     const li = el.closest(".lr-ins li[data-x]"); if (li) return "ins:" + li.dataset.x;
-    const tr = el.closest("tr.lr-found-row"); if (tr) return "found:" + (tr.cells[0] ? tr.cells[0].textContent : "") + "|" + ((tr.querySelector(".lr-v") || {}).firstChild || {}).textContent;
+    const tr = el.closest("#lr-found tr.lr-found-row"); if (tr) return "found:" + (tr.cells[0] ? tr.cells[0].textContent : "") + "|" + ((tr.querySelector(".lr-v") || {}).firstChild || {}).textContent;
     return null;
   }
   // Where a flight lands with Live crawl on: the new panel's place for that key, or the panel itself.
@@ -4472,7 +4472,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           : kind === "holding" ? {class: x.class, put_call: x.put_call, shares: x.shares, weight: x.weight, change: x.change} : {direction: x.direction},
         source: {pdf_page: x.page || null, accession: x.accession || "", excerpt: x.text || ""}});
     });
-    liveEl.querySelectorAll("tr.lr-found-row:not(.pending)").forEach(tr => {
+    liveEl.querySelectorAll("#lr-found tr.lr-found-row:not(.pending)").forEach(tr => {
       const key = visLiveKey(tr); if (!key || visLive.seen.has(key)) return;
       const v = tr.querySelector(".lr-v");
       visLiveAdd({key, kind: "figure", label: tr.cells[0] ? (tr.cells[0].firstChild || {}).textContent || "" : "", value: v ? (v.firstChild || {}).textContent || "" : "",
@@ -10875,7 +10875,8 @@ Who is the auditor?</textarea>
       return {company: mk.list.company || "", manager: mk.list.manager || "", ticker: mk.list.ticker, cik: mk.list.cik, form: f.form, label: f.label, accession: f.accession || "", document: f.document || "",
         period: f.period || "", filed: f.filed || "", when: f.when || ""};
     }
-    function makeRecord(extra){
+    let mkLiveLook = null;                // Posting > Visuals > Live crawl sets this for one Record (window.bmgOpenRecord)
+    function makeRecord(){
       const f = !mk.file && mk.list && mk.pick != null ? mk.list.items[mk.pick] : null;
       if (!mk.file && !f){ mkSay("mk-rst", mk.list ? "Pick a form in step 2 first." : "Find a ticker's forms in step 1, or use your own document.", true); return; }
       if (mk.length !== "whole" && !(mk.length >= 10)){ mkSay("mk-rst", "Choose how long the clip is in step 4.", true); return; }
@@ -10883,7 +10884,7 @@ Who is the auditor?</textarea>
       if (mk.scope === "specific" && !mk.file && !clipScope()){ mkSay("mk-rst", "Specific findings needs the filing's findings: wait for its read, or choose Entire filing.", true); return; }
       if (brandOn() && coLogo.state === "loading"){ mkSay("mk-rst", "The company's logo is still being looked up: a moment.", true); return; }
       const plan = planOf(f);
-      if (extra && extra.look) plan.look = {...(plan.look || {}), ...extra.look};
+      if (mkLiveLook) plan.look = {...(plan.look || {}), ...mkLiveLook};
       try { localStorage.setItem("bmg-clip-plan", JSON.stringify(plan)); } catch (e) { mkSay("mk-rst", "This browser could not keep the plan (storage full?).", true); return; }
       state.clipWin = null; state.clipFile = null;        // nothing from an earlier one-click clip goes to this window
       const opened = recordWindow(REC_URL + "&plan=1", true);
@@ -11264,8 +11265,8 @@ Who is the auditor?</textarea>
       $m("mk-b-off").addEventListener("click", () => { mk.brand = {intro: false, mini: false, report: false}; saveMk(); drawBrand(); drawPreview(); });
       $m("mk-pvph").addEventListener("click", e => { const b = e.target.closest("[data-ph]"); if (!b) return; pvPhase = b.dataset.ph; drawPreview(); });
       for (const id of ["mk-pops", "mk-q", "mk-disk"]) if ($m(id)) $m(id).addEventListener("change", look);
-      $m("mk-record").addEventListener("click", () => makeRecord());
-      window.bmgOpenRecord = p => makeRecord({look: (p && p.look) || p || {}});     // Posting > Visuals > Live crawl: {live: "<layout id>"}
+      $m("mk-record").addEventListener("click", makeRecord);
+      window.bmgOpenRecord = p => { mkLiveLook = (p && p.look) || p || null; try { makeRecord(); } finally { mkLiveLook = null; } };   // {live: "<layout id>"}
       drawForms(); drawFinding(); drawHook(); drawLen(); drawLogos(); drawPreview(); loadQuickPics();
       if (coLogo.tk !== logoTk() || coLogo.state === "none") resolveCoLogo(); else { drawCoLogo(); drawBrand(); }
       if (mk.recording && recOpen()) recStatus(state.recPhase || "setup"); else mk.recording = false;
