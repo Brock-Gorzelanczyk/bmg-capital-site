@@ -6283,11 +6283,16 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       await keepPortrait();                          // 9:16 again before anything is recorded
       chunks = [];
       const bitrate = high ? 32e6 : 12e6;
+      // A key frame every second. Chrome's MP4 recorder (H.264 on the Mac) hands over data only at a key frame and
+      // makes one every 100 frames by default, so rec.start(500) gave one whole 3-second chunk (about 13 MB at High)
+      // at a time: muxed and copied on this window's main thread, then streamed to disk, in one burst every ~3 s.
+      // Measured here with MP4 recording: chunks every 3.56 s (2.6 MB) by default, every 1.02 s with this.
+      const KEY_MS = 1000;
       try {
-        rec = new MediaRecorder(stream, recType ? {mimeType: recType, videoBitsPerSecond: bitrate} : {videoBitsPerSecond: bitrate});
+        rec = new MediaRecorder(stream, recType ? {mimeType: recType, videoBitsPerSecond: bitrate, videoKeyFrameIntervalDuration: KEY_MS} : {videoBitsPerSecond: bitrate, videoKeyFrameIntervalDuration: KEY_MS});
       } catch (e) {
         // If this encoder rejects the requested bitrate/container, use its supported default.
-        try { rec = new MediaRecorder(stream, {videoBitsPerSecond: 12e6}); recType = rec.mimeType || ""; }
+        try { rec = new MediaRecorder(stream, {videoBitsPerSecond: 12e6, videoKeyFrameIntervalDuration: KEY_MS}); recType = rec.mimeType || ""; }
         catch (fallbackError) { stream.getTracks().forEach(t => t.stop()); stream = null; rec = null; return false; }
       }
       const chosenType = rec.mimeType || recType || "video/webm";
@@ -8316,7 +8321,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const posAt = x => x <= HOLD0 ? 0 : x >= HOLD0 + scrollS ? travel : travel * ease((x - HOLD0) / scrollS);
       draw(0);
       const type = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(x => MediaRecorder.isTypeSupported(x)) || "";
-      const stream = cv.captureStream(30), rec = new MediaRecorder(stream, type ? {mimeType: type, videoBitsPerSecond: 12e6} : {videoBitsPerSecond: 12e6});
+      const stream = cv.captureStream(30), rec = new MediaRecorder(stream, type ? {mimeType: type, videoBitsPerSecond: 12e6, videoKeyFrameIntervalDuration: 1000} : {videoBitsPerSecond: 12e6, videoKeyFrameIntervalDuration: 1000});   // a key frame a second: data in steady 1 s pieces (see the record window's recorder)
       const chunks = []; rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
       const stopped = new Promise(r => { rec.onstop = r; });
       rec.start(1000);
@@ -10601,7 +10606,10 @@ Who is the auditor?</textarea>
     const mdy = s => s ? new Date(s + "T12:00:00").toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"}) : "";
     const mbOf = n => n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
     const findList = () => [...new Set(String(mk.find || "").split(/\n|;|,\s+/).map(s => s.trim()).filter(Boolean))].slice(0, 8);
-    const mkSay = (id, text, err) => { const el = body.querySelector("#" + id); if (!el) return; el.textContent = text || ""; el.classList.toggle("err", !!err); };
+    // Only a changed message is written: the record window's heartbeat repeats the same "Recording ..." line every 2 s,
+    // and rewriting identical text made this window repaint its whole page on the main thread it shares with the
+    // record window (4 to 7 ms each time, against 0.8 ms for its usual frame).
+    const mkSay = (id, text, err) => { const el = body.querySelector("#" + id); if (!el) return; const t = text || ""; if (el.textContent !== t) el.textContent = t; el.classList.toggle("err", !!err); };
     // the forms the Crawler reads, newest first: 10-K and 10-Q (and amended ones, 20-F, 40-F), earnings releases,
     // and the year of insider trades this server gathers from the Form 4 filings
     function formItems(j){
@@ -11753,7 +11761,7 @@ Who is the auditor?</textarea>
     if (!rec || rec.mr) return;
     const r = rec;
     try {
-      const mr = new MediaRecorder(r.stream, r.type ? {mimeType: r.type, videoBitsPerSecond: 12e6} : {videoBitsPerSecond: 12e6});
+      const mr = new MediaRecorder(r.stream, r.type ? {mimeType: r.type, videoBitsPerSecond: 12e6, videoKeyFrameIntervalDuration: 1000} : {videoBitsPerSecond: 12e6, videoKeyFrameIntervalDuration: 1000});   // steady 1 s pieces, as in Record mode
       mr.ondataavailable = e => { if (e.data && e.data.size) r.chunks.push(e.data); };
       r.mr = mr; mr.start(1000);
       say("Recording: both spiders are reading.");

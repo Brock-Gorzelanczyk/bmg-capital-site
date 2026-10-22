@@ -2342,7 +2342,9 @@ function mount(root, opts){
       };
       stream = ec.cv.captureStream(fps);
       if (c.audio) stream.addTrack(dest.stream.getAudioTracks()[0]);
-      rec = new MediaRecorder(stream, {mimeType: type, videoBitsPerSecond: fps > 30 ? 24e6 : 16e6, audioBitsPerSecond: 192000});
+      // a key frame every second: Chrome's MP4 recorder otherwise hands over one 100-frame chunk at a time, muxed and
+      // copied on the main thread that is drawing the export (the record window's recorder has the same setting)
+      rec = new MediaRecorder(stream, {mimeType: type, videoBitsPerSecond: fps > 30 ? 24e6 : 16e6, audioBitsPerSecond: 192000, videoKeyFrameIntervalDuration: 1000});
       const chunks = []; let disk = Promise.resolve(), diskErr = null;
       rec.ondataavailable = e => {
         if (!e.data || !e.data.size) return;
