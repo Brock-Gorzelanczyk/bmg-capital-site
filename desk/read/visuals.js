@@ -15,6 +15,12 @@ const styles = [
 ];
 const accents = [{name: "Cyan", color: "#68edfa"}, {name: "Pink", color: "#ff53b4"}, {name: "Lime", color: "#c8f853"},
   {name: "Violet", color: "#bba0ff"}, {name: "Amber", color: "#ffcf70"}, {name: "Coral", color: "#ff7c79"}];
+const liveLayouts = [
+  {id: "evidence", name: "Evidence board", line: "Cited findings land together in a compact evidence board."},
+  {id: "scoreboard", name: "Scoreboard", line: "Reported figures arrive in a clean field of cards."},
+  {id: "spotlight", name: "Spotlight", line: "Give each arriving finding room, with its source beside it."}
+];
+let liveModulePromise = null;
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 const str = v => v == null ? "" : String(v);
 const esc = v => str(v).replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[c]));
@@ -35,6 +41,73 @@ function sourceText(s){
 }
 function hasLocation(s){
   return !!(s && (s.pdf_page || s.printed_page || s.page || s.anchor || s.accession || s.location || Number.isFinite(s.offset) && s.offset >= 0));
+}
+// Reuse the existing Make a clip plan. No filing identity or recording settings are rebuilt here.
+function livePlan(plan, layout){
+  if (!plan || typeof plan !== "object" || Array.isArray(plan)) return null;
+  if (layout && !liveLayouts.some(l => l.id === layout)) throw new Error("Choose an available Live crawl layout.");
+  const copy = JSON.parse(JSON.stringify(plan));
+  if (layout) copy.look = {...(copy.look || {}), live: layout};
+  else if (copy.look && typeof copy.look === "object") delete copy.look.live;
+  return copy;
+}
+function liveItems(model){
+  const used = new Set();
+  return ((model || {}).items || []).filter(i => i && i.citation && (i.value || i.text)).map((i, n) => {
+    let key = str(i.id || "finding-" + n); if (used.has(key)) key += "-" + n; used.add(key);
+    const group = str(i.group), kind = ["figure", "ratio", "observation", "trade", "holding", "guidance"].includes(i.kind) ? i.kind
+      : /guidance|outlook/i.test(group) ? "guidance" : /trade/i.test(group) ? "trade" : /positions|holdings/i.test(group) ? "holding"
+      : !i.value && i.text ? "observation" : /^(?:%|ratio|x)$/i.test(i.unit) ? "ratio" : "figure";
+    return {key, kind, label: i.label, value: i.value || i.text, text: i.text, period: i.period, source: i.citation,
+      sources: [i.source, ...(i.sources || [])].filter(hasLocation).map(s => ({...s})), featured: n === 0, basis: i.basis};
+  });
+}
+// Live-only adapters mirror the existing report's transaction and guidance rows.
+// The six report-ending models above continue to use buildModel without these additions.
+function liveItemsFromSource(raw, model){
+  raw = raw || {}; model = model || buildModel(raw);
+  const ins = raw.insights || {}, items = liveItems(model), keys = new Set(items.map(i => i.key));
+  const location = x => ({...(x.source || {}), ...(x.page ? {pdf_page: x.page} : {}),
+    ...(x.accession ? {accession: x.accession} : {}), ...(Number.isFinite(x.offset) ? {offset: x.offset} : {})});
+  const add = (x, kind, key, label, value, context) => {
+    const source = location(x), citation = sourceText(source); if (!citation || keys.has(key)) return;
+    keys.add(key); items.push({key, kind, label, value: value == null ? "" : str(value), text: str(context),
+      period: periodText(x.period) || str(x.date) || model.period, source: citation, sources: [source], featured: items.length === 0,
+      basis: kind === "guidance" ? "Management's stated guidance, quoted" : "Reported transaction, as filed"});
+  };
+  if (ins.kind === "insider"){
+    const trades = ins.trades || [];
+    trades.filter(t => t.code === "P").concat(trades.filter(t => t.code === "S")).slice(0, 40).forEach((t, n) =>
+      add(t, "trade", "live-trade-" + n, [t.insider, t.action].filter(Boolean).join(" · "), t.value,
+        [t.shares ? t.shares + " shares" : "", t.price && t.price !== "n/a" ? "at " + t.price : "", t.title].filter(Boolean).join(" · ")));
+  }
+  const guidance = ins.kind === "transcript" ? (ins.call || {}).guidance || [] : ins.guidance || [];
+  guidance.forEach((g, n) => {
+    if (!g.text || items.some(i => i.value === g.text || i.text === g.text)) return;
+    add(g, "guidance", "live-guidance-" + n, g.speaker ? "Guidance · " + g.speaker : "Stated guidance", g.text, g.text);
+  });
+  return items;
+}
+function liveEndingPreview(raw, model){
+  raw = raw || {}; model = model || buildModel(raw);
+  const existing = (raw.insights || {}).ending || (raw.report || {}).document_ending;
+  if (existing) return existing;
+  const items = liveItemsFromSource(raw, model); if (!items.length) return null;
+  const selected = items.slice(0, 4).map(i => ({label: i.label, value: i.value, text: i.text, period: i.period, source: i.source, sources: i.sources, basis: i.basis}));
+  return {kind: model.kind, name: model.company, form: model.form, subtitle: "Selected preview findings",
+    title: model.kind === "insider" ? "Reported transactions" : "Filing findings", summary_title: "Selected preview findings",
+    keys: selected, groups: [{title: "Selected preview findings", items: selected}],
+    notes: ["This preview shows selected sourced findings. It does not create summary totals or replace the original report."]};
+}
+function loadLiveModule(){
+  if (window.BMGLiveCrawl) return Promise.resolve(window.BMGLiveCrawl);
+  if (!liveModulePromise) liveModulePromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script"); script.src = "/desk/read/visuals-live.js"; script.async = true;
+    script.onload = () => window.BMGLiveCrawl ? resolve(window.BMGLiveCrawl) : reject(new Error("The Live crawl preview could not be opened."));
+    script.onerror = () => { liveModulePromise = null; script.remove(); reject(new Error("The Live crawl preview could not be loaded. Try again.")); };
+    document.head.appendChild(script);
+  }).catch(e => { liveModulePromise = null; throw e; });
+  return liveModulePromise;
 }
 function buildModel(raw){
   raw = raw || {};
@@ -315,8 +388,10 @@ function mount(host, opts){
   opts = opts || {};
   if (!host) throw new Error("The Visuals panel needs a place to open.");
   const state = {visible: false, sources: [], sourceId: "", model: buildModel({}), selected: [], feature: "", style: "evidence", duration: 10,
-    accent: accents[0].color, playing: false, time: 0, loading: false, exporting: false, logo: null, itemLogos: {}, reduced: false};
+    accent: accents[0].color, playing: false, time: 0, loading: false, exporting: false, logo: null, itemLogos: {}, reduced: false,
+    mode: "ending", liveLayout: "evidence", liveTheme: "dark", liveLoading: false, liveStarting: false};
   let raf = 0, exportRaf = 0, rejectExport = null, last = 0, loadToken = 0, recorder = null, stream = null, cancel = false, exportBlob = null, exportMeta = null, exportUrl = "", logoUrl = "";
+  let liveToken = 0, liveMounted = false;
   const urls = new Set(), logoUrls = new Map(), disposers = [], mm = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : null;
   state.reduced = !!(mm && mm.matches);
   host.innerHTML = `<style>
@@ -327,14 +402,18 @@ function mount(host, opts){
     .vp-grid{display:grid;grid-template-columns:minmax(300px,1fr) minmax(280px,410px);gap:30px;margin-top:24px;align-items:start}.vp-styles{display:grid;grid-template-columns:1fr 1fr;gap:10px}.vp-style{position:relative;min-width:0;padding:15px;text-align:left;border:1px solid var(--line,#2e3e49);border-radius:14px;background:transparent;color:inherit}.vp-style[aria-pressed=true]{background:#68edfa0b;border-color:var(--vp-accent);box-shadow:inset 0 0 0 1px var(--vp-accent)}.vp-style b{display:block;margin:8px 0 6px;font-size:15px}.vp-style small{display:block;font-size:12px;line-height:1.5;color:var(--muted,#94a5b4)}.vp-glyph{font-size:25px;line-height:1;color:var(--vp-accent-ink)}.vp-style .vp-tag{font-size:9px;float:right}.vp-section{border-top:1px solid var(--line,#27353e);margin-top:22px;padding-top:20px}.vp-section h3{font-size:16px;margin:0 0 12px}.vp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.vp-palette{display:flex;gap:9px}.vp-swatch{width:29px;height:29px;border-radius:50%;border:2px solid transparent;padding:0}.vp-swatch[aria-pressed=true]{outline:2px solid currentColor;outline-offset:3px}.vp-mini{max-width:140px}.vp-logo{width:36px;height:36px;object-fit:contain;background:#0b1420;border-radius:7px}
     .vp-items{max-height:355px;overflow:auto;border:1px solid var(--line,#293944);border-radius:12px}.vp-item{display:flex;align-items:flex-start;gap:10px;padding:12px;border-bottom:1px solid var(--line,#293944);cursor:pointer}.vp-item:last-child{border-bottom:0}.vp-item input{margin-top:4px;accent-color:var(--vp-accent)}.vp-item span{min-width:0;overflow-wrap:anywhere}.vp-item b{display:block;font-size:13px}.vp-item small{display:block;font-size:12px;line-height:1.5;color:var(--muted,#94a5b4)}.vp-item em{font-style:normal;color:var(--vp-accent-ink)}
     .vp-preview{position:sticky;top:20px;min-width:0}.vp-screen{overflow:hidden;border:1px solid #294250;border-radius:21px;background:#080c12;box-shadow:0 12px 35px #0003;max-width:410px;margin:auto;aspect-ratio:9/16}.vp-screen canvas{display:block;width:100%;height:100%}.vp-controls{display:flex;align-items:center;gap:8px;margin:12px 0}.vp-controls input{flex:1;min-width:40px;accent-color:var(--vp-accent)}.vp-clock{font-variant-numeric:tabular-nums;font-size:12px;white-space:nowrap;min-width:63px}.vp-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.vp-actions .vp-primary{grid-column:1/-1}.vp-actions .vp-btn{font-size:13px}.vp-status{min-height:26px;font-size:13px;line-height:1.55;margin:12px 0;overflow-wrap:anywhere}.vp-status[data-error=true]{color:#ee876f}.vp-empty{padding:24px;border:1px dashed var(--line,#344952);border-radius:14px;margin-top:20px}.vp-done{margin-top:14px;border:1px solid var(--vp-accent);border-radius:12px;padding:13px}.vp-done video{display:block;width:100%;max-height:350px;background:#080c12;margin-bottom:12px}.vp-progress{height:5px;background:#29323a;border-radius:4px;overflow:hidden;margin-top:12px}.vp-progress i{display:block;height:100%;width:0;background:var(--vp-accent)}
+    .vp-modes{display:flex;gap:8px;margin:0 0 18px}.vp-modes [aria-pressed=true]{background:var(--ink);color:var(--paper)}.vp-live{margin-top:24px}.vp-live-grid{display:grid;grid-template-columns:minmax(260px,1fr) minmax(270px,410px);gap:30px;align-items:start}.vp-live-layouts{display:grid;gap:10px;margin:16px 0}.vp-live-screen{aspect-ratio:9/16;max-width:410px;display:flex;flex-direction:column;overflow:hidden;border:1px solid #294250;border-radius:21px;background:#080c12;color:#e6f1f8;box-shadow:0 12px 35px #0003}.vp-live-screen[data-theme=light]{background:#f4f7fa;color:#152633}.vp-live-context{flex:1;display:grid;place-content:center;text-align:center;gap:10px;padding:30px 13%;font-size:15px;line-height:1.6;color:#91a2b2}.vp-live-screen[data-theme=light] .vp-live-context{color:#566877}.vp-live-context b{font-size:20px;color:inherit}.vp-live-panel{height:35%;min-height:0;position:relative;overflow:hidden}.vp-live-ending{position:relative;width:100%;height:100%;min-height:0;overflow:auto}.vp-live-note{margin-top:12px}.vp-live-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}.vp-live-status{min-height:26px;font-size:13px;line-height:1.6;overflow-wrap:anywhere}.vp-live-status[data-error=true]{color:#c34832}
     @media(max-width:950px){.vp-grid{grid-template-columns:minmax(0,1fr) minmax(250px,340px);gap:18px}.vp-style{padding:12px}.vp-style .vp-tag{display:none}.vp-source{grid-template-columns:minmax(0,1fr) auto}.vp-source>button:last-child{grid-column:1/-1}}
     @media(max-width:650px){.vp-grid{grid-template-columns:minmax(0,1fr)}.vp-preview{position:static;grid-row:1}.vp-screen{max-width:300px}.vp-title{margin:18px 0}.vp-title h2{font-size:24px}.vp-title>.vp-tag{display:none}.vp-source{padding:13px;grid-template-columns:minmax(0,1fr)}.vp-source>button:last-child{grid-column:auto}.vp-styles{gap:8px}.vp-style b{font-size:13px}.vp-style small{font-size:11px}.vp-actions{max-width:410px;margin:auto}.vp-row{gap:12px}.vp-items{max-height:260px}.vp-controls{max-width:410px;margin:12px auto}}
     @media(prefers-reduced-motion:reduce){.vp-shell *{scroll-behavior:auto!important}}
+    @media(max-width:650px){.vp-live-grid{grid-template-columns:minmax(0,1fr)}.vp-live-screen{max-width:340px;margin:auto}.vp-live-context{font-size:13px}.vp-live-context b{font-size:17px}}
   </style><section class="vp-shell" aria-label="Posting Visuals">
     <div class="vp-title"><div><h2>Give the report a new reveal.</h2><p class="vp-note">Choose an optional ending for your next post. Your Crawler and Studio stay just as they are.</p></div><span class="vp-tag">Visuals lab</span></div>
+    <div class="vp-modes" role="group" aria-label="Visuals mode"><button class="vp-btn" id="vp-mode-ending" type="button" aria-pressed="true">Report ending</button><button class="vp-btn" id="vp-mode-live" type="button" aria-pressed="false">Live crawl</button></div>
     <div class="vp-source"><label><span class="vp-label">Use a report</span><select id="vp-source" aria-label="Report to visualize"><option value="">Loading reports...</option></select></label><button class="vp-btn" id="vp-refresh" type="button">Refresh</button><button class="vp-btn" id="vp-make" type="button">Choose a filing</button></div>
     <div class="vp-empty" id="vp-empty" hidden><b>Start with a real report.</b><p class="vp-note">Choose a filing in Make a clip and let its report finish loading, or choose a saved take with report evidence. These visuals only use findings that already have a source.</p></div>
-    <div class="vp-grid"><div class="vp-settings"><div class="vp-styles" id="vp-styles">${styles.map((s, i) => `<button type="button" class="vp-style" data-vp-style="${s.id}" aria-pressed="${s.id === state.style}"><span class="vp-glyph" aria-hidden="true">${["▦", "⌘", "▤", "◉", "▥", "⇣"][i]}</span><span class="vp-tag">${s.tag}</span><b>${s.name}</b><small>${s.line}</small><small data-vp-reason="${s.id}"></small></button>`).join("")}</div>
+    <div class="vp-live" id="vp-live" hidden><div class="vp-live-grid"><div><h3>The same crawl, a new live report.</h3><p class="vp-note">The spider keeps its existing movement, scanner and speed. Only the report area changes when you record from here.</p><div class="vp-live-layouts" id="vp-live-layouts">${liveLayouts.map(l => `<button class="vp-style" type="button" data-vp-live-layout="${l.id}" aria-pressed="${l.id === state.liveLayout}"><b>${l.name}</b><small>${l.line}</small></button>`).join("")}</div><label><span class="vp-label">Preview background</span><select id="vp-live-theme"><option value="dark">Dark</option><option value="light">Light</option></select></label><p class="vp-note vp-live-note">Choose or change your filing with the existing Make a clip controls. Its exact filing, scope, speed, palette, logo and recording settings carry through.</p><button class="vp-btn" id="vp-live-make" type="button">Choose or change filing</button><div class="vp-live-actions"><button class="vp-btn" id="vp-live-replay" type="button">Replay arrivals</button><button class="vp-btn" id="vp-live-ending" type="button">Preview ending</button><button class="vp-btn vp-primary" id="vp-live-record" type="button">Record Live crawl</button></div><p class="vp-live-status" id="vp-live-status" role="status" aria-live="polite"></p></div><div><div class="vp-live-screen" id="vp-live-screen" data-theme="dark"><div class="vp-live-context" id="vp-live-context"><b>Live report preview</b><span>Your filing and the original spider appear above this report when recording.</span></div><div class="vp-live-panel" id="vp-live-panel" aria-label="Live report preview"></div><div class="vp-live-ending" id="vp-live-ending-panel" hidden></div></div><p class="vp-note vp-live-note" id="vp-live-caption">Preview uses only cited findings from the chosen report. It is not a recording of the spider.</p></div></div></div>
+    <div class="vp-grid" id="vp-ending-grid"><div class="vp-settings"><div class="vp-styles" id="vp-styles">${styles.map((s, i) => `<button type="button" class="vp-style" data-vp-style="${s.id}" aria-pressed="${s.id === state.style}"><span class="vp-glyph" aria-hidden="true">${["▦", "⌘", "▤", "◉", "▥", "⇣"][i]}</span><span class="vp-tag">${s.tag}</span><b>${s.name}</b><small>${s.line}</small><small data-vp-reason="${s.id}"></small></button>`).join("")}</div>
     <div class="vp-section"><h3>Make it yours</h3><div class="vp-row"><label><span class="vp-label">Length</span><select id="vp-duration" class="vp-mini"><option value="6">6 seconds</option><option value="10" selected>10 seconds</option><option value="15">15 seconds</option></select></label><div><span class="vp-label">Accent</span><div class="vp-palette">${accents.map(a => `<button type="button" class="vp-swatch" data-vp-color="${a.color}" style="background:${a.color}" title="${a.name}" aria-label="${a.name}" aria-pressed="${a.color === state.accent}"></button>`).join("")}</div></div></div>
       <label style="display:block;margin-top:16px"><span class="vp-label">Logo placement</span><select id="vp-logo-target"><option value="header">Report header</option></select></label><div class="vp-row" style="margin-top:12px"><label class="vp-btn" for="vp-logo">Add company logo</label><input id="vp-logo" type="file" accept="image/png,image/jpeg,image/webp" hidden><img class="vp-logo" id="vp-logo-preview" alt="Selected company logo" hidden><button type="button" class="vp-btn" id="vp-logo-clear" hidden>Remove logo</button></div><p class="vp-note">Add your own logo for the header or a portfolio tile. Tiles use initials until you add a logo. No image is fetched online.</p></div>
     <div class="vp-section"><h3 id="vp-selection-title">Findings to show</h3><p class="vp-note" id="vp-selection-note"></p><div class="vp-items" id="vp-items"></div><label style="display:block;margin-top:13px"><span class="vp-label">Spotlight finding</span><select id="vp-feature"></select></label></div>
@@ -346,6 +425,82 @@ function mount(host, opts){
   const on = (el, type, fn) => { el.addEventListener(type, fn); disposers.push(() => el.removeEventListener(type, fn)); };
   const say = (s, error) => { $("#vp-status").textContent = s; $("#vp-status").dataset.error = !!error; };
   const source = () => state.sources.find(s => s.id === state.sourceId);
+  const liveSay = (s, error) => { $("#vp-live-status").textContent = s; $("#vp-live-status").dataset.error = !!error; };
+  const endingModel = () => liveEndingPreview((source() || {}).result || {}, state.model);
+  const previewItems = () => liveItemsFromSource((source() || {}).result || {}, state.model);
+  function stopLive(){
+    ++liveToken; state.liveLoading = false;
+    if (liveMounted && window.BMGLiveCrawl) window.BMGLiveCrawl.unmount();
+    liveMounted = false;
+  }
+  function liveControls(){
+    const hasData = previewItems().length > 0, entry = source();
+    const hasPlan = !!(opts.livePlan || opts.getPlan || entry && entry.plan);
+    $("#vp-live-record").disabled = state.liveStarting || !hasData || !hasPlan || typeof window.bmgOpenRecord !== "function";
+    $("#vp-live-replay").disabled = state.liveLoading || !hasData;
+    $("#vp-live-ending").disabled = state.liveLoading || !endingModel();
+    $("#vp-mode-ending").disabled = state.exporting || state.liveStarting;
+    $("#vp-mode-live").disabled = state.exporting || state.liveStarting;
+    $$('[data-vp-live-layout]').forEach(b => b.setAttribute("aria-pressed", b.dataset.vpLiveLayout === state.liveLayout));
+  }
+  async function previewLive(showEnding){
+    stopLive();
+    if (!state.visible || state.mode !== "live") return;
+    const token = liveToken, model = state.model, entry = source(), items = previewItems(), ending = endingModel();
+    state.liveLoading = true; liveControls(); liveSay("Opening the sourced report preview...");
+    try {
+      const live = await loadLiveModule();
+      if (token !== liveToken || !state.visible || state.mode !== "live" || source() !== entry) return;
+      const panel = $("#vp-live-panel"), endPanel = $("#vp-live-ending-panel");
+      $("#vp-live-screen").dataset.theme = state.liveTheme;
+      $("#vp-live-context").hidden = !!showEnding; panel.hidden = !!showEnding; endPanel.hidden = !showEnding;
+      const company = {name: model.company, ticker: model.ticker, form: model.form, period: model.period, accession: model.accession};
+      if (showEnding && ending){
+        // Prefer the original ending payload. Otherwise label a selection of actual arrivals as a preview.
+        live.mount(endPanel, {layout: state.liveLayout, look: {theme: state.liveTheme, accent: state.accent}, company}); liveMounted = true;
+        endPanel.innerHTML = live.ending(ending, company);
+        const raw = (entry || {}).result || {}, original = (raw.insights || {}).ending || (raw.report || {}).document_ending;
+        $("#vp-live-caption").textContent = original ? "Preview of the existing form-specific ending payload. Figures and citations are unchanged."
+          : "Selected preview findings from this report's real arrivals. No summary totals are created; the original report is unchanged.";
+      } else {
+        live.mount(panel, {layout: state.liveLayout, look: {theme: state.liveTheme, accent: state.accent}, company}); liveMounted = true;
+        items.slice(0, 8).forEach(item => live.add(item));
+        $("#vp-live-caption").textContent = items.length ? "Preview of the first " + Math.min(8, items.length) + " cited findings in this report. During recording, each arrives only when the spider reads it."
+          : "No cited report findings are available yet. Choose a filing and let its report load first.";
+      }
+      const hasPlan = opts.livePlan || opts.getPlan || entry && entry.plan;
+      liveSay(!items.length ? "Choose a filing in Make a clip and let its report load first."
+        : typeof window.bmgOpenRecord !== "function" || !hasPlan ? "Live recording will be available after the recorder connection is installed. You can preview the report now."
+        : "Ready. Record uses the chosen filing and your existing Make a clip settings.");
+    } catch (e){ if (token === liveToken) liveSay(e.message || str(e), true); }
+    finally { if (token === liveToken){ state.liveLoading = false; liveControls(); } }
+  }
+  function changeMode(mode){
+    if (state.exporting || state.liveStarting) return;
+    pause(); stopLive(); state.mode = mode === "live" ? "live" : "ending";
+    $("#vp-mode-ending").setAttribute("aria-pressed", state.mode === "ending"); $("#vp-mode-live").setAttribute("aria-pressed", state.mode === "live");
+    $("#vp-ending-grid").hidden = state.mode !== "ending"; $("#vp-live").hidden = state.mode !== "live";
+    if (state.mode === "live") previewLive(false);
+    else render();
+  }
+  async function recordLive(){
+    if (state.liveStarting || !state.visible || state.mode !== "live") return;
+    const entry = source(), token = liveToken, layout = state.liveLayout;
+    if (!entry || typeof window.bmgOpenRecord !== "function"){
+      liveSay("Live recording will be available after the recorder connection is installed."); return;
+    }
+    state.liveStarting = true; liveControls(); liveSay("Opening the existing recording workflow...");
+    try {
+      const provide = opts.livePlan || opts.getPlan;
+      const original = provide ? await provide(entry) : entry.plan;
+      if (token !== liveToken || !state.visible || state.mode !== "live" || source() !== entry) return;
+      const plan = livePlan(original, layout);
+      if (!plan) throw new Error("This saved report has no recording plan. Choose or change its filing in Make a clip first.");
+      await window.bmgOpenRecord(plan);
+      if (state.visible && state.mode === "live") liveSay("The recording window is open. Use its existing recording controls to start your take.");
+    } catch (e){ if (token === liveToken) liveSay(e.message || str(e), true); }
+    finally { state.liveStarting = false; liveControls(); }
+  }
   const eligible = () => state.style === "map" ? state.model.holdings.filter(h => weightOf(h) != null) : state.style === "scoreboard" ? state.model.comparisons : state.model.items;
   const limit = () => state.style === "map" ? 8 : state.style === "scoreboard" ? 3 : 4;
   const render = () => {
@@ -375,6 +530,7 @@ function mount(host, opts){
     for (const id of ["vp-source", "vp-refresh", "vp-make", "vp-duration", "vp-logo", "vp-logo-target", "vp-logo-clear", "vp-feature", "vp-time"]) $("#" + id).disabled = state.exporting;
     $$("[data-vp-item], [data-vp-color]").forEach(b => { b.disabled = state.exporting; });
     $("#vp-cancel").hidden = !state.exporting; $("#vp-progress").hidden = !state.exporting; $("#vp-motion").hidden = !state.reduced;
+    liveControls();
   }
   function updateItems(reset){
     const list = eligible(), max = limit();
@@ -390,6 +546,7 @@ function mount(host, opts){
     $("#vp-empty").hidden = !!state.model.items.length; updateControls(); render();
   }
   function changeSource(id){
+    stopLive();
     const next = buildModel((state.sources.find(s => s.id === id) || {}).result || {});
     const identity = m => [m.company, m.form, m.period, m.accession].join("|");
     pause(); clearExport(); if (state.sourceId !== id || identity(state.model) !== identity(next)){
@@ -400,6 +557,7 @@ function mount(host, opts){
     $("#vp-logo-target").innerHTML = '<option value="header">Report header</option>' + state.model.holdings.map(h => `<option value="${esc(h.id)}">Portfolio tile: ${esc(h.label)}</option>`).join("");
     if (!styleAvailability(state.model)[state.style].enabled) state.style = state.model.kind === "holdings" && styleAvailability(state.model).map.enabled ? "map" : "evidence";
     updateItems(true); say(state.model.items.length ? "Ready. Choose a reveal and preview it." : "No cited report findings are available yet.");
+    if (state.mode === "live") previewLive(false);
   }
   async function refresh(){
     if (state.exporting) return;
@@ -494,6 +652,11 @@ function mount(host, opts){
     } catch (e){ say("The ending could not be added to Studio: " + (e.message || e) + ". You can still download it.", true); btn.disabled = false; btn.addEventListener("click", saveToStudio, {once: true}); }
   }
   on($("#vp-source"), "change", e => changeSource(e.target.value)); on($("#vp-refresh"), "click", refresh); on($("#vp-make"), "click", () => opts.openMake && opts.openMake());
+  on($("#vp-mode-ending"), "click", () => changeMode("ending")); on($("#vp-mode-live"), "click", () => changeMode("live"));
+  on($("#vp-live-make"), "click", () => opts.openMake && opts.openMake());
+  on($("#vp-live-layouts"), "click", e => { const b = e.target.closest("[data-vp-live-layout]"); if (!b || state.liveStarting) return; state.liveLayout = b.dataset.vpLiveLayout; previewLive(false); });
+  on($("#vp-live-theme"), "change", e => { state.liveTheme = e.target.value === "light" ? "light" : "dark"; previewLive(false); });
+  on($("#vp-live-replay"), "click", () => previewLive(false)); on($("#vp-live-ending"), "click", () => previewLive(true)); on($("#vp-live-record"), "click", recordLive);
   on($("#vp-styles"), "click", e => { const b = e.target.closest("[data-vp-style]"); if (!b || b.disabled) return; pause(); clearExport(); state.style = b.dataset.vpStyle; state.time = 0; updateItems(true); });
   on($("#vp-items"), "change", e => { const input = e.target.closest("[data-vp-item]"); if (!input || state.exporting) return;
     if (input.checked && state.selected.length >= limit()){ input.checked = false; say("Choose up to " + limit() + " for a readable portrait ending."); return; }
@@ -519,14 +682,15 @@ function mount(host, opts){
   on($("#vp-logo-target"), "change", e => { const target = e.target.value, u = logoUrls.get(target); $("#vp-logo-preview").hidden = !u; if (u) $("#vp-logo-preview").src = u; $("#vp-logo-clear").hidden = !u; $("#vp-logo").value = ""; });
   on($("#vp-logo-clear"), "click", () => { const target = $("#vp-logo-target").value, u = logoUrls.get(target); if (u) URL.revokeObjectURL(u); logoUrls.delete(target);
     if (target === "header") state.logo = null; else delete state.itemLogos[target]; logoUrl = ""; $("#vp-logo-preview").hidden = true; $("#vp-logo-clear").hidden = true; $("#vp-logo").value = ""; clearExport(); render(); });
-  on(document, "visibilitychange", () => { if (document.hidden){ pause(); abortExport("Export cancelled because the tab was hidden. Keep it visible and try again."); } });
+  on(document, "visibilitychange", () => { if (document.hidden){ pause(); stopLive(); abortExport("Export cancelled because the tab was hidden. Keep it visible and try again."); } else if (state.visible && state.mode === "live") previewLive(false); });
   if (mm){ const motion = e => { state.reduced = e.matches; if (state.reduced){ pause(); state.time = state.duration; } updateControls(); render(); }; if (mm.addEventListener){ mm.addEventListener("change", motion); disposers.push(() => mm.removeEventListener("change", motion)); } }
-  function hide(){ state.visible = false; pause(); abortExport("Export cancelled because Visuals was closed. Your original takes are unchanged."); const v = $("#vp-done video"); if (v) v.pause(); }
+  function hide(){ state.visible = false; pause(); stopLive(); abortExport("Export cancelled because Visuals was closed. Your original takes are unchanged."); const v = $("#vp-done video"); if (v) v.pause(); }
   function destroy(){ hide(); ++loadToken; if (stream) stream.getTracks().forEach(t => t.stop()); for (const off of disposers) off(); clearExport(); for (const u of logoUrls.values()) URL.revokeObjectURL(u); logoUrls.clear(); state.logo = null; state.itemLogos = {}; for (const u of urls) URL.revokeObjectURL(u); urls.clear(); }
-  const api = {show(){ state.visible = true; render(); if (!state.sources.length && !state.loading) return refresh(); }, hide, busy: () => state.exporting || state.loading, refresh,
+  const api = {show(){ state.visible = true; render(); if (!state.sources.length && !state.loading) return refresh(); if (state.mode === "live") return previewLive(false); }, hide, busy: () => state.exporting || state.loading || state.liveStarting, refresh,
     state: () => ({visible: state.visible, sourceId: state.sourceId, sources: state.sources.map(s => ({id: s.id, label: s.label})), model: state.model,
-      selected: state.selected.slice(), feature: state.feature, style: state.style, duration: state.duration, accent: state.accent, playing: state.playing, time: state.time, exporting: state.exporting, reducedMotion: state.reduced}), destroy};
+      selected: state.selected.slice(), feature: state.feature, style: state.style, duration: state.duration, accent: state.accent, playing: state.playing, time: state.time, exporting: state.exporting, reducedMotion: state.reduced,
+      mode: state.mode, liveLayout: state.liveLayout, liveTheme: state.liveTheme}), destroy};
   updateControls(); render(); return api;
 }
-window.BMGVisuals = {mount, version: 1, parts: {buildModel, styleAvailability, sourceText, wrapText, layoutTiles, styles, drawFrame, weightOf}};
+window.BMGVisuals = {mount, version: 1, parts: {buildModel, styleAvailability, sourceText, wrapText, layoutTiles, styles, drawFrame, weightOf, liveLayouts, liveItems, liveItemsFromSource, liveEndingPreview, livePlan}};
 })();
