@@ -3505,16 +3505,28 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // bottom margin that collapsed through its edge is inside it under containment, and the space below is the same.
     // (Requiring the same height failed every group of NVIDIA's 10-K, whose paragraphs all have a bottom margin: 731
     // tiny held blocks instead of about 20 groups, and a fast clip stalled at 36 fps.)
+    // the last word before a box (in the box before it, or before the box's parent)
+    const prevWord = k => {
+      for (let e = k; e && e !== wrap; e = e.parentElement)
+        for (let n = e.previousElementSibling; n; n = n.previousElementSibling){ const ws = n.classList.contains("w") ? [n] : n.getElementsByClassName("w"); if (ws.length) return ws[ws.length - 1]; }
+      return null;
+    };
     const test = list => {
-      const at = () => list.map((k, i) => ({top: k.getBoundingClientRect().top, below: below[i] ? below[i].getBoundingClientRect().top : null}));
-      const below = list.map(nextWord), before = list.map(read), pos0 = at();
+      const at = () => list.map((k, i) => ({top: k.getBoundingClientRect().top, below: below[i] ? below[i].getBoundingClientRect().top : null,
+        above: above[i] ? above[i].getBoundingClientRect().top : null}));
+      const below = list.map(nextWord), above = list.map(prevWord), before = list.map(read), pos0 = at();
       list.forEach((k, i) => { if (!before[i].over) k.style.contain = "layout paint"; });
       const after = list.map(read), pos1 = at();
       list.forEach(k => { k.style.contain = ""; });
       return list.map((k, i) => {
         const b = before[i], a = after[i], p = pos0[i], q = pos1[i];
-        const still = Math.abs(q.top - p.top) <= 0.01 && Math.abs(a.f - b.f) <= 0.01 && Math.abs(a.l - b.l) <= 0.01 &&
-          (p.below == null ? Math.abs(a.h - b.h) <= 0.01 : Math.abs(q.below - p.below) <= 0.01);
+        // Each box against the words next to it, not the page: a box above that fails moves everything below it,
+        // and the absolute test failed all of those too (Palantir's 10-K: 59 boxes held instead of about 650, half
+        // the filing painted every frame, 31 fps on the normal Crawler). The box's top keeps its distance to the
+        // word before it, and the word after it keeps its distance to the box's top.
+        const sh = q.top - p.top, ab = p.above == null ? 0 : q.above - p.above;
+        const still = Math.abs(sh - ab) <= 0.01 && Math.abs(a.f - b.f) <= 0.01 && Math.abs(a.l - b.l) <= 0.01 &&
+          (p.below == null ? Math.abs(a.h - b.h) <= 0.01 : Math.abs((q.below - q.top) - (p.below - p.top)) <= 0.01);
         return {b, a, pass: !(b.over || a.over) && still};
       });
     };
@@ -6384,9 +6396,39 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (highlights) end.classList.add("rec-highlight-ending");
       const ins = (state.readRes.insights || {}).kind === "insider" ? state.readRes.insights.summary : null;
       const specialized = (state.readRes.insights || {}).ending || rep.document_ending;
+      // Live crawl's ending takes one shape (keys, groups, notes); the 10-K and Form 4 endings are passed in it with
+      // their figures and pages as the usual ending shows them, nothing recomputed
+      const visLiveModel = (spec, S, rp, findings, c) => {
+        if (spec) return spec;
+        const pg = refs => { const m = pageOf(refs).match(/\d+/); return m ? {pdf_page: +m[0]} : null; };
+        if (S){
+          const b = S.buys || {}, sl = S.sells || {};
+          const trade = t => ({key: "trade:" + [t.insider, t.date, t.value].join("|"), kind: "trade", label: (t.code === "P" ? "Purchase" : "Sale") + (t.insider ? ": " + t.insider : ""),
+            value: t.value || "", text: t.shares != null ? `${t.shares} shares at ${t.price}` : "", period: t.date || "", source: {accession: t.accession || ""}});
+          return {kind: "insider", name: S.company || c.name || "", form: "Form 4", title: "Largest insider trades", summary_title: "Insider trades",
+            subtitle: S.first && S.last ? `${S.first} to ${S.last}` : "", keys: (S.largest || []).slice(0, 4).map(trade),
+            groups: [{title: "Open-market trades", items: [
+              {key: "buys", label: "Insiders bought", value: b.count ? (b.value || "") : "$0", text: `${b.count || 0} ${b.count === 1 ? "buy" : "buys"}`, basis: "Sum of the reported open-market purchases"},
+              {key: "sells", label: "Insiders sold", value: sl.count ? (sl.value || "") : "$0", text: `${sl.count || 0} ${sl.count === 1 ? "sale" : "sales"}`, basis: "Sum of the reported open-market sales"}]}],
+            notes: ["Sales are often planned in advance (Rule 10b5-1) or pay tax on vesting shares. Not investment advice."]};
+        }
+        const Fx = rp.evidence.facts, Cx = rp.evidence.calcs;
+        const fig = (k, label) => {
+          const row = (rp.financials.performance || []).find(r => r.metric === k) || (rp.financials.calculated || []).find(r => r.metric === k) || {};
+          const x = Fx[row.current] || Cx[row.current]; if (!x) return null;
+          const calc = !Fx[row.current], ch = row.change || {};
+          return {key: k, kind: "figure", label, value: x.display, period: (x.period || {}).short || (x.period || {}).label || "",
+            basis: [calc ? "Calculated from cited figures" : "", ch.display ? "change " + ch.display : ""].filter(Boolean).join("; "),
+            source: !calc && x.source && x.source.pdf_page ? x.source : pg([row.current])};
+        };
+        return {kind: "report", name: c.name || "", form: c.form || "", subtitle: c.period || "", title: "Key findings", summary_title: "Company report",
+          keys: findings.map(x => ({key: x.id, kind: "observation", label: (SEV[x.severity] || {}).l || "Finding", text: x.headline, source: pg(x.refs)})),
+          groups: [{title: "Headline figures", items: [fig("revenue", "Revenue"), fig("net_income", "Net income"), fig("eps_diluted", "Diluted EPS"), fig("fcf", "Free cash flow")].filter(Boolean)}],
+          notes: [(rp.coverage ? `${rp.coverage.facts_published} headline figures, ${rp.coverage.checks_run} checks. ` : "") + "Every figure cites its page in the filing."]};
+      };
       let visEnd = "";
       if (visLive.on && typeof visLive.api.ending === "function"){
-        try { visEnd = visLive.api.ending(specialized || (ins ? {kind: "insider", summary: ins} : {kind: "report", report: rep, findings: kf}), co) || ""; }
+        try { visEnd = visLive.api.ending(visLiveModel(specialized, ins, rep, kf, co), co) || ""; }
         catch (e){ console.warn("Live crawl ending:", e); }
       }
       if (visEnd && !(/\brk-keys\b/.test(visEnd) && /\brk-one\b/.test(visEnd))){ console.warn("Live crawl ending needs .rk-keys and .rk-one: the usual ending is shown"); visEnd = ""; }
@@ -10452,6 +10494,7 @@ Who is the auditor?</textarea>
       try {
         const V = await loadVisuals();
         if (!visuals) visuals = window.bmgVisuals = V.mount(visualsEl, {sources: visualSources, db: studioDB, files: takeFiles, loadStudio,
+          livePlan: entry => entry && entry.id === "posting" && window.bmgClipPlan ? window.bmgClipPlan() : null,
           openMake: () => show("make"), openStudio: id => {
             if (studio) studio.openTake(id, {clean: true, tab: "pics"}); else openNext = {id, opts: {clean: true, tab: "pics"}};
             show("studio");
@@ -11266,7 +11309,18 @@ Who is the auditor?</textarea>
       $m("mk-pvph").addEventListener("click", e => { const b = e.target.closest("[data-ph]"); if (!b) return; pvPhase = b.dataset.ph; drawPreview(); });
       for (const id of ["mk-pops", "mk-q", "mk-disk"]) if ($m(id)) $m(id).addEventListener("change", look);
       $m("mk-record").addEventListener("click", makeRecord);
-      window.bmgOpenRecord = p => { mkLiveLook = (p && p.look) || p || null; try { makeRecord(); } finally { mkLiveLook = null; } };   // {live: "<layout id>"}
+      // Posting > Visuals > Live crawl: Make a clip's own plan for the filing picked there, and Record with a copy of
+      // it whose only change is look.live. A look alone ({live}) records the current pick the same way.
+      window.bmgClipPlan = () => { const f = !mk.file && mk.list && mk.pick != null ? mk.list.items[mk.pick] : null; return mk.file || f ? planOf(f) : null; };
+      window.bmgOpenRecord = p => {
+        if (!(p && p.source && p.at)){ mkLiveLook = (p && p.look) || p || null; try { makeRecord(); } finally { mkLiveLook = null; } return; }
+        try { localStorage.setItem("bmg-clip-plan", JSON.stringify(p)); } catch (e) { throw new Error("This browser could not keep the plan (storage full?)."); }
+        state.clipWin = null; state.clipFile = null;
+        const opened = recordWindow(REC_URL + "&plan=1", true);
+        if (!opened) throw new Error("The record window was blocked: allow pop-ups for this page, then press Record again.");
+        if (opened.busy) throw new Error("Record mode is in the middle of a take: it is in front now. Finish that take, then press Record again.");
+        mk.recording = true; recStatus("setup");
+      };
       drawForms(); drawFinding(); drawHook(); drawLen(); drawLogos(); drawPreview(); loadQuickPics();
       if (coLogo.tk !== logoTk() || coLogo.state === "none") resolveCoLogo(); else { drawCoLogo(); drawBrand(); }
       if (mk.recording && recOpen()) recStatus(state.recPhase || "setup"); else mk.recording = false;
