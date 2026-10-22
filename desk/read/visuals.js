@@ -84,7 +84,8 @@ function buildModel(raw){
       if (!current || !cur || !prior || bad(prior) || !hasLocation(cur.source) || !hasLocation(prior.source)) return;
       const p = cur.period || {}, q = prior.period || {};
       const unit = str(cur.unit), pu = str(prior.unit), currency = str(cur.currency), pc = str(prior.currency);
-      if (!unit || unit !== pu || currency !== pc || str(cur.scale) !== str(prior.scale) || !p.type || p.type !== q.type
+      const knownUnit = /^(?:[A-Z]{3}(?:\/share)?|shares|%|ratio|x|number)$/i.test(unit);
+      if (!knownUnit || cur.metric && prior.metric && cur.metric !== prior.metric || unit !== pu || currency !== pc || str(cur.scale) !== str(prior.scale) || !p.type || p.type !== q.type
         || !p.end || !q.end || p.end === q.end || !periodText(p) || !periodText(q) || !prior.display) return;
       const prev = fromFact(prior, r.label || prior.name), src = {...prior.source};
       model.comparisons.push({id: "compare-" + str(r.current), label: current.label, unit, currency, scale: str(cur.scale),
@@ -105,8 +106,8 @@ function buildModel(raw){
       add({...f, label: f.headline, text: f.headline, value: "", sources, basis: "Existing report finding"}, "finding-" + i, "Report findings");
     });
     if (ins.kind === "holdings") (ins.holdings || []).forEach((r, n) => {
-      const source = {...locate(r), ...(hs.accession ? {accession: hs.accession} : {})};
-      if (!hasLocation(source) || !r.issuer || !r.value || /^(n\/a|not supplied)$/i.test(str(r.value))) return;
+      const rowSource = locate(r), source = {...rowSource, ...(hs.accession ? {accession: hs.accession} : {})};
+      if (!hasLocation(rowSource) || !r.issuer || !r.value || /^(n\/a|not supplied)$/i.test(str(r.value))) return;
       const amountKind = str(r.kind || ""), klass = str(r.class), put = str(r.put_call), label = r.issuer + (klass ? " · " + klass : "") + (put ? " · " + put : "");
       const h = {id: "holding-" + n, issuer: str(r.issuer), class: klass, put_call: put, amountKind, shares: str(r.shares),
         weight: str(r.weight), value: str(r.value), period: hs.period || model.period, source, citation: sourceText(source),
@@ -229,9 +230,13 @@ function drawFrame(g, model, options, time){
   } else if (style === "map"){
     const tiles = layoutTiles(selected, {x: b.x, y: 454, w: b.w, h: 960});
     tiles.forEach((r, n) => {
-      const a = ramp(t, .18 + n * .18, .8), pad = 7, x = r.x + pad, y = r.y + pad + (1 - a) * 50, w = r.w - pad * 2, h = r.h - pad * 2;
-      g.save(); g.globalAlpha = a; rounded(g, x, y, w, h, 19, n === 0 ? accent + "26" : "#11202b", accent + (n === 0 ? "9f" : "45"));
-      textBlock(g, initials(r.item.issuer), x + 18, y + 18, w - 36, h * .2, Math.min(56, w * .2), accent, 800);
+      const a = ramp(t, .18 + n * .18, .8), pad = Math.min(7, r.w / 8, r.h / 8), x = r.x + pad, y = r.y + pad + (1 - a) * 50, w = r.w - pad * 2, h = r.h - pad * 2;
+      g.save(); g.globalAlpha = a; rounded(g, x, y, w, h, Math.min(19, w / 4, h / 4), n === 0 ? accent + "26" : "#11202b", accent + (n === 0 ? "9f" : "45"));
+      // A very small reported weight keeps its true relative area, without forcing a false minimum size.
+      if (w < 85 || h < 85){ g.restore(); return; }
+      const logo = o.itemLogos && o.itemLogos[r.item.id];
+      if (logo){ const maxW = Math.min(w - 36, 138), maxH = Math.max(20, h * .22), ratio = Math.min(maxW / logo.width, maxH / logo.height); g.drawImage(logo, x + 18, y + 18, logo.width * ratio, logo.height * ratio); }
+      else textBlock(g, initials(r.item.issuer), x + 18, y + 18, w - 36, h * .2, Math.min(56, w * .2), accent, 800);
       textBlock(g, r.item.issuer, x + 18, y + h * .28, w - 36, h * .22, 34, "#f5fafc", 800);
       textBlock(g, r.item.value, x + 18, y + h * .53, w - 36, h * .16, 47, accent, 750);
       textBlock(g, [r.item.class, r.item.put_call, r.item.amountKind, r.item.weight].filter(Boolean).join(" · "), x + 18, y + h * .73, w - 36, h * .14, 23, "#a6c2d0", 500);
@@ -282,9 +287,9 @@ function mount(host, opts){
   opts = opts || {};
   if (!host) throw new Error("The Visuals panel needs a place to open.");
   const state = {visible: false, sources: [], sourceId: "", model: buildModel({}), selected: [], feature: "", style: "evidence", duration: 10,
-    accent: accents[0].color, playing: false, time: 0, loading: false, exporting: false, logo: null, reduced: false};
+    accent: accents[0].color, playing: false, time: 0, loading: false, exporting: false, logo: null, itemLogos: {}, reduced: false};
   let raf = 0, last = 0, loadToken = 0, recorder = null, stream = null, cancel = false, exportBlob = null, exportMeta = null, exportUrl = "", logoUrl = "";
-  const urls = new Set(), disposers = [], mm = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : null;
+  const urls = new Set(), logoUrls = new Map(), disposers = [], mm = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : null;
   state.reduced = !!(mm && mm.matches);
   host.innerHTML = `<style>
     .vp-shell{--vp-accent:#68edfa;color:var(--ink,#edf4f8);font:inherit}.vp-shell *{box-sizing:border-box}.vp-shell button,.vp-shell select,.vp-shell input{font:inherit}.vp-shell button{cursor:pointer}.vp-shell button:disabled{cursor:not-allowed;opacity:.48}.vp-shell [hidden]{display:none!important}
@@ -302,7 +307,7 @@ function mount(host, opts){
     <div class="vp-empty" id="vp-empty" hidden><b>Start with a real report.</b><p class="vp-note">Choose a filing in Make a clip and let its report finish loading, or choose a saved take with report evidence. These visuals only use findings that already have a source.</p></div>
     <div class="vp-grid"><div class="vp-settings"><div class="vp-styles" id="vp-styles">${styles.map((s, i) => `<button type="button" class="vp-style" data-vp-style="${s.id}" aria-pressed="${s.id === state.style}"><span class="vp-glyph" aria-hidden="true">${["▦", "⌘", "▤", "◉", "▥", "⇣"][i]}</span><span class="vp-tag">${s.tag}</span><b>${s.name}</b><small>${s.line}</small><small data-vp-reason="${s.id}"></small></button>`).join("")}</div>
     <div class="vp-section"><h3>Make it yours</h3><div class="vp-row"><label><span class="vp-label">Length</span><select id="vp-duration" class="vp-mini"><option value="6">6 seconds</option><option value="10" selected>10 seconds</option><option value="15">15 seconds</option></select></label><div><span class="vp-label">Accent</span><div class="vp-palette">${accents.map(a => `<button type="button" class="vp-swatch" data-vp-color="${a.color}" style="background:${a.color}" title="${a.name}" aria-label="${a.name}" aria-pressed="${a.color === state.accent}"></button>`).join("")}</div></div></div>
-      <div class="vp-row" style="margin-top:16px"><label class="vp-btn" for="vp-logo">Add company logo</label><input id="vp-logo" type="file" accept="image/png,image/jpeg,image/webp" hidden><img class="vp-logo" id="vp-logo-preview" alt="Selected company logo" hidden><button type="button" class="vp-btn" id="vp-logo-clear" hidden>Remove logo</button></div><p class="vp-note">Optional image from your device. No logo is fetched online.</p></div>
+      <label style="display:block;margin-top:16px"><span class="vp-label">Logo placement</span><select id="vp-logo-target"><option value="header">Report header</option></select></label><div class="vp-row" style="margin-top:12px"><label class="vp-btn" for="vp-logo">Add company logo</label><input id="vp-logo" type="file" accept="image/png,image/jpeg,image/webp" hidden><img class="vp-logo" id="vp-logo-preview" alt="Selected company logo" hidden><button type="button" class="vp-btn" id="vp-logo-clear" hidden>Remove logo</button></div><p class="vp-note">Add your own logo for the header or a portfolio tile. Tiles use initials until you add a logo. No image is fetched online.</p></div>
     <div class="vp-section"><h3 id="vp-selection-title">Findings to show</h3><p class="vp-note" id="vp-selection-note"></p><div class="vp-items" id="vp-items"></div><label style="display:block;margin-top:13px"><span class="vp-label">Spotlight finding</span><select id="vp-feature"></select></label></div>
     <div class="vp-section"><p class="vp-note" id="vp-provenance"></p></div></div>
     <div class="vp-preview"><div class="vp-screen"><canvas id="vp-canvas" width="1080" height="1920" aria-label="Portrait report ending preview"></canvas></div><div class="vp-controls"><button class="vp-btn" id="vp-play" type="button" aria-label="Play preview">Play</button><button class="vp-btn" id="vp-replay" type="button" aria-label="Replay from start">↺</button><input type="range" id="vp-time" min="0" max="10" step="0.01" value="0" aria-label="Preview position"><span class="vp-clock" id="vp-clock">0.0 / 10 s</span></div>
@@ -333,7 +338,7 @@ function mount(host, opts){
     const availability = styleAvailability(state.model), enabled = availability[state.style].enabled && state.selected.length > 0;
     for (const b of $$("[data-vp-style]")){ const a = availability[b.dataset.vpStyle]; b.disabled = !a.enabled || state.exporting; b.setAttribute("aria-pressed", b.dataset.vpStyle === state.style); b.title = a.reason; $("[data-vp-reason='" + b.dataset.vpStyle + "']").textContent = a.enabled ? "" : a.reason; }
     for (const id of ["vp-export", "vp-png", "vp-final", "vp-play", "vp-replay"]) $("#" + id).disabled = !enabled || state.exporting;
-    for (const id of ["vp-source", "vp-refresh", "vp-make", "vp-duration", "vp-logo", "vp-logo-clear", "vp-feature", "vp-time"]) $("#" + id).disabled = state.exporting;
+    for (const id of ["vp-source", "vp-refresh", "vp-make", "vp-duration", "vp-logo", "vp-logo-target", "vp-logo-clear", "vp-feature", "vp-time"]) $("#" + id).disabled = state.exporting;
     $$("[data-vp-item], [data-vp-color]").forEach(b => { b.disabled = state.exporting; });
     $("#vp-cancel").hidden = !state.exporting; $("#vp-progress").hidden = !state.exporting; $("#vp-motion").hidden = !state.reduced;
   }
@@ -351,7 +356,14 @@ function mount(host, opts){
     $("#vp-empty").hidden = !!state.model.items.length; updateControls(); render();
   }
   function changeSource(id){
-    pause(); clearExport(); state.sourceId = id; state.model = buildModel(source() && source().result || {}); state.time = 0;
+    const next = buildModel((state.sources.find(s => s.id === id) || {}).result || {});
+    const identity = m => [m.company, m.form, m.period, m.accession].join("|");
+    pause(); clearExport(); if (state.sourceId !== id || identity(state.model) !== identity(next)){
+      state.logo = null; state.itemLogos = {}; for (const u of logoUrls.values()) URL.revokeObjectURL(u); logoUrls.clear(); logoUrl = "";
+      $("#vp-logo-preview").hidden = true; $("#vp-logo-clear").hidden = true; $("#vp-logo").value = "";
+    }
+    state.sourceId = id; state.model = next; state.time = 0;
+    $("#vp-logo-target").innerHTML = '<option value="header">Report header</option>' + state.model.holdings.map(h => `<option value="${esc(h.id)}">Portfolio tile: ${esc(h.label)}</option>`).join("");
     if (!styleAvailability(state.model)[state.style].enabled) state.style = state.model.kind === "holdings" && styleAvailability(state.model).map.enabled ? "map" : "evidence";
     updateItems(true); say(state.model.items.length ? "Ready. Choose a reveal and preview it." : "No cited report findings are available yet.");
   }
@@ -381,7 +393,7 @@ function mount(host, opts){
     if (typeof MediaRecorder === "undefined" || !cv.captureStream){ say("This browser cannot record a canvas. You can save a picture instead.", true); return; }
     state.exporting = true; updateControls(); say("Making the ending. Keep this tab visible until it finishes.");
     let chunks = [], parts = {}, error = null, started = 0, frames = 0;
-    const frozen = {...state, selected: state.selected.slice()}, sourceSnapshot = source() && source().result;
+    const frozen = {...state, selected: state.selected.slice(), itemLogos: {...state.itemLogos}}, sourceSnapshot = source() && source().result;
     try {
       if (opts.loadStudio) { const S = await opts.loadStudio(); parts = S && S.parts || {}; }
       if (cancel || !state.visible || document.hidden) throw new Error("Export cancelled. Keep this tab visible and try again.");
@@ -390,7 +402,7 @@ function mount(host, opts){
       if (!type) throw new Error("This browser has no supported video encoder. Save a picture instead.");
       state.time = 0; drawFrame(g, frozen.model, frozen, 0); render(); stream = cv.captureStream(30);
       recorder = new MediaRecorder(stream, {mimeType: type, videoBitsPerSecond: 16000000});
-      const stopped = new Promise((resolve, reject) => { recorder.onstop = resolve; recorder.onerror = e => { error = e.error || new Error("Video recording failed."); reject(error); }; });
+      const stopped = new Promise(resolve => { recorder.onstop = resolve; recorder.onerror = e => { error = e.error || new Error("Video recording failed."); resolve(); }; });
       recorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
       recorder.start(500); started = performance.now();
       await new Promise((resolve, reject) => {
@@ -427,7 +439,10 @@ function mount(host, opts){
     if (!exportBlob || !exportMeta || !opts.db) return;
     const btn = $("#vp-studio"); btn.disabled = true; say("Adding a separate ending take to Studio...");
     try {
-      const e = exportMeta, m = e.model, selected = m.items.filter(i => e.selected.includes(i.id));
+      const e = exportMeta, m = e.model;
+      const selected = e.style === "map" ? m.holdings.filter(i => e.selected.includes(i.id))
+        : e.style === "scoreboard" ? m.comparisons.filter(i => e.selected.includes(i.id)).flatMap(i => [i.current, i.prior])
+        : m.items.filter(i => e.selected.includes(i.id));
       const id = "visual-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7), created = Date.now();
       const compact = {company: m.company, ticker: m.ticker, form: m.form, period: m.period, accession: m.accession,
         figures: selected.map(i => ({k: i.id, label: i.label, value: i.value, period: i.period, page: i.source.pdf_page || null, source: i.source, accession: i.source.accession || m.accession})),
@@ -456,15 +471,21 @@ function mount(host, opts){
   on($("#vp-logo"), "change", async e => {
     const file = e.target.files && e.target.files[0]; if (!file) return;
     if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 12e6){ say("Choose a PNG, JPG or WebP image smaller than 12 MB.", true); return; }
-    const u = URL.createObjectURL(file), im = new Image();
-    try { im.src = u; await im.decode(); if (logoUrl) URL.revokeObjectURL(logoUrl); logoUrl = u; state.logo = im; $("#vp-logo-preview").src = u; $("#vp-logo-preview").hidden = false; $("#vp-logo-clear").hidden = false; clearExport(); render(); }
+    const u = URL.createObjectURL(file), im = new Image(), target = $("#vp-logo-target").value, sourceId = state.sourceId, model = state.model;
+    try { im.src = u; await im.decode(); if (state.sourceId !== sourceId || state.model !== model){ URL.revokeObjectURL(u); return; }
+      if (logoUrls.has(target)) URL.revokeObjectURL(logoUrls.get(target)); logoUrls.set(target, u); logoUrl = u;
+      if (target === "header") state.logo = im; else state.itemLogos[target] = im;
+      if (target === $("#vp-logo-target").value){ $("#vp-logo-preview").src = u; $("#vp-logo-preview").hidden = false; $("#vp-logo-clear").hidden = false; }
+      clearExport(); render(); }
     catch (e){ URL.revokeObjectURL(u); say("That image could not be opened. Try another image.", true); }
   });
-  on($("#vp-logo-clear"), "click", () => { if (logoUrl) URL.revokeObjectURL(logoUrl); logoUrl = ""; state.logo = null; $("#vp-logo-preview").hidden = true; $("#vp-logo-clear").hidden = true; $("#vp-logo").value = ""; clearExport(); render(); });
+  on($("#vp-logo-target"), "change", e => { const target = e.target.value, u = logoUrls.get(target); $("#vp-logo-preview").hidden = !u; if (u) $("#vp-logo-preview").src = u; $("#vp-logo-clear").hidden = !u; $("#vp-logo").value = ""; });
+  on($("#vp-logo-clear"), "click", () => { const target = $("#vp-logo-target").value, u = logoUrls.get(target); if (u) URL.revokeObjectURL(u); logoUrls.delete(target);
+    if (target === "header") state.logo = null; else delete state.itemLogos[target]; logoUrl = ""; $("#vp-logo-preview").hidden = true; $("#vp-logo-clear").hidden = true; $("#vp-logo").value = ""; clearExport(); render(); });
   on(document, "visibilitychange", () => { if (document.hidden){ pause(); if (state.exporting) cancel = true; } });
   if (mm){ const motion = e => { state.reduced = e.matches; if (state.reduced){ pause(); state.time = state.duration; } updateControls(); render(); }; if (mm.addEventListener){ mm.addEventListener("change", motion); disposers.push(() => mm.removeEventListener("change", motion)); } }
   function hide(){ state.visible = false; pause(); if (state.exporting) cancel = true; const v = $("#vp-done video"); if (v) v.pause(); }
-  function destroy(){ hide(); ++loadToken; if (stream) stream.getTracks().forEach(t => t.stop()); for (const off of disposers) off(); clearExport(); if (logoUrl) URL.revokeObjectURL(logoUrl); for (const u of urls) URL.revokeObjectURL(u); urls.clear(); }
+  function destroy(){ hide(); ++loadToken; if (stream) stream.getTracks().forEach(t => t.stop()); for (const off of disposers) off(); clearExport(); for (const u of logoUrls.values()) URL.revokeObjectURL(u); logoUrls.clear(); state.logo = null; state.itemLogos = {}; for (const u of urls) URL.revokeObjectURL(u); urls.clear(); }
   const api = {show(){ state.visible = true; render(); if (!state.sources.length && !state.loading) return refresh(); }, hide, busy: () => state.exporting || state.loading, refresh,
     state: () => ({visible: state.visible, sourceId: state.sourceId, sources: state.sources.map(s => ({id: s.id, label: s.label})), model: state.model,
       selected: state.selected.slice(), feature: state.feature, style: state.style, duration: state.duration, accent: state.accent, playing: state.playing, time: state.time, exporting: state.exporting, reducedMotion: state.reduced}), destroy};
