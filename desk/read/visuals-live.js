@@ -22,6 +22,10 @@ function sourceLabel(s){
   const a = [], p = s.printed_page, pdf = s.pdf_page || s.page;
   if (p != null && text(p)) a.push("p." + text(p) + (pdf && text(pdf) !== text(p) ? " (PDF p." + text(pdf) + ")" : ""));
   else if (pdf) a.push("PDF p." + text(pdf));
+  if (Array.isArray(s.input_pages)){
+    const pages = [...new Set(s.input_pages.filter(p => Number.isInteger(p) && p > 0))];
+    if (pages.length) a.push("Input PDF " + (pages.length === 1 ? "p." : "pages ") + pages.join(", "));
+  }
   if (s.accession) a.push("SEC " + text(s.accession));
   if (s.anchor) a.push("XBRL " + text(s.anchor));
   if (s.location) a.push(text(s.location));
@@ -37,9 +41,12 @@ function normalize(x){
   const supplied = raw !== null && raw !== undefined && text(raw).trim() !== "" && !/^(n\/a|nan|infinity|undefined|null|not available|not supplied)$/i.test(text(raw).trim());
   const quote = (x.kind === "observation" || x.kind === "guidance") && !supplied && citation ? text(x.text || x.headline) : "";
   const value = supplied && citation ? text(raw) : quote || "Not supplied";
+  const d = x.detail || {}, detail = x.kind === "trade" ? [d.action,d.shares ? text(d.shares) + " shares" : "",d.price ? "at " + text(d.price) : "",d.title]
+    : x.kind === "holding" ? [d.class,d.put_call,d.shares ? "Reported amount: " + text(d.shares) : "",d.weight,d.change] : [];
+  const note = text(x.text) || detail.map(text).filter(Boolean).join(" · ");
   return {key: text(x.key || x.id), kind: Object.hasOwn(kinds,x.kind) ? x.kind : "figure", label: text(x.label || x.name || x.headline) || "Finding",
-    value, text: quote || text(x.text) === value ? "" : text(x.text), period: period(x.period), source: citation || "Source not supplied", featured: !!x.featured,
-    basis: text(x.basis), calculated: x.kind === "ratio" || /^calculat|\bcalculation\b/i.test(text(x.basis)) || x.calculated === true, missing: (!supplied && !quote) || !citation};
+    value, text: quote || note === value ? "" : note, period: period(x.period), source: citation || "Source not supplied", featured: !!x.featured,
+    basis: text(x.basis || x.source && x.source.formula), calculated: x.kind === "ratio" || /^calculat|\bcalculation\b/i.test(text(x.basis)) || x.calculated === true || !!(x.source && x.source.calculated), missing: (!supplied && !quote) || !citation};
 }
 function appearance(look){
   look = look || {};
@@ -51,7 +58,7 @@ const CSS = `
 .vl-root,.vl-ending{--vl-accent:#6ff4ff;--vl-bg:#090d13;--vl-card:#131a24;--vl-ink:#f4f7fb;--vl-muted:#afbdcd;--vl-line:#354151;
   box-sizing:border-box;background:var(--vl-bg);color:var(--vl-ink);font:500 12px/1.35 system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;text-align:left;isolation:isolate;color-scheme:dark}
 .vl-root *,.vl-ending *{box-sizing:border-box}.vl-light{--vl-bg:#f6f8fb;--vl-card:#fff;--vl-ink:#151d2b;--vl-muted:#4d5f72;--vl-line:#becbd8;color-scheme:light}
-.vl-root{height:100%;min-height:0;display:flex;flex-direction:column;container-type:inline-size;padding:10px 11.6% 9px 6.4%;overflow:hidden}
+.vl-root{height:100%;min-height:0;display:flex;flex-direction:column;container-type:inline-size;padding:10px 12px 9px;overflow:hidden}
 .vl-header{display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--vl-line);padding-bottom:7px;flex:none}
 .vl-brand{font-size:12px;font-weight:800;white-space:nowrap}.vl-mark{color:var(--vl-accent);margin-right:5px}.vl-company{min-width:0;font-size:10px;color:var(--vl-muted);margin-left:auto;text-align:right;overflow-wrap:anywhere}
 .vl-title{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--vl-muted);margin:7px 0 6px;font-weight:700;flex:none}
@@ -67,14 +74,16 @@ const CSS = `
 .vl-spotlight .vl-list{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-content:start}.vl-spotlight .vl-card{padding:8px}.vl-spotlight .vl-value{font-size:16px}
 .vl-spotlight.vl-has-feature .vl-card[data-featured=true],.vl-spotlight:not(.vl-has-feature) .vl-card:first-child{grid-column:1/-1;order:-1;border-color:var(--vl-accent);padding:11px 13px}
 .vl-spotlight.vl-has-feature .vl-card[data-featured=true] .vl-value,.vl-spotlight:not(.vl-has-feature) .vl-card:first-child .vl-value{font-size:28px}
-.vl-ending{position:absolute;inset:0;padding:6.5vh 11.6vw 6vh 6.4vw;overflow:auto}
-.vl-ending h2{font:800 clamp(20px,5vw,32px)/1.12 system-ui,sans-serif;margin:18px 0 7px;overflow-wrap:anywhere}.vl-ending .vl-subtitle{font-size:12px;color:var(--vl-muted);margin:0 0 16px;overflow-wrap:anywhere}
+.vl-root .vl-list .vl-card[data-kind=observation] .vl-value,.vl-root .vl-list .vl-card[data-kind=guidance] .vl-value{font-size:14px;line-height:1.35}
+.vl-ending{position:absolute;inset:0;padding:12% 11.6% 11% 6.4%;overflow:auto;container-type:inline-size}
+.vl-ending h2{font:800 clamp(20px,6cqw,32px)/1.12 system-ui,sans-serif;margin:18px 0 7px;overflow-wrap:anywhere}.vl-ending .vl-subtitle{font-size:12px;color:var(--vl-muted);margin:0 0 16px;overflow-wrap:anywhere}
 .vl-end-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.vl-end-card{padding:12px;border:1px solid var(--vl-line);border-radius:14px;background:var(--vl-card);overflow-wrap:anywhere}
-.vl-end-card .vl-label{font-size:12px}.vl-end-card .vl-value{font-size:clamp(20px,5vw,30px)}.vl-end-card .vl-source{font-size:10px}.vl-end-card .vl-meta{font-size:10px}.vl-end-card .vl-note{font-size:11px}
+.vl-end-card .vl-label{font-size:12px}.vl-end-card .vl-value{font-size:clamp(18px,5.5cqw,30px)}.vl-end-card .vl-source{font-size:10px}.vl-end-card .vl-meta{font-size:10px}.vl-end-card .vl-note{font-size:11px}
 .vl-ending .vl-brand{font-size:15px}.vl-ending .vl-title{font-size:11px;margin-top:20px}.vl-ending .vl-coverage{font-size:10px;color:var(--vl-muted);margin-top:14px}
 .vl-ending.vl-evidence .vl-end-grid{grid-template-columns:minmax(0,1fr)}.vl-ending.vl-evidence .vl-end-card{border-left:3px solid var(--vl-accent);padding:10px 12px}
 .vl-ending.vl-evidence .vl-end-card .vl-value{font-size:23px}.vl-ending.vl-spotlight .vl-end-card:first-child{grid-column:1/-1;border-color:var(--vl-accent)}
-.vl-ending.vl-spotlight .vl-end-card:first-child .vl-value{font-size:clamp(30px,7vw,43px)}
+.vl-ending.vl-spotlight .vl-end-card:first-child .vl-value{font-size:clamp(26px,8cqw,43px)}
+.vl-ending .vl-end-grid .vl-end-card[data-kind=observation] .vl-value,.vl-ending .vl-end-grid .vl-end-card[data-kind=guidance] .vl-value{font-size:15px;line-height:1.4}
 @keyframes vl-arrive{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.vl-card{animation:none}}
 `;
@@ -112,8 +121,9 @@ function add(item){
       const node = m.doc.createElement(tag); node.className = "vl-" + name; card.appendChild(node); nodes[name] = node;
     }
     if (m.empty){ m.empty.remove(); m.empty = null; }
-    m.list.insertBefore(card,m.list.firstChild); e = {card,nodes}; m.items.set(x.key,e);
+    m.list.insertBefore(card,m.list.firstChild); m.list.scrollTop = 0; e = {card,nodes}; m.items.set(x.key,e);
   }
+  e.card.setAttribute("data-kind",x.kind);
   e.card.setAttribute("data-featured",String(x.featured)); e.card.classList.toggle("vl-missing",x.missing);
   e.nodes.kind.textContent = kinds[x.kind] + (x.calculated ? " · Calculated" : "");
   e.nodes.label.textContent = x.label; e.nodes.value.textContent = x.value;
@@ -123,7 +133,15 @@ function add(item){
   e.featured = x.featured; m.root.classList.toggle("vl-has-feature",Array.from(m.items.values()).some(n => n.featured));
   return e.nodes.value;
 }
-function target(key){ return mounted && mounted.items.has(text(key)) ? mounted.items.get(text(key)).nodes.value : null; }
+function target(key){
+  if (!mounted || !mounted.items.has(text(key))) return null;
+  const node = mounted.items.get(text(key)).nodes.value, list = mounted.list;
+  // Measure only on a flight request. Confine the instant scroll to this panel.
+  const r = node.getBoundingClientRect(), v = list.getBoundingClientRect(), inset = Math.min(8,(v.bottom - v.top) / 4);
+  if (r.top < v.top + inset) list.scrollTop += r.top - v.top - inset;
+  else if (r.bottom > v.bottom - inset) list.scrollTop += Math.min(r.top - v.top - inset,r.bottom - v.bottom + inset);
+  return node;
+}
 function endItem(x){
   x = x || {};
   return normalize({...x,key:x.key || x.id || x.label || "ending",source:x.source || (x.page ? {pdf_page:x.page} : null),
@@ -131,13 +149,15 @@ function endItem(x){
 }
 function endCard(item){
   const x = endItem(item);
-  return `<article class="vl-end-card${x.missing ? " vl-missing" : ""}"><span class="vl-label">${esc(x.label)}</span><strong class="vl-value">${esc(x.value)}</strong>${x.text ? `<p class="vl-note">${esc(x.text)}</p>` : ""}<div class="vl-meta">${esc([x.period,x.basis,x.calculated ? "Calculated" : ""].filter(Boolean).join(" · "))}</div><small class="vl-source">${esc(x.source)}</small></article>`;
+  return `<article data-kind="${x.kind}" class="vl-end-card${x.missing ? " vl-missing" : ""}"><span class="vl-label">${esc(x.label)}</span><strong class="vl-value">${esc(x.value)}</strong>${x.text ? `<p class="vl-note">${esc(x.text)}</p>` : ""}<div class="vl-meta">${esc([x.period,x.basis,x.calculated ? "Calculated" : ""].filter(Boolean).join(" · "))}</div><small class="vl-source">${esc(x.source)}</small></article>`;
 }
 function unique(items){
   const seen = new Set(); return items.filter(x => { const k = [text(x.label),text(x.value != null ? x.value : x.display),period(x.period),sourceLabel(x.source)].join("|"); if (seen.has(k)) return false; seen.add(k); return true; });
 }
 function ending(model, company){
   model = model || {}; const co = company || config.company || {}, a = appearance(config.look);
+  // Legacy endings keep the caller's complete original report until it supplies normalized evidence.
+  if (!model.keys && !model.figures && !model.groups && (model.report || model.summary)) return "";
   const keys = unique((model.keys || model.figures || []).filter(Boolean));
   const groups = (model.groups || []).filter(g => g && Array.isArray(g.items)), all = unique(groups.flatMap(g => g.items).filter(Boolean));
   const summary = [], seen = new Set();

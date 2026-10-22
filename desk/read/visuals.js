@@ -51,6 +51,12 @@ function livePlan(plan, layout){
   else if (copy.look && typeof copy.look === "object") delete copy.look.live;
   return copy;
 }
+// The recorder builds the current Make a clip plan itself. Pass only its optional look override.
+function liveRecordLook(plan, layout){
+  const copy = livePlan(plan == null ? {} : plan,layout);
+  if (!copy) throw new Error("The existing recording settings could not be read.");
+  return copy.look || {};
+}
 function liveItems(model){
   const used = new Set();
   return ((model || {}).items || []).filter(i => i && i.citation && (i.value || i.text)).map((i, n) => {
@@ -435,8 +441,8 @@ function mount(host, opts){
   }
   function liveControls(){
     const hasData = previewItems().length > 0, entry = source();
-    const hasPlan = !!(opts.livePlan || opts.getPlan || entry && entry.plan);
-    $("#vp-live-record").disabled = state.liveStarting || !hasData || !hasPlan || typeof window.bmgOpenRecord !== "function";
+    const canRecord = !!(opts.livePlan || opts.getPlan || entry && (entry.plan || entry.id === "posting"));
+    $("#vp-live-record").disabled = state.liveStarting || !hasData || !canRecord || typeof window.bmgOpenRecord !== "function";
     $("#vp-live-replay").disabled = state.liveLoading || !hasData;
     $("#vp-live-ending").disabled = state.liveLoading || !endingModel();
     $("#vp-mode-ending").disabled = state.exporting || state.liveStarting;
@@ -468,10 +474,11 @@ function mount(host, opts){
         $("#vp-live-caption").textContent = items.length ? "Preview of the first " + Math.min(8, items.length) + " cited findings in this report. During recording, each arrives only when the spider reads it."
           : "No cited report findings are available yet. Choose a filing and let its report load first.";
       }
-      const hasPlan = opts.livePlan || opts.getPlan || entry && entry.plan;
+      const canRecord = opts.livePlan || opts.getPlan || entry && (entry.plan || entry.id === "posting");
       liveSay(!items.length ? "Choose a filing in Make a clip and let its report load first."
-        : typeof window.bmgOpenRecord !== "function" || !hasPlan ? "Live recording will be available after the recorder connection is installed. You can preview the report now."
-        : "Ready. Record uses the chosen filing and your existing Make a clip settings.");
+        : typeof window.bmgOpenRecord !== "function" ? "Live recording will be available after the recorder connection is installed. You can preview the report now."
+        : !canRecord ? "This saved report is a preview. Choose its filing in Make a clip before recording."
+        : "Ready. Record uses the filing currently selected in Make a clip and its existing recording settings.");
     } catch (e){ if (token === liveToken) liveSay(e.message || str(e), true); }
     finally { if (token === liveToken){ state.liveLoading = false; liveControls(); } }
   }
@@ -492,12 +499,14 @@ function mount(host, opts){
     state.liveStarting = true; liveControls(); liveSay("Opening the existing recording workflow...");
     try {
       const provide = opts.livePlan || opts.getPlan;
+      if (!provide && !entry.plan && entry.id !== "posting") throw new Error("Choose this report's filing in Make a clip before recording.");
       const original = provide ? await provide(entry) : entry.plan;
       if (token !== liveToken || !state.visible || state.mode !== "live" || source() !== entry) return;
-      const plan = livePlan(original, layout);
-      if (!plan) throw new Error("This saved report has no recording plan. Choose or change its filing in Make a clip first.");
-      await window.bmgOpenRecord(plan);
-      if (state.visible && state.mode === "live") liveSay("The recording window is open. Use its existing recording controls to start your take.");
+      const look = liveRecordLook(original,layout);
+      // Make a clip owns filing validation, popup errors and recording controls. Keep them visible.
+      if (opts.openMake) opts.openMake();
+      await window.bmgOpenRecord(look);
+      if (state.visible && state.mode === "live") liveSay("Continue in Make a clip or the recording window using its existing controls.");
     } catch (e){ if (token === liveToken) liveSay(e.message || str(e), true); }
     finally { state.liveStarting = false; liveControls(); }
   }
@@ -692,5 +701,5 @@ function mount(host, opts){
       mode: state.mode, liveLayout: state.liveLayout, liveTheme: state.liveTheme}), destroy};
   updateControls(); render(); return api;
 }
-window.BMGVisuals = {mount, version: 1, parts: {buildModel, styleAvailability, sourceText, wrapText, layoutTiles, styles, drawFrame, weightOf, liveLayouts, liveItems, liveItemsFromSource, liveEndingPreview, livePlan}};
+window.BMGVisuals = {mount, version: 1, parts: {buildModel, styleAvailability, sourceText, wrapText, layoutTiles, styles, drawFrame, weightOf, liveLayouts, liveItems, liveItemsFromSource, liveEndingPreview, livePlan, liveRecordLook}};
 })();
