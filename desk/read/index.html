@@ -3630,7 +3630,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   // Before this, a finished read's spider stayed on the page and counted as a read going on: after one read, no
   // new version ever loaded by itself.
   function watchForNewVersion(){
-    const NEW_VERSION_FILES = [location.pathname, "studio.js", "../../assets/theme.css", "../../assets/theme.js"];
+    const NEW_VERSION_FILES = [location.pathname, "studio.js", "visuals.js", "../../assets/theme.css", "../../assets/theme.js"];
     let tag = null, shown = false, lastInput = Date.now(), chooser = 0, holdUntil = 0;
     for (const t of ["pointerdown", "keydown", "wheel"]) addEventListener(t, () => { lastInput = Date.now(); }, {capture: true, passive: true});
     addEventListener("pointermove", e => { if (e.buttons) lastInput = Date.now(); }, {capture: true, passive: true});          // a held drag
@@ -3644,6 +3644,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // a run from upload to its end: the file going up and the server reading it come before any walk
     const busy = () => walking() || runRead.textContent === "Working..." || document.body.classList.contains("recmode") || recWinOpen()
       || !!(window.bmgStudio && window.bmgStudio.busy && window.bmgStudio.busy())
+      || !!(window.bmgVisuals && window.bmgVisuals.busy && window.bmgVisuals.busy())
       || typing() || Date.now() - lastInput < 10000 || Date.now() < holdUntil || (chooser && Date.now() - chooser < 300000)
       || (state.mkBusy && state.mkBusy()) || (state.crawlFormBusy && state.crawlFormBusy());
     const readOnScreen = () => !document.body.classList.contains("av-open") && !!document.querySelector("svg.spider rect.body");
@@ -6561,6 +6562,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       let report = null; try { report = takeReport(); } catch (e) { /* the take still goes to the Studio, without its report */ }
       const pl = fmt === "plan" && plan ? plan : null, cover = pl ? (planExcerpt(pl) ? "excerpt" : "entire") : "";
       const take = {id: "take-" + when.getTime().toString(36), created: when.getTime(), size: blob.size, type: blob.type, meta: {ticker, hook, form: co.form || "", source: "record", report,
+          visualReport: state.readRes ? {report: state.readRes.report, insights: state.readRes.insights || {}, filing: pl && pl.filing || null} : null,
           filing: pl ? pl.filing || null : null, cover, coverage: pl ? pl.coverage || "" : "", quality: state.takeQuality || null,
           find: pl ? {asked: pl.find || [], missing: planMissing.slice(), outside: planBefore.slice()} : null,
           brand: pl ? state.brandMeta || null : null,              // the company branding the take shows (the Studio adds no second hook)
@@ -10171,26 +10173,28 @@ Who is the auditor?</textarea>
     document.body.appendChild(pane);
     const body = pane.querySelector(".av-body"), scroller = pane.querySelector(".av-scroll");
     const pressed = v => document.querySelectorAll(".app-tabs button[data-app]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.app === v)));
-    document.addEventListener("bmg-local", () => { tabs.hidden = false; const h = location.hash.slice(1); if (/^(news|posting|studio|make|posts)$/.test(h)) show(h); });
+    document.addEventListener("bmg-local", () => { tabs.hidden = false; const h = location.hash.slice(1); if (/^(news|posting|studio|make|posts|visuals)$/.test(h)) show(h); });
     function show(v){
       if (v === "posting") v = "make";      // Posting is the clip workflow; today's written drafts are at #posts
       if (v === "crawler"){
         if (studio) studio.hide();
+        if (visuals) visuals.hide();
         pane.hidden = true; document.body.classList.remove("av-open"); view = null; pressed("crawler");
         if (pausedByMe){ pausedByMe = false; const pb = document.getElementById("ctl-pause"); if (pb && state.paused && !pb.disabled) pb.click(); }
-        if (/^#(news|posting|studio|make|posts)$/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
+        if (/^#(news|posting|studio|make|posts|visuals)$/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
         return;
       }
       // the crawl waits while another view is open, and goes on when the Crawler is back
       if (walking() && !state.paused){ const pb = document.getElementById("ctl-pause"); if (pb && !pb.disabled){ pb.click(); pausedByMe = true; } }
       const again = view === v && !pane.hidden;
-      view = v; pane.hidden = false; document.body.classList.add("av-open"); pressed(v === "studio" || v === "make" || v === "posts" ? "posting" : v);
+      view = v; pane.hidden = false; document.body.classList.add("av-open"); pressed(v === "studio" || v === "make" || v === "posts" || v === "visuals" ? "posting" : v);
       history.replaceState(null, "", location.pathname + location.search + "#" + v);
       if (again) return;
       if (studio && v !== "studio") studio.hide();
-      body.classList.toggle("wide", v === "studio");
+      if (visuals && v !== "visuals") visuals.hide();
+      body.classList.toggle("wide", v === "studio" || v === "visuals");
       scroller.scrollTop = 0;
-      if (v === "news") renderNews(false); else if (v === "studio") renderStudio(); else if (v === "make") renderMake(); else renderPosting(false);
+      if (v === "news") renderNews(false); else if (v === "studio") renderStudio(); else if (v === "visuals") renderVisuals(); else if (v === "make") renderMake(); else renderPosting(false);
     }
     state.showApp = show;
     document.addEventListener("click", e => { const b = e.target.closest(".app-tabs button[data-app]"); if (b){ e.preventDefault(); show(b.dataset.app); } });
@@ -10280,7 +10284,7 @@ Who is the auditor?</textarea>
 
     // ---------------- Posting: Today's posts, and the Studio (the editor for Record mode takes)
     let takeWaiting = false;                 // a take arrived while the Studio was not on screen
-    const postingTabs = sel => `<div class="ps-views" role="tablist" aria-label="Posting"><button type="button" role="tab" class="av-seg" data-pview="make" aria-selected="${sel === "make"}">Make a clip</button><button type="button" role="tab" class="av-seg" data-pview="studio" aria-selected="${sel === "studio"}">Studio${takeWaiting && sel !== "studio" ? ' <i class="ps-dot" title="A new take is waiting"></i>' : ""}</button></div>`;
+    const postingTabs = sel => `<div class="ps-views" role="tablist" aria-label="Posting"><button type="button" role="tab" class="av-seg" data-pview="make" aria-selected="${sel === "make"}">Make a clip</button><button type="button" role="tab" class="av-seg" data-pview="studio" aria-selected="${sel === "studio"}">Studio${takeWaiting && sel !== "studio" ? ' <i class="ps-dot" title="A new take is waiting"></i>' : ""}</button><button type="button" role="tab" class="av-seg" data-pview="visuals" aria-selected="${sel === "visuals"}">Visuals</button></div>`;
     // The Studio (studio.js) loads the first time it opens. It is fetched past the browser's year-long cache of
     // static scripts, so a new version is used as soon as the server has it.
     let studio = null, studioEl = null, studioP = null;
@@ -10310,6 +10314,58 @@ Who is the auditor?</textarea>
         if (view === "studio" && !pane.hidden) studio.show();
         if (openNext){ const n = openNext; openNext = null; studio.openTake(n.id, n.opts); }
       } catch (e){ studioEl.innerHTML = `<p class="err">${esc(e.message || e)}</p>`; }
+    }
+    // Optional report experiments live only in Posting. The reader and its recorded endings keep their own path.
+    let visuals = null, visualsEl = null, visualsP = null, postingVisualSource = null;
+    function loadVisuals(){
+      return visualsP || (visualsP = (async () => {
+        if (window.BMGVisuals) return window.BMGVisuals;
+        const r = await fetch("visuals.js", {cache: "no-cache"});
+        if (!r.ok) throw new Error("Visuals could not load (HTTP " + r.status + "). Try again.");
+        const sc = document.createElement("script"); sc.textContent = (await r.text()) + "\n//# sourceURL=visuals.js";
+        document.head.appendChild(sc);
+        if (!window.BMGVisuals) throw new Error("Visuals could not start. Try again.");
+        return window.BMGVisuals;
+      })().catch(e => { visualsP = null; throw e; }));
+    }
+    async function visualSources(){
+      const out = [], label = r => {
+        const co = (r.report || {}).company || {}, model = (r.insights || {}).ending || (r.report || {}).document_ending || {}, f = r.filing || {};
+        return [model.name || co.name || co.ticker || "Completed report", f.form || model.form || co.form,
+          f.period || (model.identity || {}).period || co.period].filter(Boolean).join(" · ");
+      };
+      if (postingVisualSource) out.push({id: "posting", label: "Posting: " + label(postingVisualSource), result: postingVisualSource});
+      if (state.readRes && state.readRes.report){
+        const result = {report: state.readRes.report, insights: state.readRes.insights || {}};
+        out.push({id: "crawler", label: "Crawler: " + label(result), result});
+      }
+      try {
+        const takes = (await studioDB.all("takes")).sort((a, b) => b.created - a.created);
+        for (const take of takes){
+          const meta = take.meta || {}, result = meta.visualReport || (meta.report ? {legacy: meta.report} : null);
+          if (result) out.push({id: "take:" + take.id, label: "Take: " + (take.name || meta.ticker || "Saved recording"), result, take});
+        }
+      } catch (e) { /* current reports still work when this browser's saved takes are unavailable */ }
+      return out;
+    }
+    async function renderVisuals(){
+      if (!visualsEl){ visualsEl = document.createElement("div"); visualsEl.className = "vp-wrap"; }
+      body.innerHTML = `<div class="ps">${postingTabs("visuals")}</div>`;
+      body.querySelector(".ps").appendChild(visualsEl);
+      if (visuals){ visuals.show(); return; }
+      visualsEl.innerHTML = rtLoading("Opening Visuals...");
+      try {
+        const V = await loadVisuals();
+        if (!visuals) visuals = window.bmgVisuals = V.mount(visualsEl, {sources: visualSources, db: studioDB, files: takeFiles, loadStudio,
+          openMake: () => show("make"), openStudio: id => {
+            if (studio) studio.openTake(id, {clean: true, tab: "pics"}); else openNext = {id, opts: {clean: true, tab: "pics"}};
+            show("studio");
+          }});
+        if (view === "visuals" && !pane.hidden) visuals.show(); else visuals.hide();
+      } catch (e){
+        visualsEl.innerHTML = `<p class="err">${esc(e.message || e)}</p><button type="button" class="av-chip">Try again</button>`;
+        visualsEl.querySelector("button").onclick = () => renderVisuals();
+      }
     }
     // Record mode's Edit in Studio, and a planned clip's take, which comes by itself: it starts a clean edit on the
     // Pictures tab, and the record window hears it arrived, so it can close (the Studio is then what is on screen)
@@ -10593,6 +10649,7 @@ Who is the auditor?</textarea>
         if (seq !== readSeq) return;
         if (!rr.ok || !res) throw new Error("The read finished but its result did not come. Pick the form again.");
         mk.found = {state: "done", key, form: f.form, docKind: (res.insights || {}).kind || "other", ...findingsOf(res)};
+        postingVisualSource = {report: res.report, insights: res.insights || {}, filing: filingOf(f)};
         if (!mk.found.form) mk.found.form = f.label || f.form;            // the report names no form (an earnings release): the one picked
         // the finding picked before for this filing, else the largest trade or the first figure, whichever has its data
         const kept = mk.featBy[key], ok = mk.found.items.filter(x => !x.missing.length);
