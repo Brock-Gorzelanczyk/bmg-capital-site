@@ -436,6 +436,8 @@ body.recmode .stage .doc{isolation:auto}body.recmode svg.spider{z-index:46}body.
    6.4% on the left; an HTML filing ends where the report does, clear of the buttons (a PDF page has its own margins) */
 body.recmode.rec-social .read-side{padding:.8vh 11.6vw 0 6.4vw!important}
 body.recmode.rec-social .htmldoc{border-width:0 4.6vw 0 0}
+body.vis-live #read-live{visibility:hidden}body.vis-live .read-side{position:relative}#vis-live{position:absolute;inset:0;overflow:hidden;z-index:3}
+body.recmode.rec-social #vis-live{top:.8vh;left:6.4vw;right:11.6vw;bottom:0}
 body.rec-social .lr-ins li q{-webkit-line-clamp:2}body.rec-social .lr-ins li .go{display:none}body.rec-social .lr-sum{display:none}
 body.rec-social .lr-ins li.incoming{visibility:hidden}
 body.rec-social .lr-ins li.feat,body.rec-social tr.feat td{background:color-mix(in srgb,var(--crawler-main,#6ff4ff) 16%,#fff)}body.rec-social .lr-ins li.feat{box-shadow:inset .9vw 0 0 var(--crawler-main,#6ff4ff)}body.rec-social tr.feat td:first-child{box-shadow:inset .9vw 0 0 var(--crawler-main,#6ff4ff)}
@@ -4393,6 +4395,91 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   }
   // ---- live report panel: the BMG Capital report forming as evidence is read ----
   const liveEl = document.getElementById("read-live");
+  // Posting > Visuals > Live crawl (opt-in, plan.look.live): visuals-live.js draws its own report panel over the
+  // live report, which keeps filling underneath, unseen, as its data source; the spider's flights land on the new
+  // panel. Without the choice none of this runs and the page is exactly as before.
+  const visLive = {on: false, api: null, panel: null, seen: new Set(), queued: false, mo: null};
+  async function visLiveStart(layout, plan){
+    if (visLive.on || !liveEl) return;
+    try {
+      if (!window.BMGLiveCrawl){
+        const r = await fetch("visuals-live.js", {cache: "no-cache"});
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const sc = document.createElement("script"); sc.textContent = (await r.text()) + "\n//# sourceURL=visuals-live.js";
+        document.head.appendChild(sc);
+      }
+      const api = window.BMGLiveCrawl;
+      if (!api || typeof api.mount !== "function" || typeof api.add !== "function") throw new Error("visuals-live.js has no BMGLiveCrawl");
+      const side = liveEl.closest(".read-side") || liveEl.parentNode;
+      const panel = document.createElement("div"); panel.id = "vis-live";
+      side.appendChild(panel);
+      api.mount(panel, {layout, look: plan.look || {}, company: {name: plan.company || "", ticker: plan.ticker || "", form: plan.form || "", period: plan.period || ""}});
+      Object.assign(visLive, {on: true, api, panel});
+      document.body.classList.add("vis-live");
+      visLive.mo = new MutationObserver(visLiveQueue);
+      visLive.mo.observe(liveEl, {subtree: true, childList: true, attributes: true, attributeFilter: ["class"]});
+      visLiveQueue();
+    } catch (e){ console.warn("Live crawl is off for this take:", e.message || e); }
+  }
+  function visLiveQueue(){            // one scan per frame at most, and only when the live report changed
+    if (visLive.queued) return;
+    visLive.queued = true;
+    requestAnimationFrame(() => { visLive.queued = false; visLiveScan(); });
+  }
+  // The key of a place in the live report: the same key its arrival was added under.
+  function visLiveKey(el){
+    if (!el || !el.closest) return null;
+    const td = el.closest("td.lr-c[data-cell]"); if (td) return "cell:" + td.dataset.cell;
+    const sg = el.closest("[data-sig]"); if (sg) return "sig:" + sg.dataset.sig;
+    const li = el.closest(".lr-ins li[data-x]"); if (li) return "ins:" + li.dataset.x;
+    const tr = el.closest("tr.lr-found-row"); if (tr) return "found:" + (tr.cells[0] ? tr.cells[0].textContent : "") + "|" + ((tr.querySelector(".lr-v") || {}).firstChild || {}).textContent;
+    return null;
+  }
+  // Where a flight lands with Live crawl on: the new panel's place for that key, or the panel itself.
+  function visLiveDest(dest){
+    if (!visLive.on) return dest;
+    let t = null;
+    try { t = visLive.api.target && visLive.api.target(visLiveKey(dest)); } catch (e) {}
+    return t && t.isConnected ? t : visLive.panel;
+  }
+  function visLiveAdd(item){
+    if (visLive.seen.has(item.key)) return;
+    visLive.seen.add(item.key);
+    try { visLive.api.add(item); } catch (e){ console.warn("Live crawl add:", e); }
+  }
+  function visLiveScan(){
+    if (!visLive.on || !state.live) return;
+    const plan = state.live.plan;
+    liveEl.querySelectorAll("td.lr-c[data-cell]").forEach(td => {
+      const key = "cell:" + td.dataset.cell, v = td.querySelector(".lr-v");
+      if (visLive.seen.has(key) || !v || td.classList.contains("is-w")) return;
+      const c = plan.cells[td.dataset.cell] || {}, row = td.closest("tr");
+      visLiveAdd({key, kind: td.closest(".lr-r") ? "ratio" : "figure", label: row && row.cells[0] ? row.cells[0].textContent.trim() : (c.label || ""),
+        value: (v.firstChild || {}).textContent || "", period: c.period || "", featured: !!(row && row.classList.contains("feat")),
+        source: {pdf_page: c.page || null, input_pages: c.input_pages || [], excerpt: c.excerpt || "", formula: c.formula || "", calculated: c.kind === "calculated"}});
+    });
+    liveEl.querySelectorAll("#lr-sigs li[data-sig]").forEach(li => {
+      const key = "sig:" + li.dataset.sig; if (visLive.seen.has(key)) return;
+      const sg = (plan.signals || []).find(x => x.id === li.dataset.sig) || {};
+      visLiveAdd({key, kind: "observation", label: (SEV[sg.severity] || {}).l || "Observation", value: sg.headline || "", period: "", featured: false,
+        severity: sg.severity || "", source: {excerpt: sg.text || "", rule: sg.rule || ""}});
+    });
+    liveEl.querySelectorAll(".lr-ins li[data-x]:not(.pending):not(.incoming)").forEach(li => {
+      const key = "ins:" + li.dataset.x, x = insItems[+li.dataset.x]; if (visLive.seen.has(key) || !x) return;
+      const kind = x.kind === "guide" ? "guidance" : x.kind === "holding" ? "holding" : "trade";
+      visLiveAdd({key, kind, label: x.insider || x.issuer || (kind === "guidance" ? "Guidance" : ""), value: kind === "guidance" ? (x.text || "") : (x.value || ""),
+        period: x.date || x.period || "", featured: li.classList.contains("feat"), detail: kind === "trade" ? {action: x.action, shares: x.shares, price: x.price, title: x.title}
+          : kind === "holding" ? {class: x.class, put_call: x.put_call, shares: x.shares, weight: x.weight, change: x.change} : {direction: x.direction},
+        source: {pdf_page: x.page || null, accession: x.accession || "", excerpt: x.text || ""}});
+    });
+    liveEl.querySelectorAll("tr.lr-found-row:not(.pending)").forEach(tr => {
+      const key = visLiveKey(tr); if (!key || visLive.seen.has(key)) return;
+      const v = tr.querySelector(".lr-v");
+      visLiveAdd({key, kind: "figure", label: tr.cells[0] ? (tr.cells[0].firstChild || {}).textContent || "" : "", value: v ? (v.firstChild || {}).textContent || "" : "",
+        period: ((tr.cells[0] || {}).querySelector && (tr.cells[0].querySelector("small") || {}).textContent) || "", featured: false,
+        source: {pdf_page: v && v.dataset.page ? +v.dataset.page : null}});
+    });
+  }
   function liveCellHTML(id, st){
     const c = state.live.plan.cells[id];
     if (st.state === "withdrawn") return `<span class="lr-w" title="${esc(st.reason || "")}">withdrawn</span>`;
@@ -4921,6 +5008,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         brand.logo = l; drawBrand(); return l;
       });
       const q = id => setup.querySelector("#" + id), lk = plan.look || {};
+      if (lk.live) visLiveStart(String(lk.live), plan);
       const set = (id, v) => {
         const el = q(id); if (!el || v == null) return;
         if (el.type === "checkbox") el.checked = !!v;
@@ -5823,7 +5911,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           state.flightLock = {el: q.dest, until: now + FLY_MS + 150};
           liveFollow(q.dest);
         }
-        flyFrom(q.el, q.dest, q.text, q.obs);
+        flyFrom(q.el, visLiveDest(q.dest), q.text, q.obs);
         setTimeout(() => { if (state.flightLock && state.flightLock.el === q.dest) state.flightLock = null; q.land(); pumpFlights(); }, FLY_MS - 60);
       }
     }
@@ -6296,7 +6384,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (highlights) end.classList.add("rec-highlight-ending");
       const ins = (state.readRes.insights || {}).kind === "insider" ? state.readRes.insights.summary : null;
       const specialized = (state.readRes.insights || {}).ending || rep.document_ending;
-      if (ins) end.innerHTML = insiderEnding(ins, co);
+      let visEnd = "";
+      if (visLive.on && typeof visLive.api.ending === "function"){
+        try { visEnd = visLive.api.ending(specialized || (ins ? {kind: "insider", summary: ins} : {kind: "report", report: rep, findings: kf}), co) || ""; }
+        catch (e){ console.warn("Live crawl ending:", e); }
+      }
+      if (visEnd && !(/\brk-keys\b/.test(visEnd) && /\brk-one\b/.test(visEnd))){ console.warn("Live crawl ending needs .rk-keys and .rk-one: the usual ending is shown"); visEnd = ""; }
+      if (visEnd) end.innerHTML = visEnd;
+      else if (ins) end.innerHTML = insiderEnding(ins, co);
       else if (specialized) end.innerHTML = documentEnding(specialized, co);
       else end.innerHTML = `<div class="rk-phase rk-keys"><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span></div>
           <h3>Key findings &middot; ${esc(co.name || "")}</h3>
@@ -10780,7 +10875,7 @@ Who is the auditor?</textarea>
       return {company: mk.list.company || "", manager: mk.list.manager || "", ticker: mk.list.ticker, cik: mk.list.cik, form: f.form, label: f.label, accession: f.accession || "", document: f.document || "",
         period: f.period || "", filed: f.filed || "", when: f.when || ""};
     }
-    function makeRecord(){
+    function makeRecord(extra){
       const f = !mk.file && mk.list && mk.pick != null ? mk.list.items[mk.pick] : null;
       if (!mk.file && !f){ mkSay("mk-rst", mk.list ? "Pick a form in step 2 first." : "Find a ticker's forms in step 1, or use your own document.", true); return; }
       if (mk.length !== "whole" && !(mk.length >= 10)){ mkSay("mk-rst", "Choose how long the clip is in step 4.", true); return; }
@@ -10788,6 +10883,7 @@ Who is the auditor?</textarea>
       if (mk.scope === "specific" && !mk.file && !clipScope()){ mkSay("mk-rst", "Specific findings needs the filing's findings: wait for its read, or choose Entire filing.", true); return; }
       if (brandOn() && coLogo.state === "loading"){ mkSay("mk-rst", "The company's logo is still being looked up: a moment.", true); return; }
       const plan = planOf(f);
+      if (extra && extra.look) plan.look = {...(plan.look || {}), ...extra.look};
       try { localStorage.setItem("bmg-clip-plan", JSON.stringify(plan)); } catch (e) { mkSay("mk-rst", "This browser could not keep the plan (storage full?).", true); return; }
       state.clipWin = null; state.clipFile = null;        // nothing from an earlier one-click clip goes to this window
       const opened = recordWindow(REC_URL + "&plan=1", true);
@@ -11168,7 +11264,8 @@ Who is the auditor?</textarea>
       $m("mk-b-off").addEventListener("click", () => { mk.brand = {intro: false, mini: false, report: false}; saveMk(); drawBrand(); drawPreview(); });
       $m("mk-pvph").addEventListener("click", e => { const b = e.target.closest("[data-ph]"); if (!b) return; pvPhase = b.dataset.ph; drawPreview(); });
       for (const id of ["mk-pops", "mk-q", "mk-disk"]) if ($m(id)) $m(id).addEventListener("change", look);
-      $m("mk-record").addEventListener("click", makeRecord);
+      $m("mk-record").addEventListener("click", () => makeRecord());
+      window.bmgOpenRecord = p => makeRecord({look: (p && p.look) || p || {}});     // Posting > Visuals > Live crawl: {live: "<layout id>"}
       drawForms(); drawFinding(); drawHook(); drawLen(); drawLogos(); drawPreview(); loadQuickPics();
       if (coLogo.tk !== logoTk() || coLogo.state === "none") resolveCoLogo(); else { drawCoLogo(); drawBrand(); }
       if (mk.recording && recOpen()) recStatus(state.recPhase || "setup"); else mk.recording = false;
