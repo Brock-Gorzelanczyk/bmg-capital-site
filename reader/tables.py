@@ -20,6 +20,16 @@ _YEAR = re.compile(r"\b(19|20)\d\d\b")
 _DAY_YEAR = re.compile(r"\b(\d{1,2}),((?:19|20)\d\d)\b")
 # "July 26, 2026", and NVIDIA's 10-Q header "Jul 26, 2026  Jul 27, 2025  Jul 26, 2026  Jul 27, 2025" (without the short
 # names, a "Three Months Ended  Six Months Ended" header over those dates was read as four six-month columns ending Jul 26)
+# "30-Sep-25", as Tesla prints its balance sheet columns, reads as "Sep 30, 2025"
+_DMY = re.compile(r"\b(\d{1,2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)-((?:19|20)?\d\d)\b", re.I)
+# a fiscal quarter heading a column ("Q3-2026", "3Q-2026", "Q3'26"); its end date comes from the same document (_quarter_dates)
+_QLABEL = re.compile(r"\b(?:Q([1-4])[\-\u2013' ]?((?:19|20)?\d\d)|([1-4])Q[\-\u2013' ]?((?:19|20)?\d\d))\b", re.I)
+
+
+def _dmy(line: str) -> str:
+    return _DMY.sub(lambda m: f"{m.group(2)} {int(m.group(1))}, {m.group(3) if len(m.group(3)) == 4 else '20' + m.group(3)}", line)
+
+
 _DATE = re.compile(r"\b(January|February|March|April|May|June|July|August|September|October|November|December"
                    r"|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)\.?\s+(\d{1,2}),?\s+((?:19|20)\d\d)\b")
 _CELL = re.compile(r"\(?-?\$?\d[\d,]*(?:\.\d+)?\)?%?|\$|%|\u2014|\u2013|-|N/M|n/m|NM|\*")     # N/M, *: a change not meaningful
@@ -30,6 +40,7 @@ _CAPTION = re.compile(r"\(\s*(?:unaudited[;,]?\s*)?(?:dollars |amounts |\$ )?(?:
 # the same caption without brackets, at the start of a line (Home Depot: "in millions, except per share data  Fiscal 2025 ..."):
 # only where it can be a caption, alone on its line, before an "except ..." clause or before the columns
 _CAPTION_LINE = re.compile(r"(?im)^[ \t]*(?:(?:\$[ \t]*|dollars[ \t]+|amounts[ \t]+)?in[ \t]+(millions|billions|thousands)\b"
+                           r"(?:[ \t]+of[ \t]+(?:USD|U\.?S\.?[ \t]+dollars)(?:[ \t]+or[ \t]+shares(?:[ \t]+as[ \t]+applicable)?)?)?"   # Tesla: "In millions of USD or shares as applicable"
                            r"|(millions|billions|thousands)[ \t]+of[ \t]+(?:u\.?s\.?[ \t]+)?dollars\b)"          # Chevron: "Millions of dollars  2025  2024"
                            r"((?:,?[ \t]+except\b[^\n]{0,120})?(?:[ \t]{2,}[^\n]*)?)[ \t]*$")
 # the scale as the first column header of the year line (Union Pacific: "Millions  2025  2024  2023", "Millions, Except
@@ -45,7 +56,7 @@ STATEMENTS = [
     # December 31," (an MD&A heading "Consolidated Results of Operations" on its own is not the statement)
     ("income", re.compile(r"statements? of (results of )?(operations|income|earnings)|income statements?|"     # its 10-Q: "Statement of Results of Operations"
                           r"consolidated results of operations for the (?:years?|three|six|nine|twelve|quarters?|periods?)\b", re.I)),
-    ("balance", re.compile(r"balance sheets\b|consolidated balance sheet|statements? of financial (position|condition)|consolidated financial position (?:at|as of)\b", re.I)),
+    ("balance", re.compile(r"balance sheets?\b|consolidated balance sheet|statements? of financial (position|condition)|consolidated financial position (?:at|as of)\b", re.I)),
     ("cashflow", re.compile(r"statements? of cash flows?|cash flows? statements?", re.I)),     # Microsoft: "CASH FLOWS STATEMENTS"
     ("equity", re.compile(r"statements? of (changes in )?(shareholders|stockholders|shareowners)['’]? equity|statements? of changes in equity", re.I)),   # Coca-Cola: "SHAREOWNERS'"
 ]
@@ -219,7 +230,7 @@ def header_periods(line: str, context: str) -> Optional[dict]:
     """A column header with, when a change column follows each group of periods, the "slots" of a row's cells."""
     h = _header_periods(line, context)
     if h and not h.get("slots"):
-        line = _DAY_YEAR.sub(r"\1, \2", line)
+        line = _dmy(_DAY_YEAR.sub(r"\1, \2", line))
         dates = list(_DATE.finditer(line))
         ps = [d.start() for d in dates] if len(dates) == len(h["cols"]) else [m.start() for m in _YEAR.finditer(line)]
         marks = sorted([(p, "p") for p in ps] + [(m.start(), "c") for m in _CHANGE_COL.finditer(line)])
@@ -233,8 +244,14 @@ def _header_periods(line: str, context: str) -> Optional[dict]:
     """A column header: two or more period columns. `context` is the line(s)
     just above, which may carry "Three months ended May 31"."""
     # "December 27,2025" (no space after the comma, as some inline-XBRL filings print it)
-    line = _DAY_YEAR.sub(r"\1, \2", line)
-    context = _DAY_YEAR.sub(r"\1, \2", context)
+    line = _dmy(_DAY_YEAR.sub(r"\1, \2", line))
+    context = _dmy(_DAY_YEAR.sub(r"\1, \2", context))
+    qs = list(_QLABEL.finditer(line))
+    rest = _QLABEL.sub(" ", _LINE_CAPTION.sub(" ", line))
+    if len(qs) >= 2 and not re.search(r"\d", rest) and len([w for w in re.findall(r"[A-Za-z]+", rest) if w.lower() not in ("yoy", "qoq", "change", "unaudited")]) <= 2:
+        yr = lambda m: (m.group(2) or m.group(4)) if len(m.group(2) or m.group(4)) == 4 else "20" + (m.group(2) or m.group(4))
+        cols = [{"label": f"Q{m.group(1) or m.group(3)} {yr(m)}", "end": None, "year": yr(m), "type": "Q", "fq": f"{yr(m)}-Q{m.group(1) or m.group(3)}"} for m in qs]
+        return {"cols": cols, "change_cols": bool(re.search(r"(?i)\b(?:yoy|qoq|change)\b", rest)), "text": line[:200]}
     years = [m.group(0) for m in _YEAR.finditer(line)]
     if len(years) < 2:
         return None
@@ -382,6 +399,41 @@ _PERIOD_LINE = re.compile(r"^(?:for the )?(?:(?:fiscal )?years?|three months|six
 
 
 _ROW_SCALE = {"": 1.0, "K": 1e3, "M": 1e6, "B": 1e9}
+
+
+def _quarter_dates(rows: list) -> None:
+    """Columns headed by fiscal quarters ("Q3-2025 ... Q3-2026": Tesla's update) take the end dates the same document prints
+    over its balance sheet for the same run of quarters ("30-Sep-25 ... 30-Sep-26"), column by column, when both runs step
+    one quarter at a time. Quarters that cannot be dated that way keep their printed names when each falls in its own year
+    (Q3 2026 against Q3 2025); otherwise, and for trailing-twelve-month rows printed under quarters, the rows are dropped:
+    a quarter's date is never guessed."""
+    from datetime import date
+    dated = {}
+    for r in rows:
+        ends = [c.get("end") for c in r["cols"]]
+        if r["statement"] == "balance" and len(ends) >= 2 and all(ends):
+            dated.setdefault(len(ends), ends)            # the first dated balance sheet of each width
+
+    def steps(fq, ends):
+        q = [int(x[:4]) * 4 + int(x[-1]) for x in fq]
+        d = [date.fromisoformat(e) for e in ends]
+        s = q[1] - q[0]
+        return s in (1, -1) and all(b - a == s for a, b in zip(q, q[1:])) and all(80 <= (b - a).days * s <= 100 for a, b in zip(d, d[1:]))
+    keep = []
+    for r in rows:
+        fq = [c.get("fq") for c in r["cols"]]
+        if not any(fq):
+            keep.append(r)
+            continue
+        if not all(fq) or re.search(r"\bTTM\b|trailing[ -]twelve", r["label"] + " " + r["heading"], re.I):
+            continue
+        ends = dated.get(len(fq))
+        if ends and steps(fq, ends):
+            r["cols"] = [dict(c, end=e, label=f"{_MON_ABBR[int(e[5:7]) - 1]} {int(e[8:10])}, {e[:4]}") for c, e in zip(r["cols"], ends)]
+            keep.append(r)
+        elif len({c["year"] for c in r["cols"]}) == len(fq):
+            keep.append(r)
+    rows[:] = keep
 
 
 def _date_year_columns(rows: list, doc) -> None:
@@ -673,6 +725,7 @@ def parse(doc) -> list[dict]:
     for r in rows:
         if r["table_id"] in combined:
             r["statement"] = "income"
+    _quarter_dates(rows)
     _date_year_columns(rows, doc)
     # the first registrant whose statements are printed is the filer; another registrant's
     # statements (NEE's FPL, Prologis Inc.'s operating partnership L.P.) are a subsidiary's

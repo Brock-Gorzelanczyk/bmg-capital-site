@@ -38,8 +38,9 @@ _RELEASE_Q = re.compile(r"(?i)\b(?:reports?|reported|announces?|announced)\b[^.\
 # the year first: "GATX Corporation Reports 2026 Second-Quarter Results", Apple's "results for its fiscal 2026 third quarter"
 _RELEASE_YQ = re.compile(r"(?i)\b(?:reports?|reported|announces?|announced)\b(?:[^.\n]|\.(?=\d)){0,60}?\b(fiscal[ \t]+)?((?:19|20)\d\d)[ \t\-\u2010\u2011]+"
                          r"(first|second|third|fourth)[ \t\-\u2010\u2011]+quarter\b")
-# the quarter by its end: Goldman Sachs "today reported net revenues of $18.68 billion ... for the third quarter ended September 30, 2026"
-_RELEASE_ENDED = re.compile(r"(?i)\b(?:reports?|reported|announces?|announced)\b(?:[^.\n]|\.(?=\d)|\n(?=[a-z$\d])){0,200}?\bfor (?:the|its) (first|second|third|fourth)[ \t]+quarter[ \t]+"
+# the quarter by its end: Goldman Sachs "today reported net revenues of $18.68 billion ... for the third quarter ended September 30, 2026";
+# an 8-K cover: "On October 21, 2026, Tesla, Inc. released its financial results for the quarter ended September 30, 2026"
+_RELEASE_ENDED = re.compile(r"(?i)\b(?:reports?|reported|announces?|announced|released)\b(?:[^.\n]|\.(?=\d)|\n(?=[a-z$\d])){0,200}?\bfor (?:the|its) (?:(first|second|third|fourth)[ \t]+)?quarter[ \t]+"
                             r"ended[ \t]+((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?[ \t]+\d{1,2},[ \t]+(?:19|20)\d\d)")
 
 
@@ -58,7 +59,7 @@ def _release_period(head: str):
     if m.re is _RELEASE_YQ:
         return f"{m.group(3).capitalize()} quarter {'fiscal ' if m.group(1) else ''}{m.group(2)}", m
     ended = " ".join(m.group(2).split())
-    return f"{m.group(1).capitalize()} quarter ended {ended}", m
+    return (f"{m.group(1).capitalize()} quarter" if m.group(1) else "Quarter") + f" ended {ended}", m
 
 
 _TITLE_NAME = re.compile(r"(?m)(?:^|\|)[ \t]*(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?[ \t]+\d{1,2},[ \t]+(?:19|20)\d\d[ \t]+)?"
@@ -72,7 +73,7 @@ def _company(doc) -> dict:
     head = doc.body[:15000]
     dei = getattr(doc, "dei", None) or {}
     loc = lambda m: doc.location(m.start()) if m else {}
-    name_m = re.search(r"\n([^\n]{2,90})\n\s*\(Exact name of (?:registrant|Registrant)", "\n" + head)
+    name_m = re.search(r"\n([^\n]{2,90})\n\s*\((?i:exact name of registrant)", "\n" + head)        # Tesla's 8-K: "(Exact Name of Registrant ..."
     if name_m and re.search(r"commission file|file number|^\s*\(|form 10|securities and exchange", name_m.group(1), re.I):
         name_m = None
     # the cover's own form line ("FORM 10-K", alone or folded in with the cover's other short lines), not a mention:

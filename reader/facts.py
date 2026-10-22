@@ -324,13 +324,23 @@ class FactBook:
         """Latest period first, whatever the column order: Amazon prints 2023 | 2024 | 2025.
         Periods of each length stay together, in the order their length first appears,
         so a 10-Q keeps its quarters ahead of its year-to-date columns."""
+        from datetime import date
         def per(fid):
             x = self.facts.get(fid) or self.calcs.get(fid)
             return (x or {}).get("period") or {}
         for m, ids in self.primary_periods.items():
             kinds = list(dict.fromkeys(per(i).get("type") for i in ids))
             by_end = sorted(ids, key=lambda i: str(per(i).get("end") or per(i).get("year") or ""), reverse=True)
-            self.primary_periods[m] = sorted(by_end, key=lambda i: kinds.index(per(i).get("type")))
+            order = sorted(by_end, key=lambda i: kinds.index(per(i).get("type")))
+            # five quarters in a row (Tesla's update): the same quarter a year earlier comes next, so every change and
+            # margin compares the quarter with it, as the release does, not with the quarter before
+            end = per(order[0]).get("end") if order and per(order[0]).get("type") == "Q" else None
+            ago = next((i for i in order[2:] if end and per(i).get("type") == "Q" and per(i).get("end")
+                        and 350 <= (date.fromisoformat(end) - date.fromisoformat(per(i)["end"])).days <= 380), None)
+            if ago:
+                order.remove(ago)
+                order.insert(1, ago)
+            self.primary_periods[m] = order
 
     def _xbrl(self):
         """Reconcile table facts with inline XBRL tags; fill gaps from tags."""
@@ -433,7 +443,7 @@ class FactBook:
         for r in self.rows:
             if r is own or r["unit"] != unit or not any(x.search(r["key"]) for x in rx):
                 continue
-            if re.search(r"non ?gaap|excluding|adjusted", r["full_label"].lower()):
+            if re.search(r"non[- ]?gaap|excluding|adjusted", r["full_label"].lower()):
                 continue                 # a different (non-GAAP) measure, not a restatement
             if re.search(r"segment|geograph", (r["table_title"] + " " + r["heading"]).lower()):
                 continue

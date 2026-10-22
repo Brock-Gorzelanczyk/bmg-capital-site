@@ -2111,18 +2111,21 @@ def _join_html(a: bytes, b: bytes) -> bytes:
 
 
 async def _earnings_exhibit(client, cik: int, acc: str, primary: str) -> str:
-    """The press release (exhibit 99.1) of an earnings 8-K; the 8-K itself if none is found."""
+    """The press release (exhibit 99.1) of an earnings 8-K after the 8-K's own cover, read as one document ("8-K+EX-99.1",
+    joined as a 10-K and its exhibit 13 are): the cover names the registrant, its ticker, the form and the quarter the
+    release reports, which a release made of slide images (Tesla's update) never prints as text. The 8-K itself if no
+    exhibit is found."""
     try:
         docs = (await _filing_index(client, cik, acc))["docs"]
     except httpx.HTTPError:
         docs = []
     typed = [d["document"] for d in docs if d["type"] in ("EX-99.1", "EX-99", "EX-99.01") and re.search(r"\.html?$", d["document"], re.I)]
     if typed:
-        return typed[0]
+        return _with_exhibit(primary, typed[0])
     idx = await _sec_fetch_json(f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/index.json", TTL_FILING_INDEX, client)
     names = [i.get("name", "") for i in (((idx or {}).get("directory") or {}).get("item") or [])]
     hits = [n for n in names if re.search(r"\.html?$", n, re.I) and EX99_1.search(n)]
-    return hits[0] if hits else primary
+    return _with_exhibit(primary, hits[0]) if hits else primary
 
 
 @app.get("/api/edgar/filings")
