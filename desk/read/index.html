@@ -6316,10 +6316,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const video = captureVideo();
       const shared = previewStream && previewStream.active ? previewStream : null;
       previewStream = null; document.getElementById("rec-check")?.remove(); document.querySelectorAll(".rec-mark").forEach(m => m.remove());
-      // H.264 level 4.0 (avc1.640028) allows 245,760 macroblocks a second (1080x1920 at 30 fps) and 31.25 Mbps in High
-      // profile. High quality asks for 60 fps at 32 Mbps, over both; level 4.2 (avc1.64002a) allows 522,240 and 62.5
-      // Mbps, and the Studio's export already asks for it above 30 fps. Chrome may refuse the Mac's hardware encoder
-      // for a level the take exceeds (lag audit, 2026-10-23; not yet checked on the Mac).
+      // High quality is 1080x1920 at 60 fps and 32 Mbps, which on paper needs H.264 level 4.2 (avc1.64002a; 4.0 allows
+      // 245,760 macroblocks a second and 25 Mbps in High), as the Studio's export asks above 30 fps. The level only
+      // names the stream: Chrome's recorder hands its encoder the profile alone (media_recorder_encoder_wrapper.cc), so
+      // it changes neither speed nor which encoder runs (lag audit, 2026-10-23).
       recType = [...(high ? ["video/mp4;codecs=avc1.64002a"] : []), "video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
       await askDiskFile(/mp4/.test(recType) ? "mp4" : "webm");     // first, while the click still counts as a user gesture
       // Chrome shares a tab only within a few seconds of a click: when loading the filing or choosing where to save
