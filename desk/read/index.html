@@ -706,6 +706,17 @@ body.readerfx .lr-v{font-size:15px}body.readerfx .lr-t td{padding:3px 5px}
 #rec-end .rk-one h2,#rec-end .rk-one h2 span{color:#fff!important}
 /* Touched-word outlines have their own palette, separate from highlight fills. */
 body.recmode[data-rec-palette] .stage,body.readerfx[data-rec-palette] .stage{--t1:var(--crawler-main);--t2:var(--crawler-accent);--t3:var(--crawler-main);--t4:var(--crawler-accent);--t5:var(--crawler-main)}
+/* Rainbow: each leg (and its knees and foot) in its own color, and the marks the spider leaves cycle through the rainbow. */
+html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider .leg.l0{stroke:#3de0ff!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider .leg.l1{stroke:#4d8bff!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider .leg.l2{stroke:#8a6bff!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider .leg.l3{stroke:#ff5ce1!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider .leg.l4{stroke:#4dff7a!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider .leg.l5{stroke:#ffe23d!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider .leg.l6{stroke:#ff9a2e!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider .leg.l7{stroke:#ff4d5e!important}
+html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider :is(.foot,.knee).l0{fill:#3de0ff!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider :is(.foot,.knee).l1{fill:#4d8bff!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider :is(.foot,.knee).l2{fill:#8a6bff!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider :is(.foot,.knee).l3{fill:#ff5ce1!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider :is(.foot,.knee).l4{fill:#4dff7a!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider :is(.foot,.knee).l5{fill:#ffe23d!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider :is(.foot,.knee).l6{fill:#ff9a2e!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] svg.spider :is(.foot,.knee).l7{fill:#ff4d5e!important}
+html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .stage{--t1:#ff4d5e;--t2:#ffe23d;--t3:#4dff7a;--t4:#3de0ff;--t5:#ff5ce1}
+html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] :is(.fx-fill,.fx-strip):nth-child(7n+1),html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .stage .fx-accent:nth-child(7n+1){background:#ff4d5e!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .fx-outline:nth-child(7n+1){border-color:#ff4d5e!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .fx-ink:nth-child(7n+1){color:#ff4d5e!important}
+html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] :is(.fx-fill,.fx-strip):nth-child(7n+2),html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .stage .fx-accent:nth-child(7n+2){background:#ff9a2e!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .fx-outline:nth-child(7n+2){border-color:#ff9a2e!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .fx-ink:nth-child(7n+2){color:#ff9a2e!important}
+html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] :is(.fx-fill,.fx-strip):nth-child(7n+3),html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .stage .fx-accent:nth-child(7n+3){background:#ffe23d!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .fx-outline:nth-child(7n+3){border-color:#ffe23d!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .fx-ink:nth-child(7n+3){color:#ffe23d!important}
+html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] :is(.fx-fill,.fx-strip):nth-child(7n+4),html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .stage .fx-accent:nth-child(7n+4){background:#4dff7a!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .fx-outline:nth-child(7n+4){border-color:#4dff7a!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .fx-ink:nth-child(7n+4){color:#4dff7a!important}
+html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] :is(.fx-fill,.fx-strip):nth-child(7n+5),html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .stage .fx-accent:nth-child(7n+5){background:#3de0ff!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .fx-outline:nth-child(7n+5){border-color:#3de0ff!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .fx-ink:nth-child(7n+5){color:#3de0ff!important}
+html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] :is(.fx-fill,.fx-strip):nth-child(7n+6),html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .stage .fx-accent:nth-child(7n+6){background:#4d8bff!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .fx-outline:nth-child(7n+6){border-color:#4d8bff!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .fx-ink:nth-child(7n+6){color:#4d8bff!important}
+html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] :is(.fx-fill,.fx-strip):nth-child(7n+7),html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .stage .fx-accent:nth-child(7n+7){background:#ff5ce1!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .fx-outline:nth-child(7n+7){border-color:#ff5ce1!important} html body:is(.recmode,.readerfx)[data-rec-palette="rainbow"] .fx-ink:nth-child(7n+7){color:#ff5ce1!important}
 /* Observation styling follows the crawler in popups, both report tabs and ending cards. */
 body:is(.readerfx,.recmode) .s-observation{--c:var(--crawler-main,#6ff4ff)!important}
 body:is(.readerfx,.recmode) .sev.s-observation{background:var(--crawler-main,#6ff4ff)!important;color:#05070c!important}
@@ -1629,11 +1640,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // One polyline + foot + knee per leg, created once and updated in place.
     let L = state.legEls[i];
     if (!L || !L.poly.isConnected){
-      const poly = document.createElementNS(SVG_NS, "polyline"); poly.setAttribute("class", "leg");
+      // each part carries its leg's number (l0-l7), so a colorway can color the legs one by one (Rainbow)
+      const poly = document.createElementNS(SVG_NS, "polyline"); poly.setAttribute("class", "leg l" + i);
       const mr = Math.max(1.8, 2.5 * U);
-      const foot = document.createElementNS(SVG_NS, "circle"); foot.setAttribute("class", "foot"); foot.setAttribute("r", mr);
-      const knee = document.createElementNS(SVG_NS, "circle"); knee.setAttribute("class", "knee"); knee.setAttribute("r", mr);
-      const ankle = document.createElementNS(SVG_NS, "circle"); ankle.setAttribute("class", "knee ankle"); ankle.setAttribute("r", mr);
+      const foot = document.createElementNS(SVG_NS, "circle"); foot.setAttribute("class", "foot l" + i); foot.setAttribute("r", mr);
+      const knee = document.createElementNS(SVG_NS, "circle"); knee.setAttribute("class", "knee l" + i); knee.setAttribute("r", mr);
+      const ankle = document.createElementNS(SVG_NS, "circle"); ankle.setAttribute("class", "knee ankle l" + i); ankle.setAttribute("r", mr);
       spiderSvg.append(poly, knee, ankle, foot);
       L = state.legEls[i] = {poly, foot, knee, ankle};
     }
@@ -3205,6 +3217,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   // (Posting's Look and the Crawler's step 4 both draw these)
   function spiderSwatch(p){
     const feet = [[5, 3], [3, 11], [4, 21], [8, 26], [35, 3], [37, 11], [36, 21], [32, 26]], knees = [[11, 7], [9, 12], [9, 17], [12, 21], [29, 7], [31, 12], [31, 17], [28, 21]];
+    // Rainbow-style colorways give each leg its own color. The little spider faces down the page as the real one
+    // does: its left legs, top to bottom, are legs 7 to 4 and its right legs are 3 to 0.
+    if (p.legs){
+      const lc = i => p.legs[7 - i];
+      return `<span class="mk-sw" aria-hidden="true"><svg viewBox="0 0 40 28"><path d="M20 9V0" stroke="${p.trail}" stroke-width="1.2" stroke-dasharray="1.5 1.8" fill="none"/>`
+        + `<g stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">${feet.map((f, i) => `<path stroke="${lc(i)}" d="M20 14L${knees[i][0]} ${knees[i][1]}L${f[0]} ${f[1]}"/>`).join("")}<ellipse stroke="${p.main}" cx="20" cy="14.5" rx="3.6" ry="4.6"/></g>`
+        + `<g>${feet.map((f, i) => `<circle fill="${lc(i)}" cx="${f[0]}" cy="${f[1]}" r="1.5"/>`).join("")}${knees.map((k, i) => `<circle fill="${lc(i)}" cx="${k[0]}" cy="${k[1]}" r="1"/>`).join("")}</g></svg></span>`;
+    }
     return `<span class="mk-sw" aria-hidden="true"><svg viewBox="0 0 40 28"><path d="M20 9V0" stroke="${p.trail}" stroke-width="1.2" stroke-dasharray="1.5 1.8" fill="none"/>`
       + `<g stroke="${p.main}" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">${feet.map((f, i) => `<path d="M20 14L${knees[i][0]} ${knees[i][1]}L${f[0]} ${f[1]}"/>`).join("")}<ellipse cx="20" cy="14.5" rx="3.6" ry="4.6"/></g>`
       + `<g fill="${p.accent}">${feet.map(f => `<circle cx="${f[0]}" cy="${f[1]}" r="1.5"/>`).join("")}${knees.map(k => `<circle cx="${k[0]}" cy="${k[1]}" r="1"/>`).join("")}</g></svg></span>`;
@@ -4884,7 +4904,17 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       icefire: {name: "Ice + fire", main: "#9be7ff", accent: "#ff5a2b", trail: "#e0f7ff"},
       aurora: {name: "Aurora", main: "#4dffb8", accent: "#a66bff", trail: "#66d9ff"},
       cobalt: {name: "Cobalt + amber", main: "#3d7bff", accent: "#ffb000", trail: "#9db8ff"},
-      rosegold: {name: "Rose gold", main: "#ffb59e", accent: "#ffe08a", trail: "#ff8fa3"}
+      rosegold: {name: "Rose gold", main: "#ffb59e", accent: "#ffe08a", trail: "#ff8fa3"},
+      // legs: one color per leg, by leg number (0-3 one side, 4-7 the other, front to back), so the colors run around
+      // the body in rainbow order; the body, head and report highlights use main, accent and trail as usual
+      rainbow: {name: "Rainbow", main: "#3de0ff", accent: "#ffe23d", trail: "#ff5ce1",
+        legs: ["#3de0ff", "#4d8bff", "#8a6bff", "#ff5ce1", "#4dff7a", "#ffe23d", "#ff9a2e", "#ff4d5e"]},
+      peach: {name: "Peach fizz", main: "#ffb38a", accent: "#2fe0c8", trail: "#ffd9c2"},
+      lavender: {name: "Lavender mint", main: "#c9a7ff", accent: "#7dffb2", trail: "#e8dbff"},
+      emerald: {name: "Emerald + gold", main: "#19e68c", accent: "#ffcf3d", trail: "#8ff0c4"},
+      plasma: {name: "Plasma", main: "#b44dff", accent: "#ff9a1f", trail: "#d9a3ff"},
+      raspberry: {name: "Raspberry lime", main: "#ff2d6f", accent: "#a8ff3d", trail: "#ff9fbf"},
+      blueberry: {name: "Blueberry", main: "#6f8bff", accent: "#ff9ed1", trail: "#b8c4ff"}
     };
     const PALETTE_LS = "bmg-crawler-palette" + PK;
     state.recPalettes = palettes;                                  // Posting's Make a clip offers the same colors
