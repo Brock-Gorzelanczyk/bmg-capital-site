@@ -21,6 +21,10 @@
 .stage h1{font:600 20px/1.3 ui-monospace,monospace;color:#e6e8eb;margin:0 0 16px}
 .stage p{margin:0 0 12px}
 .w{display:inline;transition:color .2s ease;word-break:break-word;overflow-wrap:anywhere}
+/* while a filing loads every word gets an empty shadow (draws nothing, moves nothing), so Blink lays it out as its own
+   inline box and keeps that box for the life of the word: a word's first outline or fill is then paint only, not a
+   relayout of the filing (~20 a second; lag audit 2026-10-23). Lowest specificity: every highlight's shadow still wins. */
+:where(#docbody.w-box) .w{box-shadow:0 0 transparent}
 /* a word's outline colour eases only while it has an outline (.touch-fade, below, still sets the fade): once the
    outline is taken off it is not drawn, and easing its colour ran 0.2 s of style work on every cleared word */
 .w:where(.touch-t1,.touch-t2,.touch-t3,.touch-t4,.touch-t5){transition:color .2s ease,outline-color .2s ease}
@@ -2848,6 +2852,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     state.currentText = text;
     // A PDF or HTML filing shows its own cover; the title line would sit over it.
     h1.textContent = state.renderDoc ? "" : headlineForDoc(ev);
+    docBody.classList.add("w-box");      // words are built as inline boxes (CSS :where(#docbody.w-box) .w)
     if (state.renderDoc){
       // Original-format rendering (PDF pages, HTML with its own styling);
       // every word still becomes a .w foothold for the spider.
@@ -2949,12 +2954,15 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
 
   function startWalk(doc_id, duration_s){
     tlReset();                                   // a new document: nothing to go back to yet
-    if (state.walkSkipped){ state.walkState = {done:true, docId:doc_id, lineIdx:0}; return; }
+    if (state.walkSkipped){ docBody.classList.remove("w-box"); state.walkState = {done:true, docId:doc_id, lineIdx:0}; return; }
     state.walkState = {done:false, docId:doc_id, lineIdx:0};
     // no mouse hit-testing over tens of thousands of word spans while the
     // page scrolls itself (restored when the walk ends)
     doc.style.pointerEvents = "none";
     holdHtmlBlocks(docBody.querySelector(".htmldoc"));
+    // after the hold (its moves rebuild word boxes while the class is on), before visualRows (its reads apply this
+    // paint-only change inside the skipped blocks too, under the start curtain)
+    docBody.classList.remove("w-box");
     const pre = state.preRows; state.preRows = null;
     const fresh = !!pre && pre.token === state.loadToken && pre.epoch === state.layoutEpoch;   // measured while a half of Compare waited, nothing moved since
     if (!fresh) bumpLayout();
@@ -8215,7 +8223,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (REDUCED || state.walkSkipped){ state.walkSkipped = true; setTimeout(() => { skipWalk(); setStatus(`ready \u00b7 ${state.panelIds.size} findings`); }, 120); }
   }
   function skipWalk(){
-    state.walkSkipped = true;
+    state.walkSkipped = true; docBody.classList.remove("w-box");
     skipBtn.hidden = true;
     if (jumpBtn) jumpBtn.hidden = true;
     if (state.walkState) stopWalk();
@@ -9003,6 +9011,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (token !== state.loadToken || !window.crawlerGo) return;
         if (state.walkSkipped){ window.crawlerGo = null; window.crawlerSync = false; state.paneHeld = false; return; }   // Skip: no walk to start
         holdHtmlBlocks(docBody.querySelector(".htmldoc"));
+        docBody.classList.remove("w-box");
         bumpLayout(); geo = null;
         state.preRows = {token, epoch: state.layoutEpoch, rows: visualRows()};
         // a Find read looks up its lines first, so the two tours set off together too
