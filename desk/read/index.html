@@ -2040,7 +2040,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   // word's box and the scroll position are therefore cached and only
   // re-measured when the layout really changes (load, resize).
   let geo = null;
-  const rectCache = new WeakMap();
+  // Each word's cached box sits on the word itself (el._rc), not in a WeakMap: a WeakMap with one entry per word
+  // (40,000-80,000 in a 10-K) is marked entry by entry as an ephemeron table in the stop-the-world end of every full
+  // garbage collection (lag audit, 2026-10-23). The box goes away with its word, as before.
+  const rectCache = {get: el => el._rc, set: (el, v) => { el._rc = v; }};
   // Where the document scrolls: its own pane on a desktop page (the wheel over the filing moves the filing, the
   // wheel anywhere else moves the page around it), the window in Record mode, the video layout and on a phone.
   // Walk positions are in that scroll's coordinates; the view is the box the walk reads in (the pane, or the window).
@@ -3714,6 +3717,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       location.reload();
     };
     const check = async () => {
+      if (document.body.classList.contains("recmode") || state.recPhase === "busy") return;   // a take: nothing reloads, so nothing to ask
       let t = null;
       try {
         const rs = await Promise.all(NEW_VERSION_FILES.map(f => fetch(f, {method: "HEAD", cache: "no-store"})));
@@ -4831,6 +4835,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-rec" || !e.source || recGone.has(e.source) || document.body.classList.contains("rec")) return;
     if (e.data.phase === "closed"){ if (state.recWin === e.source) state.recPhase = "closed"; }
     else { state.recWin = e.source; state.recPhase = e.data.phase; }
+    // The record window shares this window's main thread, so a crawl here during a take (a clip chip pressed while
+    // reading, or the Crawler tab clicked mid-take) draws its spider inside the take's frames. It waits, and goes on
+    // afterwards only if this pause was the one that stopped it (lag audit, 2026-10-23).
+    const pb = document.getElementById("ctl-pause");
+    if (e.data.phase === "busy" && walking() && !state.paused && pb && !pb.disabled){ pb.click(); state.pausedForRec = true; }
+    else if (e.data.phase !== "busy" && e.data.phase !== "setup" && state.pausedForRec){ state.pausedForRec = false; if (pb && state.paused && !pb.disabled) pb.click(); }
     recChip();
     if (state.onRecPhase) state.onRecPhase(e.data.phase);
   });
@@ -6306,7 +6316,11 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const video = captureVideo();
       const shared = previewStream && previewStream.active ? previewStream : null;
       previewStream = null; document.getElementById("rec-check")?.remove(); document.querySelectorAll(".rec-mark").forEach(m => m.remove());
-      recType = ["video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
+      // H.264 level 4.0 (avc1.640028) allows 245,760 macroblocks a second (1080x1920 at 30 fps) and 31.25 Mbps in High
+      // profile. High quality asks for 60 fps at 32 Mbps, over both; level 4.2 (avc1.64002a) allows 522,240 and 62.5
+      // Mbps, and the Studio's export already asks for it above 30 fps. Chrome may refuse the Mac's hardware encoder
+      // for a level the take exceeds (lag audit, 2026-10-23; not yet checked on the Mac).
+      recType = [...(high ? ["video/mp4;codecs=avc1.64002a"] : []), "video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
       await askDiskFile(/mp4/.test(recType) ? "mp4" : "webm");     // first, while the click still counts as a user gesture
       // Chrome shares a tab only within a few seconds of a click: when loading the filing or choosing where to save
       // took longer, one more click (it used to go on without sharing, and the take recorded nothing)
@@ -9806,14 +9820,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       for (const t of W.tickers) await check(t, false);
     }
     function start(){
-      if (timer) return;
+      if (timer || document.body.classList.contains("rec")) return;   // the record window films; it never watches the list
       try { if (window.Notification && Notification.permission === "default") Notification.requestPermission(); } catch (e) {}
       W.tickers.forEach(t => { if (!W.seen[t]) check(t, true); });
       timer = setInterval(tick, 60000); tick();
     }
     function stop(msg){ clearInterval(timer); timer = null; if (msg) say(msg); }
     // read the queue one filing at a time, only while nothing else is being read
-    function idle(){ return !runRead.disabled && !walking() && !(state.crawlFormBusy && state.crawlFormBusy()); }   // nor over a document chosen in step 1 and not yet read
+    function idle(){ return !runRead.disabled && !walking() && !(state.crawlFormBusy && state.crawlFormBusy()) && state.recPhase !== "busy"; }   // nor over a document chosen in step 1 and not yet read, nor during a take
     function pump(){
       if (busy || !queue.length || !idle()) return;
       const {j, f} = queue.shift();
@@ -10477,7 +10491,11 @@ Who is the auditor?</textarea>
         if (studio) studio.hide();
         if (visuals) visuals.hide();
         pane.hidden = true; document.body.classList.remove("av-open"); view = null; pressed("crawler");
-        if (pausedByMe){ pausedByMe = false; const pb = document.getElementById("ctl-pause"); if (pb && state.paused && !pb.disabled) pb.click(); }
+        if (pausedByMe){
+          pausedByMe = false;
+          if (state.recPhase === "busy" && state.recWin && !state.recWin.closed) state.pausedForRec = true;   // goes on when the take ends
+          else { const pb = document.getElementById("ctl-pause"); if (pb && state.paused && !pb.disabled) pb.click(); }
+        }
         if (/^#(news|posting|studio|make|posts|visuals)$/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
         return;
       }
