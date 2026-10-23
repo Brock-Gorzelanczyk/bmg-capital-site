@@ -397,6 +397,7 @@ body.pics-edit .rp-pic .rp-size{display:block;position:absolute;right:-10px;bott
 .rec-palette-preview i{display:inline-block;width:16px;height:16px;border-radius:50%;background:var(--swatch);box-shadow:0 0 9px var(--swatch)}
 .rec-palette-preview .cp-m{--swatch:var(--pm)}.rec-palette-preview .cp-a{--swatch:var(--pa)}.rec-palette-preview .cp-t{--swatch:var(--pt)}
 #new-version,#nv-done{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:#0b0d12;color:#e9eef4;border:1px solid #2fd27a;box-shadow:0 6px 24px rgba(0,0,0,.45);font:14px 'IBM Plex Sans',sans-serif;max-width:calc(100vw - 32px)}
+#lag-note{position:fixed;left:16px;bottom:16px;z-index:9999;max-width:min(560px,calc(100vw - 32px));padding:9px 12px;border-radius:10px;background:#0b0d12;color:#e9eef4;border:1px solid #2a3340;font:12px/1.4 'IBM Plex Mono',monospace}
 #new-version button{font:inherit;padding:5px 12px;border-radius:7px;border:0;background:#2fd27a;color:#05070c;cursor:pointer}#new-version .nv-later{background:transparent;color:#9aa6b1;border:1px solid #39434f}
 .cp-stage{position:relative;width:min(100%,460px);aspect-ratio:320/132;border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.08);contain:layout paint;isolation:isolate}
 .cp-layer,.cp-rig{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
@@ -4818,6 +4819,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     recChipEl.hidden = false;
     if (!recChipTimer) recChipTimer = setInterval(recChip, 1000);
   }
+  // the record window's lag log for the take it just finished: one line here for a few seconds (the record window closes)
+  addEventListener("message", e => {
+    if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-lag" || !e.data.summary || document.body.classList.contains("rec")) return;
+    const sm = e.data.summary, n = document.createElement("div"); n.id = "lag-note"; n.setAttribute("role", "status");
+    n.textContent = `Last take: ${sm.fps} fps while reading, ${sm.over50} frames over 50 ms, ${sm.over100} over 100 ms (longest ${Math.round(sm.worst)} ms)`
+      + (sm.capture ? `; video gaps over 100 ms: ${sm.capture.gaps100}` : "") + (sm.saved ? `. Lag log: ${sm.saved}` : "");
+    document.getElementById("lag-note")?.remove(); document.body.appendChild(n); setTimeout(() => n.remove(), 15000);
+  });
   addEventListener("message", e => {
     if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-rec" || !e.source || recGone.has(e.source) || document.body.classList.contains("rec")) return;
     if (e.data.phase === "closed"){ if (state.recWin === e.source) state.recPhase = "closed"; }
@@ -6341,6 +6350,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       state.captureQuality = {...actual, requestedQuality: high ? "high" : "standard", encoderBitsPerSecond: rec.videoBitsPerSecond || null};
       rec.ondataavailable = e => {
         if (!e.data || !e.data.size) return;
+        if (state.lag && state.lag.on && state.lag.chunks.length < 3000) state.lag.chunks.push([Math.round(performance.now() - state.lag.t0), e.data.size]);
         if (diskWriter){
           const part = e.data;
           diskChain = diskChain.then(async () => {
@@ -6395,6 +6405,81 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // frame, which showed in posted clips (Palantir's 10-K, 2026-10-21). Each hitch over 0.05 s is noted in the take's
     // own time (the recorder's running time, holds left out) and the Studio cuts it, a frame kept. The crawl steps at
     // most 0.05 s a frame, so after a freeze the spider goes on from where it stood and the cut does not show.
+    // -- Lag log: how smoothly this take really ran, on the machine that ran it (Brock's Mac draws and encodes on hardware
+    // that no test machine has). Timings only: every frame interval while the spider reads, each frame over 50 ms with
+    // the code that ran in it (long-animation-frame entries), gaps in the captured video, and the recorder's chunks.
+    // Nothing on screen or in the video changes. When the take ends it goes to the local server, which keeps it in the
+    // vault's site/server/lag-logs/, and one line of it shows under the finished take (after the recording stops).
+    const lag = state.lag = {on: false, done: false, t0: 0, last: 0, iv: [], pos: [], loaf: [], cap: {n: 0, last: 0, gaps: []}, chunks: [], env: null};
+    const lagBusy = () => window.bmgRec && window.bmgRec.phase === "busy" && walking() && !state.paused && !document.hidden
+      && !document.getElementById("rec-curtain") && !document.getElementById("rec-end");
+    const lagEnv = () => ({at: new Date().toISOString(), ua: navigator.userAgent, dpr: window.devicePixelRatio || 1, win: [innerWidth, innerHeight],
+      screen: [screen.width, screen.height], cores: navigator.hardwareConcurrency || 0, memoryGB: navigator.deviceMemory || 0,
+      heapMB: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null, capture: state.captureQuality || null});
+    function lagTick(t){
+      if (lag.done) return;
+      if (lagBusy()){
+        if (!lag.on){
+          lag.on = true; lag.t0 = t;
+          setTimeout(() => {                                       // read the machine's details outside the frame
+            lag.env = lagEnv();
+            if (navigator.getBattery) navigator.getBattery().then(b => { lag.battery = {charging: b.charging, level: b.level}; }).catch(() => {});
+          }, 0);
+        }
+        if (lag.last){
+          lag.iv.push(Math.round((t - lag.last) * 10) / 10);
+          if (lag.iv.length % 30 === 0) lag.pos.push([Math.round(t - lag.t0), Math.round(state.scrollPos || 0)]);   // where in the filing, twice a second
+        }
+        lag.last = t;
+      } else lag.last = 0;
+      requestAnimationFrame(lagTick);
+    }
+    if (typeof isRecord !== "undefined" && isRecord){             // (the recording tests run this part of the page on its own)
+      requestAnimationFrame(lagTick);
+      try {
+        new PerformanceObserver(list => {
+          if (!lag.on || lag.done) return;
+          for (const e of list.getEntries()){
+            if (e.duration < 50 || lag.loaf.length >= 600) continue;
+            lag.loaf.push({t: Math.round(e.startTime - lag.t0), dur: Math.round(e.duration), block: Math.round(e.blockingDuration || 0),
+              render: e.renderStart ? Math.round(e.startTime + e.duration - e.renderStart) : 0,
+              styleLayout: e.styleAndLayoutStart ? Math.round(e.startTime + e.duration - e.styleAndLayoutStart) : 0,
+              scripts: (e.scripts || []).slice(0, 4).map(x => [x.sourceFunctionName || "", (x.sourceURL || "").split("/").pop().slice(0, 40),
+                (x.invoker || "").slice(0, 60), Math.round(x.duration), Math.round(x.forcedStyleAndLayoutDuration || 0)])});
+          }
+        }).observe({type: "long-animation-frame", buffered: false});
+      } catch (e) { /* this browser does not report long frames: the intervals still tell the story */ }
+    }
+    function lagSummary(){
+      const v = lag.iv, n = v.length;
+      if (!n) return null;
+      const s = v.slice().sort((a, b) => a - b), q = f => s[Math.min(n - 1, Math.floor(f * (n - 1)))], tot = v.reduce((a, b) => a + b, 0);
+      const per = []; let acc = 0, row = null;                     // every 10 s of reading
+      for (const x of v){
+        acc += x; const b = Math.floor(acc / 10000);
+        if (!row || row.b !== b){ row = {b, n: 0, ms: 0, o33: 0, o50: 0, o100: 0}; per.push(row); }
+        row.n++; row.ms += x; if (x > 33.5) row.o33++; if (x > 50) row.o50++; if (x > 100) row.o100++;
+      }
+      const g = lag.cap.gaps;
+      return {secs: +(tot / 1000).toFixed(1), frames: n, fps: +(1000 * n / tot).toFixed(1), p50: q(.5), p95: q(.95), p99: q(.99), worst: s[n - 1],
+        over25: v.filter(x => x > 25).length, over33: v.filter(x => x > 33.5).length, over50: v.filter(x => x > 50).length, over100: v.filter(x => x > 100).length,
+        per10s: per.map(r => [r.b * 10, +(1000 * r.n / r.ms).toFixed(1), r.o33, r.o50, r.o100]), longFrames: lag.loaf.length,
+        capture: lag.cap.n ? {frames: lag.cap.n, gaps50: g.length, gaps100: g.filter(x => x[1] > 100).length, worst: g.reduce((m, x) => Math.max(m, x[1]), 0)} : null};
+    }
+    // the finished take's log to the local server; resolves to the summary (or null), never throws
+    async function lagSend(meta){
+      if (!lag.on || lag.done) return null;
+      lag.done = true;
+      const summary = lagSummary();
+      if (!summary) return null;
+      const body = {summary, env: lag.env, endHeapMB: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null,
+        battery: lag.battery || null, ...meta, intervals: lag.iv, positions: lag.pos, longFrames: lag.loaf, captureGaps: lag.cap.gaps, chunks: lag.chunks};
+      try {
+        const r = await fetch("/api/lag-log", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+        if (r.ok) summary.saved = (await r.json()).path || "";
+      } catch (e) { /* no local server (a static copy of the site): the line under the take still shows */ }
+      return summary;
+    }
     const freezes = []; let fzLast = 0, fzRun = 0;
     const takeNow = () => fzRun + (fzLast && rec && rec.state === "recording" ? performance.now() - fzLast : 0);
     function freezeWatch(t){
@@ -6417,6 +6502,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           const {value: f, done} = await reader.read();
           if (done) break;
           const ts = f.timestamp / 1000; f.close();
+          if (lag.on && !lag.done){ lag.cap.n++; if (lag.cap.last && ts - lag.cap.last > 50 && lag.cap.gaps.length < 600) lag.cap.gaps.push([Math.round(performance.now() - lag.t0), Math.round(ts - lag.cap.last)]); lag.cap.last = ts; }
           if (!rec || rec.state === "inactive") break;
           const reading = rec.state === "recording" && walking() && !state.paused;
           if (last && reading && ts - last > 50){ const e = takeNow(); freezes.push([Math.max(0, e - (ts - last)) / 1000, e / 1000]); }
@@ -6614,6 +6700,19 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         bar.appendChild(details);
       }
       const pl = setup.querySelector("#rec-format")?.value === "plan" ? plan : null;
+      // how smoothly the take ran (the lag log goes to the local server); the line is added under the take, which is no
+      // longer being recorded
+      lagSend({filing: {ticker: co.ticker || co.ticker_hint || "", form: co.form || "", name: co.name || "", title: (state.readRes && state.readRes.title) || ""},
+        plan: pl ? {speed: pl.speed, ramp: pl.ramp || null, length: pl.length, scope: pl.scope, look: pl.look || null} : null, recorded: !!blob, quality: state.takeQuality || null})
+        .then(sm => {
+          if (!sm) return;
+          try { const o = window.opener; if (o && !o.closed) o.postMessage({type: "bmg-lag", summary: sm}, location.origin); } catch (e) {}   // this window closes soon
+          if (!bar.isConnected) return;
+          const ln = document.createElement("small"); ln.className = "rf-lag"; ln.style.display = "block";
+          ln.textContent = `Smoothness while reading: ${sm.fps} fps, ${sm.over50} frames over 50 ms, ${sm.over100} over 100 ms (longest ${Math.round(sm.worst)} ms)`
+            + (sm.capture ? `; video gaps over 100 ms: ${sm.capture.gaps100}` : "") + (sm.saved ? ` \u00b7 lag log saved: ${sm.saved}` : "");
+          bar.appendChild(ln);
+        });
       if (pl){
         const fl = document.createElement("small"); fl.className = "rf-filing"; fl.style.display = "block";
         fl.textContent = [filingWords(pl.filing), planExcerpt(pl) ? "An excerpt, not the whole filing" : `The entire ${pl.source === "custom" ? "document" : "filing"}, cover to final line`].filter(Boolean).join(" \u00b7 ");

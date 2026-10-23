@@ -3673,6 +3673,43 @@ async def posting_draft_md(did: str):
                     headers={"Content-Disposition": f'attachment; filename="{name}"', "Cache-Control": "no-store"})
 
 
+@app.post("/api/lag-log")
+async def lag_log(request: Request):
+    """A finished take's lag log from the record window (timings only: frame intervals, frames over 50 ms with the code
+    that ran in them, capture gaps, recorder chunks). Kept in the vault's site/server/lag-logs/ so a cloud or Codex
+    session can read how the take ran on this Mac; in the local data folder when no vault is found. Never overwrites."""
+    denied = _local_only("The lag log")
+    if denied:
+        return denied
+    raw = await request.body()
+    if len(raw) > 4_000_000:
+        return JSONResponse(status_code=413, content={"error": "The lag log is too large."})
+    try:
+        body = json.loads(raw)
+    except ValueError:
+        return JSONResponse(status_code=400, content={"error": "The lag log is not JSON."})
+    if not isinstance(body, dict) or not isinstance(body.get("summary"), dict):
+        return JSONResponse(status_code=400, content={"error": "The lag log has no summary."})
+    filing = body.get("filing") if isinstance(body.get("filing"), dict) else {}
+    tick = re.sub(r"[^A-Z0-9.]", "", str(filing.get("ticker") or "").upper())[:10] or "take"
+    form = re.sub(r"[^A-Za-z0-9-]", "", str(filing.get("form") or ""))[:12]
+    try:
+        import subprocess
+        body["site_commit"] = subprocess.run(["git", "-C", str(Path(__file__).parent), "rev-parse", "--short", "HEAD"],
+                                             capture_output=True, text=True, timeout=5).stdout.strip()
+    except Exception:
+        body["site_commit"] = ""
+    repo = _vault_repo()
+    folder = repo / "site" / "server" / "lag-logs" if repo else _desk_dir("lag-logs")
+    folder.mkdir(parents=True, exist_ok=True)
+    base = time.strftime("%Y-%m-%d-%H%M%S") + "-" + tick + ("-" + form if form else "")
+    path, k = folder / f"{base}.json", 2
+    while path.exists():
+        path, k = folder / f"{base}-{k}.json", k + 1
+    path.write_text(json.dumps(body, indent=1), encoding="utf-8")
+    return {"path": str(path.relative_to(repo)) if repo else str(path)}
+
+
 @app.post("/api/posting/drafts/{did}/vault")
 async def posting_draft_to_vault(did: str):
     """Write the draft as a new file in the vault's social/drafts/ (never over an existing file; a new name instead)."""
