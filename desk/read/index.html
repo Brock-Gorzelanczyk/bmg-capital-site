@@ -2050,9 +2050,46 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   const docScroll = document.getElementById("doc-scroll");
   const wideMQ = matchMedia("(min-width:901px)");
   const paneOn = () => !!docScroll && wideMQ.matches && !document.body.classList.contains("rec") && !document.body.classList.contains("recmode");
+  // Record window: only the held boxes near the screen are drawn (lag audit 2026-10-23, cv-band). Chrome draws every
+  // content-visibility:auto box within 1.5 views above and below the screen; at the record window's zoom that is about
+  // 8 pages of filing in the page's own layer, which the word effects change every frame, so all of it is painted and
+  // layered again every frame. A held box wholly more than CV_BAND views off screen is set to content-visibility:hidden:
+  // the same skipped box at the same size (its contain-intrinsic-size is left as it is), so no word moves. V.to sets it
+  // back to auto before the frame that shows it, and Chrome answers a box it starts observing synchronously, inside that
+  // frame. A smooth jump, a scroll the camera did not make and letting go of the held blocks set every box back to auto.
+  const CV_BAND = 0.5, cvBand = {list: null, y: null, raw: null, w: null};
+  function cvBandAll(){
+    cvBand.y = cvBand.raw = null;
+    if (cvBand.list) for (const b of cvBand.list) if (b.hid){ b.hid = false; b.k.style.contentVisibility = "auto"; }
+  }
+  function cvBandBuild(){              // right after the walk measured the filing: one read per box, layout clean
+    cvBandAll(); cvBand.list = null; cvBand.w = null;
+    const w = docBody.querySelector(".htmldoc");
+    if (!document.body.classList.contains("rec") || !w || !w.dataset.held) return;
+    const d = doc.getBoundingClientRect(), list = [];
+    for (const k of w.getElementsByClassName("cv-held")){
+      const r = k.getBoundingClientRect();
+      list.push({k, y0: r.top - d.top, y1: r.bottom - d.top, hid: k.style.contentVisibility === "hidden"});
+    }
+    if (list.length){ cvBand.list = list; cvBand.w = w; }
+  }
+  function cvBandAt(y){                 // y: where the camera is about to scroll the window
+    if (!cvBand.w.isConnected || !cvBand.w.dataset.held){ cvBand.list = null; cvBand.y = cvBand.raw = null; return; }
+    if (cvBand.raw != null && Math.abs(y - cvBand.raw) < 16) return;
+    cvBand.raw = y;
+    // the browser clamps the scroll to the page; the band is drawn around the clamped place (live height: the
+    // scrollTo just after this lays the page out anyway)
+    const vh = innerHeight, at = cvBand.y = Math.max(0, Math.min(y, document.documentElement.scrollHeight - vh));
+    const m = vh * CV_BAND, top = at - docGeo().absTop - m, bot = top + vh + 2 * m;
+    for (const b of cvBand.list){
+      const hid = b.y1 < top || b.y0 > bot;
+      if (hid !== b.hid){ b.hid = hid; b.k.style.contentVisibility = hid ? "hidden" : "auto"; }
+    }
+  }
   const V = {
     y(){ return paneOn() ? docScroll.scrollTop : window.scrollY; },
     to(y, smooth){
+      if (cvBand.list){ if (smooth) cvBandAll(); else cvBandAt(y); }   // Record window: the drawn band (cv-band)
       if (paneOn()){ if (smooth) docScroll.scrollTo({top: y, behavior: "smooth"}); else { docScroll.scrollTop = y; state.camWrote = y; } }
       else if (smooth) window.scrollTo({top: y, behavior: "smooth"});
       else window.scrollTo(0, y);
@@ -2065,7 +2102,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   };
   window.crawlerScrollY = () => V.y();                // the perf and QA scripts read the document's scroll here
   state.sy = state.wy = window.scrollY;
-  addEventListener("scroll", () => { state.wy = window.scrollY; if (!paneOn()) state.sy = state.wy; }, {passive: true});
+  addEventListener("scroll", () => { state.wy = window.scrollY; if (!paneOn()) state.sy = state.wy; if (cvBand.y != null && Math.abs(state.wy - cvBand.y) > innerHeight * CV_BAND / 2) cvBandAll(); }, {passive: true});   // a scroll the camera did not make: every box drawable again
   // A scroll of the pane that the camera did not write (wheel, trackpad, keys, the scrollbar, a smooth jump to a
   // finding) is the reader's: the camera yields for a moment, as it does for a wheel in the window layout. A write
   // the browser held back at the bottom of the document is still the camera's.
@@ -2925,6 +2962,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     clearTimeout(state.walkTimer);
     const rows = fresh ? pre.rows : visualRows();
     state.rows = rows;
+    cvBandBuild(); if (cvBand.list) cvBandAt(state.sy);
     if (!rows.length){ state.walkState.done = true; walkFinished(); return; }
     const perRow = Math.max(120, Math.min(900, (duration_s * 1000) / rows.length));
     let i = 0;
@@ -3635,6 +3673,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     }
   }
   function releaseHtmlBlocks(wrap){
+    cvBand.list = null; cvBand.y = cvBand.raw = null;      // the band lets go first; every box goes back to "" below
     if (!wrap || !wrap.dataset.held) return;
     delete wrap.dataset.held;
     for (const k of [...wrap.getElementsByClassName("cv-held")]){ k.style.contentVisibility = ""; k.style.containIntrinsicSize = ""; k.classList.remove("cv-held"); }
@@ -3668,7 +3707,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     fitHtml(w);
     if (held){
       clearTimeout(rehold);
-      rehold = setTimeout(() => { rehold = 0; if (w.isConnected){ holdHtmlBlocks(w); bumpLayout(); geo = null; } }, 400);
+      rehold = setTimeout(() => { rehold = 0; if (w.isConnected){ holdHtmlBlocks(w); bumpLayout(); geo = null; if (state.rows){ cvBandBuild(); if (cvBand.list) cvBandAt(state.sy); } } }, 400);
     }
     if (w.dataset.fit !== before || held){ bumpLayout(); geo = null; }
   });
