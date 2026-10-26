@@ -572,8 +572,14 @@ class FactBook:
             return
         same_t = [r for r in bal if r.get("table_id") == nci.get("table_id")]
         tl = [r["row_index"] for r in same_t if re.match(r"^total liabilities$", r["key"]) and r["row_index"] < nci["row_index"]]
-        floor = tl[-1] if tl else -1          # the equity section starts below total liabilities
-        before = [r for r in same_t if floor < r["row_index"] < nci["row_index"] and r["key"].startswith("total")
+        # the equity section starts below total liabilities; a condensed balance sheet (an earnings release) may print no
+        # total liabilities line, and then it starts at its first equity line, never at the top of the table (Trinity's
+        # release: the unlabeled property total above was read as the parent's equity)
+        eq_start = next((r["row_index"] for r in same_t if r["row_index"] < nci["row_index"] and re.search(r"equity", r["key"])
+                         and not re.search(r"liabilit", r["key"])), None)
+        floor = tl[-1] if tl else (eq_start - 1 if eq_start is not None else nci["row_index"])
+        parent_named = re.compile(r"(?:stock|share)holders?\W*s?\W*equity$")      # "Trinity stockholders' equity"
+        before = [r for r in same_t if floor < r["row_index"] < nci["row_index"] and (r["key"].startswith("total") or parent_named.search(r["key"]))
                   and (re.search(r"equity", r["key"]) or r.get("unlabeled_total")) and not re.search(r"liabilit|debt|recourse", r["key"])]
         after = [r for r in same_t if r["row_index"] > nci["row_index"] and r["key"].startswith("total") and re.search(r"equity", r["key"])
                  and not re.search(r"liabilit", r["key"])]
@@ -731,9 +737,9 @@ class FactBook:
         the figure (Coca-Cola: "(assuming for these purposes, but without conceding, that all executive officers ...)");
         it never crosses a full stop or another dollar sign."""
         head = self.doc.body[:20000]
-        m = re.search(r"aggregate market value of (?:the )?(?:[\w\u2019'-]+[ \t]+){0,4}?(?:stock|equity|shares)\b[^.$]{0,400}?\$\s?([\d,]+(?:\.\d+)?)\s*(billion|million|thousand)?", head, re.I | re.S)
+        m = re.search(r"aggregate market value of (?:the )?(?:[\w\u2019'-]+[ \t]+){0,4}?(?:stock|equity|shares)\b[^.$]{0,400}?\$\s?([\d,]+(?:\.\d+)?)\s*(trillion|billion|million|thousand)?", head, re.I | re.S)
         if m:
-            v = float(m.group(1).replace(",", "")) * {"billion": 1e9, "million": 1e6, "thousand": 1e3}.get((m.group(2) or "").lower(), 1)
+            v = float(m.group(1).replace(",", "")) * {"trillion": 1e12, "billion": 1e9, "million": 1e6, "thousand": 1e3}.get((m.group(2) or "").lower(), 1)
             sent_start = head.rfind("\n", 0, m.start()) + 1
             dm = re.search(r"(?:as of|on|at) ([A-Z][a-z]+ \d{1,2}, \d{4})", head[m.start() - 300 if m.start() > 300 else 0:m.end()])
             loc = self.doc.location(m.start())

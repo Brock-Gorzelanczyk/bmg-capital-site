@@ -86,6 +86,8 @@ class JobManager:
         self.lock = threading.Lock()
         self.pool = ThreadPoolExecutor(max_workers=MAX_RUNNING, thread_name_prefix="reader")
         self.library = None    # a library.Library on the owner's Mac: saves finished reads, reopens them instantly
+        self.brain_vault = None    # the vault folder on the owner's Mac: each finished read is filed in its brain/ (reader/brain.py)
+        self.brain_source = None   # sha256 -> the SEC filing it was downloaded from (accession, URL), if the server fetched it
 
     # ------------------------------------------------------------------
     def _sweep(self):
@@ -130,6 +132,11 @@ class JobManager:
                 detail = {**(original.get(stage) or {}), "state": "done", "saved": True}
                 job.stages[stage] = detail
                 job.emit("stage", {"stage": stage, **detail})
+            if self.brain_vault:          # a read saved before the brain existed is filed now; one it already has is "seen before".
+                job.state = "running"     # Filing runs on the pool, never on the web server's thread
+                self.pool.submit(self._reopen, job, saved)
+                log.info("reader job %s reopened from My reads; filing it in the brain", job.id[:8])
+                return job, False
             self._finish(job, saved)
             log.info("reader job %s reopened from My reads", job.id[:8])
             return job, False
@@ -172,7 +179,10 @@ class JobManager:
             return job.cancel_flag.is_set()
 
         try:
-            res = pipeline.run(data, job.kind, job.title, job.ticker, progress=progress, cancelled=cancelled, company=job.company)
+            res = pipeline.run(data, job.kind, job.title, job.ticker, progress=progress, cancelled=cancelled, company=job.company,
+                               brain_vault=self.brain_vault)
+            if self.brain_vault:
+                self._learn(job, res)
             self._finish(job, res)
             if self.library:
                 try:
@@ -200,6 +210,38 @@ class JobManager:
             log.exception("reader job %s crashed at %s", job.id[:8], job.stage)
         finally:
             del data
+
+    def _reopen(self, job: Job, saved: dict):
+        try:
+            self._learn(job, saved)
+        finally:
+            self._finish(job, saved)
+
+    def _learn(self, job: Job, res: dict):
+        """File the finished read in the brain before the job reports done, so the result carries what changed. The
+        written reading by Claude (when a key is set) runs afterwards on its own thread and never delays the read."""
+        from . import brain
+        try:
+            src = (self.brain_source(res.get("sha256")) if self.brain_source else None) or {}
+            extra = brain.meta_from_title(job.title, job.ticker, job.company, src)
+            out = brain.learn(self.brain_vault, res, extra, think=False)
+            res["brain"] = brain.compact(out)
+            if out.get("status") == "learned" and brain.model_on():
+                res["brain"]["reading"] = {**(res["brain"].get("reading") or {}), "pending": True}
+                threading.Thread(target=self._think, args=(job, out, extra, res["brain"]), daemon=True, name="brain-think").start()
+        except Exception as e:                 # the brain never costs a read its report
+            log.exception("brain learn failed for job %s", job.id[:8])
+            res["brain"] = {"status": "error", "reason": f"The brain could not file this read ({e.__class__.__name__})."}
+
+    def _think(self, job: Job, out: dict, extra: dict, b: dict):
+        """b is the job result's brain entry (the result may not be set yet when this thread starts)."""
+        from . import brain
+        try:
+            reading = brain.think_later(self.brain_vault, out, extra)
+            b["reading"] = reading
+        except Exception as e:
+            log.exception("brain reading failed for job %s", job.id[:8])
+            b["reading"] = {**(b.get("reading") or {}), "pending": False, "note": f"Claude's reading failed ({e.__class__.__name__}); fixed-rule reading shown."}
 
     def _finish(self, job: Job, res: dict):
         job.result = res

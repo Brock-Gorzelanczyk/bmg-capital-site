@@ -22,7 +22,9 @@ from pathlib import Path
 from typing import Optional
 
 _HERE = Path(__file__).resolve().parent
-VERSION = hashlib.sha256(b"".join(p.read_bytes() for p in sorted(_HERE.glob("*.py")))).hexdigest()[:16]
+# the brain's modules (brain.py, brain_pages.py) file a finished read and never change it, so they are not part of the
+# version: a change to them does not make every saved read be read again
+VERSION = hashlib.sha256(b"".join(p.read_bytes() for p in sorted(_HERE.glob("*.py")) if not p.name.startswith("brain"))).hexdigest()[:16]
 
 
 class Library:

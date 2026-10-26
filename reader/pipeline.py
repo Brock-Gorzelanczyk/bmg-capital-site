@@ -50,7 +50,7 @@ def _claims(doc) -> list[dict]:
 
 def run(data: bytes, kind: str, title: str, ticker: Optional[str] = None,
         progress: Callable[[str, dict], None] = lambda s, d: None,
-        cancelled: Callable[[], bool] = lambda: False, company: Optional[str] = None) -> dict:
+        cancelled: Callable[[], bool] = lambda: False, company: Optional[str] = None, brain_vault=None) -> dict:
     timings = {}
 
     def stage(name: str):
@@ -73,7 +73,17 @@ def run(data: bytes, kind: str, title: str, ticker: Optional[str] = None,
     co = report._company(doc)
     prof, scores = profiles.profile_for(doc)
     br = signals.brief(co, prof, scores)
-    done("Identify", t, company=co.get("name"), ticker=co.get("ticker") or ticker, form=co.get("form"), profile=prof, brief=br)
+    mem = None
+    if brain_vault and (co.get("ticker") or ticker):
+        # what the Crawler already knows about this company, sent with the brief before any figure is read (in the stage
+        # event only: the report itself, which videos copy, carries none of it)
+        try:
+            from . import brain
+            mem = brain.recall(brain_vault, co.get("ticker") or ticker, co.get("form"))
+        except Exception:
+            mem = None
+    done("Identify", t, company=co.get("name"), ticker=co.get("ticker") or ticker, form=co.get("form"), profile=prof, brief=br,
+         **({"memory": mem} if mem else {}))
 
     t = stage("Extract")
     rows = tables.parse(doc)

@@ -2355,7 +2355,25 @@ async def edgar_document(cik: int, accession: str, document: str):
         return JSONResponse(status_code=413, content={"error": f"The filing is {len(data) / 1e6:.1f} MB; the limit is {CHECK_MAX_BYTES // 1048576} MB."})
     last = parts[-1].lower()
     kind = "application/pdf" if last.endswith(".pdf") else "text/plain" if last.endswith(".txt") else "text/html; charset=utf-8"
+    _remember_edgar_source(data, cik, accession, parts)
     return Response(content=data, media_type=kind, headers={"Cache-Control": "no-store"})
+
+
+# The SEC filing behind each document this server downloaded, by the bytes' SHA-256: the brain files a read under its
+# filing (accession and URL) when the page reads a document it loaded from EDGAR. Kept in memory, last 500 only.
+_EDGAR_SOURCES: dict = {}
+
+
+def _remember_edgar_source(data: bytes, cik: int, accession: str, parts: list) -> None:
+    """The SEC address of a downloaded filing, for the brain's citations. A read joined from two documents (an 8-K's
+    cover and its press release, a 10-K and its exhibit 13) links the filing's index page, which lists both: a page
+    of the joined read may be in either document."""
+    sha = hashlib.sha256(data).hexdigest()
+    base = f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession.replace('-', '')}/"
+    _EDGAR_SOURCES[sha] = {"cik": cik, "accession": accession, "document": "+".join(parts),
+                           "url": base + parts[0] if len(parts) == 1 else f"{base}{accession}-index.htm"}
+    while len(_EDGAR_SOURCES) > 500:
+        _EDGAR_SOURCES.pop(next(iter(_EDGAR_SOURCES)))
 
 
 # ----------------------------------------------------------------------
@@ -3794,6 +3812,17 @@ if os.environ.get("BMG_LOCAL") == "1":
         _jobs_for_library.MANAGER.library = _READS_LIBRARY
     except Exception:
         log.exception("My reads library unavailable")
+    # The brain (reader/brain.py): each finished read is filed under its company in the vault's brain/ folder, and the
+    # next read of that company starts from what it knows. Off with BMG_BRAIN=0, or when no vault folder is found.
+    if os.environ.get("BMG_BRAIN", "1") != "0":
+        try:
+            from reader import jobs as _jobs_for_brain
+            _jobs_for_brain.MANAGER.brain_vault = _vault_repo()
+            _jobs_for_brain.MANAGER.brain_source = lambda sha: _EDGAR_SOURCES.get(sha or "")
+            if _jobs_for_brain.MANAGER.brain_vault:
+                log.info("Crawler brain on: %s", _jobs_for_brain.MANAGER.brain_vault / "brain")
+        except Exception:
+            log.exception("Crawler brain unavailable")
 
 
 @app.get("/api/reads")
@@ -4124,7 +4153,48 @@ async def reader_job_result(request: Request, job_id: str) -> JSONResponse:
     r = j.result
     return JSONResponse(content={"job": j.public(), "report": r["report"], "findings": r["report"]["findings"],
                                  "text": r["text"], "title": r["title"], "kind": r["kind"], "sha256": r["sha256"], "pages": r["pages"],
-                                 "insights": r.get("insights")})
+                                 "insights": r.get("insights"), "brain": r.get("brain")})
+
+
+@app.get("/api/read/jobs/{job_id}/brain")
+async def reader_job_brain(request: Request, job_id: str) -> JSONResponse:
+    """What this read added to the brain: what the brain expected, what changed, thresholds, and the machine reading
+    (Claude's, once it is written, else the fixed-rule one). Owner's Mac only."""
+    if os.environ.get("BMG_LOCAL") != "1":
+        return JSONResponse(status_code=403, content={"error": "The brain is on the local Crawler only."})
+    j = _job_or_404(request, job_id, None)
+    if j.state != "done":
+        return JSONResponse(status_code=409, content={"error": f"The job is {j.state}."})
+    b = (j.result or {}).get("brain")
+    if not b:
+        return JSONResponse(content={"status": "off", "reason": "The brain did not file this read (no vault folder was found, or BMG_BRAIN=0)."})
+    return JSONResponse(content=b)
+
+
+@app.get("/api/brain")
+async def brain_index() -> JSONResponse:
+    """The companies the brain knows, with their last read. Owner's Mac only."""
+    if os.environ.get("BMG_LOCAL") != "1":
+        return JSONResponse(status_code=403, content={"error": "The brain is on the local Crawler only."})
+    from reader import brain as _brain
+    v = _vault_repo()
+    if not v:
+        return JSONResponse(status_code=404, content={"error": "The vault folder was not found. Set BMG_VAULT_REPO to the vault's folder."})
+    return JSONResponse(content={"companies": await asyncio.to_thread(_brain.companies, v), "not_set_up": _brain.not_set_up(v),
+                                 "filing_reads": bool(_reader_jobs.MANAGER.brain_vault)})
+
+
+@app.get("/api/brain/{ticker}")
+async def brain_company(ticker: str) -> JSONResponse:
+    """What the brain knows about one company before a read (the same data the analyst brief shows). Owner's Mac only."""
+    if os.environ.get("BMG_LOCAL") != "1":
+        return JSONResponse(status_code=403, content={"error": "The brain is on the local Crawler only."})
+    from reader import brain as _brain
+    v = _vault_repo()
+    t = _validate_ticker(ticker)
+    if not v or not t:
+        return JSONResponse(status_code=404 if not v else 400, content={"error": "No vault folder found." if not v else "Not a ticker."})
+    return JSONResponse(content=await asyncio.to_thread(_brain.recall, v, t))
 
 
 @app.get("/api/read/jobs/{job_id}/report.pdf")

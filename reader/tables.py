@@ -58,7 +58,8 @@ STATEMENTS = [
                           r"consolidated results of operations for the (?:years?|three|six|nine|twelve|quarters?|periods?)\b", re.I)),
     ("balance", re.compile(r"balance sheets?\b|consolidated balance sheet|statements? of financial (position|condition)|consolidated financial position (?:at|as of)\b", re.I)),
     ("cashflow", re.compile(r"statements? of cash flows?|cash flows? statements?", re.I)),     # Microsoft: "CASH FLOWS STATEMENTS"
-    ("equity", re.compile(r"statements? of (changes in )?(shareholders|stockholders|shareowners)['’]? equity|statements? of changes in equity", re.I)),   # Coca-Cola: "SHAREOWNERS'"
+    ("equity", re.compile(r"statements? of (changes in )?(shareholders|stockholders|shareowners)['’]? equity|statements? of changes in equity|"
+                          r"(shareholders|stockholders|shareowners)['’]? equity statements?", re.I)),   # Coca-Cola: "SHAREOWNERS'"; Microsoft: "STOCKHOLDERS’ EQUITY STATEMENTS"
 ]
 
 
@@ -96,6 +97,25 @@ def _total_heading(groups: list, heading: str, toks: list) -> str:
         tol = step * (nrows + 1) * 0.5 + 1e-9
         if all(abs(a - v) <= tol for a, v in zip(acc, vals)):
             return groups[g][0] or heading
+    # the last section subtracted from the ones above (Trinity's release: "Operating costs:" cost of revenues and SE&A,
+    # then "Gains on dispositions of property:" printed positive, then 285.3 = 375.2 + 51.1 - 141.0, with no label). The
+    # total is the first section's, never the gains' it was named after (2026-10-26)
+    if len(groups) >= 2:
+        last = [0.0] * len(vals)
+        for row in groups[-1][1]:
+            if len(row) != len(vals):
+                return heading
+            last = [a + x for a, x in zip(last, row)]
+        acc, nrows = [-x for x in last], len(groups[-1][1])
+        for g in range(len(groups) - 2, -1, -1):
+            for row in groups[g][1]:
+                if len(row) != len(vals):
+                    return heading
+                acc = [a + x for a, x in zip(acc, row)]
+                nrows += 1
+            tol = step * (nrows + 1) * 0.5 + 1e-9
+            if all(abs(a - v) <= tol for a, v in zip(acc, vals)) and groups[g][0]:
+                return groups[g][0]
     return heading
 
 
@@ -269,7 +289,9 @@ def _header_periods(line: str, context: str) -> Optional[dict]:
         return None
     low = line.lower()
     # change columns ("$ Change", "Increase (Decrease)", "% Change") follow the period columns
-    m_ch = re.search(r"change|increase|decrease|variance", low)
+    # Trinity's 10-Q backlog table: "2026  2025  2026  2025  Percent" over "(in units, $ in whole dollars)  Change" (the
+    # word "Change" on the next line); its "Ending balance  11,340 ... (19.8)%" row was dropped for its fifth cell
+    m_ch = re.search(r"change|increase|decrease|variance|\bpercent\s*$", low)
     change_cols = bool(m_ch) and m_ch.start() > max(m.end() for m in _YEAR.finditer(line))
     dates = list(_DATE.finditer(line))
     if len(dates) >= 2:
@@ -495,6 +517,7 @@ def parse(doc) -> list[dict]:
     intro = ""
     restated = False
     table_id, row_index = 0, 0
+    comment_col = False
     groups = []      # [heading, [values of each row]] for the open sections of this table, in order
     label_head, prev_heading = None, ""
     entity = ""
@@ -572,6 +595,8 @@ def parse(doc) -> list[dict]:
             tail = re.sub(r"^.*\b(19|20)\d\d\b", "", s).strip(" :")
             if tail and re.match(r"[A-Za-z]", tail):
                 heading = tail
+            # a text column after the periods ("2025  2024  Year over Year - Comparison"): a row may end in a comment
+            comment_col = bool(tail and re.match(r"[A-Za-z]", tail) and len(tail.split()) >= 2)
             continue
         if hdr is not None and len(s) <= 60 and _PERIOD_LINE.match(s):
             hdr = None              # a new period line this reader cannot use as a header (NEE's issuer/guarantor
@@ -604,6 +629,17 @@ def parse(doc) -> list[dict]:
                     and all(_CELL.fullmatch(x) for x in " ".join(segs[1:]).replace("$", " $ ").split())):
                 label, toks = segs[0].strip(" :"), vals       # also a closing bracket of amounts: Chevron's "Accounts and notes
                                                              # receivable (less allowance: 2025 - $176; 2024 - $259)  18,075  20,684"
+        if comment_col and len(toks) != n and k > 0:
+            # "Backlog value  $ 1,661.6  $ 2,145.5  Expect to deliver approximately 49% of our railcar backlog value during
+            # 2026": the row's figures, then its comment (whose "2026" looked like a cell). The row was dropped (or, when short,
+            # taken for a heading), and
+            # the "Backlog value" of the sustainable conversions below it was read as Trinity's backlog (2026-10-26)
+            segs = [x for x in re.split(r"\s{2,}", s.strip()) if x]
+            for j in range(2, len(segs)):
+                cells = " ".join(segs[1:j]).replace("$", " $ ").split()
+                if re.match(r"[A-Za-z]", segs[j]) and cells and all(_CELL.fullmatch(x) for x in cells) and len(_cells(cells, False)) == n:
+                    label, toks = re.sub(r"^[-\u2013\u2014\u2022]\s+(?=[A-Za-z])", "", segs[0]).strip(" :"), _cells(cells, False)
+                    break
         if hdr.get("slots") and len(toks) == len(hdr["slots"]):
             toks = [t for t, kind in zip(toks, hdr["slots"]) if kind == "p"]       # a change column after each group of periods
         if hdr["change_cols"] and len(toks) > n:

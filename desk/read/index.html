@@ -591,6 +591,8 @@ body.rp-open{overflow:hidden}
 .bf-list li i{width:10px;height:10px;margin-top:3px;border-radius:50%;border:2px solid #c9c9c4;box-sizing:border-box}.bf-list li.ind span{font-weight:600}
 .bf-list li em{grid-column:2;font:500 11px 'IBM Plex Mono',monospace;font-style:normal;color:#6b6f76}.bf-list li.wait i{border-color:#9aa0a8;border-top-color:transparent;animation:stspin 1.1s linear infinite}
 .bf-list li.ok i{background:#12a150;border-color:#12a150}.bf-list li.ok em{color:#141414}.bf-list li.nf{opacity:.6}.bf-list li.nf i{border-style:dashed}
+.bf-mem{list-style:none;margin:0 0 6px;padding:0;font-size:12px;line-height:1.35}.bf-mem li{padding:2px 0;border-bottom:1px dashed #eceee9}.bf-mem li b{font-weight:600}
+.bf-mem li small{display:block;font:500 10.5px 'IBM Plex Mono',monospace;color:#6b6f76}.bf-mem-note{font-size:11px;color:#6b6f76;margin:2px 0 6px;line-height:1.35}
 .bf-list li.s-flag i{background:#e5484d;border-color:#e5484d}.bf-list li.s-flag em{color:#c0262c}.bf-list li.s-watch i{background:#e8920c;border-color:#e8920c}.bf-list li.s-watch em{color:#a35d00}
 .bf-list li.pop{animation:bfpop .6s ease}@keyframes bfpop{0%{background:#fff7d6}100%{background:transparent}}
 .bf-sum{display:flex;flex-wrap:wrap;gap:5px;align-items:center}.bf-sum small{flex-basis:100%;font-size:11px;color:#6b6f76}
@@ -3809,7 +3811,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (READ_MAX.local) try { watchForNewVersion(); } catch (e) { /* a failed watcher must never stop the rest of setup */ }
     if (READ_MAX.local){
       const privacy = document.querySelector(".read-privacy");
-      if (privacy) privacy.textContent = "On this Mac, the crawler saves each completed file and report in My reads so you can reopen them after a reload or server restart. Saved reads stay on this Mac; the app does not automatically delete them. Nothing is saved to the vault unless the owner presses Save with the owner key.";
+      if (privacy) privacy.textContent = "On this Mac, the crawler saves each completed file and report in My reads so you can reopen them after a reload or server restart. Saved reads stay on this Mac; the app does not automatically delete them. The brain also files each read of a named company in the vault's brain/ folder (its figures with their pages, and what changed since the last read) and threshold readings in inbox/crawler/; set BMG_BRAIN=0 to turn that off. Nothing else is saved to the vault unless the owner presses Save with the owner key.";
       document.getElementById("read-edgar").hidden = false; loadLibrary();
       document.getElementById("omni")?.classList.add("local");
       const wl = document.getElementById("read-watchlist"); if (wl) wl.hidden = false;
@@ -4442,12 +4444,30 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (!br || !briefEl){ if (briefEl) briefEl.hidden = true; return; }
     state.brief = br;
     briefEl.hidden = false;
+    queueMicrotask(() => { if (state.brief === br && !briefEl.querySelector(".bf-mem-note")) briefEl.insertAdjacentHTML("beforeend", brainBrief(br)); });
     const cls = it => live ? "wait" : it.status === "found" ? "ok" : "nf";
     briefEl.innerHTML = `<div class="bf-head"><span class="bf-kicker">Analyst brief</span><b>${esc(br.company || "Company not identified")}</b>${br.ticker ? ` <span class="bf-tk">${esc(br.ticker)}</span>` : ""}<small>${esc([br.form, br.period].filter(Boolean).join(" · "))}</small></div>
       <div class="bf-prof"><span>Read as</span> <b>${esc(br.profile)}</b></div><p class="bf-why">${esc(br.why)}</p>
       <div class="bf-sum" id="read-sigsum"></div>
       <h4>What I'm looking for</h4>
       <ul class="bf-list">${br.items.map(it => `<li data-key="${esc(it.key)}" class="${cls(it)}${it.industry ? " ind" : ""}" title="${esc(it.why)}"><i aria-hidden="true"></i><span>${esc(it.title)}</span><em>${esc(live ? "" : (it.answer || (it.note ? "not shown separately" : "not found")))}</em></li>`).join("")}</ul>`;
+  }
+  // What the Crawler's brain already knew about this company when the read started (sent with the Identify stage;
+  // the report itself carries none of it). Shown only for the same ticker as the brief, so an older memory never
+  // appears on another company.
+  function brainBrief(br){
+    const m = state.brainMemory;
+    if (!m || !br || !br.ticker || m.ticker !== br.ticker) return "";
+    const th = (m.thresholds || []).filter(x => x.watched_by_crawler || x.brain_last);
+    const thHTML = th.length ? `<h4>Pre-registered thresholds</h4><ul class="bf-mem">${th.map(x => `<li><b>${esc(x.id)}</b> ${esc(x.operator || "")} ${esc(String(x.threshold))}${x.brain_last ? `<small>last read ${esc(x.brain_last.display || "")} (${esc(x.brain_last.end)})</small>` : ""}</li>`).join("")}</ul>` : "";
+    const fc = (m.forecasts || []).slice(0, 8);
+    const fcHTML = fc.length ? `<h4>Your pre-registered forecasts</h4><ul class="bf-mem">${fc.map(x => `<li><b>${esc(x.period || "")} ${esc(String(x.metric || "").replace(/_/g, " "))}</b> ${esc(String(x.forecast))}${x.units === "percent" ? "%" : ""}<small>${x.ci_80_lower != null ? `80% range ${esc(String(x.ci_80_lower))} to ${esc(String(x.ci_80_upper))} · ` : ""}calibration/forecasts.yaml; scored in the postmortem, not here</small></li>`).join("")}</ul>` : "";
+    if (!m.known) return `<h4>What I already know</h4><p class="bf-mem-note">First read of ${esc(m.ticker)}: the brain starts its book on this company with this filing.</p>${thHTML}${fcHTML}`;
+    const k = (m.kpis || []).slice(0, 8).map(x => `<li><b>${esc(x.name)}</b> ${esc(x.display || "")}<small>${esc(x.end)}${x.where && x.where.pdf_page ? ` · last printed p.${esc(String(x.where.pdf_page))}${x.where.table ? ", " + esc(x.where.table) : ""}` : ""}</small></li>`).join("");
+    const q = (m.your_questions || []).map(x => `<li><b>You asked:</b> ${esc(x)}</li>`).join("") + (m.open_questions || []).slice(0, 3).map(x => `<li>${esc(x)}</li>`).join("");
+    const lr = m.last_read ? `${m.reads} earlier read${m.reads === 1 ? "" : "s"}; last: ${esc([m.last_read.form, m.last_read.period].filter(Boolean).join(" "))}.` : "";
+    return `<h4>What I already know</h4><p class="bf-mem-note">${lr} Checked against this filing as it is read; what changed is in the report's Brain tab.</p>
+      ${k ? `<ul class="bf-mem">${k}</ul>` : ""}${thHTML}${fcHTML}${q ? `<h4>Open questions</h4><ul class="bf-mem">${q}</ul>` : ""}`;
   }
   function tickBrief(key, answer, sev){
     if (!briefEl) return;
@@ -8135,7 +8155,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   function setConn(m){ scopeEl.textContent = m; }
   function onJobEvent(type, d){
     if (type === "stage") setStage(d.stage, d);
-    if (type === "stage" && d.stage === "Identify" && d.state === "done" && d.brief) drawBrief(d.brief, true);
+    if (type === "stage" && d.stage === "Identify" && d.state === "done" && d.brief){ state.brainMemory = d.memory || null; drawBrief(d.brief, true); }
     if (type === "stage" && d.stage === "Analyze" && d.state === "done") drawSigSum(d);
     else if (type === "failed" || type === "cancelled"){ if (d.stage) setStage(d.stage, {state: type === "failed" ? "failed" : "stopped"}); }
   }
@@ -8674,7 +8694,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       ${(sr.failed || []).map(x => `<p class="rp-note"><b>Could not read:</b> ${esc(x)}</p>`).join("")}`;
     // The report in five tabs (all of them print): what it says, the statements, the ratios and screens, the
     // observations (risks, red flags, guidance, the call), and where every figure comes from.
-    const T = {summary: [], statements: [], segments: [], ratios: [], scores: [], history: [], peers: [], changes: [], guidehist: [], tone: [], observations: [], notes: [], sources: []};
+    const T = {summary: [], statements: [], segments: [], ratios: [], scores: [], history: [], peers: [], changes: [], guidehist: [], tone: [], brain: [], observations: [], notes: [], sources: []};
     const ins = res.insights || {};
     const specific = ins.ending || rep.document_ending;
     const docOnly = ins.kind === "insider" || ins.kind === "holdings" || ins.kind === "transcript";
@@ -8770,9 +8790,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (READ_MAX.local && (rtKind === "annual" || rtKind === "quarterly")) T.changes.push(lazyTab("changes"));
     if (rtEdgar && ["release", "transcript", "annual", "quarterly"].includes(rtKind)) T.guidehist.push(lazyTab("guidehist"));
     if (rtKind === "release" || rtKind === "transcript") T.tone.push(lazyTab("tone"));
+    if (READ_MAX.local && res.brain && res.brain.status && res.brain.status !== "off") T.brain.push(lazyTab("brain"));
     T.notes.push(notesHTML());
     const TABS = [["summary", "Summary"], ["statements", "Statements"], ["segments", "Segments"], ["ratios", "Ratios"], ["scores", "Scores"], ["history", "History"], ["peers", "Peers"],
-                  ["changes", "Changes"], ["guidehist", "Guidance"], ["tone", "Tone"], ["observations", "Observations"], ["notes", "Notes"], ["sources", "Sources"]];
+                  ["changes", "Changes"], ["guidehist", "Guidance"], ["tone", "Tone"], ["brain", "Brain"], ["observations", "Observations"], ["notes", "Notes"], ["sources", "Sources"]];
     return `<article class="rp-doc">${head}
       ${TABS.map(([k, l]) => `<section class="rp-tab" data-tab="${k}" data-label="${l}">${T[k].join("")}</section>`).join("")}
       <footer class="rp-foot"><span>BMG Capital</span>${BMG_LINE}<span class="muted">${esc(kindName)} &middot; automatically generated, not reviewed by an analyst &middot; not investment advice</span></footer>
@@ -10009,6 +10030,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       else if (key === "changes"){ box.innerHTML = await redlineHTML(); wireRedline(box); }
       else if (key === "guidehist") box.innerHTML = await guideHistHTML();
       else if (key === "tone") box.innerHTML = await toneHTML();
+      else if (key === "brain") box.innerHTML = await brainHTML();
       box.removeAttribute("data-lazy");
     } catch (e){ box.innerHTML = `<p class="rp-note err">Could not load (${esc(String(e.message || e))}). Close the report and open this tab again to retry.</p>`; delete rtData()[key]; }
     finally { delete box.dataset.busy; }
@@ -10167,6 +10189,59 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       ${(w.most_positive || []).length ? `<h3>Most positive sentences</h3><ul class="rt-sents">${sents(w.most_positive, "pos")}</ul>` : ""}
       ${(w.most_negative || []).length ? `<h3>Most negative sentences</h3><ul class="rt-sents">${sents(w.most_negative, "neg")}</ul>` : ""}
       <details class="rt-words"><summary>The word lists</summary><p><b>Positive:</b> ${esc(j.word_lists.positive.join(", "))}</p><p><b>Negative:</b> ${esc(j.word_lists.negative.join(", "))}</p></details>`;
+  }
+
+  // ---- the brain's tab: what the Crawler expected, what changed, the thresholds, and the machine reading
+  async function brainHTML(){
+    const {r, j} = await rtGet("brain", `/api/read/jobs/${encodeURIComponent(state.jobId)}/brain`);
+    const h = `<h2 id="rp-brain">What the brain learned from this read</h2>`;
+    if (!r.ok) return h + rtErr(j, r, "The brain could not be reached.");
+    if (j.status === "off" || j.status === "skipped" || j.status === "error") return h + `<p class="rp-note">${esc(j.reason || "The brain did not file this read.")}</p>`;
+    const thisFile = (state.readRes && state.readRes.title) || "";
+    const cite = s => { if (!s) return ""; const pg = s.pdf_page ? `p.${s.pdf_page}` : "page not recorded";
+      if (s.file === thisFile && s.pdf_page) return `<a class="rp-src" href="#" data-page="${esc(String(s.pdf_page))}">${esc(pg)}</a>`;
+      const what = [s.form, s.filing_period ? "for " + s.filing_period : ""].filter(Boolean).join(" ") || s.file || "an earlier filing";
+      return s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(what)}</a> ${esc(pg)}` : `${esc(what)} ${esc(pg)}`; };
+    const mv = d => !d ? "" : `${esc(d.display)} (${esc(d.end)})${d.pp != null ? `, <b>${d.pp > 0 ? "+" : ""}${d.pp.toFixed(1)} pp</b>` : d.pct != null ? `, <b>${d.pct > 0 ? "+" : ""}${d.pct.toFixed(1)}%${d.size ? " in size" : ""}</b>` : d.no_pct ? `, ${esc(d.no_pct)}` : ""}`;
+    const e = j.expected || {};
+    const exp = e.known ? `<p class="rp-cov">${e.reads} earlier read${e.reads === 1 ? "" : "s"} of ${esc(j.ticker)}; the last was the ${esc(e.last_read || "")}.</p>` +
+      ((e.kpis || []).length ? `<div class="rp-tw"><table class="rp-table"><tr><th>KPI</th><th class="num">Last value</th><th>Period</th><th>Printed in</th></tr>${e.kpis.map(k => `<tr><td>${esc(k.name)}</td><td class="num">${esc(k.display)}</td><td>${esc(k.end)}</td><td>${cite(k.src)}</td></tr>`).join("")}</table></div>` : "")
+      : `<p class="rp-note">The brain had not read ${esc(j.ticker)} before: this read starts its book.</p>`;
+    const ch = (j.changes || []).slice().sort((a, b) => (a.kind !== "kpi") - (b.kind !== "kpi") || a.name.localeCompare(b.name));
+    const chg = ch.length ? `<div class="rp-tw"><table class="rp-table"><tr><th>Figure</th><th class="num">This period</th><th>Period before</th><th>A year before</th><th>Known history</th><th>Source</th></tr>${ch.map(c => {
+      const rg = c.range ? `${c.range.n} periods since ${esc(c.range.first)}${c.range.highest ? (c.range.by_size ? " (largest in size)" : " (highest)") : c.range.lowest ? (c.range.by_size ? " (smallest in size)" : " (lowest)") : ""}` : "";
+      return `<tr><td>${esc(c.name)}${c.scope ? `<br><small>${esc(c.scope)}</small>` : ""}</td><td class="num">${esc(c.display)}</td><td>${mv(c.before)}</td><td>${mv(c.year_ago)}</td><td>${rg}</td><td>${cite(c.src)}</td></tr>`; }).join("")}</table></div>`
+      : `<p class="rp-note">Nothing this read printed for its own period had an earlier point in the brain to compare with.</p>`;
+    const th = j.thresholds || {}, ms = th.measured || [];
+    const status = x => (x.needs_consecutive ? `${x.consecutive || 0} in a row on the trigger side; the criterion names ${x.needs_consecutive}${x.gap_before ? " (the period before is not in the brain)" : ""}` : x.on_trigger_side ? "on the trigger side" : "not on the trigger side") + (x.watch_only ? "; signpost, watch only" : "");
+    const thr = th.rows ? `<h3>Pre-registered thresholds (monitoring/THRESHOLDS.md)</h3>` + (ms.length ? `<div class="rp-tw"><table class="rp-table"><tr><th>Threshold</th><th class="num">Reading</th><th>Trigger</th><th class="num">Distance</th><th>Periods (legs)</th><th>Source</th></tr>${ms.map(x =>
+        `<tr><td>${esc(x.id)}<br><small>${esc(x.item || "")}</small></td><td class="num">${esc(x.reading_display)}</td><td>${esc(x.operator)} ${esc(String(x.threshold))} ${esc(x.unit)}</td><td class="num">${esc(x.distance_display)}</td><td>${status(x)}</td><td>${cite(x.src)}</td></tr>`).join("")}</table></div>` : "") +
+      ((th.unseen || []).length ? `<p class="rp-note">Not observable from this read: ${th.unseen.map(x => `${esc(x.id)} (${esc(x.why)})`).join("; ")}.</p>` : "") +
+      `<p class="rp-note">Readings, distances and period counts only: whether a criterion has fired is your call (M24). The observation is in the vault's inbox/crawler/ for disposition.</p>` : "";
+    const mg = j.merged || {}, rest = mg.restated || [];
+    const restH = (rest.length ? `<h3>Same period, two different figures</h3><p class="rp-note">Either the company recast it, or one of the two reads took another line. Check both pages before using either.</p><ul class="rt-sents">${rest.map(x => `<li><b>${esc(x.name)}, ${esc(x.end)}</b>: first ${esc(x.first_display)} (${cite(x.first_src)}), now ${esc(x.now_display)} (${cite(x.now_src)})</li>`).join("")}</ul>` : "") +
+      ((mg.printed_differently || []).length ? `<h3>Printed differently in a table and in the text</h3><p class="rp-note">Same name and date, one figure from a table row and one from a sentence; they may measure different things. Both are kept.</p><ul class="rt-sents">${mg.printed_differently.map(x => `<li><b>${esc(x.name)}, ${esc(x.end)}</b>: ${esc(x.first_display)} (${cite(x.first_src)}); ${esc(x.now_display)} (${cite(x.now_src)})</li>`).join("")}</ul>` : "");
+    const miss = (j.missing || []).length ? `<h3>Printed before, not found in this read</h3><ul class="rt-sents">${j.missing.map(x => `<li><b>${esc(x.name)}</b>: last ${esc(x.last_display || "")} for ${esc(x.last_end || "")} (${cite(x.last_src)}). Either the filing dropped it or the Crawler missed it.</li>`).join("")}</ul>` : "";
+    const gd = (j.guidance_checked || []).length ? `<h3>Guidance against the actual</h3><ul class="rt-sents">${j.guidance_checked.map(g => `<li>"${esc(g.text.slice(0, 420))}" (${cite(g.src)}): ${g.outcome.actual != null ? `actual ${esc(g.outcome.actual_display || "")}, <b>${esc(g.outcome.verdict)}</b>. ` : `<b>${esc(g.outcome.verdict)}</b>. `}${esc(g.outcome.note)}</li>`).join("")}</ul>` : "";
+    const rd = j.reading || {};
+    if (rd.pending) setTimeout(() => brainRecheck(state.jobId, 1), 5000);
+    const wait = rd.pending ? `<p class="rp-note">Claude is writing its reading from the numbered facts; it replaces the fixed-rule reading below when it is done.</p>` : "";
+    const reading = (rd.sentences || []).length ? `<h3>Machine reading <small>${rd.by === "claude" ? esc(rd.model || "Claude") : "fixed rules"}</small></h3>${wait}${rd.note ? `<p class="rp-note">${esc(rd.note)}</p>` : ""}<ul class="rt-sents">${rd.sentences.map(x => `<li>${esc(x.text)} <small>[${esc((x.refs || []).join(", "))}]</small></li>`).join("")}</ul>` +
+      ((rd.questions || []).length ? `<p class="rp-cov">Questions for the next read:</p><ul class="rt-sents">${rd.questions.map(x => `<li>${esc(x.text)}</li>`).join("")}</ul>` : "") : "";
+    const files = ((j.files || {}).written || []);
+    return `<div class="rt-brain" data-job="${esc(state.jobId || "")}">` + h + `<p class="rp-note">Machine-written from this filing and the earlier reads the brain holds, every figure with its page. Not a source: cite the filing, never the brain (M39).</p>
+      <h3>What the brain expected</h3>${exp}<h3>What changed</h3>${chg}${restH}${miss}${thr}${gd}${reading}
+      <p class="rp-note">New points ${mg.new_points || 0} · new series ${mg.new_series || 0} · confirmed against earlier reads ${mg.confirmed || 0}${files.length ? ` · written to the vault: ${files.map(f => `<code>${esc(f)}</code>`).join(", ")}` : ""}.</p></div>`;
+  }
+  // Claude's reading is written after the read is done: while the Brain tab is open, ask again every 5 s (2 minutes at most)
+  async function brainRecheck(job, n){
+    const el = [...document.querySelectorAll(".rt-brain")].find(x => x.dataset.job === job);
+    if (!el || job !== state.jobId) return;
+    delete rtData().brain;
+    const {r, j} = await rtGet("brain", `/api/read/jobs/${encodeURIComponent(job)}/brain`).catch(() => ({r: {ok: false}, j: {}}));
+    if (!r.ok || job !== state.jobId || !el.isConnected) return;
+    if ((j.reading || {}).pending){ if (n < 24) setTimeout(() => brainRecheck(job, n + 1), 5000); return; }
+    el.outerHTML = await brainHTML();
   }
 
   // ---- the optional written summary (top of the Summary tab; only on this Mac, only with a key)

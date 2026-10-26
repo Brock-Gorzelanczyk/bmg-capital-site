@@ -20,10 +20,10 @@ _GEO = re.compile(r"americas|europe|greater china|china|japan|asia|pacific|emea|
 PROFILES = {
     "Railcar leasing": (r"lease fleet|railcar leasing|fleet utilization|lease price index|renewal success|railcars? (?:on|for) lease|lease revenue|as lessor|"
                         r"lease rates?|lease terms?|utilization|operating lease", [
-        ("Fleet utilization", r"^(fleet )?utilization( rate)?( at (year|period) end)?$", r"utilization (?:rate )?(?:was|of|at|remained)[^.%]{0,40}?(\d{2}(?:\.\d)?)%", "percent"),
+        ("Fleet utilization", r"^(fleet )?utilization( rate)?( at (year|period|quarter) end)?$", r"utilization (?:rate )?(?:was|of|at|remained)[^.%]{0,40}?(\d{2}(?:\.\d)?)%", "percent"),
         ("Lease price index", r"^lease price index$", r"(?:lease price index|\bLPI\b)[^.%]{0,60}?(?:was |of )?((?:positive |negative |-)?\d+(?:\.\d)?)%", "percent"),
         ("Renewal success rate", r"^renewal success rate$", r"renewal success rate[^.%]{0,60}?(\d{2}(?:\.\d)?)%", "percent"),
-        ("Fleet size (cars)", r"^(total )?(railcars|cars) (owned|in fleet)$|^fleet size$", r"fleet (?:of|consisting of|totaled)[^.]{0,60}?([\d,]{4,}) (?:railcars|cars)", "count"),
+        ("Fleet size (cars)", r"^(total )?(railcars|cars) (owned|in fleet)$|^fleet size$|fleet data ending balance$", r"fleet (?:of|consisting of|totaled)[^.]{0,60}?([\d,]{4,}) (?:railcars|cars)", "count"),
         ("Investment volume", r"^investment volume$", r"investment volume (?:was|of|totaled)[^.]{0,40}?\$\s?([\d.,]+)\s?(billion|million)", "USD"),
     ]),
     "Railcar manufacturing": (r"railcar deliveries|new railcar orders|railcar backlog|manufacturing backlog|deliveries of|\bbacklog\b|\bdeliveries\b|"
@@ -33,8 +33,10 @@ PROFILES = {
         ("Backlog (units)", r"^backlog( units)?$", r"backlog (?:of|was|totaled)[^.]{0,60}?([\d,]{3,}) (?:units|railcars|new railcars)", "count"),
         ("Backlog value", r"^backlog value$|^backlog \$$", r"backlog[^.]{0,80}?(?:valued at|with a value of|of)\s?(?:approximately )?\$\s?([\d.,]+)\s?(billion|million)", "USD"),
     ]),
+    # Microsoft's MD&A prints "Commercial remaining performance obligation ... $678 billion" before the note's total
+    # ($684 billion); the commercial part is a different measure, so the total is taken (2026-10-26)
     "Software and subscriptions": (r"subscription revenue|software license|remaining performance obligation|annual recurring revenue|saas", [
-        ("Remaining performance obligations", None, r"remaining performance obligations?[^.]{0,140}?\$\s?([\d.,]+)\s?(billion|million)", "USD"),
+        ("Remaining performance obligations", None, r"(?<!commercial )remaining performance obligations?[^.]{0,140}?\$\s?([\d.,]+)\s?(billion|million)", "USD"),
         ("Annual recurring revenue", None, r"annual(?:ized)? recurring revenue[^.]{0,80}?\$\s?([\d.,]+)\s?(billion|million)", "USD"),
         ("Net revenue retention", None, r"net (?:revenue|dollar) retention(?: rate)?[^.%]{0,60}?(\d{2,3})%", "percent"),
         ("Customers", None, r"(?:approximately |over |more than )?([\d,]{3,}) (?:paying )?customers", "count"),
@@ -103,21 +105,68 @@ def _plabel(r: dict, i: int) -> str:
     return _period(r["cols"][i], "instant" if r.get("statement") == "balance" else "")["label"]
 
 
+def _cur_prior(r: dict) -> tuple:
+    """The current and prior column of a table row. Most tables print the latest period first, but some operating
+    tables run oldest first (GATX's five-quarter fleet table: Jun 30, 2025 ... Jun 30, 2026). With a dated column for
+    every value, the current column is the latest end date (the first one on a tie, so three months beats six months)
+    and the prior is the same kind of period a year earlier, else the latest one before it."""
+    n = len(r["values"])
+    cols = r.get("cols") or []
+    ends = [c.get("end") for c in cols]
+    if n < 2 or len(cols) != n or not all(ends):
+        return 0, (1 if n > 1 else None)
+    cur = max(range(n), key=lambda i: (ends[i], -i))
+    from datetime import date
+    def d(s):
+        try:
+            return date.fromisoformat(s)
+        except ValueError:
+            return None
+    ce = d(ends[cur])
+    same = [i for i in range(n) if i != cur and cols[i].get("type") == cols[cur].get("type") and d(ends[i]) and ce and d(ends[i]) < ce]
+    year = [i for i in same if abs((ce - d(ends[i])).days - 365) <= 10]
+    prior = year[0] if year else (max(same, key=lambda i: ends[i]) if same else None)
+    return cur, prior
+
+
+def _row_series(r: dict, mult: float) -> list:
+    """Every dated column of the same kind of period as the current one, oldest first: one filing's whole run of a
+    KPI (a five-quarter table gives five points)."""
+    cols = r.get("cols") or []
+    if len(cols) != len(r["values"]) or len(cols) < 3 or not all(c.get("end") for c in cols):
+        return []
+    cur, _ = _cur_prior(r)
+    pts = [{"end": c["end"], "label": _plabel(r, i), "value": r["values"][i] * mult, "raw": r["raw"][i], "type": c.get("type")}
+           for i, c in enumerate(cols) if c.get("type") == cols[cur].get("type")]
+    return sorted(pts, key=lambda p: p["end"]) if len(pts) >= 3 else []
+
+
 def _row_kpi(doc, rows: list, label: str, pat: str, unit: str) -> Optional[dict]:
     rx = re.compile(pat)
     for r in rows:
-        if not rx.search(r["key"]):
+        # a row is matched by its label, or by its table block and label together ("Rail North America Fleet Data"
+        # "Ending balance" is the fleet size; a bare "Ending balance" could be any roll-forward)
+        if not (rx.search(r["key"]) or (r.get("block") and rx.search(f'{r["block"].lower()} {r["key"]}'))):
             continue
-        u = "percent" if r["raw"][0].endswith("%") else unit
+        ci, pi = _cur_prior(r)
+        u = "percent" if r["raw"][ci].endswith("%") else unit
         mult = SCALE.get(r["scale"], 1.0) if u == "USD" else 1.0
-        v = r["values"][0] * mult
-        prev = r["values"][1] * mult if len(r["values"]) > 1 else None
-        return {"name": label, "value": v, "display": fmt_value(v, u) if u in ("USD", "percent") else f"{v:,.0f}",
-                "prior": prev, "prior_display": (fmt_value(prev, u) if u in ("USD", "percent") else f"{prev:,.0f}") if prev is not None else "",
-                "period": _plabel(r, 0), "prior_period": _plabel(r, 1) if len(r["cols"]) > 1 else "",
-                "kind": "reported", "status": "Source matched", "scope": r.get("block") or "",
-                "source": {"pdf_page": r["pdf_page"], "printed_page": r["printed_page"], "section": r["section"], "table_title": r["table_title"] or r.get("block") or "",
-                           "row_label": r["full_label"], "excerpt": r["line"], "raw": r["raw"][0], "offset": r["offset"]}}
+        v = r["values"][ci] * mult
+        prev = r["values"][pi] * mult if pi is not None else None
+        k = {"name": label, "value": v, "display": fmt_value(v, u) if u in ("USD", "percent") else f"{v:,.0f}",
+             "prior": prev, "prior_display": (fmt_value(prev, u) if u in ("USD", "percent") else f"{prev:,.0f}") if prev is not None else "",
+             "period": _plabel(r, ci), "prior_period": _plabel(r, pi) if pi is not None else "",
+             "period_type": ((r.get("cols") or [{}])[ci] if len(r.get("cols") or []) > ci else {}).get("type"),
+             "kind": "reported", "status": "Source matched", "scope": r.get("block") or "",
+             "source": {"pdf_page": r["pdf_page"], "printed_page": r["printed_page"], "section": r["section"], "table_title": r["table_title"] or r.get("block") or "",
+                        "row_label": r["full_label"], "excerpt": r["line"], "raw": r["raw"][ci], "offset": r["offset"],
+                        # the row group inside the table: GATX's release prints "Rail North America Statistics" and "Boxcar
+                        # Fleet Rollforward" under one "SUPPLEMENTAL INFORMATION" caption
+                        "heading": r.get("heading") or ""}}
+        series = _row_series(r, mult)
+        if series:
+            k["series"] = series
+        return k
     return None
 
 
