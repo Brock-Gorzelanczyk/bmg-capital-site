@@ -246,14 +246,28 @@ _CHANGE_COL = re.compile(r"increase\s*\(decrease\)|\(decrease\)\s*increase|[%$]\
                          r"|\(decr\.?\)|%\s*incr\.?", re.I)
 
 
+# columns that share a header line with the years: "% of Revenues" after each year, and a constant-currency change.
+# Oracle's releases: "2026  % of Revenues  2025  % of Revenues  (Decrease) in US $  in Constant Currency (1)" under
+# "Three Months Ended May 31," (and "Year Ended May 31," for the year-to-date table); a row reads "Cloud  $ 33,989  51%
+# $ 24,506  43%  39%  37%" (2026-10-26)
+_PCT_OF = re.compile(r"%\s*of\s+(?:total\s+)?(?:net\s+)?(?:revenues?|sales)|in\s+constant\s+currency(?:\s*\(\d\))?", re.I)
+_PCT_MASK = re.compile(r"%\s*of\s+(?:total\s+)?(?:net\s+)?(?:revenues?|sales)|in\s+constant\s+currency|in\s+us\s*\$|\(\d\)", re.I)
+
+
 def header_periods(line: str, context: str) -> Optional[dict]:
     """A column header with, when a change column follows each group of periods, the "slots" of a row's cells."""
     h = _header_periods(line, context)
+    pct = []
+    if h is None and _PCT_OF.search(line):
+        norm = _dmy(_DAY_YEAR.sub(r"\1, \2", line))
+        h = _header_periods(_PCT_MASK.sub(lambda m: " " * len(m.group(0)), norm), context)
+        if h:
+            pct = [m.start() for m in _PCT_OF.finditer(norm)]
     if h and not h.get("slots"):
         line = _dmy(_DAY_YEAR.sub(r"\1, \2", line))
         dates = list(_DATE.finditer(line))
         ps = [d.start() for d in dates] if len(dates) == len(h["cols"]) else [m.start() for m in _YEAR.finditer(line)]
-        marks = sorted([(p, "p") for p in ps] + [(m.start(), "c") for m in _CHANGE_COL.finditer(line)])
+        marks = sorted([(p, "p") for p in ps] + [(m.start(), "c") for m in _CHANGE_COL.finditer(line)] + [(p, "c") for p in pct])
         slots = [k for _, k in marks]
         if len(ps) == len(h["cols"]) and "c" in slots and slots.index("c") < len(slots) - 1 - slots[::-1].index("p"):
             h = {**h, "change_cols": False, "slots": slots}
@@ -416,6 +430,11 @@ def _unit(label: str, heading: str, raw0: str) -> str:
 
 _ENTITY = re.compile(r"(?:\b(?:Inc|Corp|Corporation|Company|Co|LLC|Ltd|plc|N\.A)\.?|\bL\.?\s?P\.?)$", re.I)
 _STATEMENT_NO = re.compile(r"^(?:statement|exhibit|schedule)\s+[0-9IVX]{1,4}\b\s*", re.I)
+# a new table's period line followed by its change columns, which this reader cannot use as a header: Oracle's Q4
+# release, "Year Ended May 31,  % Increase  % Increase (Decrease)" over the year-to-date statement; its rows were read
+# under the three-month header two pages up, so the full-year EPS $5.83 was filed as the quarter's (2026-10-26)
+_PERIOD_CHANGE_LINE = re.compile(r"^(?:for the )?(?:(?:fiscal )?years?|three months|six months|nine months|twelve months|quarters?) ended\b[^\d%]*\d{1,2},?"
+                                 r"(?:\s+(?:19|20)\d\d)?\s+(?:%\s*)?(?:increase|decrease|change|\(increase\)|\(decrease\))", re.I)
 _PERIOD_LINE = re.compile(r"^(?:for the )?(?:(?:fiscal )?years?|three months|six months|nine months|twelve months|quarters?) ended\b[^\d]*(?:\d{1,2},?\s*)?(?:(?:19|20)\d\d)?$"
                           r"|^(?:as of |at )?(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+(?:19|20)\d\d$", re.I)
 
@@ -598,7 +617,7 @@ def parse(doc) -> list[dict]:
             # a text column after the periods ("2025  2024  Year over Year - Comparison"): a row may end in a comment
             comment_col = bool(tail and re.match(r"[A-Za-z]", tail) and len(tail.split()) >= 2)
             continue
-        if hdr is not None and len(s) <= 60 and _PERIOD_LINE.match(s):
+        if hdr is not None and ((len(s) <= 60 and _PERIOD_LINE.match(s)) or (len(s) <= 120 and _PERIOD_CHANGE_LINE.match(s))):
             hdr = None              # a new period line this reader cannot use as a header (NEE's issuer/guarantor
             continue                # table has entity columns): the rows below are not the previous table's
         hdr_age += 1

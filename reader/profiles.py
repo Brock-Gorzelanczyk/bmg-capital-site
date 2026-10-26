@@ -20,10 +20,10 @@ _GEO = re.compile(r"americas|europe|greater china|china|japan|asia|pacific|emea|
 PROFILES = {
     "Railcar leasing": (r"lease fleet|railcar leasing|fleet utilization|lease price index|renewal success|railcars? (?:on|for) lease|lease revenue|as lessor|"
                         r"lease rates?|lease terms?|utilization|operating lease", [
-        ("Fleet utilization", r"^(fleet )?utilization( rate)?( at (year|period|quarter) end)?$", r"utilization (?:rate )?(?:was|of|at|remained)[^.%]{0,40}?(\d{2}(?:\.\d)?)%", "percent"),
+        ("Fleet utilization", r"^(fleet )?utilization( rate)?( at (year|period|quarter) end)?$", r"(?:utilization (?:rate )?(?:was|of|at|remained)|percentage of owned units on lease was)[^.%]{0,40}?(\d{2}(?:\.\d)?)%", "percent"),
         ("Lease price index", r"^lease price index$", r"(?:lease price index|\bLPI\b)[^.%]{0,60}?(?:was |of )?((?:positive |negative |-)?\d+(?:\.\d)?)%", "percent"),
         ("Renewal success rate", r"^renewal success rate$", r"renewal success rate[^.%]{0,60}?(\d{2}(?:\.\d)?)%", "percent"),
-        ("Fleet size (cars)", r"^(total )?(railcars|cars) (owned|in fleet)$|^fleet size$|fleet data ending balance$", r"fleet (?:of|consisting of|totaled)[^.]{0,60}?([\d,]{4,}) (?:railcars|cars)", "count"),
+        ("Fleet size (cars)", r"^(total )?(railcars|cars) (owned|in fleet)$|^fleet size$|fleet data ending balance$|^rail north america statistics ending balance$", r"fleet (?:of|consisting of|totaled)[^.]{0,60}?([\d,]{4,}) (?:railcars|cars)", "count"),
         ("Investment volume", r"^investment volume$", r"investment volume (?:was|of|totaled)[^.]{0,40}?\$\s?([\d.,]+)\s?(billion|million)", "USD"),
     ]),
     "Railcar manufacturing": (r"railcar deliveries|new railcar orders|railcar backlog|manufacturing backlog|deliveries of|\bbacklog\b|\bdeliveries\b|"
@@ -40,8 +40,10 @@ PROFILES = {
     # trigger side). Its 10-Q's "Remaining performance obligations, as defined in Note 1 of ... May 31, 2024, were $130.2
     # billion" runs past 140 characters (2026-10-26)
     "Software and subscriptions": (r"subscription revenue|software license|remaining performance obligation|annual recurring revenue|saas", [
-        ("Remaining performance obligations", None, r"(?<!commercial )remaining performance obligations?(?:[^.$]{0,40}?\b(?:grew|up|increased|rose)\s+(?:by\s+)?\$\s?[\d.,]+\s?(?:billion|million)"
-                                                    r"(?:[^.]|\.\d){0,80}?\bto\b)?(?:[^.]|\.\d){0,200}?\$\s?([\d.,]+)\s?(billion|million)", "USD"),
+        # Alphabet's 10-K puts the amount first: "we had $242.8 billion of remaining performance obligations"
+        ("Remaining performance obligations", None, (r"(?<!commercial )remaining performance obligations?(?:[^.$]{0,40}?\b(?:grew|up|increased|rose)\s+(?:by\s+)?\$\s?[\d.,]+\s?(?:billion|million)"
+                                                     r"(?:[^.]|\.\d){0,80}?\bto\b)?(?:[^.]|\.\d){0,200}?\$\s?([\d.,]+)\s?(billion|million)",
+                                                     r"\bhad \$\s?([\d.,]+)\s?(billion|million) of remaining performance obligations?\b"), "USD"),
         ("Annual recurring revenue", None, r"annual(?:ized)? recurring revenue[^.]{0,80}?\$\s?([\d.,]+)\s?(billion|million)", "USD"),
         ("Net revenue retention", None, r"net (?:revenue|dollar) retention(?: rate)?[^.%]{0,60}?(\d{2,3})%", "percent"),
         ("Customers", None, r"(?:approximately |over |more than )?(?<![\d,$.])(?!(?:19|20)\d\d(?![\d,]))(\d{1,3}(?:,\d{3})+|\d{3,})(?![\d,]) (?:paying )?customers", "count"),
@@ -49,15 +51,20 @@ PROFILES = {
     ]),
     "Consumer products": (r"iphone|retail stores|consumer products|net sales by category|our stores", [
         ("Retail stores", None, r"(?:operated|had|operates)\s+([\d,]{2,}) (?:retail )?stores", "count"),
-        ("Share-based compensation", r"^share based compensation expense$", None, "USD"),
+        ("Share-based compensation", r"^(share|stock) based compensation( expense)?$", None, "USD"),     # Amazon prints "Stock-based compensation"
     ]),
     "Banking": (r"net interest income|deposits|loans held for investment|allowance for credit losses|tier 1", [
         ("Net interest income", r"^net interest income$", None, "USD"),
-        ("Net interest margin", r"^net interest margin$", r"net interest margin[^.%]{0,60}?(\d(?:\.\d+)?)%", "percent"),
-        ("Total deposits", r"^total deposits$", None, "USD"),
-        ("Total loans", r"^(total loans|loans net|total loans and leases)$", None, "USD"),
-        ("Allowance for credit losses", r"^allowance for (credit|loan) losses$", None, "USD"),
-        ("CET1 capital ratio", None, r"common equity tier 1(?: capital)? ratio[^.%]{0,80}?(\d{1,2}(?:\.\d+)?)%", "percent"),
+        # JPMorgan prints its margin as "Net yield on average interest-earning assets - managed basis" and its ratio as "CET1
+        # capital" (10-Q p.5, p.19); its allowance for loan losses (balance sheet) is not its allowance for credit losses,
+        # which adds lending-related commitments (Note 13); its first "Total loans" and "Total deposits" rows were a
+        # segment's loans and average balances (2026-10-26)
+        ("Net interest margin", r"^net (interest margin|yield on average interest earning assets)( managed basis)?$", r"net interest margin[^.%]{0,60}?(\d(?:\.\d+)?)%", "percent"),
+        ("Total deposits", r"^(total )?deposits$", None, "USD"),
+        ("Total loans", r"^(total loans|loans net|total loans and leases|loans)$", None, "USD"),
+        ("Allowance for credit losses", r"^(total )?allowance for credit losses$", None, "USD"),
+        ("Allowance for loan losses", r"^(total )?allowance for loan losses$", None, "USD"),
+        ("CET1 capital ratio", r"^(cet1|common equity tier 1)( capital)?( ratio)?$", r"common equity tier 1(?: capital)? ratio[^.%]{0,80}?(\d{1,2}(?:\.\d+)?)%", "percent"),
     ]),
 }
 # generic operating vocabulary for KPIs outside the profiles (MD&A tables)
@@ -146,13 +153,26 @@ def _row_series(r: dict, mult: float) -> list:
     return sorted(pts, key=lambda p: p["end"]) if len(pts) >= 3 else []
 
 
+_BALANCE_ONLY = {"Total deposits", "Total loans", "Allowance for credit losses", "Allowance for loan losses"}
+_AVERAGE_TABLE = re.compile(r"(?i)\baverage (?:balances?|daily|outstanding)\b|\baverage balance sheet\b")
+
+
 def _row_kpi(doc, rows: list, label: str, pat: str, unit: str) -> Optional[dict]:
     rx = re.compile(pat)
-    for r in rows:
-        # a row is matched by its label, or by its table block and label together ("Rail North America Fleet Data"
-        # "Ending balance" is the fleet size; a bare "Ending balance" could be any roll-forward)
-        if not (rx.search(r["key"]) or (r.get("block") and rx.search(f'{r["block"].lower()} {r["key"]}'))):
-            continue
+    # a row is matched by its label, or by its table block and label together ("Rail North America Fleet Data"
+    # "Ending balance" is the fleet size; a bare "Ending balance" could be any roll-forward). A table of average balances is
+    # not a level at a date; the balance sheet's own row comes before a segment's or a note's
+    # GATX's release prints the North America fleet's "Ending balance" under its "Rail North America Statistics"
+    # heading, and Rail International's under a bare "Fleet Rollforward" one (Q2 2025 EX-99.1 p.17)
+    cands = [r for r in rows if (rx.search(r["key"]) or (r.get("block") and rx.search(f'{r["block"].lower()} {r["key"]}'))
+                                 or (r.get("heading") and rx.search(f'{r["heading"].lower()} {r["key"]}')))
+             and not _AVERAGE_TABLE.search(" ".join(str(r.get(x) or "") for x in ("intro", "caption", "heading", "block", "table_title")))]
+    cands.sort(key=lambda r: r.get("statement") != "balance")          # stable: otherwise the filing's order
+    if label in _BALANCE_ONLY:
+        # a bank's level at a date is the balance sheet's: JPMorgan's first "Total allowance for credit losses" rows are its
+        # three segments' (10-Q p.25, p.31, p.37), not the firm's
+        cands = [r for r in cands if r.get("statement") == "balance"]
+    for r in cands:
         ci, pi = _cur_prior(r)
         u = "percent" if r["raw"][ci].endswith("%") else unit
         mult = SCALE.get(r["scale"], 1.0) if u == "USD" else 1.0
@@ -175,8 +195,9 @@ def _row_kpi(doc, rows: list, label: str, pat: str, unit: str) -> Optional[dict]
     return None
 
 
-def _sentence_kpi(doc, label: str, pat: str, unit: str) -> Optional[dict]:
-    m = re.search(pat, doc.body, re.I)
+def _sentence_kpi(doc, label: str, pat, unit: str) -> Optional[dict]:
+    """pat is one sentence pattern or several, tried in order (the first that matches is taken)."""
+    m = next((x for x in (re.search(p, doc.body, re.I) for p in ((pat,) if isinstance(pat, str) else pat)) if x), None)
     if not m or not m.groups():
         return None
     raw = m.group(1)
@@ -191,8 +212,21 @@ def _sentence_kpi(doc, label: str, pat: str, unit: str) -> Optional[dict]:
     s1 = doc.body.find(".", m.end())
     sent = re.sub(r"\s+", " ", doc.body[s0:(s1 + 1 if s1 > 0 else m.end())])[:360]
     disp = fmt_value(v, unit) if unit in ("USD", "percent") else f"{v:,.0f}"
-    return {"name": label, "value": v, "display": disp, "period": "As stated in the cited sentence", "kind": "reported", "status": "Source matched",
-            "source": {**doc.location(m.start()), "excerpt": sent, "raw": raw, "offset": m.start()}}
+    k = {"name": label, "value": v, "display": disp, "period": "As stated in the cited sentence", "kind": "reported", "status": "Source matched",
+         "source": {**doc.location(m.start()), "excerpt": sent, "raw": raw, "offset": m.start()}}
+    # "were $455.3 billion and $99.1 billion as of August 31, 2025 and 2024, respectively" (Oracle's 10-Q): the second
+    # figure is the same measure a year earlier, a dated point of its own
+    r = re.search(r"\$\s?(" + re.escape(raw) + r")\s?(billion|million)\s+and\s+\$\s?([\d.,]+)\s?(billion|million)\s+as of\s+([A-Z][a-z]+\.?\s+\d{1,2}),?\s+"
+                  r"((?:19|20)\d\d)\s+and\s+((?:19|20)\d\d),?\s+respectively", doc.body)          # anywhere in the filing (Oracle: MD&A p.37)
+    if r and unit == "USD" and abs(float(r.group(1).replace(",", "")) * {"billion": 1e9, "million": 1e6}[r.group(2).lower()] - v) < 1:
+        pv = float(r.group(3).replace(",", "")) * {"billion": 1e9, "million": 1e6}[r.group(4).lower()]
+        r0 = max(doc.body.rfind(". ", 0, r.start()) + 2, doc.body.rfind("\n", 0, r.start()) + 1)
+        r1 = doc.body.find(".", r.end())
+        k.update({"period": f"{r.group(5)}, {r.group(6)}", "prior": pv, "prior_display": fmt_value(pv, unit), "prior_period": f"{r.group(5)}, {r.group(7)}",
+                  # the year-earlier figure is cited to the sentence that prints it, not to the one the current figure came from
+                  "prior_source": {**doc.location(r.start()), "excerpt": re.sub(r"\s+", " ", doc.body[r0:(r1 + 1 if r1 > 0 else r.end())])[:360],
+                                   "raw": r.group(3), "offset": r.start()}})
+    return k
 
 
 def kpis(doc, rows: list) -> dict:

@@ -71,7 +71,8 @@ def _cite(src: dict) -> str:
     p = src.get("pdf_page")
     pp = src.get("printed_page")
     page = f"p.{p}" + (f" (printed {pp})" if pp and str(pp) != str(p) else "") if p else "page not recorded"
-    what = " ".join(x for x in [src.get("form") or "", f"for {src['filing_period']}" if src.get("filing_period") else ""] if x)
+    per = src.get("filing_period") or src.get("filing_end") or src.get("period_end")
+    what = " ".join(x for x in [src.get("form") or "", f"for {per}" if per else ""] if x)
     name = what or src.get("file") or "filing"
     if src.get("url"):
         return f"[{name}]({src['url']}) {page}"
@@ -93,8 +94,9 @@ def _status(x: dict) -> str:
             s += " (the period before is not in the brain)"
     else:
         s = "on the trigger side" if x.get("on_trigger_side") else "not on the trigger side"
-    if x.get("watch_only"):
-        s += "; signpost, watch only"
+    tags = [w for w, on in (("signpost", x.get("signpost")), ("watch only", x.get("watch_only"))) if on]
+    if tags:
+        s += "; " + ", ".join(tags)
     return s
 
 
@@ -115,20 +117,22 @@ def _chg_cell(c: dict, k: str) -> str:
     d = c.get(k)
     if not d:
         return ""
+    at = f"({d['end']}, {_pg(d.get('src'))})"          # every earlier figure with its own filing and page
     if "pp" in d:
-        return f"{d['pp']:+.1f} pp vs {d['display']} ({d['end']})"
+        return f"{d['pp']:+.1f} pp vs {d['display']} {at}"
     if "pct" in d:
-        return f"{d['pct']:+.1f}%{' in size' if d.get('size') else ''} vs {d['display']} ({d['end']})"
+        return f"{d['pct']:+.1f}%{' in size' if d.get('size') else ''} vs {d['display']} {at}"
     if d.get("no_pct"):
-        return f"{d['no_pct']}: vs {d['display']} ({d['end']})"
-    return f"vs {d['display']} ({d['end']})"
+        return f"{d['no_pct']}: vs {d['display']} {at}"
+    return f"vs {d['display']} {at}"
 
 
 # ---------------------------------------------------------------------- one read
 def read_note(memory: dict, out: dict, meta: dict) -> str:
+    from .brain import display_name
     t = memory["ticker"]
     fm = _fm({"ticker": t, "company": memory.get("name"), "form": meta.get("form"), "period": meta.get("period"), "period_end": meta.get("period_end"),
-              "file": meta.get("file"), "url": meta.get("url"), "sha8": meta.get("sha8"),
+              **({"period_basis": meta["period_basis"]} if meta.get("period_basis") else {}), "file": meta.get("file"), "url": meta.get("url"), "sha8": meta.get("sha8"),
               "read_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"), "type": "crawler-read",
               "kpis_read": len(out.get("kpis_read") or []),
               "thresholds_measured": [m["id"] for m in out.get("thresholds", {}).get("measured", [])],
@@ -148,7 +152,7 @@ def read_note(memory: dict, out: dict, meta: dict) -> str:
                 L.append(f"| {_md(k['name'])} | {_md(k['display'])} | {k['end']} | {_md(_cite(k.get('src')))} |")
             L.append("")
         if exp.get("guidance_for_period"):
-            L.append("Guidance that covers this period:")
+            L.append("Guidance naming this year (checked against the year's 10-K, not against this read):")
             for g in exp["guidance_for_period"]:
                 L.append(f"- \"{_md(g['text'][:220])}\" ({_cite(g.get('src'))})")
             L.append("")
@@ -180,6 +184,17 @@ def read_note(memory: dict, out: dict, meta: dict) -> str:
         L.append("")
     m = out.get("merged", {})
     L += [f"New series this read: {len(m.get('new_series', []))}. New points: {m.get('new_points', 0)}. Figures confirmed against earlier reads: {m.get('confirmed', 0)}.", ""]
+    firsts = [k for k in m.get("new_series", []) if k.startswith("kpi:")]
+    if firsts:
+        # a KPI read for the first time has nothing to compare with, so it is not in "What changed"; it is said here
+        # (Microsoft's first RPO reading, $398 billion in the September 2025 10-Q, was filed and never shown)
+        L += ["First readings of a KPI (nothing earlier to compare with):"]
+        for k in firsts[:20]:
+            sr = memory["series"].get(k) or {}
+            pt = (sr.get("points") or {}).get(meta.get("period_end") or "")
+            if pt:
+                L.append(f"- {_md(display_name(k, sr.get('name') or k))}: {_md(pt.get('display'))} for {meta.get('period_end')} ({_md(_cite(pt.get('src')))})")
+        L.append("")
     if m.get("restated"):
         L += ["## Same period, two different figures", "",
               "Two filings give this period different figures. Either the company recast it, or one of the two reads took another "
@@ -198,8 +213,21 @@ def read_note(memory: dict, out: dict, meta: dict) -> str:
         L += ["## Printed before, not found in this read (M47)", ""]
         for x in out["missing"]:
             w = x.get("where") or {}
+            same = (w.get("form") or "") == (meta.get("form") or "")          # a page learned from another form says nothing about this one
+            where = (f"expected around {('p.' + str(w['pdf_page'])) if w.get('pdf_page') else 'an unknown page'}{(', ' + w['table']) if w.get('table') else ''}"
+                     if same else f"last seen in a {w.get('form') or 'filing'}, not in a {meta.get('form') or 'filing'} like this one")
             L.append(f"- **{_md(x['name'])}**: last {x.get('last_display')} for {x.get('last_end')} ({_cite(x.get('last_src'))}); "
-                     f"expected around {('p.' + str(w['pdf_page'])) if w.get('pdf_page') else 'an unknown page'}{(', ' + w['table']) if w.get('table') else ''}. Not found by this read: either the filing dropped it or the Crawler missed it.")
+                     f"{where}. Not found by this read: either the filing dropped it or the Crawler missed it.")
+        L.append("")
+    sc = out.get("scores") or {}
+    if sc.get("inputs"):
+        cell = lambda k: (sc.get(k) or {}).get("display") or (sc.get(k) or {}).get("value")
+        L += ["## Quality scores from this read", "",
+              f"Altman Z {cell('altman') if cell('altman') is not None else 'not computed'}; Piotroski F {cell('piotroski') if cell('piotroski') is not None else 'not computed'}; "
+              f"Beneish M {cell('beneish') if cell('beneish') is not None else 'not computed'}. Computed by the reader from these figures of this filing:", "",
+              "| Input | This year | Page | Year before | Page |", "|---|---|---|---|---|"]
+        for x in sc["inputs"]:
+            L.append(f"| {_md(x.get('name'))} | {_md(x.get('now'))} | {('p.' + str(x['now_page'])) if x.get('now_page') else ''} | {_md(x.get('before') or '')} | {('p.' + str(x['before_page'])) if x.get('before_page') else ''} |")
         L.append("")
     th = out.get("thresholds", {})
     if th.get("rows"):
@@ -218,7 +246,8 @@ def read_note(memory: dict, out: dict, meta: dict) -> str:
         L += ["## Guidance against the actual", ""]
         for g in out["guidance_checked"]:
             o = g["outcome"]
-            L.append(f"- \"{_md(g['text'][:220])}\" ({_cite(g.get('src'))}): actual {o['actual_display']} ({_cite(o.get('actual_src'))}), {o['verdict']}. {o['note']}")
+            act = f"actual {o['actual_display']} ({_cite(o.get('actual_src'))}), {o['verdict']}." if o.get("actual") is not None else f"{o['verdict']}."
+            L.append(f"- \"{_md(g['text'][:220])}\" ({_cite(g.get('src'))}): {act} {o['note']}")
         L.append("")
     if out.get("guidance_added"):
         L += [f"Guidance lines recorded from this read: {out['guidance_added']} (see [[brain/companies/{t}/{t}#Guidance ledger|{t}, Guidance ledger]]).", ""]
@@ -238,6 +267,9 @@ def read_note(memory: dict, out: dict, meta: dict) -> str:
     L += ["## Machine reading", ""]
     if rd.get("note"):
         L += [f"_{_md(rd['note'])}_", ""]
+    if not rd.get("sentences") and not rd.get("questions"):
+        L += ["This read filed no change, restatement, threshold reading, missing line or checked guidance, so the reading has nothing to say. "
+              f"The figures it read went into the series on [[brain/companies/{t}/{t}|the {t} page]].", ""]
     for s in rd.get("sentences", []):
         L.append(f"- {s['text']} [{', '.join(s['refs'])}]")
     if rd.get("questions"):
@@ -263,11 +295,14 @@ def company_page(memory: dict, last: dict, existing: str = "") -> str:
               "last_period_end": lr.get("period_end"), "kpis": sorted(display_name(k, s["name"]) for k, s in kp.items()),
               "thresholds_watched": sorted({x["id"] for x in th})})
     L = [fm, f"# {memory.get('name') or t} ({t})", "", BANNER, ""]
-    L += [f"Profile: {memory.get('profile') or 'not identified'}. Reads in the brain: {len(reads)}. Last: {lr.get('form') or ''} {lr.get('period') or lr.get('period_end') or ''}.", ""]
+    profs = [r.get("profile") for r in reads if r.get("profile")]
+    others = sorted({x for x in profs if x != memory.get("profile")})
+    pnote = f" ({profs.count(memory.get('profile'))} of {len(profs)} reads; also read as {', '.join(others)})" if others else ""
+    L += [f"Profile: {memory.get('profile') or 'not identified'}{pnote}. Reads in the brain: {len(reads)}. Last: {lr.get('form') or ''} {lr.get('period') or lr.get('period_end') or ''}.", ""]
     if th:
         L += ["## Watch list: pre-registered thresholds at the last read", "", "| Threshold | Reading | Trigger | Distance | Periods (legs) |", "|---|---|---|---|---|"]
         for x in th:
-            L.append(f"| {x['id']} | {_md(x['reading_display'])} ({x['period_end']}) | {x['operator']} {x['threshold']} {x['unit']} | {_md(x['distance_display'])} | {_status(x)} |")
+            L.append(f"| {x['id']} | {_md(x['reading_display'])} ({x['period_end']}; {_pg(x.get('src'))}) | {x['operator']} {x['threshold']} {x['unit']} | {_md(x['distance_display'])} | {_status(x)} |")
         L += ["", "Readings only (M24). The rows and their values live in `monitoring/THRESHOLDS.md`.", ""]
     if kp:
         L += ["## KPIs", "", "| KPI | Scope | Latest | Period | Points | Source |", "|---|---|---|---|---|---|"]
@@ -304,14 +339,14 @@ def company_page(memory: dict, last: dict, existing: str = "") -> str:
         for x in g[-15:]:
             o = x.get("outcome")
             L.append(f"- {x['given_in'].get('form')} {x['given_in'].get('period') or x['given_in'].get('period_end') or ''} ({x.get('topic_label')}, covers {x.get('covers') or 'unstated'}): "
-                     f"\"{_md(_clip(x['text']))}\" ({_cite(x.get('src'))})" + (f" **Actual {o['actual_display']}: {o['verdict']}.**" if o and o.get('actual') is not None else f" *{o['note']}*" if o else ""))
+                     f"\"{_md(_clip(x['text']))}\" ({_cite(x.get('src'))})" + (f" **Actual {o['actual_display']} ({_pg(o.get('actual_src'))}): {o['verdict']}.**" if o and o.get('actual') is not None else f" *{o['note']}*" if o else ""))
         L.append("")
     rest = [(k, e, p) for k, s in memory.get("series", {}).items() for e, p in s["points"].items() if p.get("restated")]
     if rest:
         L += ["## Same period, two different figures (recast, or one read took another line: check both pages)", ""]
         for k, e, p in rest[-20:]:
             s = memory["series"][k]
-            L.append(f"- {_md(display_name(k, s['name']))} {e}: first {p.get('display')} ({_cite(p.get('src'))}); later " +
+            L.append(f"- {_md(display_name(k, s['name']))} {e}: shown {p.get('display')} ({_cite(p.get('src'))}); other print " +
                      "; ".join(f"{r.get('display')} ({_cite(r.get('src'))})" for r in p["restated"]))
         L.append("")
     qs = [q for q in memory.get("questions", []) if q.get("status") == "open"]
@@ -322,9 +357,10 @@ def company_page(memory: dict, last: dict, existing: str = "") -> str:
         L += ["## Quality scores by year", "", "Each score with its inputs and their pages is in the read it came from.", "",
               "| Year end | Altman Z | Piotroski F | Beneish M | Read |", "|---|---|---|---|---|"]
         for r in sc:
-            cell = lambda k: (r.get(k) or {}).get("display") or ((r.get(k) or {}).get("value") if r.get(k) else "")
+            cell = lambda k: ((r.get(k) or {}).get("display") or ((r.get(k) or {}).get("value") if r.get(k) else "")) if not (r.get(k) or {}).get("max") else \
+                f"{(r.get(k) or {}).get('value')} of {(r.get(k) or {}).get('max')} tests (partial: {(r.get(k) or {}).get('caveat') or 'not every test applies'})"
             rd = next((x for x in reads if x.get("sha8") == r.get("read")), None)
-            src = f"[[{note_name(t, rd)}\\|{rd.get('form')} {rd.get('period_end')}]]" if rd else ""
+            src = f"[[brain/companies/{t}/reads/{note_name(t, rd)}\\|{rd.get('form')} {rd.get('period_end')}]]" if rd else ""
             L.append(f"| {r.get('period_end')} | {_md(cell('altman'))} | {_md(cell('piotroski'))} | {_md(cell('beneish'))} | {src} |")
         L.append("")
     w = memory.get("where", {})
@@ -338,7 +374,7 @@ def company_page(memory: dict, last: dict, existing: str = "") -> str:
         L.append("")
     L += ["## Reads", ""]
     for r in reversed(reads[-30:]):
-        L.append(f"- [[{note_name(t, r)}|{r.get('form')} {r.get('period') or r.get('period_end') or ''}]] ({r.get('file')})")
+        L.append(f"- [[brain/companies/{t}/reads/{note_name(t, r)}|{r.get('form')} {r.get('period') or r.get('period_end') or ''}]] ({r.get('file')})")
     L.append("")
     keep = ""
     if existing and NOTES_HEAD in existing:
@@ -395,11 +431,14 @@ def index_page(vault: Path) -> str:
         for k, s in sorted(kp, key=lambda x: x[1]["name"])[:3]:
             lt = latest(s)
             if lt:
-                bits.append(f"{display_name(k, s['name'])} {lt[1].get('display') or _fmt(lt[1]['value'], s.get('unit'))}")
+                bits.append(f"{display_name(k, s['name'])} {lt[1].get('display') or _fmt(lt[1]['value'], s.get('unit'))} ({_pg(lt[1].get('src'))})")
         rows.append(f"| {clink(m['ticker'], True)} | {_md(m.get('name'))} | {_md(m.get('profile'))} | {len(reads)} | {_md((lr.get('form') or '') + ' ' + (lr.get('period') or lr.get('period_end') or ''))} | {_md('; '.join(bits))} |")
     fm = _fm({"type": "crawler-index"})
     return "\n".join([fm, "# Crawler brain: index", "", BANNER, "",
                       "What the Crawler has read and remembers. Rules: [[brain/README|README]]. History: [[brain/log|log]].", "",
+                      "This is a listing, not a comparison. Each row's KPIs are that company's own, as its filings define them; a KPI with "
+                      "the same name at another company is a different measure (M03; falsified.md FALS-02 and FALS-10 for GATX LPI against "
+                      "Trinity FLRD), so values in this column are not read across rows.", "",
                       "| Company | Name | Profile | Reads | Last read | KPIs (latest) |", "|---|---|---|---|---|---|"] + rows + [""])
 
 

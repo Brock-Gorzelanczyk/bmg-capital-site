@@ -91,6 +91,16 @@ def _slug(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", (s or "").lower()).strip("-")[:60] or "x"
 
 
+def _row_slug(s: str) -> str:
+    """A row label as a key part, the same for the same line however a filing prints it: Coinbase's 8-K "(Gains) losses on
+    investment, net ......" and its 10-K "Losses (gains) on investments, net" are one row."""
+    t = re.sub(r"\.{2,}.*$", "", s or "").lower()                  # leader dots and what follows them
+    t = re.sub(r"\([^)]*\d[^)]*\)", " ", t)                       # JPMorgan's "Long-term debt (included $124,178 and $100,780 at fair value)"
+    t = re.sub(r"\(?\b(gains?|losses?)\b\)?\s*\(?\b(gains?|losses?)\b\)?", "gains losses", t)
+    t = re.sub(r"\b(investments|assets|securities)\b", lambda m: m.group(1)[:-1], t)
+    return _slug(t)
+
+
 def _d(s: Optional[str]) -> Optional[date]:
     try:
         return date.fromisoformat((s or "")[:10])
@@ -176,7 +186,38 @@ def meta_of(result: dict, extra: Optional[dict] = None) -> dict:
             ends = sorted({(f.get("period") or {}).get("end") for f in facts if (f.get("period") or {}).get("type") in ("6M", "9M", "instant")} - {None, ""})
         if ends:
             m["period_end"] = ends[-1]
+    if not m.get("period") and m.get("period_end"):
+        m["period"] = f"Period ended {m['period_end']}"        # Oracle's Q1 FY27 release names its quarter only in words the reader did not take
     return m
+
+
+_QWORD = re.compile(r"(?i)\b(first|second|third|fourth)[\s-]+quarter\s+(?:of\s+)?((?:19|20)\d\d)\b|\b([1-4])Q((?:19|20)?\d\d)\b")
+_QEND = ["03-31", "06-30", "09-30", "12-31"]
+
+
+def date_from_quarter_words(memory: dict, meta: dict, result: dict) -> None:
+    """A release that names its quarter only in words ("Second quarter 2026", "Tesla Third Quarter 2026 Production")
+    and prints no statement table the period end can be taken from. The words give a calendar quarter end only when
+    the company's fiscal year is the calendar year, which the brain knows from the year ends of its 10-K reads; else
+    the read keeps the words as its period and stays undated."""
+    if meta.get("period_end"):
+        return
+    text = result.get("text") or ""
+    ex = re.search(r"(?i)exhibit\s+99", text[:20000])
+    m = _QWORD.search(meta.get("period") or "") or (_QWORD.search(text[ex.end():ex.end() + 600]) if ex else None) or _QWORD.search(text[:6000])
+    if not m:
+        return
+    if m.group(1):
+        q, y = ["first", "second", "third", "fourth"].index(m.group(1).lower()) + 1, int(m.group(2))
+    else:
+        q, y = int(m.group(3)), int(m.group(4))
+        y = y + 2000 if y < 100 else y
+    if not meta.get("period"):
+        meta["period"] = f"{['First', 'Second', 'Third', 'Fourth'][q - 1]} quarter {y}"
+    ends = {(r.get("period_end") or "")[5:] for r in memory.get("reads", []) if (r.get("form") or "").upper().startswith("10-K") and r.get("period_end")}
+    if ends == {"12-31"}:
+        meta["period_end"] = f"{y}-{_QEND[q - 1]}"
+        meta["period_basis"] = "the quarter the release names in words; the company's 10-K years end December 31"
 
 
 _MON = {m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
@@ -199,7 +240,9 @@ def _period_end(text: str) -> Optional[str]:
 # period (renewal success for the quarter vs for the year, investment volume) get a series per kind of period.
 _INSTANT_KPI = re.compile(r"(?i)utilization|lease price index|fleet size|active (?:rail)?cars|backlog|ending balance|"
                           r"at (?:the )?(?:year|quarter|period)[- ]end|employees|headcount|stores|subscribers|customers|members|users|accounts|"
-                          r"remaining performance obligation")          # RPO is a balance at a date (ORCL's threshold reads its year-over-year change)
+                          r"remaining performance obligation|cet1|tier 1|capital ratio|total deposits|total loans|allowance for (?:credit|loan) losses")
+                          # RPO is a balance at a date (ORCL's threshold reads its year-over-year change); so are a bank's capital ratio,
+                          # deposits, loans and allowance
 
 
 _PERIOD_WORD = {"Q": "quarter", "FY": "year", "6M": "six months", "9M": "nine months", "3M": "quarter", "YTD": "year to date", "H1": "first half",
@@ -226,7 +269,8 @@ def kpi_identity(k: dict, meta: dict) -> Optional[tuple]:
     name = k.get("name") or ""
     src0 = k.get("source") or {}
     instant = bool(_INSTANT_KPI.search(name))
-    if _BALANCE_TABLE.search(src0.get("table_title") or "") and not str(k.get("display") or "").endswith("%"):
+    if (_BALANCE_TABLE.search(src0.get("table_title") or "") and not str(k.get("display") or "").endswith("%")
+            and k.get("period_type") in (None, "", "instant")):       # JPMorgan's quarterly net interest income under a contents line naming the balance sheets
         ptype = None                 # a balance; a rate is never one (a release's fleet table can carry the balance sheet's title)
     elif k.get("period_type") and k["period_type"] != "instant":
         ptype = k["period_type"]
@@ -354,7 +398,9 @@ def contributions(result: dict, meta: dict, memory: Optional[dict] = None) -> li
         if f.get("kind") != "reported" or f.get("value") is None:
             continue
         s0 = f.get("source") or {}
-        row_id = (s0.get("pdf_page"), s0.get("row_label"), s0.get("column"), (f.get("period") or {}).get("end"), f.get("value"))
+        # the printed line by its place in the filing: Trinity's basic and diluted EPS rows share a label and, in a quarter,
+        # a value (0.17), and were filed once (diluted dropped); Apple's one "Net income" line read under two metrics is one
+        row_id = (s0.get("pdf_page"), s0.get("row_label"), s0.get("column"), (f.get("period") or {}).get("end"), f.get("value"), s0.get("offset"))
         if s0.get("row_label") and row_id in seen_rows:
             continue
         seen_rows[row_id] = f.get("metric")
@@ -370,18 +416,31 @@ def contributions(result: dict, meta: dict, memory: Optional[dict] = None) -> li
         typ = per.get("type") or "instant"
         if typ == "FY":
             typ = _fy_or_ttm(per["end"], meta, memory)
-        key = f"fact:{f.get('metric')}:{typ}"
-        if f.get("metric") not in METRIC_NAMES:
+        metric, value, name = f.get("metric"), f["value"], f.get("name")
+        lab = ((f.get("source") or {}).get("row_label") or "").lower()
+        if metric == "interest_expense" and "foreign exchange" in lab:
+            metric, name = "interest_and_fx", "Interest and foreign exchange"   # Greenbrier prints one line for both; it is not interest expense
+        if metric == "interest_expense":
+            value = abs(value)            # an expense by its size: Alphabet prints "(54)" under other income in one filing and "261" in another
+        if metric == "gains_on_dispositions" and "gain" in lab and "loss" not in lab:
+            value = abs(value)            # a gain printed in parentheses inside the cost block (Greenbrier) is still a gain
+        if metric == "nci_income" and lab:
+            # the row adds or deducts the noncontrolling interest's share: its sign says which way it is printed, the label
+            # says whether the share earned or lost (Greenbrier: "Net loss attributable ... 1.1", "Net earnings attributable ... (0.9)")
+            value = -abs(value) if ("loss" in lab and not re.search(r"earnings|income", lab.split("loss")[0])) else abs(value)
+        key = f"fact:{metric}:{typ}"
+        if metric not in METRIC_NAMES and metric != "interest_and_fx":
             # a row-labeled fact (cash flow items, capex and debt lines summed into a total): one metric covers many rows,
             # so the row's own label is part of what it is
-            key += ":" + _slug(f.get("name") or "")
+            key += ":" + _row_slug(f.get("name") or "")
         scope = f.get("scope") or ""
         if scope.lower().startswith("as labeled"):
             scope = ""                   # the reader's word for a table that names no scope: not a segment (the same measure keeps one series)
         if scope and scope.lower() != "consolidated":
             key += ":" + _slug(scope)
-        pts.append({"key": key, "name": f.get("name"), "unit": f.get("unit"), "kind": "fact", "scope": scope,
-                    "end": per["end"], "label": per.get("label"), "value": f["value"], "display": f.get("display"),
+        disp = f.get("display") if value == f["value"] else _fmt(value, f.get("unit"))
+        pts.append({"key": key, "name": name, "unit": f.get("unit"), "kind": "fact", "scope": scope,
+                    "end": per["end"], "label": per.get("label"), "value": value, "display": disp,
                     "src": _src(meta, f.get("source")), "fact_id": f.get("id"),
                     "covered": _covered(typ, per["end"], per.get("short")), "basis": _basis("fact", f.get("name"), scope, f.get("source"))})
     for k in ((rep.get("operating") or {}).get("kpis") or []):
@@ -395,6 +454,8 @@ def contributions(result: dict, meta: dict, memory: Optional[dict] = None) -> li
         key, ptype = ident
         src0 = k.get("source") or {}
         scope = k.get("scope") or ""
+        if re.fullmatch(r"(?i)\s*(?:for the\s+)?(?:(?:fiscal\s+)?years?|three months|six months|nine months|twelve months|quarters?)(?:\s+ended)?\s*", scope):
+            scope = ""                    # Apple's "Years ended" and "Three Months Ended" column headers were shown as a scope
         hd = (src0.get("heading") or "").strip()
         # only a group's name: two to six words, no figures, no column or reconciliation word ("Less", "% Change",
         # "Adjustments to reconcile net income ...", a row taken for a heading)
@@ -423,7 +484,9 @@ def contributions(result: dict, meta: dict, memory: Optional[dict] = None) -> li
         if not end and meta.get("period_end") and not (meta.get("form") or "").upper().startswith("10-"):
             # a release's quarterly table headed only by years ("2025 ... 2024"): its first column, the one read, is the
             # release's own quarter when the label is that quarter's year
-            y = re.fullmatch(r"\s*(?:FY\s?)?((?:19|20)\d\d)\s*", k.get("period") or "")
+            # GATX's Q2 2026 release prints its Rail North America statistics under undated columns the reader labels "As of
+            # 2026" (EX-99.1 p.16: renewal success 82.6%, utilization 98.0%); its kill-criterion rows read "no value" (2026-10-26)
+            y = re.fullmatch(r"\s*(?:As of\s+)?(?:FY\s?)?((?:19|20)\d\d)\s*", k.get("period") or "")
             if y and y.group(1) in (meta["period_end"][:4], _fiscal_year(meta["period_end"], memory)):
                 end = meta["period_end"]
         if not end:
@@ -433,7 +496,13 @@ def contributions(result: dict, meta: dict, memory: Optional[dict] = None) -> li
                     "value": k["value"], "display": k.get("display"), "src": src, "covered": cov(end)})
         pend = _period_end(k.get("prior_period") or "")
         if k.get("prior") is not None and pend:
-            pts.append({**base, "end": pend, "label": k.get("prior_period"), "value": k["prior"], "display": k.get("prior_display"), "src": src, "covered": cov(pend)})
+            psrc = {**_src(meta, k["prior_source"]), "origin": src["origin"]} if k.get("prior_source") else src
+            pts.append({**base, "end": pend, "label": k.get("prior_period"), "value": k["prior"], "display": k.get("prior_display"), "src": psrc, "covered": cov(pend)})
+    # a cash flow row the profile reads as a KPI (stock-based compensation) is not filed a second time as a row-labeled
+    # cash flow item: Oracle's notes showed "Stock-based compensation (quarter)" twice
+    kq = {(p["end"], round(p["value"], 2), (p.get("src") or {}).get("pdf_page")) for p in pts if p["kind"] == "kpi"}
+    pts = [p for p in pts if not (p["kind"] == "fact" and p["key"].startswith("fact:cf_item:")
+                                  and (p["end"], round(p["value"], 2), (p.get("src") or {}).get("pdf_page")) in kq)]
     return pts
 
 
@@ -472,9 +541,11 @@ def from_read(pt: Optional[dict], read_id: Optional[str]) -> Optional[dict]:
     if pt.get("read") == read_id:
         return pt
     if read_id in (pt.get("seen_in") or []):
-        # this read's own page and scope: a 10-Q confirming a release's figure prints it in its own table
+        # this read's own figure, page and scope: a 10-Q confirming a release's figure prints it in its own table
+        v = (pt.get("seen_val") or {}).get(read_id)
         return {**pt, "src": (pt.get("seen_src") or {}).get(read_id) or pt.get("src"),
-                "scope": (pt.get("seen_scope") or {}).get(read_id, pt.get("scope"))}
+                "scope": (pt.get("seen_scope") or {}).get(read_id, pt.get("scope")),
+                **({"value": v[0], "display": v[1] or pt.get("display")} if v else {})}
     return next((a for a in (pt.get("restated") or []) + (pt.get("other_prints") or [])
                  if a.get("read") == read_id or read_id in (a.get("seen_in") or [])), None)
 
@@ -507,6 +578,18 @@ def merge(memory: dict, pts: list, meta: dict) -> dict:
             pt.setdefault("seen_in", []).append(read_id)
             pt.setdefault("seen_src", {})[read_id] = p["src"]      # where this read printed it, for its own note's citations
             pt.setdefault("seen_scope", {})[read_id] = p.get("scope") or ""
+            pt.setdefault("seen_val", {})[read_id] = [p["value"], p.get("display")]
+            if _rank(p["src"])[:2] > _rank(pt.get("src"))[:2] and pt.get("read"):
+                # by origin and form only: a later filing's rounded comparative ("$138 billion" for Oracle's $137.8 billion) of
+                # the same figure is a confirmation, not a recast, and does not replace the more exact print
+                # the stronger print of the same figure is the one shown: Oracle's 10-Q "$523.3 billion" over its release's
+                # "$523 billion"; the release keeps its own figure and page among the confirmations
+                old = pt["read"]
+                pt["seen_src"][old], pt["seen_scope"][old], pt["seen_val"][old] = pt.get("src"), pt.get("scope") or "", [pt["value"], pt.get("display")]
+                for d in ("seen_src", "seen_scope", "seen_val"):
+                    pt[d].pop(read_id, None)
+                pt["seen_in"] = [r for r in pt["seen_in"] if r != read_id] + [old]
+                pt.update({k: v for k, v in entry.items()})
             continue
         alt = "other_prints" if p["kind"] == "kpi" and (pt.get("src") or {}).get("origin", "table") != p["src"].get("origin", "table") else "restated"
         known = next((a for a in pt.get(alt) or [] if _same(a["value"], p["value"])), None)
@@ -541,6 +624,8 @@ def _fmt(v: float, unit: Optional[str]) -> str:
     if unit == "USD":
         a = abs(v)
         sgn = "-" if v < 0 else ""
+        if a >= 1e12:
+            return f"{sgn}${a / 1e12:.2f}T"
         if a >= 1e9:
             return f"{sgn}${a / 1e9:.2f}B"
         if a >= 1e6:
@@ -564,7 +649,7 @@ def changes(memory: dict, pts: list, meta: dict) -> list[dict]:
         if pe not in ends:
             continue
         i = ends.index(pe)
-        cur = pts_o[i][1]
+        cur = from_read(pts_o[i][1], meta.get("sha8") or meta.get("file")) or pts_o[i][1]      # this read's own figure and page
         item = {"key": key, "name": display_name(key, s["name"]), "unit": s.get("unit"), "kind": s["kind"], "scope": s.get("scope") or "", "end": pe,
                 "value": cur["value"], "display": cur.get("display") or _fmt(cur["value"], s.get("unit")), "src": cur.get("src"),
                 "known_points": len(pts_o)}
@@ -583,12 +668,22 @@ def changes(memory: dict, pts: list, meta: dict) -> list[dict]:
                 item["year_ago"] = _delta(cur["value"], p["value"], s.get("unit"), e, p)
         if len(pts_o) >= 4:
             vals = [p["value"] for _, p in pts_o]
-            rank_hi = sorted(vals, reverse=True).index(cur["value"]) + 1
+            rank_hi = sum(1 for v in vals if v > cur["value"]) + 1
             size = all(v < 0 for v in vals)      # an outflow series (capex, buybacks) is ranked by its size
             mags = [abs(v) for v in vals] if size else vals
             cv = abs(cur["value"]) if size else cur["value"]
             item["range"] = {"n": len(vals), "first": pts_o[0][0], "min": min(vals), "max": max(vals), "rank_from_top": rank_hi,
                              "highest": cv >= max(mags), "lowest": cv <= min(mags), "by_size": size}
+        # a filing recast this line (two figures for one period on record): an earlier figure printed before that filing,
+        # set against one printed after it, may be on the old basis (Coinbase's cash before its 2025 change in accounting
+        # principle; its total assets before SAB 122). No percentage is given across it
+        fe = lambda src: (src or {}).get("filing_end") or ""
+        recast_at = max((max([fe(p.get("src"))] + [fe(r.get("src")) for r in p["restated"]]) for _, p in pts_o if p.get("restated")), default="")
+        for k2 in ("before", "year_ago"):
+            d = item.get(k2)
+            if d and recast_at and "pct" in d and fe(d.get("src")) < recast_at <= fe(cur.get("src")):
+                d.pop("pct"); d.pop("size", None)
+                d["no_pct"] = f"printed before a recast of this line (filing of {recast_at})"
         if "before" in item or "year_ago" in item or "range" in item:
             out.append(item)
     return out
@@ -617,10 +712,13 @@ def missing(memory: dict, pts: list, meta: dict) -> list[dict]:
     if not prior_reads:
         return []
     last = prior_reads[-1]
-    fam = lambda k: re.sub(r":(?:Q|3M|6M|9M|YTD|H1)$", ":period", k)       # a 10-Q's quarter, six- or nine-month figure is one KPI
+    fam = lambda k: re.sub(r":(?:Q|3M|6M|9M|YTD|H1|FY)$", ":period", k)    # a quarter, six- or nine-month or year figure is one KPI (a Q4 release prints the year)
     now = {fam(p["key"]) for p in pts if p["kind"] == "kpi"}
+    annual = (form or "").upper().startswith("10-K") or any(p["key"].endswith(":FY") for p in pts)
     out = []
     for key in last.get("kpis", []):
+        if key.endswith(":FY") and not annual:
+            continue                      # a Q4 release prints the year; a first-quarter release does not, and is not missing it
         if fam(key) not in now and key in memory["series"]:
             s = memory["series"][key]
             lt = latest(s)
@@ -651,26 +749,35 @@ def learn_where(memory: dict, result: dict, meta: dict) -> None:
 # ---------------------------------------------------------------------- guidance and outcomes
 # a guided range: "between X and Y", "X to Y", "X-Y". A bare "X and Y" is two figures, not a range ("$1.2 billion and
 # $1.4 billion during the third quarter of 2025 and 2024")
-_RANGE = re.compile(r"(?i)(?:(?<=between )|(?<=between \$))\$?\s?(\d+(?:\.\d+)?)\s*(billion|million|%|percent)?\s*and\s*\$?\s?(\d+(?:\.\d+)?)\s*(billion|million|%|percent)?"
-                    r"|\$?\s?(\d+(?:\.\d+)?)\s*(billion|million|%|percent)?\s*(?:to|-|–)\s*\$?\s?(\d+(?:\.\d+)?)(?!\d|\.\d)\s*(billion|million|%|percent)?"
+_RANGE = re.compile(r"(?i)(?:(?<=between )|(?<=between \$))\$?\s?(\d[\d,]*(?:\.\d+)?)\s*(trillion|billion|million|%|percent)?\s*and\s*\$?\s?(\d[\d,]*(?:\.\d+)?)\s*(trillion|billion|million|%|percent)?"
+                    r"|\$?\s?(\d[\d,]*(?:\.\d+)?)\s*(trillion|billion|million|%|percent)?\s*(?:to|-|–)\s*(?:approximately\s+)?\$?\s?(\d[\d,]*(?:\.\d+)?)(?!\d|\.\d)\s*(trillion|billion|million|%|percent)?"
                     r"(?!\s*(?:years?|months?|days?|quarters?)\b)")       # "1 to 10 years" is a term, not a guide
-_ONE = re.compile(r"(?i)(?:approximately|about|around|roughly|of|at)\s+\$\s?(\d+(?:\.\d+)?)\s*(billion|million)?")
+_ONE = re.compile(r"(?i)(?:approximately|about|around|roughly|of|at|to|at least)\s+\$\s?(\d+(?:\.\d+)?)\s*(trillion|billion|million)?")
 
 
 def _guide_numbers(text: str) -> Optional[dict]:
     """The low and high of a guided range as printed ("$8.50 to $8.90", "between $150 million and $170 million"), or
     a single guided amount ("approximately $200 million"). None when the line gives no figure to check."""
+    text = re.sub(r"(?i)between \$?[\d.,]+\s*(?:billion|million)? and \$?[\d.,]+\s*(?:billion|million)? in constant currency and (?=between)", "", text or "")
+    # "$550-$630 million" and "$3-5T": a short suffix is a scale ("M", "B", "T")
+    text = re.sub(r"(\d)\s?([MBT])\b", lambda m: m.group(1) + " " + {"M": "million", "B": "billion", "T": "trillion"}[m.group(2)], text)
+    text = re.sub(r"(\d)\s?trillion", lambda m: m.group(1) + " trillion", text)
     m = _RANGE.search(text or "")
     if m:
         g = m.groups()[:4] if m.group(1) is not None else m.groups()[4:]     # the "between" form, else "to" or a dash
-        lo, hi = float(g[0]), float(g[2])
+        lo, hi = float(g[0].replace(",", "")), float(g[2].replace(",", ""))
         u = (g[3] or g[1] or "").lower()
-        mult = {"billion": 1e9, "million": 1e6}.get(u, 1.0)
+        mult = {"trillion": 1e12, "billion": 1e9, "million": 1e6}.get(u, 1.0)
         if lo <= hi and (u in ("%", "percent") or "$" in m.group(0) or mult > 1 or lo < 100):
             return {"low": lo * mult, "high": hi * mult, "unit": "percent" if u in ("%", "percent") else ("USD" if mult > 1 or "$" in m.group(0) else "")}
+    fl = re.search(r"(?i)(?:in excess of|at least|more than|exceed(?:ing)?|over)\s+\$\s?(\d+(?:\.\d+)?)\s*(trillion|billion|million)?", text or "")
+    if fl:
+        # Tesla: "capital expenditures to be in excess of $25 billion in 2026" is a floor, not a point
+        v = float(fl.group(1)) * {"trillion": 1e12, "billion": 1e9, "million": 1e6}.get((fl.group(2) or "").lower(), 1.0)
+        return {"low": v, "high": None, "unit": "USD", "floor": True}
     m = _ONE.search(text or "")
     if m:
-        mult = {"billion": 1e9, "million": 1e6}.get((m.group(2) or "").lower(), 1.0)
+        mult = {"trillion": 1e12, "billion": 1e9, "million": 1e6}.get((m.group(2) or "").lower(), 1.0)
         v = float(m.group(1)) * mult
         return {"low": v, "high": v, "unit": "USD", "approximate": True}
     return None
@@ -706,8 +813,33 @@ def add_guidance(memory: dict, result: dict, meta: dict) -> list:
         # "2026 full-year earnings" over "first-quarter results"; a period the line compares from ("compared with second
         # quarter 2025") is its base, not what it guides (as guidehist.align reads it)
         covers = f"full-year {fy.group(1) or fy.group(2)}" if fy else (guidehist.period_of(txt, skip_base=True) or guidehist.period_of(g.get("period") or ""))
+        body = result.get("text") or ""
+        off = g.get("offset") if isinstance(g.get("offset"), int) else None
+        before = body[max(0, off - 900):off] if off is not None else ""
+        if not covers and before:
+            # a row of an outlook table names no year; its lead-in does: Greenbrier's "providing the following guidance for
+            # fiscal 2026" and "Prior / Updated FY26 Guidance" over "EPS: $3.75 - $4.75"
+            ly = list(re.finditer(r"(?i)guidance for (?:fiscal |the full year |full[- ]year )?(20\d\d)|\bFY ?(\d\d) guidance|fiscal (20\d\d) guidance|"
+                                  r"\b(first|second|third|fourth) quarter (20\d\d) guidance", before))
+            if ly and ly[-1].group(4):
+                covers = f"{ly[-1].group(4).capitalize()} quarter {ly[-1].group(5)}"      # Amazon's "Fourth Quarter 2025 Guidance" heading
+            elif ly:
+                y = ly[-1].group(1) or ly[-1].group(3) or ("20" + ly[-1].group(2))
+                covers = f"full-year {y}"
+        if not covers and meta.get("period_end") and re.search(r"(?i)\b(?:full[- ]year|this year|the year|fiscal year)\b", txt) and not re.search(r"(?i)\b(?:19|20)\d\d\b", txt):
+            # "raising and tightening our full year EPS guidance" in a Q3 release: the year of that release
+            covers = f"full-year {_fiscal_year(meta['period_end'], memory)}"
+        if re.search(r"(?i)\blong[- ]term (?:target|goal|financial target|aspiration)|investor day|over the next (?:\w+ )?years", txt):
+            covers = "long term"          # Greenbrier's April 2023 Investor Day targets: 2023 dates the target, it is not the year guided
+        if topic == "revenue" and re.search(r"(?i)\bproceeds\b", txt):
+            topic, label = "other", "Other guidance"                    # proceeds from asset sales are not revenue
+        nums = _guide_numbers(txt)
+        if len(_RANGE.findall(re.sub(r"(\d)\s?([MBT])\b", r"\1 x", txt))) >= 2:
+            # two ranges on one row: a "Prior / Updated" table gives the current guide last; anything else is ambiguous
+            last = list(_RANGE.finditer(txt))[-1]
+            nums = _guide_numbers(txt[last.start():]) if re.search(r"(?i)\bprior\b[^\n]{0,120}\bupdated\b", before) else None
         row = {"text": txt[:600], "topic": topic, "topic_label": label, "covers": covers,
-               "numbers": _guide_numbers(txt), "given_in": {"form": meta.get("form"), "period": meta.get("period"), "period_end": meta.get("period_end")},
+               "numbers": nums, "given_in": {"form": meta.get("form"), "period": meta.get("period"), "period_end": meta.get("period_end")},
                "src": _src(meta, {"pdf_page": g.get("page") or g.get("pdf_page"), "printed_page": g.get("printed_page"), "quote": txt}),
                "read": meta.get("sha8"), "at": _now(), "outcome": None}
         if excl and topic == "eps":
@@ -718,22 +850,69 @@ def add_guidance(memory: dict, result: dict, meta: dict) -> list:
             # business operations" (Q3 2025 release); its GAAP $3.05 includes the Triumph gain
             nxt = (result.get("text") or "")[end:end + 240]
             nxt = re.split(r"[\u2022]|\n\s*\n", nxt)[0]
-            mx = re.search(r"(?i)[^.\n]*\bexclud\w*[^.\n]*", nxt)
+            # only a sub-line that says so ("Excludes items ..."), not a numbered footnote ("(2) ... revenue excluding ...")
+            mx = re.match(r"(?i)\s*[\u25e6\-*]?\s*(?:excludes?|excluding)\b[^.\n]*", nxt)
             if mx:
                 row["basis_said"] = {"quote": re.sub(r"\s+", " ", mx.group(0)).strip(" \u25e6")[:240], "pdf_page": _page_at(result, end)}
+            fn = re.search(r"\((\d)\)\s*$", txt)
+            if fn and not row.get("basis_said"):
+                # a footnote marker on the guide ("EPS of $2.20 to $2.40 (1)") and, further down the release, the
+                # footnote that says what it leaves out ("(1) Excludes items outside our core business operations")
+                body_after = (result.get("text") or "")[end:end + 6000]
+                mf = re.search(rf"(?im)^\s*\({fn.group(1)}\)\s*((?:excludes?|excluding)\b[^\n]*)", body_after)
+                if mf:
+                    row["basis_said"] = {"quote": f"({fn.group(1)}) " + re.sub(r"\s+", " ", mf.group(1)).strip()[:240], "pdf_page": _page_at(result, end + mf.start())}
         memory["guidance"].append(row)
         added.append(row)
+    # one release, one guide: its outlook row says what the EPS guide leaves out, and the CEO's quote of the same range
+    # ("introducing full year 2026 EPS guidance of $1.85 to $2.10") is the same guide on the same basis
+    said = [r for r in added if r["topic"] == "eps" and r.get("basis_said") and r.get("numbers")]
+    for r in added:
+        if r["topic"] == "eps" and not r.get("basis_said") and r.get("numbers"):
+            twin = next((x for x in said if (x["numbers"]["low"], x["numbers"]["high"]) == (r["numbers"]["low"], r["numbers"]["high"])), None)
+            if twin:
+                r["basis_said"] = twin["basis_said"]
     return added
 
 
 # a line the guidance finder took for its "expect" that reports a past period or describes accounting
 _NOT_GUIDANCE = re.compile(r"(?i)^\W*for the (?:three|six|nine|twelve) months ended|^\W*for the (?:fiscal )?years? ended|"
-                           r"awards? (?:that )?we expect to (?:vest|settle)|expected to (?:be )?(?:accounted|recogni[sz]ed|vest|settle|amortiz)|"
-                           r"^\W*\([a-z0-9]{1,2}\)\s|"                     # a table footnote: "(a) Includes 1 million of PSUs ... fiscal years 2026"
+                           r"awards? (?:that )?we expect to (?:vest|settle)|expected to (?:be )?(?:accounted|recogni[sz]ed|vest|settle|amortiz|performed|satisfied)|"
+                           r"^\W*\([a-z0-9]{1,2}\)(?:\s|(?=[A-Z]))|"       # a table footnote: "(a) Includes 1 million of PSUs ... fiscal years 2026", "(b)Included"
                            # what a past year included: "Segment loss in 2022 included a $31.5 million impairment charge ... that RRPF
                            # does not expect to recover", "In 2022, financial results included $11.5 million" (GATX 10-K 2023)
                            r"^\W*(?:[A-Za-z' ]{0,40} )?in (?:19|20)\d\d,? (?:[A-Za-z()' -]{0,40} )?(?:included|reflected)\b|"
-                           r"\b(?:impacted|affected)\b[^.]{0,120}\bcompared (?:to|with) (?:our |the )?(?:forward-looking )?(?:guidance|outlook)")   # a past result against guidance
+                           r"\b(?:impacted|affected)\b[^.]{0,120}\bcompared (?:to|with) (?:our |the )?(?:forward-looking )?(?:guidance|outlook)|"   # a past result against guidance
+                           # Oracle's past change in useful-life estimate and its lease commitments not yet commenced; Coinbase's award
+                           # vesting terms, its outlook table headers and its "Results vs. Outlook" rows (outcomes, not guides)
+                           r"change in accounting estimate (?:decreased|increased)|lease commitments?\b[^.]{0,160}\b(?:commence|not yet commenced)|"
+                           r"\b(?:subject to|eligible to) vest\w*|\bvesting\b[^.]{0,80}\b(?:target|performance|award)|performance award|"
+                           r"^\W*metric\b|results vs\.? outlook|\bactuals?\b[^.]{0,40}\boutlook\b|"
+                           # JPMorgan's credit-loss scenario assumptions, legal loss ranges and accounting or regulatory "guidance";
+                           # Greenbrier's EPA cost estimate, an adopted standard and footnotes marked "2 For the" or "(1):"
+                           r"\bscenario\b[^.]{0,80}\bassum|reasonably possible loss|\bthis guidance\b|\b(?:regulatory|accounting|reporting) guidance\b|"
+                           r"adopted (?:this|the|that) (?:new |updated )?guidance|\bASU\b|accounting standards? update|"
+                           r"\bEPA\b|record of decision|estimated (?:undiscounted )?cost of|^\W*\d\s+(?:for|in|includes|represents|excludes)\b|^\W*\(\d\):|"
+                           r"\bwithin (?:our |the )?(?:guidance|outlook)(?: range)?\b|"
+                           # Alphabet's "which we expect to be accounted for as a lease"; Amazon's past "Cash capital expenditures were
+                           # $24.3 billion and $43.2 billion during Q1 2025 and Q1 2026" and "This guidance includes ..."; NVIDIA's outlook
+                           # reconciliation rows; sustainability goals
+                           r"\bexpect(?:ed)? to be accounted\b|\bcredit derivatives?\b|"
+                           r"\b(?:were|was)\s+\$\s?[\d.,]+\s*(?:billion|million)?,?\s+(?:and\s+\$\s?[\d.,]+\s*(?:billion|million)?\s+)?(?:during|for|in)\b|"
+                           r"^\W*this guidance includes|reconciliation of gaap to non-gaap outlook|impact of acquisition-related costs|"
+                           r"\b(?:net[- ]zero|water[- ]positive|carbon[- ]free|carbon neutral)\b|"
+                           # JPMorgan's FDIC restoration plan and its exposure footnote; Greenbrier's revolver repayment schedule and
+                           # its Investor Day scorecard rows ("Target achieved"); Coinbase's slide text (year axes, industry market
+                           # sizes, a chart of initial and current outlooks) and a past quarter "inline with our outlook"
+                           r"\bfinal rule\b|\brestoration plan\b|^\W*(?:at|as of) [A-Z][a-z]+\.? \d{1,2}, (?:19|20)\d\d,? (?:includes|repayments?)\b|"
+                           r"\brepayments? of\b[^.]{0,60}\b(?:notes|debt|borrowings|loans)\b[^.]{0,40}\bexpected to be\b|"
+                           r"\btarget achieved\b|\bon track to achieve\b|^\W*starting point\b|(?:\b(?:19|20)\d\d\s+){4,}|"
+                           r"\b(?:market cap\w*|total market|addressable market)\b[^.]{0,120}\bexpected to\b|\bexpected to\b[^.]{0,60}\b(?:market cap\w*|total market)\b|"
+                           r"\binitial (?:20\d\d )?outlook\b[^.]{0,40}\bcurrent (?:20\d\d )?outlook\b|"
+                           r"\b(?:were|was)\b(?:[^.]|\.\d){0,120}\bin[- ]?line with (?:our |the )?(?:outlook|guidance)|"
+                           # NVIDIA's leases not yet commenced and investment commitments (contracts, not a forecast) and the
+                           # reconciling row of its outlook table
+                           r"\bcommence (?:leases|operating leases)\b|\binvestment commitments?\b|^\W*acquisition-related costs and other costs\b")        # Trinity: "we delivered a full year operating margin of 5.2%, within our guidance range"
 # ("we now expect X, compared to our prior guidance of Y" is guidance and is kept)
 _ADJUSTED = re.compile(r"(?i)\bexclud\w*|\badjusted\b|non-?gaap|before (?:special|one-time|other) items|\bcore\b|\bpro forma\b|\bcomparable\b")
 _TOPIC_SERIES = {"eps": ["fact:eps_diluted:FY", "fact:eps_diluted:Q"], "revenue": ["fact:revenue:FY", "fact:revenue:Q"],
@@ -746,6 +925,25 @@ _TOPIC_WORDS = {"eps": re.compile(r"(?i)per (?:common )?(?:diluted |basic )?shar
                 "capex": re.compile(r"(?i)capital expenditures?|\bcapex\b")}
 _NOT_TOPIC = {"revenue": re.compile(r"(?i)\bproceeds\b")}
 _PART = re.compile(r"\$\s?\d[\d.,]*\s*(?:million|billion)?\s+(?:for|in|at)\s+(?:the\s+|our\s+)?(?!fiscal\b|full\b|the\b|20\d\d\b|each\b)[A-Z][A-Za-z&]+")
+
+
+_ROW_FILLER = {"capital", "expenditures", "expenditure", "capex", "and", "the", "of", "for", "related", "to", "in", "total"}
+
+
+def _row_series(memory: dict, topic: str, text: str) -> list:
+    """Capex lines the company prints by row ('Capital expenditures - operating and administrative'): a guide is
+    compared with the row whose own words it uses. Trinity guides its operating and administrative capex and prints
+    no total capex line."""
+    if topic != "capex":
+        return []
+    low = (text or "").lower()
+    out = []
+    for key in memory["series"]:
+        m = re.match(r"fact:capex_line:FY:(.+)$", key)
+        words = [w for w in m.group(1).split("-") if w not in _ROW_FILLER] if m else []
+        if words and all(re.search(rf"\b{re.escape(w)}", low) for w in words):
+            out.append(key)
+    return out
 
 
 def check_guidance(memory: dict, meta: dict) -> list:
@@ -775,16 +973,17 @@ def check_guidance(memory: dict, meta: dict) -> list:
             out.append(g)
             continue
         topic, text = g.get("topic"), g.get("text") or ""
-        why = ("the line does not name the measure the brain would compare it with" if topic in _TOPIC_WORDS and (
+        why = ("the brain holds no series for this measure" if not _TOPIC_SERIES.get(topic) else
+               "the line does not name the measure the brain would compare it with" if topic in _TOPIC_WORDS and (
                    not _TOPIC_WORDS[topic].search(text) or (topic in _NOT_TOPIC and _NOT_TOPIC[topic].search(text))) else
                "the guided amount is for a part of the company (a segment or business), not the total the brain holds" if _PART.search(text) else None)
         if why:
             g["outcome"] = {"actual": None, "actual_display": "", "verdict": "not checked", "note": f"Not compared: {why}.", "checked_at": _now()}
             out.append(g)
             continue
-        for key in _TOPIC_SERIES.get(topic, []):
+        for key in _row_series(memory, topic, text) or _TOPIC_SERIES.get(topic, []):
             s = memory["series"].get(key)
-            if not s or not key.endswith(":FY"):
+            if not s or not re.search(r":FY(?::|$)", key):        # a year series ("fact:capex:FY", "fact:capex_line:FY:<row>")
                 continue
             pt = s["points"].get(meta["period_end"])
             if not pt:
@@ -793,7 +992,10 @@ def check_guidance(memory: dict, meta: dict) -> list:
             v = pt["value"]
             if topic == "capex":
                 v = abs(v)                 # capex is filed as the outflow (negative); a guide states its size
-            if g["numbers"].get("approximate") or lo == hi:
+            if g["numbers"].get("floor"):
+                verdict = "at or above the floor" if v >= lo else "below the floor"
+                diff = f" ({(v - lo) / abs(lo) * 100:+.1f}% against {_fmt(lo, 'USD') if abs(lo) >= 1000 else lo})" if lo else ""
+            elif g["numbers"].get("approximate") or lo == hi:
                 pct = (v - lo) / abs(lo) * 100 if lo else None
                 verdict = ("at the guided amount" if v == lo else "above the guided amount" if v > lo else "below the guided amount")
                 shown = _fmt(lo, "USD") if g["numbers"].get("unit") == "USD" and abs(lo) >= 1000 else f"{lo:,.4g}"
@@ -801,8 +1003,11 @@ def check_guidance(memory: dict, meta: dict) -> list:
             else:
                 verdict = "inside the range" if lo <= v <= hi else ("above the range" if v > hi else "below the range")
                 diff = ""
-            g["outcome"] = {"actual": v, "actual_display": pt.get("display"), "actual_src": pt.get("src"), "verdict": verdict + diff,
-                            "series": key, "checked_at": _now(), "note": "BMG calculation from the guided line and the reported figure; not a company statement."}
+            others = [t for t, rx in _TOPIC_WORDS.items() if t != topic and rx.search(text)]
+            shown_v = _fmt(v, "USD") if topic == "capex" and v != pt["value"] else pt.get("display")     # capex as its size, as the guide states it
+            g["outcome"] = {"actual": v, "actual_display": shown_v, "actual_src": pt.get("src"), "verdict": verdict + diff,
+                            "series": key, "checked_at": _now(), "note": "BMG calculation from the guided line and the reported figure; not a company statement."
+                            + (f" The line also guides {', '.join(others)}; that part is not compared." if others else "")}
             out.append(g)
             break
     return out
@@ -815,7 +1020,7 @@ def track_record(memory: dict) -> dict:
     for g in done:
         by.setdefault(g["topic_label"], []).append(g["outcome"]["verdict"])
     return {"checked": len(done), "not_compared": len(closed) - len(done), "open": sum(1 for g in memory.get("guidance", []) if not g.get("outcome")),
-            "by_topic": {k: {"inside": sum(1 for x in v if x.startswith(("inside", "at the"))), "above": sum(1 for x in v if x.startswith("above")),
+            "by_topic": {k: {"inside": sum(1 for x in v if x.startswith(("inside", "at the", "at or above"))), "above": sum(1 for x in v if x.startswith("above")),
                              "below": sum(1 for x in v if x.startswith("below"))} for k, v in by.items()}}
 
 
@@ -852,17 +1057,49 @@ def add_scores(memory: dict, result: dict, meta: dict) -> Optional[dict]:
     for k in ("altman", "piotroski", "beneish"):
         v = sc.get(k)
         if isinstance(v, dict):
-            row[k] = {"value": v.get("value", v.get("score")), "display": v.get("display"), "zone": v.get("zone") or v.get("verdict")}
+            row[k] = {"value": v.get("value", v.get("score")), "display": v.get("display")}
+            if v.get("status") == "partial" and v.get("max"):
+                row[k].update({"max": v.get("max"), "caveat": (v.get("caveat") or "")[:160]})
+    # the inputs with their pages, so the read note can show where each came from (the company page points there)
+    row["inputs"] = [{"name": x.get("name"), "now": (x.get("now") or {}).get("display"), "now_page": (x.get("now") or {}).get("page"),
+                      "before": (x.get("before") or {}).get("display"), "before_page": (x.get("before") or {}).get("page")}
+                     for x in (sc.get("inputs") or {}).values() if isinstance(x, dict) and (x.get("now") or {}).get("display")]
+    row["form"] = meta.get("form")
     lst = memory.setdefault("scores", [])
+    have = next((r for r in lst if r.get("period_end") == row["period_end"]), None)
+    if have and _FORM_RANK.get((have.get("form") or "10-K").upper(), 1) > _FORM_RANK.get((row["form"] or "").upper(), 1):
+        return have                       # Greenbrier's release, read after its 10-K, replaced the 10-K's score for the year
     lst[:] = [r for r in lst if r.get("period_end") != row["period_end"]] + [row]
     lst.sort(key=lambda r: r.get("period_end") or "")
     return row
 
 
+def company_profile(memory: dict, meta: dict) -> Optional[str]:
+    """The profile most of the company's reads ran under, this one included (a tie keeps the one the company had).
+    Coinbase's FY2025 10-K ran 'Software and subscriptions' and its other reads 'General': one read does not set it."""
+    seen = [r.get("profile") for r in memory.get("reads", []) if r.get("profile") and r.get("sha8") != meta.get("sha8")] + [meta.get("profile")]
+    seen = [x for x in seen if x]
+    if not seen:
+        return memory.get("profile")
+    n = {x: seen.count(x) for x in seen}
+    top = max(n.values())
+    best = [x for x in n if n[x] == top]
+    return memory.get("profile") if memory.get("profile") in best else best[-1]
+
+
+_PROFILE_Q = re.compile(r": (?:not found in this filing\. Does the company report it elsewhere|could not be computed from the figures read in this filing\.)")
+
+
 def update_questions(memory: dict, result: dict, meta: dict) -> dict:
-    """Questions the read could not answer stay open until a later read of the same company no longer raises them."""
+    """Questions the read could not answer stay open until a later read of the same company no longer raises them.
+    A question the read's profile raised ('Remaining performance obligations: not found') is not kept from a read
+    whose profile is not the company's, and one kept earlier under another profile is set aside."""
     qs = memory.setdefault("questions", [])
-    now = [q.get("q") for q in ((result.get("report") or {}).get("questions") or []) if q.get("q")]
+    other = bool(meta.get("profile") and memory.get("profile") and meta["profile"] != memory["profile"])
+    now = [q.get("q") for q in ((result.get("report") or {}).get("questions") or []) if q.get("q") and not (other and _PROFILE_Q.search(q["q"]))]
+    for q in qs:
+        if q.get("status") == "open" and q.get("profile") and memory.get("profile") and q["profile"] != memory["profile"]:
+            q["status"] = "raised under another profile"
     nowset = set(now)
     closed = []
     for q in qs:
@@ -872,9 +1109,13 @@ def update_questions(memory: dict, result: dict, meta: dict) -> dict:
             closed.append(q)
     have = {q["q"] for q in qs}
     added = []
+    for q in qs:
+        if q.get("status") == "raised under another profile" and q["q"] in nowset and q["q"] in now:
+            q.update({"status": "open", "profile": meta.get("profile")})       # raised again under the company's own profile
     for t in now:
         if t not in have:
-            qs.append({"q": t, "by": "reader", "status": "open", "form": meta.get("form"), "raised_in": meta.get("period"), "at": _now()})
+            qs.append({"q": t, "by": "reader", "status": "open", "form": meta.get("form"), "raised_in": meta.get("period") or meta.get("period_end"), "at": _now(),
+                       "profile": meta.get("profile") if _PROFILE_Q.search(t) else None})
             added.append(t)
     return {"added": added, "closed": [q["q"] for q in closed], "open": [q for q in qs if q.get("status") == "open"]}
 
@@ -982,6 +1223,8 @@ def measure_thresholds(vault: Path, memory: dict, meta: dict) -> dict:
                 unseen.append({"id": r["id"], "item": r.get("item_name"), "class": r.get("class"), "why": "no value a year earlier in the brain"})
                 continue
             v = (pt["value"] - prev["value"]) / abs(prev["value"]) * 100
+        legs = (f"{pt.get('display')} against {prev.get('display')} a year earlier ({_leg(prev.get('src'))})"
+                if spec.get("transform") == "yoy" else "")
         try:
             t = float(r.get("threshold_value"))
         except (TypeError, ValueError):
@@ -1004,13 +1247,18 @@ def measure_thresholds(vault: Path, memory: dict, meta: dict) -> dict:
                     break
                 run, last = run + 1, e
         measured.append({"id": r["id"], "item": r.get("item_name"), "class": r.get("class"), "operator": op, "threshold": t, "unit": unit,
-                         "reading": round(v, 4), "reading_display": pt.get("display") if not spec.get("transform") else f"{v:+.1f}% y/y",
+                         "reading": round(v, 4), "reading_display": pt.get("display") if not spec.get("transform") else f"{v:+.1f}% y/y: {legs}",
                          "period_end": pe, "src": pt.get("src"), "scope": pt.get("scope") or s.get("scope") or "",
                          "distance": round(dist, 4), "distance_display": (f"{dist:+.1f} pp" if unit == "percent" else f"{dist:+,.1f} {unit}".strip()),
                          "on_trigger_side": bool(_OPS[op](v, t)), "consecutive": run, "needs_consecutive": need, "gap_before": gap,
-                         "watch_only": r.get("class") == "signpost" or str(r.get("action_on_fire") or "").upper() == "WATCH_ONLY",
+                         "watch_only": str(r.get("action_on_fire") or "").upper() == "WATCH_ONLY", "signpost": r.get("class") == "signpost",
                          "last_reading_in_thresholds": r.get("last_reading"), "last_reading_date": str(r.get("last_reading_date") or "")})
     return {"measured": measured, "unseen": unseen, "rows": len(rows)}
+
+
+def _leg(src: Optional[dict]) -> str:
+    s = src or {}
+    return " ".join(x for x in [s.get("form") or "", s.get("filing_end") or "", f"p.{s['pdf_page']}" if s.get("pdf_page") else "page not recorded"] if x)
 
 
 _BROCK_Q = re.compile(r"^\s*[-*]\s*(?:\[[ xX]\]\s*)?Q:\s*(.+?)\s*$")
@@ -1147,11 +1395,14 @@ def learn(vault: Path, result: dict, extra: Optional[dict] = None, think: bool =
     meta["ticker"] = t
     with _lock(t):
         mem = load(vault, t)
+        date_from_quarter_words(mem, meta, result)
+        if not meta.get("period"):
+            meta["period"] = "period not stated in the document"
         before_reads = len(mem.get("reads", []))
         seen = next((r for r in mem.get("reads", []) if r.get("sha8") and r.get("sha8") == meta.get("sha8")), None)
-        for k in ("name", "profile"):
-            if meta.get(k) and not mem.get(k):
-                mem[k] = meta[k]
+        if meta.get("name") and not mem.get("name"):
+            mem["name"] = meta["name"]
+        mem["profile"] = company_profile(mem, meta)
         if extra and extra.get("cik") and not mem.get("cik"):
             mem["cik"] = extra["cik"]
         pts = contributions(result, meta, mem)
@@ -1166,7 +1417,7 @@ def learn(vault: Path, result: dict, extra: Optional[dict] = None, think: bool =
         sc = add_scores(mem, result, meta)
         qs = update_questions(mem, result, meta)
         th = measure_thresholds(vault, mem, meta)
-        rec = {k: meta.get(k) for k in ("form", "period", "period_end", "file", "sha8", "url", "accession", "document", "kind", "pages")}
+        rec = {k: meta.get(k) for k in ("form", "period", "period_end", "file", "sha8", "url", "accession", "document", "kind", "pages", "profile", "period_basis")}
         rec.update({"at": _now(), "kpis": sorted({p["key"] for p in pts if p["kind"] == "kpi" and p["end"] == meta.get("period_end")}),
                     "points": len(pts)})
         if seen:
@@ -1201,14 +1452,14 @@ def facts_for_reading(out: dict) -> list:
     with every figure as displayed and its page."""
     items = []
     for c in out.get("changes", []):
-        page = (c.get("src") or {}).get("pdf_page")
-        parts = [f"{c['name']}{' (' + c['scope'] + ')' if c.get('scope') else ''} {c['display']} for the period ended {c['end']} (p.{page})"]
+        pg = lambda src: " ".join(x for x in [(src or {}).get("form") or "", f"p.{(src or {}).get('pdf_page')}"] if x)
+        parts = [f"{c['name']}{' (' + c['scope'] + ')' if c.get('scope') else ''} {c['display']} for the period ended {c['end']} ({pg(c.get('src'))})"]
         if c.get("before"):
             b = c["before"]
-            parts.append(f"period before ({b['end']}) {b['display']}" + (f", {b['pp']:+.1f} pp" if "pp" in b else f", {b['pct']:+.1f}%" if "pct" in b else ""))
+            parts.append(f"period before ({b['end']}) {b['display']} ({pg(b.get('src'))})" + (f", {b['pp']:+.1f} pp" if "pp" in b else f", {b['pct']:+.1f}%" if "pct" in b else ""))
         if c.get("year_ago"):
             y = c["year_ago"]
-            parts.append(f"a year before ({y['end']}) {y['display']}" + (f", {y['pp']:+.1f} pp" if "pp" in y else f", {y['pct']:+.1f}%" if "pct" in y else ""))
+            parts.append(f"a year before ({y['end']}) {y['display']} ({pg(y.get('src'))})" + (f", {y['pp']:+.1f} pp" if "pp" in y else f", {y['pct']:+.1f}%" if "pct" in y else ""))
         if c.get("range"):
             r = c["range"]
             if r["highest"] or r["lowest"]:
@@ -1227,7 +1478,8 @@ def facts_for_reading(out: dict) -> list:
     for g in out.get("guidance_checked", []):
         o = g["outcome"]
         items.append({"id": f"C{len(items) + 1}", "kind": "guidance", "key": g.get("topic"),
-                      "text": f"Guidance '{g['text'][:160]}' (given in the {g['given_in'].get('form')} for {g['given_in'].get('period')}): actual {o['actual_display']}, {o['verdict']}"})
+                      "text": f"Guidance '{g['text'][:160]}' (given in the {g['given_in'].get('form')} for {g['given_in'].get('period') or g['given_in'].get('period_end') or 'an undated period'}): "
+                              + (f"actual {o['actual_display']}, {o['verdict']}" if o.get("actual") is not None else f"{o['verdict']}" + (f" ({o['note']})" if o.get("note") else ""))})
     return items
 
 
