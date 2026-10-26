@@ -34,12 +34,17 @@ PROFILES = {
         ("Backlog value", r"^backlog value$|^backlog \$$", r"backlog[^.]{0,80}?(?:valued at|with a value of|of)\s?(?:approximately )?\$\s?([\d.,]+)\s?(billion|million)", "USD"),
     ]),
     # Microsoft's MD&A prints "Commercial remaining performance obligation ... $678 billion" before the note's total
-    # ($684 billion); the commercial part is a different measure, so the total is taken (2026-10-26)
+    # ($684 billion); the commercial part is a different measure, so the total is taken. A change before the level is
+    # passed over: Oracle's releases print "RPO grew $85 billion in Q4 from $553 billion to $638 billion" and "RPO up
+    # $209 billion year-over-year to $664 billion" (the increase was read as the level and put its kill criterion on the
+    # trigger side). Its 10-Q's "Remaining performance obligations, as defined in Note 1 of ... May 31, 2024, were $130.2
+    # billion" runs past 140 characters (2026-10-26)
     "Software and subscriptions": (r"subscription revenue|software license|remaining performance obligation|annual recurring revenue|saas", [
-        ("Remaining performance obligations", None, r"(?<!commercial )remaining performance obligations?[^.]{0,140}?\$\s?([\d.,]+)\s?(billion|million)", "USD"),
+        ("Remaining performance obligations", None, r"(?<!commercial )remaining performance obligations?(?:[^.$]{0,40}?\b(?:grew|up|increased|rose)\s+(?:by\s+)?\$\s?[\d.,]+\s?(?:billion|million)"
+                                                    r"(?:[^.]|\.\d){0,80}?\bto\b)?(?:[^.]|\.\d){0,200}?\$\s?([\d.,]+)\s?(billion|million)", "USD"),
         ("Annual recurring revenue", None, r"annual(?:ized)? recurring revenue[^.]{0,80}?\$\s?([\d.,]+)\s?(billion|million)", "USD"),
         ("Net revenue retention", None, r"net (?:revenue|dollar) retention(?: rate)?[^.%]{0,60}?(\d{2,3})%", "percent"),
-        ("Customers", None, r"(?:approximately |over |more than )?([\d,]{3,}) (?:paying )?customers", "count"),
+        ("Customers", None, r"(?:approximately |over |more than )?(?<![\d,$.])(?!(?:19|20)\d\d(?![\d,]))(\d{1,3}(?:,\d{3})+|\d{3,})(?![\d,]) (?:paying )?customers", "count"),
         ("Stock-based compensation", r"^(share|stock) based compensation( expense)?$", None, "USD"),
     ]),
     "Consumer products": (r"iphone|retail stores|consumer products|net sales by category|our stores", [

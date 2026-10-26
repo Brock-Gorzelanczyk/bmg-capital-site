@@ -168,8 +168,12 @@ def meta_of(result: dict, extra: Optional[dict] = None) -> dict:
     if not m.get("period_end"):
         # an earnings release names its period in words ("Third quarter 2025"), and a fiscal quarter cannot be told from
         # those: the latest quarter or year end its own statement tables print is the period it reports
-        ends = sorted({(f.get("period") or {}).get("end") for f in ((rep.get("evidence") or {}).get("facts") or {}).values()
-                       if f.get("kind") == "reported" and (f.get("period") or {}).get("type") in ("Q", "FY")} - {None, ""})
+        facts = [f for f in ((rep.get("evidence") or {}).get("facts") or {}).values() if f.get("kind") == "reported"]
+        ends = sorted({(f.get("period") or {}).get("end") for f in facts if (f.get("period") or {}).get("type") in ("Q", "FY")} - {None, ""})
+        if not ends and (m.get("form") or "").upper() == "8-K":
+            # Oracle's Q3 FY2026 release: its tables were read only for nine months and the balance sheet, both at
+            # February 28, 2026, the quarter it reports
+            ends = sorted({(f.get("period") or {}).get("end") for f in facts if (f.get("period") or {}).get("type") in ("6M", "9M", "instant")} - {None, ""})
         if ends:
             m["period_end"] = ends[-1]
     return m
@@ -708,6 +712,15 @@ def add_guidance(memory: dict, result: dict, meta: dict) -> list:
                "read": meta.get("sha8"), "at": _now(), "outcome": None}
         if excl and topic == "eps":
             row["basis_said"] = excl          # the release says the EPS guide leaves items out; never checked against GAAP
+        end = g.get("end")
+        if isinstance(end, int) and not row.get("basis_said"):
+            # the line just below the guide: Trinity's "EPS of $1.55 to $1.70" over "Excludes items outside of our core
+            # business operations" (Q3 2025 release); its GAAP $3.05 includes the Triumph gain
+            nxt = (result.get("text") or "")[end:end + 240]
+            nxt = re.split(r"[\u2022]|\n\s*\n", nxt)[0]
+            mx = re.search(r"(?i)[^.\n]*\bexclud\w*[^.\n]*", nxt)
+            if mx:
+                row["basis_said"] = {"quote": re.sub(r"\s+", " ", mx.group(0)).strip(" \u25e6")[:240], "pdf_page": _page_at(result, end)}
         memory["guidance"].append(row)
         added.append(row)
     return added
@@ -725,6 +738,14 @@ _NOT_GUIDANCE = re.compile(r"(?i)^\W*for the (?:three|six|nine|twelve) months en
 _ADJUSTED = re.compile(r"(?i)\bexclud\w*|\badjusted\b|non-?gaap|before (?:special|one-time|other) items|\bcore\b|\bpro forma\b|\bcomparable\b")
 _TOPIC_SERIES = {"eps": ["fact:eps_diluted:FY", "fact:eps_diluted:Q"], "revenue": ["fact:revenue:FY", "fact:revenue:Q"],
                  "capex": ["fact:capex:FY", "kpi:investment-volume"], "tax": [], "dividend": []}
+# a guide is compared only with the measure it names in so many words. Greenbrier's "Proceeds from sales of assets are
+# expected to be approximately $90 million" was compared with its revenue ($3.2B), and its capex by segment ("approximately
+# $360 million for Leasing & Management Services, approximately $110 million for Manufacturing") with its total capex
+_TOPIC_WORDS = {"eps": re.compile(r"(?i)per (?:common )?(?:diluted |basic )?share|\bEPS\b|earnings per"),
+                "revenue": re.compile(r"(?i)\b(?:total |net )?revenues?\b|\bnet sales\b|\btotal sales\b"),
+                "capex": re.compile(r"(?i)capital expenditures?|\bcapex\b")}
+_NOT_TOPIC = {"revenue": re.compile(r"(?i)\bproceeds\b")}
+_PART = re.compile(r"\$\s?\d[\d.,]*\s*(?:million|billion)?\s+(?:for|in|at)\s+(?:the\s+|our\s+)?(?!fiscal\b|full\b|the\b|20\d\d\b|each\b)[A-Z][A-Za-z&]+")
 
 
 def check_guidance(memory: dict, meta: dict) -> list:
@@ -753,7 +774,15 @@ def check_guidance(memory: dict, meta: dict) -> list:
                             "note": "The guide is on an adjusted (non-GAAP) basis; the brain holds GAAP figures only." + said, "checked_at": _now()}
             out.append(g)
             continue
-        for key in _TOPIC_SERIES.get(g.get("topic"), []):
+        topic, text = g.get("topic"), g.get("text") or ""
+        why = ("the line does not name the measure the brain would compare it with" if topic in _TOPIC_WORDS and (
+                   not _TOPIC_WORDS[topic].search(text) or (topic in _NOT_TOPIC and _NOT_TOPIC[topic].search(text))) else
+               "the guided amount is for a part of the company (a segment or business), not the total the brain holds" if _PART.search(text) else None)
+        if why:
+            g["outcome"] = {"actual": None, "actual_display": "", "verdict": "not checked", "note": f"Not compared: {why}.", "checked_at": _now()}
+            out.append(g)
+            continue
+        for key in _TOPIC_SERIES.get(topic, []):
             s = memory["series"].get(key)
             if not s or not key.endswith(":FY"):
                 continue
@@ -762,8 +791,17 @@ def check_guidance(memory: dict, meta: dict) -> list:
                 continue
             lo, hi = g["numbers"]["low"], g["numbers"]["high"]
             v = pt["value"]
-            verdict = "inside the range" if lo <= v <= hi else ("above the range" if v > hi else "below the range")
-            g["outcome"] = {"actual": v, "actual_display": pt.get("display"), "actual_src": pt.get("src"), "verdict": verdict,
+            if topic == "capex":
+                v = abs(v)                 # capex is filed as the outflow (negative); a guide states its size
+            if g["numbers"].get("approximate") or lo == hi:
+                pct = (v - lo) / abs(lo) * 100 if lo else None
+                verdict = ("at the guided amount" if v == lo else "above the guided amount" if v > lo else "below the guided amount")
+                shown = _fmt(lo, "USD") if g["numbers"].get("unit") == "USD" and abs(lo) >= 1000 else f"{lo:,.4g}"
+                diff = f" ({pct:+.1f}% against {shown})" if pct is not None and v != lo else ""
+            else:
+                verdict = "inside the range" if lo <= v <= hi else ("above the range" if v > hi else "below the range")
+                diff = ""
+            g["outcome"] = {"actual": v, "actual_display": pt.get("display"), "actual_src": pt.get("src"), "verdict": verdict + diff,
                             "series": key, "checked_at": _now(), "note": "BMG calculation from the guided line and the reported figure; not a company statement."}
             out.append(g)
             break
@@ -771,12 +809,14 @@ def check_guidance(memory: dict, meta: dict) -> list:
 
 
 def track_record(memory: dict) -> dict:
-    done = [g for g in memory.get("guidance", []) if g.get("outcome")]
+    closed = [g for g in memory.get("guidance", []) if g.get("outcome")]
+    done = [g for g in closed if g["outcome"].get("actual") is not None]
     by = {}
     for g in done:
         by.setdefault(g["topic_label"], []).append(g["outcome"]["verdict"])
-    return {"checked": len(done), "open": sum(1 for g in memory.get("guidance", []) if not g.get("outcome")),
-            "by_topic": {k: {"inside": v.count("inside the range"), "above": v.count("above the range"), "below": v.count("below the range")} for k, v in by.items()}}
+    return {"checked": len(done), "not_compared": len(closed) - len(done), "open": sum(1 for g in memory.get("guidance", []) if not g.get("outcome")),
+            "by_topic": {k: {"inside": sum(1 for x in v if x.startswith(("inside", "at the"))), "above": sum(1 for x in v if x.startswith("above")),
+                             "below": sum(1 for x in v if x.startswith("below"))} for k, v in by.items()}}
 
 
 # ---------------------------------------------------------------------- language, tone, scores, questions

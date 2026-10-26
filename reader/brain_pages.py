@@ -259,11 +259,11 @@ def company_page(memory: dict, last: dict, existing: str = "") -> str:
     lr = reads[-1] if reads else {}
     th = (last.get("thresholds") or {}).get("measured", [])
     fm = _fm({"ticker": t, "company": memory.get("name"), "cik": memory.get("cik"), "profile": memory.get("profile"), "type": "crawler-company",
-              "reads": len(reads), "last_read": f"{lr.get('form')} {lr.get('period') or ''}".strip() if lr else None,
+              "reads": len(reads), "last_read": f"{lr.get('form')} {lr.get('period') or lr.get('period_end') or ''}".strip() if lr else None,
               "last_period_end": lr.get("period_end"), "kpis": sorted(display_name(k, s["name"]) for k, s in kp.items()),
               "thresholds_watched": sorted({x["id"] for x in th})})
     L = [fm, f"# {memory.get('name') or t} ({t})", "", BANNER, ""]
-    L += [f"Profile: {memory.get('profile') or 'not identified'}. Reads in the brain: {len(reads)}. Last: {lr.get('form') or ''} {lr.get('period') or ''}.", ""]
+    L += [f"Profile: {memory.get('profile') or 'not identified'}. Reads in the brain: {len(reads)}. Last: {lr.get('form') or ''} {lr.get('period') or lr.get('period_end') or ''}.", ""]
     if th:
         L += ["## Watch list: pre-registered thresholds at the last read", "", "| Threshold | Reading | Trigger | Distance | Periods (legs) |", "|---|---|---|---|---|"]
         for x in th:
@@ -300,7 +300,7 @@ def company_page(memory: dict, last: dict, existing: str = "") -> str:
     g = memory.get("guidance", [])
     if g:
         tr = track_record(memory)
-        L += ["## Guidance ledger", "", f"Lines recorded: {len(g)}. Checked against an actual: {tr['checked']}. Open: {tr['open']}.", ""]
+        L += ["## Guidance ledger", "", f"Lines recorded: {len(g)}. Checked against an actual: {tr['checked']}. Closed without a comparison (adjusted basis, a part of the company, or no named measure): {tr.get('not_compared', 0)}. Open: {tr['open']}.", ""]
         for x in g[-15:]:
             o = x.get("outcome")
             L.append(f"- {x['given_in'].get('form')} {x['given_in'].get('period') or x['given_in'].get('period_end') or ''} ({x.get('topic_label')}, covers {x.get('covers') or 'unstated'}): "
@@ -356,10 +356,10 @@ def inbox_note(memory: dict, out: dict, meta: dict) -> str:
     th = out.get("thresholds") or {}
     day = datetime.now().strftime("%Y-%m-%d")
     fm = ["---", MARK, f"date: {day}", "agent: crawler-brain", f"ticker: {memory['ticker']}",
-          f"filing: {json.dumps((meta.get('form') or '') + ' ' + (meta.get('period') or ''))}", f"file: {json.dumps(meta.get('file') or '')}",
+          f"filing: {json.dumps((meta.get('form') or '') + ' ' + (meta.get('period') or meta.get('period_end') or ''))}", f"file: {json.dumps(meta.get('file') or '')}",
           f"url: {json.dumps(meta.get('url') or '')}", "tier: TIER 1 pointer to the primary filing; verify the page before citing (inbox/README.md)",
           "governing_rules: M24 (detection, not judgment), M39 (inbox only), M47 (say what was not seen)", "---", ""]
-    L = fm + [f"# Crawler reading: {memory['ticker']} {meta.get('form') or ''} {meta.get('period') or ''}", "",
+    L = fm + [f"# Crawler reading: {memory['ticker']} {meta.get('form') or ''} {meta.get('period') or meta.get('period_end') or ''}", "",
               "Machine-gathered. The figures are pointers to the filing pages named; open the page before citing it. Disposition in `inbox/LEDGER.md`.", "",
               "## Pre-registered items touched", ""]
     if th.get("measured"):
@@ -396,7 +396,7 @@ def index_page(vault: Path) -> str:
             lt = latest(s)
             if lt:
                 bits.append(f"{display_name(k, s['name'])} {lt[1].get('display') or _fmt(lt[1]['value'], s.get('unit'))}")
-        rows.append(f"| {clink(m['ticker'], True)} | {_md(m.get('name'))} | {_md(m.get('profile'))} | {len(reads)} | {_md((lr.get('form') or '') + ' ' + (lr.get('period') or ''))} | {_md('; '.join(bits))} |")
+        rows.append(f"| {clink(m['ticker'], True)} | {_md(m.get('name'))} | {_md(m.get('profile'))} | {len(reads)} | {_md((lr.get('form') or '') + ' ' + (lr.get('period') or lr.get('period_end') or ''))} | {_md('; '.join(bits))} |")
     fm = _fm({"type": "crawler-index"})
     return "\n".join([fm, "# Crawler brain: index", "", BANNER, "",
                       "What the Crawler has read and remembers. Rules: [[brain/README|README]]. History: [[brain/log|log]].", "",
@@ -447,7 +447,7 @@ def append_log(vault: Path, memory: dict, out: dict, meta: dict) -> str:
     elif not _owned(p):
         raise NotOurs(f"{p} was not written by the brain")
     th = out.get("thresholds", {}).get("measured", [])
-    line = (f"## [{datetime.now().strftime('%Y-%m-%d %H:%M')}] read | {memory['ticker']} {meta.get('form') or ''} {meta.get('period') or ''} | "
+    line = (f"## [{datetime.now().strftime('%Y-%m-%d %H:%M')}] read | {memory['ticker']} {meta.get('form') or ''} {meta.get('period') or meta.get('period_end') or ''} | "
             f"{meta.get('file')}\n- {out['merged']['new_points']} new points, {len(out['merged']['new_series'])} new series, "
             f"{len(out['merged']['restated'])} restated, {len(out.get('missing', []))} KPIs not found, {len(th)} thresholds measured; "
             f"status {out.get('status')}\n\n")
