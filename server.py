@@ -2356,6 +2356,15 @@ async def edgar_document(cik: int, accession: str, document: str):
     last = parts[-1].lower()
     kind = "application/pdf" if last.endswith(".pdf") else "text/plain" if last.endswith(".txt") else "text/html; charset=utf-8"
     _remember_edgar_source(data, cik, accession, parts)
+    # the filer's fiscal year end ("1231"), from the submissions feed the Crawler already caches, so the brain can date a
+    # release that names its quarter only in words before it holds the company's 10-K
+    try:
+        sub = await _sec_fetch_json(f"https://data.sec.gov/submissions/CIK{cik:010d}.json", TTL_SUBMISSIONS,
+                                    HTTP_CLIENT or httpx.AsyncClient(timeout=20.0, follow_redirects=True))
+        if sub and re.fullmatch(r"\d{4}", str(sub.get("fiscalYearEnd") or "")):
+            _EDGAR_SOURCES[hashlib.sha256(data).hexdigest()]["fiscal_year_end"] = sub["fiscalYearEnd"]
+    except Exception as e:                     # never costs the filing: the brain then dates only from its own 10-Ks
+        log.info("fiscal year end lookup failed for CIK %s: %s", cik, type(e).__name__)
     return Response(content=data, media_type=kind, headers={"Cache-Control": "no-store"})
 
 

@@ -193,6 +193,7 @@ def meta_of(result: dict, extra: Optional[dict] = None) -> dict:
 
 _QWORD = re.compile(r"(?i)\b(first|second|third|fourth)[\s-]+quarter\s+(?:of\s+)?((?:19|20)\d\d)\b|\b([1-4])Q((?:19|20)?\d\d)\b")
 _QEND = ["03-31", "06-30", "09-30", "12-31"]
+_NOT_FILED = {"insider": "Insider trades (Form 4)", "holdings": "Fund holdings (13F)"}
 
 
 def date_from_quarter_words(memory: dict, meta: dict, result: dict) -> None:
@@ -203,6 +204,18 @@ def date_from_quarter_words(memory: dict, meta: dict, result: dict) -> None:
     if meta.get("period_end"):
         return
     text = result.get("text") or ""
+    # the 8-K cover's own words, a date and no inference: Airbnb's "announcing its financial results for the second
+    # quarter ended June 30, 2026" over a shareholder letter with no statement table (Q2 2026, 0001193125-26-337928)
+    # (only a results announcement: "Form 10-K for the year ended December 31, 2025" in JPMorgan's forward-looking
+    # statements is another filing's period)
+    said = re.search(r"(?i)\b(?:results|earnings)\s+(?:of operations\s+)?for\s+(?:its\s+|the\s+)?"
+                     r"((?:first|second|third|fourth)\s+(?:fiscal\s+)?quarter|three months|fiscal year|year)\s+ended\s+"
+                     r"((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2},?\s+(?:19|20)\d\d)", text[:8000])
+    if said and _period_end(said.group(2)):
+        meta["period_end"] = _period_end(said.group(2))
+        meta["period"] = meta.get("period") or f"{said.group(1)[0].upper()}{said.group(1)[1:].lower()} ended {said.group(2)}"
+        meta["period_basis"] = "the period the 8-K cover names"
+        return
     ex = re.search(r"(?i)exhibit\s+99", text[:20000])
     m = _QWORD.search(meta.get("period") or "") or (_QWORD.search(text[ex.end():ex.end() + 600]) if ex else None) or _QWORD.search(text[:6000])
     if not m:
@@ -218,6 +231,10 @@ def date_from_quarter_words(memory: dict, meta: dict, result: dict) -> None:
     if ends == {"12-31"}:
         meta["period_end"] = f"{y}-{_QEND[q - 1]}"
         meta["period_basis"] = "the quarter the release names in words; the company's 10-K years end December 31"
+    elif not ends and str(meta.get("fiscal_year_end") or "") == "1231":
+        # no 10-K in the brain yet (Airbnb's first read was a release): SEC EDGAR's own record of the filer's year end
+        meta["period_end"] = f"{y}-{_QEND[q - 1]}"
+        meta["period_basis"] = "the quarter the release names in words; SEC EDGAR lists the company's fiscal year end as December 31"
 
 
 _MON = {m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
@@ -1391,6 +1408,10 @@ def learn(vault: Path, result: dict, extra: Optional[dict] = None, think: bool =
     meta = meta_of(result, extra)
     if not meta.get("ticker"):
         return {"status": "skipped", "reason": "The document did not name a ticker, so the brain cannot file it under a company."}
+    if meta.get("kind") in _NOT_FILED:
+        # a span of Form 4 trades or a fund's 13F is not a company's report for a period: filed, it became an undated
+        # read with no figures (Oracle's "Form 4 insider trades 2025-10-27 to 2026-10-19", 2026-10-27)
+        return {"status": "skipped", "reason": f"{_NOT_FILED[meta['kind']]} are not filed in the brain: they report no period of the company's own figures."}
     t = _safe_ticker(meta["ticker"])
     meta["ticker"] = t
     with _lock(t):
@@ -1679,7 +1700,7 @@ def meta_from_title(title: str, ticker: Optional[str], company: Optional[str], s
         if not ticker:
             out["ticker_hint"] = m.group(1)
     if src:
-        out.update({k: src.get(k) for k in ("accession", "url", "cik", "document") if src.get(k)})
+        out.update({k: src.get(k) for k in ("accession", "url", "cik", "document", "fiscal_year_end") if src.get(k)})
     return {k: v for k, v in out.items() if v}
 
 
