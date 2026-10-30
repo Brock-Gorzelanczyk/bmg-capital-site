@@ -989,6 +989,7 @@ body.recmode #num-cards{top:9vh;width:86vw}body.recmode .num-card b{font-size:11
 .rt-sug{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.rt-sug button{display:flex;flex-direction:column;align-items:flex-start;padding:5px 9px;border:1px solid #d6d6cf;border-radius:8px;background:#fff;cursor:pointer;font:600 12.5px 'IBM Plex Mono',monospace;color:#141414;max-width:200px}
 .rt-sug button small{font:400 10.5px 'IBM Plex Sans',sans-serif;color:#6b6f76;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}.rt-sug button:hover{border-color:#0f7d47}
 .rt-peerform{display:flex;gap:8px;margin:8px 0 12px}.rt-peerform input{flex:1;min-width:0;height:38px;border:1px solid #c9cfca;border-radius:8px;padding:0 10px;font:13px 'IBM Plex Mono',monospace}
+.rt-ind .rt-learn{height:28px;padding:0 10px;margin-left:6px;border-radius:7px;border:1px solid #0f7d47;background:#0f7d47;color:#fff;font-weight:600;font-size:12px;cursor:pointer}.rt-ind .rt-learn:disabled{opacity:.6;cursor:wait}.rt-ind .rt-learn-all{margin-left:0}.rt-inb{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9px;background:#e6f4ec;color:#0f7d47;font-size:11px;font-weight:600}.rt-tk{font:600 11px 'IBM Plex Mono',monospace;color:#3e7bfa}.rt-learnst{font-size:12.5px;color:#4b5058;margin:6px 0 14px}
 .rt-peerform button,.rt-ai-go,.gp-row button,.gp-head button{height:38px;padding:0 16px;border-radius:8px;border:1px solid #0f7d47;background:#0f7d47;color:#fff;font-weight:600;cursor:pointer}.rt-peerform button:disabled,.gp-row button:disabled{opacity:.6;cursor:wait}
 .rt-rank{display:block;height:4px;width:64px;margin:4px 0 1px auto;background:#eef0ec;border-radius:2px;position:relative}.rt-rank::after{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--p);background:#2fdc74;border-radius:2px}
 .rt-peers tr.me td{background:#f3fbf6}
@@ -4444,7 +4445,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (!br || !briefEl){ if (briefEl) briefEl.hidden = true; return; }
     state.brief = br;
     briefEl.hidden = false;
-    queueMicrotask(() => { if (state.brief === br && !briefEl.querySelector(".bf-mem-note")) briefEl.insertAdjacentHTML("beforeend", brainBrief(br)); });
+    queueMicrotask(() => { if (state.brief === br && !briefEl.querySelector(".bf-mem-note")) briefEl.insertAdjacentHTML("beforeend", brainBrief(br)); briefPlaybook(br); });
     const cls = it => live ? "wait" : it.status === "found" ? "ok" : "nf";
     briefEl.innerHTML = `<div class="bf-head"><span class="bf-kicker">Analyst brief</span><b>${esc(br.company || "Company not identified")}</b>${br.ticker ? ` <span class="bf-tk">${esc(br.ticker)}</span>` : ""}<small>${esc([br.form, br.period].filter(Boolean).join(" · "))}</small></div>
       <div class="bf-prof"><span>Read as</span> <b>${esc(br.profile)}</b></div><p class="bf-why">${esc(br.why)}</p>
@@ -4468,6 +4469,24 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const lr = m.last_read ? `${m.reads} earlier read${m.reads === 1 ? "" : "s"}; last: ${esc([m.last_read.form, m.last_read.period].filter(Boolean).join(" "))}.` : "";
     return `<h4>What I already know</h4><p class="bf-mem-note">${lr} Checked against this filing as it is read; what changed is in the report's Brain tab.</p>
       ${k ? `<ul class="bf-mem">${k}</ul>` : ""}${thHTML}${fcHTML}${q ? `<h4>Open questions</h4><ul class="bf-mem">${q}</ul>` : ""}`;
+  }
+  // The industry playbook in the brief: the KPIs other companies of this industry print and where (reader/brain_peers.py).
+  // Local Crawler only, and never in a record window, so a video shows the brief as before.
+  const PB_CACHE = {};
+  function briefPlaybook(br){
+    if (!READ_MAX.local || !briefEl || !br || !br.ticker || !br.profile || document.body.classList.contains("rec") || document.body.classList.contains("recmode")) return;
+    const k = br.ticker + "|" + br.profile;
+    // the brief is drawn again as the read goes on; the block goes into whichever brief is up for this ticker and profile
+    const put = () => { const cur = state.brief; if (cur && cur.ticker + "|" + cur.profile === k && PB_CACHE[k] && !briefEl.hidden && !briefEl.querySelector(".bf-pb")) briefEl.insertAdjacentHTML("beforeend", PB_CACHE[k]); };
+    if (k in PB_CACHE){ put(); return; }
+    PB_CACHE[k] = "";
+    api(`/api/brain/${encodeURIComponent(br.ticker)}/playbook?profile=${encodeURIComponent(br.profile)}`).then(({r, j}) => {
+      const L = r.ok && j ? (j.brief || []) : [];
+      const at = x => [x.where && x.where.table ? "table " + x.where.table : "", x.where && x.where.row ? "row " + x.where.row : "", x.src && x.src.form ? `${x.src.form} p.${x.src.pdf_page || "?"}` : ""].filter(Boolean).join(" · ");
+      PB_CACHE[k] = L.length ? `<div class="bf-pb"><h4>From the ${esc(j.profile)} playbook</h4><ul class="bf-mem">${L.map(x =>
+        `<li><b>${esc(x.name)}</b> ${x.seen_for_this ? `printed before by ${esc(br.ticker)} too` : `printed by ${esc(x.printed_by.join(", "))}; not yet seen for ${esc(br.ticker)}`}<small>${esc(x.example.ticker)}: ${esc(at(x.example))}</small></li>`).join("")}</ul></div>` : "";
+      put();
+    }).catch(() => {});
   }
   function tickBrief(key, answer, sev){
     if (!briefEl) return;
@@ -8694,7 +8713,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       ${(sr.failed || []).map(x => `<p class="rp-note"><b>Could not read:</b> ${esc(x)}</p>`).join("")}`;
     // The report in five tabs (all of them print): what it says, the statements, the ratios and screens, the
     // observations (risks, red flags, guidance, the call), and where every figure comes from.
-    const T = {summary: [], statements: [], segments: [], ratios: [], scores: [], history: [], peers: [], changes: [], guidehist: [], tone: [], brain: [], observations: [], notes: [], sources: []};
+    const T = {summary: [], statements: [], segments: [], ratios: [], scores: [], history: [], peers: [], changes: [], guidehist: [], tone: [], brain: [], industry: [], observations: [], notes: [], sources: []};
     const ins = res.insights || {};
     const specific = ins.ending || rep.document_ending;
     const docOnly = ins.kind === "insider" || ins.kind === "holdings" || ins.kind === "transcript";
@@ -8791,9 +8810,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (rtEdgar && ["release", "transcript", "annual", "quarterly"].includes(rtKind)) T.guidehist.push(lazyTab("guidehist"));
     if (rtKind === "release" || rtKind === "transcript") T.tone.push(lazyTab("tone"));
     if (READ_MAX.local && res.brain && res.brain.status && res.brain.status !== "off") T.brain.push(lazyTab("brain"));
+    if (READ_MAX.local && rtTicker(res) && res.brain && res.brain.status && res.brain.status !== "off") T.industry.push(lazyTab("industry"));
     T.notes.push(notesHTML());
     const TABS = [["summary", "Summary"], ["statements", "Statements"], ["segments", "Segments"], ["ratios", "Ratios"], ["scores", "Scores"], ["history", "History"], ["peers", "Peers"],
-                  ["changes", "Changes"], ["guidehist", "Guidance"], ["tone", "Tone"], ["brain", "Brain"], ["observations", "Observations"], ["notes", "Notes"], ["sources", "Sources"]];
+                  ["changes", "Changes"], ["guidehist", "Guidance"], ["tone", "Tone"], ["brain", "Brain"], ["industry", "Industry"], ["observations", "Observations"], ["notes", "Notes"], ["sources", "Sources"]];
     return `<article class="rp-doc">${head}
       ${TABS.map(([k, l]) => `<section class="rp-tab" data-tab="${k}" data-label="${l}">${T[k].join("")}</section>`).join("")}
       <footer class="rp-foot"><span>BMG Capital</span>${BMG_LINE}<span class="muted">${esc(kindName)} &middot; automatically generated, not reviewed by an analyst &middot; not investment advice</span></footer>
@@ -10031,6 +10051,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       else if (key === "guidehist") box.innerHTML = await guideHistHTML();
       else if (key === "tone") box.innerHTML = await toneHTML();
       else if (key === "brain") box.innerHTML = await brainHTML();
+      else if (key === "industry"){ box.innerHTML = await industryHTML(); wireIndustry(box); }
       box.removeAttribute("data-lazy");
     } catch (e){ box.innerHTML = `<p class="rp-note err">Could not load (${esc(String(e.message || e))}). Close the report and open this tab again to retry.</p>`; delete rtData()[key]; }
     finally { delete box.dataset.busy; }
@@ -10189,6 +10210,115 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       ${(w.most_positive || []).length ? `<h3>Most positive sentences</h3><ul class="rt-sents">${sents(w.most_positive, "pos")}</ul>` : ""}
       ${(w.most_negative || []).length ? `<h3>Most negative sentences</h3><ul class="rt-sents">${sents(w.most_negative, "neg")}</ul>` : ""}
       <details class="rt-words"><summary>The word lists</summary><p><b>Positive:</b> ${esc(j.word_lists.positive.join(", "))}</p><p><b>Negative:</b> ${esc(j.word_lists.negative.join(", "))}</p></details>`;
+  }
+
+  // ---- the Industry tab (reader/brain_peers.py): what the brain learned about the industry, who the company competes
+  // with, its figures beside its peers' (ranked only where both definitions match, M03) and how the industry is valued
+  async function industryHTML(){
+    const t = rtTicker(); if (!t) return `<p class="rp-note">The company's ticker is not known for this read; load it by ticker to see its industry.</p>`;
+    const rep = (state.readRes || {}).report || {}, prof = (rep.brief || {}).profile || "";
+    const q = encodeURIComponent(t);
+    const [pb, sb, va] = await Promise.all([rtGet("ind_pb", `/api/brain/${q}/playbook?profile=${encodeURIComponent(prof)}`),
+      rtGet("ind_sb", `/api/brain/${q}/peers`), rtGet("ind_va", `/api/brain/${q}/valuation`)]);
+    return `<div class="rt-ind" data-t="${esc(t)}"><p class="rp-note">Machine-written from the filings the brain has read and from SEC EDGAR, every figure with its filing and page. Not a source: cite the filing. Context, not a rating.</p>`
+      + indPlaybook(t, pb) + `<h2 id="rp-competitors">Competitors</h2><div class="rt-comp">${rtLoading("Finding competitors: the latest 10-K's competition text, and SEC filers of the same industry code...")}</div>`
+      + indSide(t, sb) + indValuation(t, va) + `</div>`;
+  }
+  const indWhere = ex => { const w = ex.where || {}, s = ex.src || {};
+    return [w.table ? "table " + w.table : "", w.row ? "row " + w.row : "", s.form ? `${s.form} p.${s.pdf_page || "?"}` : ""].filter(Boolean).join(" · "); };
+  function indPlaybook(t, {r, j}){
+    const h = `<h2 id="rp-playbook">Industry playbook${j && j.profile ? ": " + esc(j.profile) : ""}</h2>`;
+    if (!r.ok) return h + rtErr(j, r, "The brain could not be reached.");
+    if (!(j.kpis || []).length) return h + `<p class="rp-note">${esc(j.note || "The brain has not read another company of this industry yet. Read a competitor's 10-K below and its KPIs show up here.")}</p>`;
+    const others = (j.companies || []).map(c => c.ticker).filter(x => x !== t);
+    const rows = j.kpis.map(g => {
+      const mine = !!(g.by || {})[t];
+      return `<tr${mine ? "" : ' class="nf"'}><td>${esc(g.name)}<small>${mine ? "printed by " + esc(t) : "not yet seen for " + esc(t)}</small></td><td><ul class="rt-sents">${g.companies.map(tk => { const ex = g.by[tk][0];
+        return `<li><b>${esc(tk)}</b> ${esc(ex.printed)}<small>${esc(indWhere(ex))}</small></li>`; }).join("")}</ul></td></tr>`; }).join("");
+    return h + `<p class="rp-note">What the brain learned from ${esc(others.join(", ") || "this industry's filings")}: every KPI these companies print and where each one prints it. A company read under this industry is checked for these. Names and places only; figures are set side by side below.</p>
+      <div class="rp-tw"><table class="rp-table"><tr><th>KPI</th><th>Who prints it, and where</th></tr>${rows}</table></div>`;
+  }
+  function indSide(t, {r, j}){
+    const h = `<h2 id="rp-sidebyside">Side by side with peers</h2>`;
+    if (!r.ok) return h + rtErr(j, r, "The brain could not be reached.");
+    if (!j.known) return h + `<p class="rp-note">The brain has no book on ${esc(t)} yet.</p>`;
+    const tk = [t, ...(j.peers || [])];
+    if (tk.length < 2) return h + `<p class="rp-note">No peer of ${esc(t)} is in the brain yet. Read a competitor's 10-K into the brain (above), then show the new figures.</p>`;
+    const st = {same: "Comparable: same line and basis", not_on_record: "Not ranked: no definition on record", differ: "Not ranked: defined differently", single: "Only one company has it"};
+    const cell = (row, k) => { const c = row.cells.find(x => x.ticker === k); if (!c) return `<td class="num muted">n/a</td>`;
+      const s = c.src || {}, pg = s.pdf_page ? `${s.form || ""} p.${s.pdf_page}` : (s.form || "filing");
+      const link = s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(pg)}</a>` : esc(pg);
+      return `<td class="num" title="${esc(c.quote || c.how || "")}">${esc(c.display)}${c.rank ? `<small><b>${esc(c.rank)}</b></small>` : ""}<small>${esc(c.end)} · ${link}</small></td>`; };
+    const rows = j.rows.map(row => `<tr${row.status === "same" ? "" : ' class="nf"'}><td>${esc(row.measure)}<small title="${esc(row.why || "")}">${esc(st[row.status] || row.status)}${row.periods ? " · " + esc(row.periods) : ""}</small></td>${tk.map(k => cell(row, k)).join("")}</tr>`).join("");
+    const why = j.rows.filter(x => x.status === "not_on_record" || x.status === "differ").map(x => `<li><b>${esc(x.measure)}</b>: ${esc(x.why)}</li>`).join("");
+    return h + `<p class="rp-note">${esc(j.note)} Hover a figure for the line it was printed in.</p>
+      <div class="rp-tw"><table class="rp-table rt-peers"><tr><th>Measure</th>${tk.map(k => `<th class="num">${esc(k)}</th>`).join("")}</tr>${rows}</table></div>
+      ${why ? `<h3>Why some rows are not ranked</h3><ul class="rt-sents">${why}</ul>` : ""}${(j.not_in_brain || []).length ? `<p class="rp-note">Not in the brain yet: ${esc(j.not_in_brain.join(", "))}.</p>` : ""}`;
+  }
+  function indValuation(t, {r, j}){
+    const h = `<h2 id="rp-valuation">How the industry is valued</h2>`;
+    if (!r.ok) return h + rtErr(j, r, "The valuation figures could not be loaded.");
+    const m = j.methods || {};
+    const meth = (m.methods || []).length ? `<h3>BMG's methods for ${esc((m.matched || []).join(", "))}</h3><ul class="rt-sents">${m.methods.map(x => `<li><b>${esc(x.name)}</b><small>${esc(x.where || "")}</small></li>`).join("")}</ul>`
+      : `<p class="rp-note">${esc(m.note || "No BMG valuation method is on record for this industry yet.")} Add one in brain/valuation-map.json.</p>`;
+    const f = (v, k) => v == null || !isFinite(v) ? "n/a" : k === "pct" ? (v * 100).toFixed(2) + "%" : v.toFixed(1) + "x";
+    const usd = v => v == null || !isFinite(v) ? "n/a" : "$" + v.toFixed(2);
+    const rows = (j.rows || []).map(x => x.error ? `<tr><td><b>${esc(x.ticker)}</b></td><td colspan="6" class="muted">${esc(x.error)}</td></tr>`
+      : `<tr${x.ticker === t ? ' class="me"' : ""}><td><b>${esc(x.ticker)}</b><small>${esc(x.name || "")}</small></td>
+        <td class="num">${x.price && x.price.last ? usd(x.price.last) + `<small>${esc([x.price.date, x.price.source].filter(Boolean).join(" · "))}</small>` : `n/a<small title="${esc(String(x.price_error || ""))}">no price: the price sources did not answer</small>`}</td>
+        <td class="num">${f(x.pe_ttm, "x")}<small>EPS ${usd(x.ttm_eps)}</small></td><td class="num">${f(x.pb, "x")}<small>book ${usd(x.bvps)}</small></td>
+        <td class="num">${f(x.div_yield, "pct")}<small>dividends ${usd(x.ttm_dps)}</small></td><td class="num">${x.market_cap ? fmtUSD(x.market_cap) : "n/a"}</td><td class="num">${f(x.net_debt_to_equity, "x")}</td></tr>`).join("");
+    return h + meth + `<h3>Price-based multiples</h3><div class="rp-tw"><table class="rp-table rt-peers"><tr><th>Company</th><th class="num">Price</th><th class="num">P/E, trailing</th><th class="num">P/B</th><th class="num">Dividend yield</th><th class="num">Market cap</th><th class="num">Net debt / equity</th></tr>${rows}</table></div>
+      <p class="rp-note">${esc(j.note)}</p>`;
+  }
+  function wireIndustry(box){
+    const ind = box.querySelector(".rt-ind"); if (!ind) return;
+    const t = ind.dataset.t, el = ind.querySelector(".rt-comp");
+    rtGet("ind_comp", `/api/brain/${encodeURIComponent(t)}/competitors`).then(({r, j}) => {
+      if (!el.isConnected) return;
+      if (!r.ok){ el.innerHTML = rtErr(j, r, "Could not find competitors."); return; }
+      const inb = x => x.in_brain ? `<span class="rt-inb">in the brain · ${x.in_brain.reads} read${x.in_brain.reads === 1 ? "" : "s"}</span>`
+        : x.ticker ? `<button type="button" class="rt-learn" data-learn="${esc(x.ticker)}">Read its 10-K into the brain</button>` : `<span class="muted"> not an SEC filer with a ticker</span>`;
+      const nf = j.named_from;
+      const bySent = [];                    // one sentence names several competitors: the sentence once, its names under it
+      (j.named || []).forEach(x => { const g = bySent.find(s => s.quote === x.quote); if (g) g.names.push(x); else bySent.push({quote: x.quote, page: x.pdf_page, names: [x]}); });
+      const named = bySent.map(g => `<li><small>${g.page ? "p." + esc(String(g.page)) + ": " : ""}"${esc((g.quote || "").slice(0, 320))}"</small><ul class="rt-sents">${g.names.map(x =>
+        `<li><b>${esc(x.name)}</b>${x.ticker ? ` <span class="rt-tk">${esc(x.ticker)}</span>` : ""}${x.match && x.match !== "same name" ? ` <small class="muted">${esc(x.match)}</small>` : ""} ${inb(x)}</li>`).join("")}</ul></li>`).join("");
+      const sic = (j.sic || []).slice(0, 8).map(x => `<li><b>${esc(x.ticker)}</b> ${esc(x.company || "")}${x.revenue ? ` <small class="muted">revenue ${esc(fmtUSD(x.revenue))} in ${esc(String(x.revenue_year))}</small>` : ""} ${inb(x)}</li>`).join("");
+      const br = (j.brain || []).map(x => `<li><b>${esc(x.ticker)}</b> ${esc(x.company || "")} ${inb(x)}</li>`).join("");
+      const todo = [...new Set((j.named || []).filter(x => x.ticker && !x.in_brain).map(x => x.ticker))].slice(0, 6);     // the named ones only
+      el.innerHTML = `<p class="rp-note">Three ways, each with its source. Reading a competitor's 10-K files it in the brain; its KPIs then join the playbook and its figures the table below.</p>
+        <h3>Named in ${esc(t)}'s latest 10-K${nf ? ` <small class="muted">(${nf.url ? `<a href="${esc(nf.url)}" target="_blank" rel="noopener">filed ${esc(nf.filed)}</a>` : "filed " + esc(nf.filed)})</small>` : ""}</h3>
+        ${named ? `<ul class="rt-sents">${named}</ul>` : `<p class="rp-note">The 10-K names no competitor in a sentence about competition${(j.errors || []).length ? " (" + esc(j.errors.join("; ")) + ")" : ""}.</p>`}
+        <h3>Same SEC industry code${j.sic_code ? ` <small class="muted">${esc(j.sic_code)}${j.sic_name ? " · " + esc(j.sic_name) : ""}, nearest in revenue first</small>` : ""}</h3>
+        ${sic ? `<p class="rp-note">An industry code is a wide bucket: check that a company is a real competitor before reading it (M01 found landscape-supply and waterworks distributors among GATX's "asset-leasing peers").</p><ul class="rt-sents">${sic}</ul>` : `<p class="rp-note">No other filer of this code was found.</p>`}
+        ${br ? `<h3>Already in the brain under ${esc(j.profile || "this industry")}</h3><ul class="rt-sents">${br}</ul>` : ""}
+        ${todo.length ? `<p><button type="button" class="rt-learn rt-learn-all" data-learn="${esc(todo.join(","))}">Read the latest 10-K of ${esc(todo.join(", "))} into the brain</button></p>` : ""}
+        <p class="rt-learnst" role="status"></p>`;
+      el.querySelectorAll("[data-learn]").forEach(b => b.addEventListener("click", () => indLearn(box, b)));
+      api("/api/brain-learn").then(({r, j}) => { if (r.ok && j && j.running) indPoll(box); }).catch(() => {});
+    }).catch(() => { if (el.isConnected) el.innerHTML = `<p class="rp-note err">Could not reach the local server.</p>`; });
+  }
+  async function indLearn(box, btn){
+    const st = box.querySelector(".rt-learnst");
+    box.querySelectorAll("[data-learn]").forEach(b => b.disabled = true);
+    const {r, j} = await api("/api/brain-learn", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({tickers: btn.dataset.learn.split(","), forms: "10-K", per: 1})}).catch(() => ({r: {ok: false}, j: null}));
+    if (!r.ok && !(j && j.running)){ if (st) st.innerHTML = rtErr(j, r, "The brain could not start reading."); box.querySelectorAll("[data-learn]").forEach(b => b.disabled = false); return; }
+    indPoll(box);
+  }
+  async function indPoll(box){
+    const st = box.querySelector(".rt-learnst"); if (!st || !st.isConnected) return;
+    const {r, j} = await api("/api/brain-learn").catch(() => ({r: {ok: false}, j: null}));
+    if (!r.ok || !j) return;
+    st.innerHTML = (j.items || []).map(i => `<b>${esc(i.ticker)}</b> ${esc(i.state)}${(i.reads || []).length ? ": " + i.reads.map(x => esc(`${x.form} ${x.period || x.filed} ${x.status}`)).join(", ") : ""}${i.error ? " · " + esc(i.error) : ""}`).join("<br>");
+    if (j.running){ setTimeout(() => indPoll(box), 3000); return; }
+    if ((j.items || []).length){
+      st.insertAdjacentHTML("beforeend", `<br><button type="button" class="rt-learn rt-learn-refresh">Show the new figures</button>`);
+      st.querySelector(".rt-learn-refresh").addEventListener("click", async () => {
+        const D = rtData(); ["ind_pb", "ind_sb", "ind_va", "ind_comp"].forEach(k => delete D[k]);
+        box.innerHTML = await industryHTML(); wireIndustry(box);
+      });
+    }
   }
 
   // ---- the brain's tab: what the Crawler expected, what changed, the thresholds, and the machine reading

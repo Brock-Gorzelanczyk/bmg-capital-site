@@ -29,6 +29,7 @@ import json
 import logging
 import os
 import re
+import secrets
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -2868,6 +2869,39 @@ async def _frame_revenue(client, year: int) -> dict:
     return out
 
 
+async def _sic_suggestions(client, cik: int, sic: str, n: int = 12) -> list[dict]:
+    """Filers of the same SEC industry code (SIC) with a 10-K in the last 18 months (EDGAR full-text search), nearest
+    in revenue first (SEC XBRL frames). Used by the peer table and by the brain's competitor finder."""
+    from reader import edgarfts as _fts
+    today = time.strftime("%Y-%m-%d")
+    seen = {}
+    for page in (0, 100):
+        # SEC's full-text search sits behind a cache whose key leaves out the industry code, so a reply can be
+        # another industry's filers (2026-10-18: Home Depot got Coca-Cola's). Each reply is checked against the
+        # code and asked again with the window a day longer (a new cache key) until it matches.
+        hits = got = []
+        for longer in range(4):
+            start = time.strftime("%Y-%m-%d", time.gmtime(time.time() - (548 + longer) * 86400))
+            got = _fts.parse(await _sec_fetch_json(_fts.url('"annual report"', "10-K", start, today, sics=sic, offset=page), TTL_SUBMISSIONS, client) or {})["hits"]
+            hits = [h for h in got if sic in h["sics"]]
+            if hits or not got:
+                break
+        for h in hits:
+            if h["ticker"] and h["cik"] != cik and h["cik"] not in seen:
+                seen[h["cik"]] = {"ticker": h["ticker"], "company": h["company"], "cik": h["cik"], "last_10k": h["filed"]}
+        if len(got) < 100:
+            break
+    year = int(today[:4]) - 1
+    rev = await _frame_revenue(client, year)
+    base = (rev.get(cik) or (None,))[0]
+    for c, x in seen.items():
+        if c in rev:
+            x["revenue"], x["revenue_year"], x["revenue_accn"] = rev[c][0], year, rev[c][2]
+    import math
+    key = lambda x: abs(math.log(x["revenue"] / base)) if base and base > 0 and x.get("revenue") and x["revenue"] > 0 else 99
+    return sorted(seen.values(), key=key)[:n]
+
+
 @app.get("/api/read/peers")
 async def reader_peers(ticker: str = Query(..., max_length=12), peers: str = Query("", max_length=200)) -> JSONResponse:
     """Peers from the company's filings: companies of the same SEC industry code (SIC) that filed a 10-K in the
@@ -2884,35 +2918,7 @@ async def reader_peers(ticker: str = Query(..., max_length=12), peers: str = Que
             return JSONResponse(status_code=404, content={"error": f"No SEC filer has the ticker {t or ticker}."})
         sub = await _sec_fetch_json(f"https://data.sec.gov/submissions/CIK{cik:010d}.json", TTL_SUBMISSIONS, client) or {}
         sic, sic_name = str(sub.get("sic") or ""), sub.get("sicDescription") or ""
-        suggestions = []
-        if sic:
-            today = time.strftime("%Y-%m-%d")
-            seen = {}
-            for page in (0, 100):
-                # SEC's full-text search sits behind a cache whose key leaves out the industry code, so a reply can be
-                # another industry's filers (2026-10-18: Home Depot got Coca-Cola's). Each reply is checked against the
-                # code and asked again with the window a day longer (a new cache key) until it matches.
-                hits = got = []
-                for longer in range(4):
-                    start = time.strftime("%Y-%m-%d", time.gmtime(time.time() - (548 + longer) * 86400))
-                    got = _fts.parse(await _sec_fetch_json(_fts.url('"annual report"', "10-K", start, today, sics=sic, offset=page), TTL_SUBMISSIONS, client) or {})["hits"]
-                    hits = [h for h in got if sic in h["sics"]]
-                    if hits or not got:
-                        break
-                for h in hits:
-                    if h["ticker"] and h["cik"] != cik and h["cik"] not in seen:
-                        seen[h["cik"]] = {"ticker": h["ticker"], "company": h["company"], "cik": h["cik"], "last_10k": h["filed"]}
-                if len(got) < 100:
-                    break
-            year = int(today[:4]) - 1
-            rev = await _frame_revenue(client, year)
-            base = (rev.get(cik) or (None,))[0]
-            for c, x in seen.items():
-                if c in rev:
-                    x["revenue"], x["revenue_year"], x["revenue_accn"] = rev[c][0], year, rev[c][2]
-            import math
-            key = lambda x: abs(math.log(x["revenue"] / base)) if base and base > 0 and x.get("revenue") and x["revenue"] > 0 else 99
-            suggestions = sorted(seen.values(), key=key)[:12]
+        suggestions = await _sic_suggestions(client, cik, sic) if sic else []
         chosen = [p for p in dict.fromkeys(re.sub(r"[^A-Z0-9.,\-]", "", peers.upper()).split(",")) if p][:12]
         rows = []
         if chosen:
@@ -4204,6 +4210,233 @@ async def brain_company(ticker: str) -> JSONResponse:
     if not v or not t:
         return JSONResponse(status_code=404 if not v else 400, content={"error": "No vault folder found." if not v else "Not a ticker."})
     return JSONResponse(content=await asyncio.to_thread(_brain.recall, v, t))
+
+
+# ---- the brain across companies (reader/brain_peers.py): the industry playbook, competitors, figures side by side
+# with peers, and how the industry is valued. Owner's Mac only, like the brain. Cross-company rows follow M03: each
+# figure keeps its own printed line, period and page, and a row is ranked only when both definitions match.
+def _brain_guard(ticker: Optional[str] = None):
+    """(vault, ticker, None), or (None, None, a JSONResponse refusing the request)."""
+    if os.environ.get("BMG_LOCAL") != "1":
+        return None, None, JSONResponse(status_code=403, content={"error": "The brain is on the local Crawler only."})
+    v = _vault_repo()
+    if not v:
+        return None, None, JSONResponse(status_code=404, content={"error": "The vault folder was not found. Set BMG_VAULT_REPO to the vault's folder."})
+    t = None
+    if ticker is not None:
+        t = _validate_ticker(ticker)
+        if not t:
+            return None, None, JSONResponse(status_code=400, content={"error": "Not a ticker."})
+    return v, t, None
+
+
+def _tickers_param(raw: str, n: int = 8) -> list[str]:
+    return [p for p in dict.fromkeys(re.sub(r"[^A-Z0-9.,\-]", "", (raw or "").upper()).split(",")) if p][:n]
+
+
+@app.get("/api/brain/{ticker}/playbook")
+async def brain_playbook(ticker: str, profile: str = Query("", max_length=120)) -> JSONResponse:
+    """What the brain learned about reading the company's industry: the KPIs its companies print, each company's own
+    printed name and where in its filing it sits, and the ones the brain has not seen for this company. profile= sets
+    the industry for a company the brain has not read yet (the analyst brief passes the profile the read is under)."""
+    v, t, err = _brain_guard(ticker)
+    if err:
+        return err
+    from reader import brain_peers as _bp
+    prof = profile.strip()
+    if not prof:
+        have = await asyncio.to_thread(_bp.in_brain, v)
+        prof = (have.get(t) or (None, "", 0))[1] or ""
+    if not _bp.profile_parts(prof):
+        return JSONResponse(content={"profile": prof or None, "for": t, "kpis": [], "companies": [], "not_seen_for": [], "brief": [],
+                                     "note": "No industry profile to learn from: the brain has not read this company, or it reads as General (the catch-all)."})
+    pb = await asyncio.to_thread(_bp.playbook, v, prof, t)
+    pb["brief"] = await asyncio.to_thread(_bp.brief_lines, v, prof, t)
+    return JSONResponse(content=pb)
+
+
+_COMPETITORS_NAMED: dict = {}      # (ticker, accession) -> the 10-K's named competitors, so one 10-K is parsed once per run
+
+
+@app.get("/api/brain/{ticker}/competitors")
+async def brain_competitors(ticker: str) -> JSONResponse:
+    """Who the company competes with, three ways, each with its source: companies its latest 10-K names in a sentence
+    about competitors (the sentence and its page), SEC filers of the same industry code nearest in revenue, and the
+    companies of its industry the brain already holds. Each row says whether the brain has read that company."""
+    v, t, err = _brain_guard(ticker)
+    if err:
+        return err
+    from reader import brain_peers as _bp, document as _doc
+    client = HTTP_CLIENT or httpx.AsyncClient(timeout=60.0, follow_redirects=True)
+    have = await asyncio.to_thread(_bp.in_brain, v)
+    try:
+        tmap = await _ticker_map(client)
+    except httpx.HTTPError as e:
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not answer ({type(e).__name__}). Try again in a minute."})
+    row = tmap.get(t) or tmap.get(t.replace(".", "-"))
+    if not row:
+        return JSONResponse(status_code=404, content={"error": f"No SEC filer has the ticker {t}."})
+    cik = int(row["cik_str"])
+    out = {"ticker": t, "company": row.get("title"), "named": [], "named_from": None, "sic": [], "sic_code": None, "sic_name": None,
+           "brain": [], "errors": []}
+
+    def mark(x: dict) -> dict:
+        if x.get("ticker") in have:
+            _n, p, r = have[x["ticker"]]
+            x["in_brain"] = {"reads": r, "profile": p}
+        return x
+    try:
+        fl = await edgar_filings(ticker=t, fresh=False, earnings=False, forms="10-K", limit=1)
+        if not isinstance(fl, dict):
+            raise ValueError(json.loads(fl.body).get("error") or "the 10-K list did not load")
+        f = (fl.get("filings") or [None])[0]
+        if f:
+            named = _COMPETITORS_NAMED.get((t, f["accession"]))
+            if named is None:
+                d = await edgar_document(cik=fl["cik"], accession=f["accession"], document=f["document"])
+                if d.status_code != 200:
+                    raise ValueError(json.loads(d.body).get("error") or f"the 10-K did not load ({d.status_code})")
+                kind = "pdf" if f["document"].lower().endswith(".pdf") else "html"
+                doc = await asyncio.to_thread(_doc.load, d.body, kind, f["document"])
+                named = await asyncio.to_thread(_bp.named_competitors, doc.body, doc.location, (fl.get("company") or "", row.get("title") or "", t))
+                _COMPETITORS_NAMED[(t, f["accession"])] = named
+            idx = await asyncio.to_thread(_bp.ticker_index, [(k, r.get("title") or "", int(r["cik_str"])) for k, r in tmap.items()])
+            out["named_from"] = {k: f.get(k) for k in ("form", "filed", "period", "url", "accession")}
+            out["named"] = [mark({**n, **(_bp.match_ticker(n["name"], idx) or {})}) for n in named]
+    except (httpx.HTTPError, ValueError, KeyError) as e:
+        out["errors"].append(f"Named in the 10-K: {e}")
+    try:
+        sub = await _sec_fetch_json(f"https://data.sec.gov/submissions/CIK{cik:010d}.json", TTL_SUBMISSIONS, client) or {}
+        out["sic_code"], out["sic_name"] = str(sub.get("sic") or "") or None, sub.get("sicDescription") or None
+        if out["sic_code"]:
+            out["sic"] = [mark(x) for x in await _sic_suggestions(client, cik, out["sic_code"])]
+    except httpx.HTTPError as e:
+        out["errors"].append(f"Same industry code: SEC EDGAR did not answer ({type(e).__name__})")
+    prof = (have.get(t) or (None, None, 0))[1]
+    out["profile"] = prof
+    out["brain"] = [mark({"ticker": k, "company": n}) for k, (n, p, _r) in sorted(have.items())
+                    if k != t and prof and _bp.same_profile({"profile": p}, prof)]
+    return JSONResponse(content=out)
+
+
+@app.get("/api/brain/{ticker}/peers")
+async def brain_side_by_side(ticker: str, peers: str = Query("", max_length=200)) -> JSONResponse:
+    """The company's latest figures beside its peers' from the brain, one row per measure, ranked only where both
+    definitions match (M03). peers= picks the companies (each must be in the brain); else its industry's companies."""
+    v, t, err = _brain_guard(ticker)
+    if err:
+        return err
+    from reader import brain_peers as _bp
+    return JSONResponse(content=await asyncio.to_thread(_bp.side_by_side, v, t, _tickers_param(peers)))
+
+
+@app.get("/api/brain/{ticker}/valuation")
+async def brain_valuation(ticker: str, peers: str = Query("", max_length=200)) -> JSONResponse:
+    """How BMG values the company's industry (brain/valuation-map.json, kept by hand) and price-based multiples for the
+    company and its peers, from each one's SEC XBRL and the latest price (the same figures as /api/snapshot). Context,
+    not a rating: a peer multiple is never the anchor of a valuation (M01)."""
+    v, t, err = _brain_guard(ticker)
+    if err:
+        return err
+    from reader import brain_peers as _bp
+    have = await asyncio.to_thread(_bp.in_brain, v)
+    prof = (have.get(t) or (None, None, 0))[1]
+    chosen = [p for p in _tickers_param(peers, 6) if p != t] or \
+        [k for k, (_n, p, _r) in sorted(have.items()) if k != t and prof and _bp.same_profile({"profile": p}, prof)][:6]
+    rows = []
+    for x in [t] + chosen:
+        try:
+            r = await snapshot(ticker=x)
+            d = json.loads(r.body)
+            if r.status_code != 200:
+                rows.append({"ticker": x, "error": d.get("message") or d.get("error") or f"no snapshot ({r.status_code})"})
+                continue
+        except (httpx.HTTPError, ValueError) as e:
+            rows.append({"ticker": x, "error": f"SEC EDGAR or the price source did not answer ({type(e).__name__})"})
+            continue
+        val, inp = d.get("valuation") or {}, d.get("inputs") or {}
+        rows.append({"ticker": x, "name": d.get("name"), "price": d.get("price"), "price_error": d.get("price_error"),
+                     "market_cap": d.get("market_cap"), "pe_ttm": val.get("pe_ttm"), "pb": val.get("pb"), "div_yield": val.get("div_yield"),
+                     "net_debt_to_equity": val.get("net_debt_to_equity"), "ttm_eps": inp.get("ttm_eps"), "bvps": inp.get("bvps"),
+                     "ttm_dps": inp.get("ttm_dps"), "in_brain": x in have})
+    return JSONResponse(content={"ticker": t, "profile": prof, "methods": await asyncio.to_thread(_bp.valuation_methods, v, prof), "rows": rows,
+                                 "note": "Price-based multiples from each company's own SEC XBRL (trailing four quarters of diluted EPS, book value "
+                                         "per diluted share, trailing dividends) and the latest delayed price. Context for the industry, not a rating "
+                                         "or a target: BMG values a company against its own multiple history, and a peer multiple is never the anchor (M01)."})
+
+
+# The brain reads competitors' filings in the background, one at a time, through the same read path as the page (each
+# finished read is filed in the brain). A server-side version of scripts/local/brain_seed.py for the Brain tab's buttons.
+_BRAIN_LEARN: dict = {"running": False, "items": [], "started": None, "finished": None}
+
+
+async def _brain_learn_run(tickers: list[str], forms: str, per: int) -> None:
+    owner = "brain-learn-" + secrets.token_hex(12)
+    try:
+        for t in tickers:
+            item = next(i for i in _BRAIN_LEARN["items"] if i["ticker"] == t)
+            item["state"] = "listing filings"
+            try:
+                fl = await edgar_filings(ticker=t, fresh=False, earnings=False, forms=forms, limit=per)
+                if not isinstance(fl, dict):
+                    raise ValueError(json.loads(fl.body).get("error") or "no filings list")
+                files = list(reversed(fl.get("filings") or []))           # oldest first, so each read is compared with the one before
+                if not files:
+                    raise ValueError(f"no {forms} on EDGAR")
+                for f in files:
+                    item["state"] = f"reading {f['form']} {f.get('period') or f['filed']}"
+                    d = await edgar_document(cik=fl["cik"], accession=f["accession"], document=f["document"])
+                    if d.status_code != 200:
+                        raise ValueError(json.loads(d.body).get("error") or f"download {d.status_code}")
+                    ext = f["document"].split("+")[0].rsplit(".", 1)[-1] if "." in f["document"] else "htm"
+                    kind = "pdf" if ext.lower() == "pdf" else "text" if ext.lower() == "txt" else "html"
+                    name = f"{t} {f['form'].replace('/', '-')} {f.get('period') or f['filed']} filed {f['filed']} {f['accession']}.{ext}"
+                    job, _reused = _reader_jobs.MANAGER.submit(owner, d.body, kind, name, t, (fl.get("company") or None))
+                    end = time.time() + 600
+                    while job.state in ("queued", "running") and time.time() < end:
+                        await asyncio.sleep(1.0)
+                    b = ((job.result or {}).get("brain") or {}) if job.state == "done" else {}
+                    item["reads"].append({"form": f["form"], "period": f.get("period"), "filed": f["filed"],
+                                          "status": b.get("status") or job.state, "reason": b.get("reason")})
+                item["state"] = "done"
+            except (httpx.HTTPError, ValueError, _ReaderError) as e:
+                item["state"], item["error"] = "failed", str(getattr(e, "msg", None) or e)[:200]
+    finally:
+        _BRAIN_LEARN["running"], _BRAIN_LEARN["finished"] = False, time.strftime("%Y-%m-%d %H:%M:%S")
+
+
+@app.post("/api/brain-learn")
+async def brain_learn_start(request: Request) -> JSONResponse:
+    """Read the latest filings of the companies named (default: the latest 10-K of each) into the brain, one after
+    another, in the background. Body: {"tickers": ["TRN", "GBX"], "forms": "10-K", "per": 1}."""
+    v, _t, err = _brain_guard()
+    if err:
+        return err
+    if not _reader_jobs.MANAGER.brain_vault:
+        return JSONResponse(status_code=409, content={"error": "The brain is not filing reads (BMG_BRAIN=0, or no vault folder found)."})
+    if _BRAIN_LEARN["running"]:
+        return JSONResponse(status_code=409, content={"error": "The brain is already reading; wait for it to finish.", **_BRAIN_LEARN})
+    try:
+        body = await request.json()
+    except ValueError:
+        return JSONResponse(status_code=400, content={"error": "Send JSON."})
+    tickers = _tickers_param(",".join(body.get("tickers") or []), 8)
+    forms = ",".join(f for f in re.sub(r"[^A-Z0-9\-,]", "", str(body.get("forms") or "10-K").upper()).split(",") if f in ("10-K", "10-Q")) or "10-K"
+    per = max(1, min(4, int(body.get("per") or 1)))
+    if not tickers:
+        return JSONResponse(status_code=400, content={"error": "Name at least one ticker."})
+    _BRAIN_LEARN.update({"running": True, "started": time.strftime("%Y-%m-%d %H:%M:%S"), "finished": None, "forms": forms, "per": per,
+                         "items": [{"ticker": t, "state": "waiting", "reads": []} for t in tickers]})
+    asyncio.create_task(_brain_learn_run(tickers, forms, per))
+    return JSONResponse(status_code=202, content=_BRAIN_LEARN)
+
+
+@app.get("/api/brain-learn")
+async def brain_learn_status() -> JSONResponse:
+    _v, _t, err = _brain_guard()
+    if err:
+        return err
+    return JSONResponse(content=_BRAIN_LEARN)
 
 
 @app.get("/api/read/jobs/{job_id}/report.pdf")

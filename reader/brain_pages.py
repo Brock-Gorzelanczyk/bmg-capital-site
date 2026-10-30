@@ -461,6 +461,23 @@ def sector_page(vault: Path, profile: str) -> str:
          "research/coverage/rail/falsified.md FALS-02, FALS-10).", ""]
     if not comps:
         return "\n".join(L + ["No companies recorded yet.", ""])
+    from .brain_peers import playbook
+    pb = playbook(vault, profile)
+    if pb["kpis"]:
+        L += ["## Playbook: what this industry's filings print", "",
+              "Every KPI the Crawler has found in these companies' filings, and where each company prints it. A new "
+              "company read under this profile is checked for these. Names only: a KPI is set beside another company's "
+              "in the Crawler's Brain tab, ranked only when both definitions match (M03).", ""]
+        for g in pb["kpis"]:
+            who = []
+            for tk in g["companies"]:
+                ex = g["by"][tk][0]
+                w = ex.get("where") or {}
+                at = ", ".join(x for x in (w.get("table") and f"table {w['table']}", w.get("row") and f"row {w['row']}",
+                                           ex["src"].get("form") and f"{ex['src']['form']} p.{ex['src'].get('pdf_page') or '?'}") if x)
+                who.append(f"{tk} as {_md(ex['printed'])}" + (f" ({_md(at)})" if at else ""))
+            L.append(f"- **{_md(g['name'])}**: {'; '.join(who)}")
+        L.append("")
     for m in comps:
         L += [f"## {m['ticker']}: {m.get('name') or ''}", "", f"Company page: {clink(m['ticker'])}", ""]
         kp = sorted(((k, s) for k, s in m.get("series", {}).items() if s["kind"] == "kpi"), key=lambda x: x[1]["name"])
