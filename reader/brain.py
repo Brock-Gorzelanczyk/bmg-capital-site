@@ -812,11 +812,14 @@ _ANNUAL_FORMS = ("10-K", "10-K/A", "20-F", "40-F")
 def learn_competitors(memory: dict, result: dict, meta: dict, extra: Optional[dict] = None) -> Optional[dict]:
     """The companies an annual report names in a sentence about its competitors (reader/brain_peers.named_competitors),
     each with the sentence, its PDF page and its section, kept from the latest annual report read: an older 10-K never
-    replaces a newer list, and a 10-K read again refreshes its own. The company page links the ones the brain holds."""
+    replaces a newer list, a same-year amendment or a read naming nobody never replaces a list that names companies, and
+    a 10-K read again refreshes its own. The company page links the ones the brain holds."""
     if (meta.get("form") or "").upper() not in _ANNUAL_FORMS or not result.get("text"):
         return None
     pe = meta.get("period_end") or ""
-    have = ((memory.get("competitors") or {}).get("from") or {}).get("period_end") or ""
+    cur = memory.get("competitors") or {}
+    fr = cur.get("from") or {}
+    have = fr.get("period_end") or ""
     if have and pe < have:
         return None
     from .brain_peers import named_competitors           # brain_peers imports this module, so not at the top
@@ -832,8 +835,14 @@ def learn_competitors(memory: dict, result: dict, meta: dict, extra: Optional[di
         return {"pdf_page": _page_at(result, off), "printed_page": None,
                 "section": f"Item {sec.get('item')}. {sec.get('title')}" if sec else None}
     own = tuple(x for x in (meta.get("name"), (extra or {}).get("name_hint"), memory.get("name"), memory.get("ticker")) if x)
+    named = named_competitors(result["text"], where, own)
+    # The same year from another filing: an amendment (a Part III 10-K/A has no Item 1) or a read that names nobody never
+    # replaces a list that names companies. The same filing read again refreshes its own list.
+    if have and pe == have and cur.get("named") and fr.get("sha8") != meta.get("sha8") \
+            and ((meta.get("form") or "").upper().endswith("/A") or not named):
+        return None
     memory["competitors"] = {"from": {k: meta.get(k) for k in ("form", "period", "period_end", "sha8", "url", "accession", "file")},
-                             "named": named_competitors(result["text"], where, own), "at": _now()}
+                             "named": named, "at": _now()}
     return memory["competitors"]
 
 

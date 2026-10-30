@@ -33,7 +33,7 @@ def memories(vault: Path) -> list[dict]:
             m = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        if m.get("ticker") and m.get("generated_by") == "crawler-brain":
+        if m.get("ticker") and m.get("generated_by") == "crawler-brain" and isinstance(m.get("series", {}), dict) and isinstance(m.get("where", {}), dict):
             out.append(m)
     return out
 
@@ -58,13 +58,13 @@ def _base(key: str) -> str:
 
 
 # ---------------------------------------------------------------------------------------------------- 1. the playbook
-def playbook(vault: Path, profile: str, ticker: Optional[str] = None) -> dict:
+def playbook(vault: Path, profile: str, ticker: Optional[str] = None, snap: Optional[list] = None) -> dict:
     """What the brain learned about reading one industry: every KPI its companies print, grouped by the brain's key,
     with each company's own printed name, where in its filing it sits and the latest printed line. Grouping is by key
     only; no figure is compared here. With a ticker: the KPIs other companies of the profile print that the brain has
     not seen for this one (either its filings do not print them or the Crawler has not found them)."""
     t = (ticker or "").upper()
-    ms = [m for m in memories(vault) if same_profile(m, profile)]
+    ms = [m for m in (memories(vault) if snap is None else snap) if same_profile(m, profile)]
     groups: dict[str, dict] = {}
     for m in ms:
         where = m.get("where") or {}
@@ -275,17 +275,38 @@ _ABBR = re.compile(r"(?i)(?:\b(?:inc|corp|co|ltd|no|nos|jr|sr|st|mr|ms|dr|vs|etc
 
 
 _STOP = re.compile(r"\.(?=\s|$)|\n")          # a period before any white space (a filing's HTML often has a no-break space)
+_JOIN = re.compile(r"(?i)\b(?:and|or|the|of|as|such|include|includes|including|are|by|with|from|to|in)$")
+_SUFFIX_START = re.compile(r"(?:Inc|Incorporated|Corp|Corporation|Company|Co|Ltd|Limited|LLC|L\.P|plc|PLC|Group|Holdings|AG|N\.V|S\.A|SE)\b")
+# chunks that are not companies: a plural acronym ("GPUs"), words that are all product terms, an adjective ("U.S.-based")
+_TECH = {"ai", "gpu", "gpus", "cpu", "cpus", "dpu", "dpus", "nic", "nics", "fpga", "fpgas", "asic", "asics", "assp", "assps", "soc",
+         "socs", "apu", "apus", "ssd", "ssds", "dram", "nand", "iot", "oem", "oems", "odm", "odms", "saas", "paas", "iaas", "ev", "evs", "x86"}
+# a named company matched by its leading words only when its first word is not a common one
+_COMMON_FIRST = {"american", "general", "united", "first", "national", "international", "global", "new", "north", "south", "east",
+                 "west", "western", "eastern", "central", "pacific", "atlantic", "southern", "northern", "standard", "union", "great"}
+
+
+def _wraps(body: str, i: int) -> bool:
+    """A line break inside a sentence (PDF text breaks lines where the page did): the line ends on a comma, a hyphen or a
+    joining word, the next line goes on in lower case or with a company word ("Qualcomm / Incorporated"), or a full
+    line of text stops without a full stop. Any other line break ends the sentence, as before."""
+    line = body[body.rfind("\n", 0, i) + 1:i].rstrip()
+    nxt = body[i + 1:i + 40].lstrip(" \t")
+    if not line or not nxt or nxt[0] == "\n":
+        return False
+    return (line.endswith((",", "-")) or bool(_JOIN.search(line)) or nxt[0].islower() or bool(_SUFFIX_START.match(nxt))
+            or (len(line) >= 60 and line[-1] not in ".:;?!"))
 
 
 def _sentence(body: str, at: int) -> tuple[int, int]:
-    """Start and end offsets of the sentence around an offset; "Inc." and "U.S." do not end a sentence."""
+    """Start and end offsets of the sentence around an offset; "Inc." and "U.S." do not end a sentence, nor does a line
+    break that only wraps the line."""
     a = 0
     for m in _STOP.finditer(body, max(0, at - 1500), at):
-        if m.group(0) == "\n" or not _ABBR.search(body[max(0, m.start() - 6):m.start()]):
+        if (m.group(0) == "\n" and not _wraps(body, m.start())) or (m.group(0) != "\n" and not _ABBR.search(body[max(0, m.start() - 6):m.start()])):
             a = m.end()
     z = len(body)
     for m in _STOP.finditer(body, at):
-        if m.group(0) == "\n" or not _ABBR.search(body[max(0, m.start() - 6):m.start()]):
+        if (m.group(0) == "\n" and not _wraps(body, m.start())) or (m.group(0) != "\n" and not _ABBR.search(body[max(0, m.start() - 6):m.start()])):
             z = m.start() + (1 if m.group(0) == "." else 0)
             break
     return a, z
@@ -294,7 +315,16 @@ def _sentence(body: str, at: int) -> tuple[int, int]:
 def norm_name(name: str) -> str:
     s = (name or "").lower().replace("&", " and ")
     s = re.sub(r"[^a-z0-9 ]+", " ", s)
-    return " ".join(w for w in s.split() if w not in _SUFFIX)
+    w = [x for x in s.split() if x not in _SUFFIX]
+    while w and w[-1] == "and":                 # "JPMorgan Chase & Co." is "jpmorgan chase", not "jpmorgan chase and"
+        w.pop()
+    return " ".join(w)
+
+
+def _not_company(chunk: str) -> bool:
+    words = chunk.split()
+    return (bool(re.fullmatch(r"[A-Z]{2,}s", chunk)) or all(w.lower().strip(".,") in _TECH for w in words)
+            or any(re.search(r"(?i)-(?:based|owned|backed)$", w) for w in words))
 
 
 def _looks_like_name(chunk: str) -> bool:
@@ -329,14 +359,15 @@ def named_competitors(body: str, location: Callable[[int], dict], own_names: tup
         for chunk in _SPLIT.split(tail):
             c = re.sub(r"^(?:the|other|certain|companies such as)\s+", "", chunk.strip(" .\"'"), flags=re.I).strip()
             c = re.sub(r"\s+(?:in|for|on|at|with|by)\s+.*$", "", c)
-            if not _looks_like_name(c):
+            c = " ".join(re.sub(r"\s*\([^)]*$", "", c).split())     # a name cut off at an unclosed "("; one line
+            if not _looks_like_name(c) or _not_company(c):
                 continue
             k = norm_name(c)
             if not k or k in seen or k in own or any(k == o or k.startswith(o + " ") for o in own if o):
                 continue
             seen.add(k)
             loc = location(a + 1) if location else {}
-            out.append({"name": c, "quote": sent[:420], "pdf_page": loc.get("pdf_page"), "printed_page": loc.get("printed_page"),
+            out.append({"name": c, "quote": sent, "pdf_page": loc.get("pdf_page"), "printed_page": loc.get("printed_page"),
                         "section": loc.get("section")})
     return out
 
@@ -367,6 +398,23 @@ def match_ticker(name: str, idx: dict) -> Optional[dict]:
             tk, title, cik = idx[p]
             return {"ticker": tk, "sec_name": title, "cik": cik, "match": f"part of {title}"}
     return None
+
+
+def match_in_brain(name: str, idx: dict) -> Optional[dict]:
+    """match_ticker against the brain's own few companies, and also a name that is the leading words of exactly one of
+    them ("Amazon" for AMAZON.COM, INC.; "JPMorgan Chase" for JPMorgan Chase & Co.), unless it starts with a common word
+    ("American Industrial Transport" is not American Express)."""
+    mt = match_ticker(name, idx)
+    if mt:
+        return mt
+    k = norm_name(name)
+    if not k or k.split()[0] in _COMMON_FIRST:
+        return None
+    hits = [v for kk, v in idx.items() if kk.startswith(k + " ")]
+    if len(hits) != 1:
+        return None
+    tk, title, cik = hits[0]
+    return {"ticker": tk, "sec_name": title, "cik": cik, "match": f"{title} in the brain"}
 
 
 def in_brain(vault: Path) -> dict:
