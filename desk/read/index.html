@@ -5356,6 +5356,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       // 4 seconds of recording: the title ends (the Studio's text item); the logo shrinks to its small spot (or fades,
       // without the small logo)
       brand.timer = 0;
+      if (state.ae) state.ae.log("intro", brand.img ? (plan.brand.mini ? "logo-small" : "logo-fade") : "", brand.img ? (plan.brand.mini ? 0.9 : 0.5) : 0);   // (Auto-edit) the opening ends; the logo moves for this long
       const ease = "cubic-bezier(.4,0,.2,1)", out = el => el.animate([{opacity: 1}, {opacity: 0}], {duration: 500, easing: "ease", fill: "forwards"});
       B.classList.remove("rec-brand-intro");
       if (brand.img && plan.brand.mini){
@@ -5495,6 +5496,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     function featureMoment(el, then){
       featBusy = true; featPaceUntil = performance.now() + PLAN_FEAT * 1000;
       const fr = featRun, Lw = wordList(), i = Lw.idx.get(el), words = fr.unit === "trade" && i != null ? Lw.els.slice(i, i + 4) : [el];
+      if (state.ae) state.ae.src("feat", "feat:" + (fr.key != null ? fr.key : fr.i), el, PLAN_FEAT);     // (Auto-edit) the featured moment
       words.forEach(w => w.classList.add("found", "pink", "hl-zap"));
       setTimeout(() => words.forEach(w => w.classList.remove("hl-zap")), 2800);
       tlFx("lit", {el, pink: true});
@@ -6037,10 +6039,12 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       // screen was dark, or left behind by a burst) fills its cell quietly.
       if (!readerSourceVisible(el) || performance.now() - at > 1500 || !zapTo(el, false, true)){
         applyLive(changes); const tr = foundSlot(f); if (tr) revealFound(tr);
+        if (state.ae) state.ae.log("fill", f.id);         // (Auto-edit) the report changed, but no chip flew
         zapBusy = false; pumpZaps(); return;
       }
       setTimeout(() => { zapBusy = false; pumpZaps(); }, zapQ.length > 4 ? 90 : 180);
       el.classList.add("hl-zap"); setTimeout(() => el.classList.remove("hl-zap"), 1100);
+      if (state.ae) state.ae.src("zap", f.id, el, ZAP_LAND / 1000);      // (Auto-edit) zapped on screen; its chip leaves next
       launch(() => {
         const plan = state.live && state.live.plan;
         const isCell = ch => ch.kind !== "signal" && ch.op === "show" && ch.state !== "withdrawn" && plan && plan.cells[ch.id] &&
@@ -6084,6 +6088,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           liveFollow(q.dest);
         }
         flyFrom(q.el, visLiveDest(q.dest), q.text, q.obs);
+        if (state.ae) state.ae.fly(q.el);                 // (Auto-edit) a chip in the air: it leaves now, it lands below
         setTimeout(() => { if (state.flightLock && state.flightLock.el === q.dest) state.flightLock = null; q.land(); pumpFlights(); }, FLY_MS - 60);
       }
     }
@@ -6094,8 +6099,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const sg = state.live && (state.live.plan.signals || []).find(x => x.id === ch.id);
       const ph = document.getElementById("lr-sigs-ph"), ol = document.getElementById("lr-sigs");
       const dest = ph && !ph.hidden ? ph : ol && (ol.lastElementChild || ol);   // where the new observation will appear
-      if (!sg || !dest || !readerSourceVisible(el) || performance.now() - at > 6000){ applyLive([ch]); return; }
+      if (!sg || !dest || !readerSourceVisible(el) || performance.now() - at > 6000){ applyLive([ch]); if (state.ae) state.ae.log("fill", "sig:" + ch.id); return; }
       zapTo(el, true, true);
+      if (state.ae) state.ae.src("obs", "sig:" + sg.id, el, ZAP_LAND / 1000);     // (Auto-edit) an observation leaves the page
       launch(() => fly(el, dest, sg.headline, true, () => applyLive([ch])));
       tlFx("obs", {el, sig: sg.id, text: sg.headline});
     }, 120);
@@ -6107,6 +6113,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (!lis.length || !text || !readerSourceVisible(w) || !zapTo(w, false, true)) return false;
       lis.forEach(li => { li.classList.remove("pending"); li.classList.add("incoming"); });
       w.classList.add("hl-zap"); setTimeout(() => w.classList.remove("hl-zap"), 1100);
+      if (state.ae) state.ae.src("ins", "ins:" + (lis[0].dataset.x || ""), w, ZAP_LAND / 1000);    // (Auto-edit) a trade, holding or guidance line
       launch(() => fly(w, lis[0], text, false, land));
       tlFx("fly", {el: w, dest: lis[0], text});
       return true;
@@ -6171,6 +6178,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const el = els.find(w => readerSourceVisible(w) && nearSpider(w, 1.3)) || els[0];
       if (!readerSourceVisible(el) || !zapTo(el, true, true)){ revealFound(tr); return; }
       els.slice(0, 6).forEach(w => { w.classList.add("hl-zap"); setTimeout(() => w.classList.remove("hl-zap"), 1100); });
+      if (state.ae) state.ae.src("sec", "sec:" + key, el, ZAP_LAND / 1000);       // (Auto-edit) a heading leaves the page
       launch(() => fly(el, tr.querySelector("td"), title, true, () => revealFound(tr)));
       if (state.tlFx) state.tlFx("sec", {el, dest: tr.querySelector("td"), text: title, words: els.slice(0, 6)});
     };
@@ -6497,6 +6505,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           state.takeQuality = await qualityOf(blob);
           res(blob);
         };
+        if (state.ae) state.ae.log("stop");               // (Auto-edit) the take's last moment, to check against the saved file's length
         rec.stop();
       });
     }
@@ -6622,6 +6631,35 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       } catch (e) { /* the recorder stopped meanwhile */ }
       return false;
     }
+    // -- Auto-edit highlights (Make a clip, opt-in: the plan's autoEdit). What the viewer sees happen in the take, each
+    // moment on the take's own clock (takeNow: the recorder's running time, so a pause, a rewind's replay, a skip and the
+    // settling after each are left out, as in meta.freezes). Noted only while the recorder runs: a replay or a skip's
+    // quick read is not in the video, so it is not noted. A note is a time, a kind, an id and sometimes how long it shows;
+    // nothing is measured or drawn. The Studio picks the clip's moments from these after the take. Off, nothing is noted
+    // and state.ae stays unset, so the calls in the crawl cost one property read.
+    const ae = {ev: [], ids: new WeakMap(), secs: 0};
+    function aeLog(k, id, d){
+      if (!rec || rec.state !== "recording" || ae.ev.length >= 6000) return;
+      const e = [Math.round(takeNow()) / 1000, k, id == null ? "" : String(id).slice(0, 60)];
+      if (d) e.push(Math.round(d * 1000) / 1000);
+      ae.ev.push(e);
+    }
+    const aeApi = {
+      log: aeLog,
+      // a source the spider zaps (a figure, an observation, a heading, a trade): its id goes with the chip that leaves it
+      src(k, id, el, d){ if (el) ae.ids.set(el, id); aeLog(k, id, d); },
+      // a chip leaves now (flyFrom) and lands FLY_MS - 60 later, when its row arrives (pumpFlights)
+      fly(el){
+        const id = ae.ids.get(el) || "";
+        aeLog("fly", id, FLY_MS / 1000);
+        setTimeout(() => aeLog("land", id), FLY_MS - 60);
+      },
+      take: () => ({v: 1, secs: ae.secs, events: ae.ev.slice()})
+    };
+    function aeStart(p){
+      ae.ev.length = 0; ae.secs = p && p.autoEdit ? +p.autoEdit.secs || 40 : 0;
+      state.ae = ae.secs && rec ? aeApi : null;
+    }
 
     // -- the ending: key findings, then a one-page summary, all from the finished report
     const pageOf = ids => { const F = (state.readRes.report.evidence || {}).facts || {}, C = (state.readRes.report.evidence || {}).calcs || {};
@@ -6694,6 +6732,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       brandReport(end);                                       // the floating company logo goes; the same logo joins the header, same frame
       B.appendChild(end);
       fitEnd(end, end.querySelector(".rk-keys"));
+      if (state.ae) state.ae.log("end", visEnd ? "live" : ins ? "insider" : specialized ? "document" : "report");    // (Auto-edit) the report ending is on screen
       return (async () => {
         const items = [...end.querySelectorAll(".rk-keys li")];
         // the first card comes in with the screen (the crawl cuts straight to it; drawn hidden first, so it still
@@ -6702,9 +6741,11 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         await sleep(highlights ? Math.max(0, 3000 - Math.max(0, items.length - 1) * 150) : keySecs * 1000);                    // hold once every finding is on screen
         end.querySelector(".rk-keys").hidden = true;
         const one = end.querySelector(".rk-one"); one.hidden = false;
+        if (state.ae) state.ae.log("one");                // (Auto-edit) its one-page summary
         fitEnd(end, one);
         requestAnimationFrame(() => one.classList.add("in"));
         await sleep(oneSecs * 1000);
+        if (state.ae) state.ae.log("done");               // (Auto-edit) the summary's hold is over
         return end;
       })();
     }
@@ -6869,6 +6910,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (on) holds.add(why); else holds.delete(why);
       if (holds.size && !was){
         if (settling){ clearTimeout(settleTimer); settling = false; state.paused = false; }
+        if (state.ae) state.ae.log("hold", why);        // (Auto-edit) the video goes on from here after the hold
         holdCapture(true); brandHold(true);
       }
       drawRwStrip();
@@ -6963,6 +7005,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           filing: pl ? pl.filing || null : null, cover, coverage: pl ? pl.coverage || "" : "", quality: state.takeQuality || null,
           find: pl ? {asked: pl.find || [], missing: planMissing.slice(), outside: planBefore.slice()} : null,
           brand: pl ? state.brandMeta || null : null,              // the company branding the take shows (the Studio adds no second hook)
+          autoEdit: pl && state.ae ? state.ae.take() : null,     // Auto-edit highlights: what happened when, for the Studio's edit
           freezes: freezeList()},                         // moments the page could not draw: the Studio cuts them
         name: [ticker || "Crawler", co.form || "", cover === "entire" ? "entire filing" : cover, "take", when.toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})].filter(Boolean).join(" ")};
       if (blob.disk) take.handle = blob.handle; else take.blob = blob;
@@ -7882,6 +7925,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         }
         if (planned && brand.ready) await Promise.race([brand.ready, sleep(5000)]);     // the company logo, decoded before the take (never a wait inside it)
         if (rec){ refreshCaptureDetails(); rec.start(500); requestAnimationFrame(freezeWatch); captureWatch(); }   // the clip starts here; sample the settled window as recording starts
+        aeStart(planned);                                           // Auto-edit highlights: this take's moments from here (only when the plan asks)
         state.tlMark();                                             // a rewind goes back no further than this
         if (planned) brandStart();                                  // the company branding, from the take's first frame
         if (holds.size) holdCapture(true);                          // paused under the curtain: the recording waits too
@@ -7890,6 +7934,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (planned) planCrawl(planHits);
         if (renderProfile){ renderProfile.frames = []; renderProfile.draws = []; renderProfile.last = 0; }
         curtain.classList.add("out"); setTimeout(() => curtain.remove(), 400);
+        if (state.ae) setTimeout(() => state.ae.log("crawl"), 400);  // the curtain is gone: the crawl alone on screen
         if (planned){ state.paused = false; clipWatch = planWatch(planHits); }
         if (intro){
           await sleep(2000);
@@ -7925,6 +7970,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           const read = walked && !scopeRun && live && !walking();
           return left <= 0 || tail <= 0 || (read && !reportMoving());
         }, 40, Infinity);
+        if (state.ae) state.ae.log("crawled");                    // (Auto-edit) the crawl is over: the ending, or the end, comes next
         state.recordCamera = null;
         clearInterval(clipWatch);
         if (clip || (planned && !planned.ending)){
@@ -9780,6 +9826,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     el.innerHTML = `<span>${esc(c.label)}</span><b>${esc(c.value)}</b>${c.change ? `<em class="${c.up == null ? "" : c.up ? "up" : "down"}">${esc(c.change)}</em>` : ""}<small>${esc([c.sub, c.page ? "p." + c.page : ""].filter(Boolean).join(" · "))}</small>`;
     box.appendChild(el);
     const life = 2300 / Math.max(0.75, Math.sqrt(state.speedMul || 1));
+    if (state.ae) state.ae.log("card", c.label, (life + 380) / 1000);     // (Auto-edit, Record mode) a number card on screen
     setTimeout(() => { el.classList.add("out"); setTimeout(() => { el.remove(); nextCard(); }, 380); }, life);
   }
   const CARD_METRICS = {revenue: "Revenue", net_income: "Net income", eps_diluted: "Diluted EPS", operating_income: "Operating income", fcf: "Free cash flow", cfo: "Operating cash flow", gross_profit: "Gross profit"};
