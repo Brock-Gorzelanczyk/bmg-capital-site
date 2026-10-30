@@ -806,6 +806,37 @@ def _guide_numbers(text: str) -> Optional[dict]:
 _GUIDE_EXCLUDES = re.compile(r"(?i)\b(?:guidance|outlook)\b[^.]{0,80}?\b(?:exclud\w*|does not (?:include|reflect))\b[^.]{0,200}")
 
 
+_ANNUAL_FORMS = ("10-K", "10-K/A", "20-F", "40-F")
+
+
+def learn_competitors(memory: dict, result: dict, meta: dict, extra: Optional[dict] = None) -> Optional[dict]:
+    """The companies an annual report names in a sentence about its competitors (reader/brain_peers.named_competitors),
+    each with the sentence, its PDF page and its section, kept from the latest annual report read: an older 10-K never
+    replaces a newer list, and a 10-K read again refreshes its own. The company page links the ones the brain holds."""
+    if (meta.get("form") or "").upper() not in _ANNUAL_FORMS or not result.get("text"):
+        return None
+    pe = meta.get("period_end") or ""
+    have = ((memory.get("competitors") or {}).get("from") or {}).get("period_end") or ""
+    if have and pe < have:
+        return None
+    from .brain_peers import named_competitors           # brain_peers imports this module, so not at the top
+    secs = sorted((s for s in result.get("sections") or [] if isinstance(s, dict)), key=lambda s: s.get("offset") or 0)
+
+    def where(off: int) -> dict:
+        sec = None
+        for s in secs:
+            if (s.get("offset") or 0) <= off:
+                sec = s
+            else:
+                break
+        return {"pdf_page": _page_at(result, off), "printed_page": None,
+                "section": f"Item {sec.get('item')}. {sec.get('title')}" if sec else None}
+    own = tuple(x for x in (meta.get("name"), (extra or {}).get("name_hint"), memory.get("name"), memory.get("ticker")) if x)
+    memory["competitors"] = {"from": {k: meta.get(k) for k in ("form", "period", "period_end", "sha8", "url", "accession", "file")},
+                             "named": named_competitors(result["text"], where, own), "at": _now()}
+    return memory["competitors"]
+
+
 def _page_at(result: dict, offset: int) -> Optional[int]:
     page = None
     for off, n in result.get("page_starts") or []:
@@ -1432,6 +1463,7 @@ def learn(vault: Path, result: dict, extra: Optional[dict] = None, think: bool =
         merged = merge(mem, pts, meta)
         chg = changes(mem, pts, meta)
         learn_where(mem, result, meta)
+        learn_competitors(mem, result, meta, extra)
         g_added = add_guidance(mem, result, meta)
         g_checked = check_guidance(mem, meta)
         lang = add_language(mem, result, meta)

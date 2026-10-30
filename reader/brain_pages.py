@@ -28,6 +28,40 @@ def clink(t: str, table: bool = False) -> str:
     return f"[[brain/companies/{t}/{t}{chr(92) if table else ''}|{t}]]"
 
 
+def sector_slug(name: str) -> str:
+    """The file name (without .md) of an industry page in brain/sectors/ and of its tag."""
+    return re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
+
+
+def industries(profile: Optional[str]) -> list:
+    """The industries in a reader profile: "Railcar leasing + Railcar manufacturing" is two. "General" is the reader's
+    catch-all, not an industry, so it gives none (it never links companies into one cluster)."""
+    out = []
+    for p in re.split(r"\+|,|/", profile or ""):
+        p = p.strip()
+        if p and p.lower() != "general" and p not in out:
+            out.append(p)
+    return out
+
+
+def _alias(s: str) -> str:
+    return re.sub(r"[\[\]|#^]", "", str(s or "")).strip()
+
+
+def ilink(name: str, table: bool = False) -> str:
+    """A link to an industry page by its path."""
+    return f"[[brain/sectors/{sector_slug(name)}{chr(92) if table else ''}|{_alias(name)}]]"
+
+
+def kpi_slug(base: str) -> str:
+    return sector_slug(base.split(":", 1)[1] if base.startswith("kpi:") else base)
+
+
+def klink(base: str, name: str, table: bool = False) -> str:
+    """A link to a KPI note (brain/kpis/) by its path."""
+    return f"[[brain/kpis/{kpi_slug(base)}{chr(92) if table else ''}|{_alias(name)}]]"
+
+
 class NotOurs(Exception):
     pass
 
@@ -283,9 +317,10 @@ def read_note(memory: dict, out: dict, meta: dict) -> str:
 
 
 # ---------------------------------------------------------------------- the company book
-def company_page(memory: dict, last: dict, existing: str = "") -> str:
+def company_page(memory: dict, last: dict, existing: str = "", ctx: Optional[dict] = None) -> str:
     from .brain import latest, track_record, _fmt, display_name
     t = memory["ticker"]
+    inds = industries(memory.get("profile"))
     kp = {k: s for k, s in memory.get("series", {}).items() if s["kind"] == "kpi"}
     reads = memory.get("reads", [])
     lr = reads[-1] if reads else {}
@@ -293,12 +328,15 @@ def company_page(memory: dict, last: dict, existing: str = "") -> str:
     fm = _fm({"ticker": t, "company": memory.get("name"), "cik": memory.get("cik"), "profile": memory.get("profile"), "type": "crawler-company",
               "reads": len(reads), "last_read": f"{lr.get('form')} {lr.get('period') or lr.get('period_end') or ''}".strip() if lr else None,
               "last_period_end": lr.get("period_end"), "kpis": sorted(display_name(k, s["name"]) for k, s in kp.items()),
-              "thresholds_watched": sorted({x["id"] for x in th})})
+              "thresholds_watched": sorted({x["id"] for x in th}),
+              "industries": inds or None, "tags": [f"industry/{sector_slug(x)}" for x in inds] or None})
     L = [fm, f"# {memory.get('name') or t} ({t})", "", BANNER, ""]
     profs = [r.get("profile") for r in reads if r.get("profile")]
     others = sorted({x for x in profs if x != memory.get("profile")})
     pnote = f" ({profs.count(memory.get('profile'))} of {len(profs)} reads; also read as {', '.join(others)})" if others else ""
     L += [f"Profile: {memory.get('profile') or 'not identified'}{pnote}. Reads in the brain: {len(reads)}. Last: {lr.get('form') or ''} {lr.get('period') or lr.get('period_end') or ''}.", ""]
+    if inds:
+        L += ["Industry: " + ", ".join(ilink(x) for x in inds), ""]
     if th:
         L += ["## Watch list: pre-registered thresholds at the last read", "", "| Threshold | Reading | Trigger | Distance | Periods (legs) |", "|---|---|---|---|---|"]
         for x in th:
@@ -372,6 +410,7 @@ def company_page(memory: dict, last: dict, existing: str = "") -> str:
                     ("row " + x["row"]) if x.get("row") else ""]
             L.append(f"- {_md(nm)}: {_md(', '.join(b for b in bits if b))} ({x.get('how')})")
         L.append("")
+    L += competitors_block(memory, ctx)
     L += ["## Reads", ""]
     for r in reversed(reads[-30:]):
         L.append(f"- [[brain/companies/{t}/reads/{note_name(t, r)}|{r.get('form')} {r.get('period') or r.get('period_end') or ''}]] ({r.get('file')})")
@@ -442,20 +481,161 @@ def index_page(vault: Path) -> str:
                       "| Company | Name | Profile | Reads | Last read | KPIs (latest) |", "|---|---|---|---|---|---|"] + rows + [""])
 
 
-def sector_page(vault: Path, profile: str) -> str:
+def graph_ctx(snap: list) -> dict:
+    """What the pages that link companies need, read once per write: every company's name and profile, an index of
+    their names for matching a named competitor, and the KPI keys two or more companies print."""
+    from .brain_peers import ticker_index
+    return {"companies": {m["ticker"]: {"name": m.get("name"), "profile": m.get("profile")} for m in snap},
+            "index": ticker_index([(m["ticker"], m.get("name") or "", m.get("cik")) for m in snap]),
+            "kpis": shared_kpis(snap)}
+
+
+def shared_kpis(snap: list) -> dict:
+    """{KPI key without its period: [tickers]} for every KPI printed by two or more companies in the brain."""
+    from .brain import latest
+    from .brain_peers import _base
+    by: dict = {}
+    for m in snap:
+        for k, s in (m.get("series") or {}).items():
+            if s.get("kind") == "kpi" and latest(s):
+                by.setdefault(_base(k), set()).add(m["ticker"])
+    return {k: sorted(v) for k, v in by.items() if len(v) >= 2}
+
+
+def competitors_block(memory: dict, ctx: Optional[dict]) -> list:
+    """The company's competitors as its latest annual report names them (each sentence quoted once, with its page),
+    linked when the brain holds the company, and the companies of the same industry in the brain. Names only."""
+    if not ctx:
+        return []
+    from .brain_peers import match_ticker
+    t = memory["ticker"]
+    inds = set(industries(memory.get("profile")))
+    peers = sorted(x for x, c in ctx["companies"].items() if x != t and inds & set(industries(c.get("profile"))))
+    comp = memory.get("competitors") or {}
+    if not comp and not peers:
+        return []
+    L = ["## Competitors and peers", ""]
+    if comp:
+        fr = comp.get("from") or {}
+        L += [f"Named in its {fr.get('form') or 'annual report'} for {fr.get('period') or fr.get('period_end') or 'the year'}, in a sentence "
+              "about competitors (each sentence quoted with its PDF page). Names only; nothing here compares them.", ""]
+        groups = []
+        for n in comp.get("named") or []:
+            g = next((x for x in groups if x["quote"] == n.get("quote")), None)
+            if g is None:
+                g = {"quote": n.get("quote") or "", "page": n.get("pdf_page"), "names": []}
+                groups.append(g)
+            g["names"].append(n)
+        for g in groups:
+            bits = []
+            for n in g["names"]:
+                mt = match_ticker(n.get("name") or "", ctx["index"])
+                if mt and mt["ticker"] != t:
+                    bits.append(f"{clink(mt['ticker'])} ({_md(n['name'])}{'; ' + _md(mt['match']) if mt['match'] != 'same name' else ''})")
+                else:
+                    bits.append(f"{_md(n.get('name'))} (not in the brain)")
+            L += [f"- p.{g['page'] or '?'}: " + "; ".join(bits), f"  > {_md(_clip(g['quote'], 320))}"]
+        if not groups:
+            L.append("- No company is named in a sentence about competitors.")
+        L.append("")
+    elif any((r.get("form") or "").upper() in ("10-K", "10-K/A", "20-F", "40-F") for r in memory.get("reads") or []):
+        L += ["Its annual report was read before the brain kept competitors; they are added when that report is filed again "
+              "(scripts/local/brain_backfill.py).", ""]
+    else:
+        L += ["No annual report of this company has been read yet, so no competitors named by the company.", ""]
+    if peers:
+        L += [f"Same industry in the brain ({', '.join(sorted(inds))}; the Crawler's industry label, not a list of competitors): "
+              + ", ".join(clink(p) for p in peers), ""]
+    return L
+
+
+def kpi_page(base: str, snap: list) -> str:
+    """One KPI key across the companies that print it: each company's own printed name and where it prints it. Names
+    and places only, never figures side by side: the same key at two companies is not the same definition (M03)."""
+    from .brain import latest, display_name
+    from .brain_peers import _base
+    rows = []
+    for m in sorted(snap, key=lambda m: m["ticker"]):
+        for k, s in sorted((m.get("series") or {}).items()):
+            if s.get("kind") == "kpi" and latest(s) and _base(k) == base:
+                rows.append((m, k, s))
+    tickers = sorted({m["ticker"] for m, _k, _s in rows})
+    name = (rows[0][2].get("name") if rows else None) or kpi_slug(base).replace("-", " ")
+    L = [_fm({"type": "crawler-kpi", "key": base, "companies": tickers}), f"# {name}: who prints it", "", BANNER, "",
+         "The companies in the brain that print this KPI, each with its own name for it and where it prints it. A KPI with "
+         "the same key at two companies is not the same definition: compare figures only where both definitions are quoted "
+         "and match (M03; research/coverage/rail/falsified.md FALS-02, FALS-10). Figures are in each company page and in "
+         "the Crawler's Industry tab.", ""]
+    if len(tickers) < 2:
+        L += ["One company in the brain prints this KPI now. The note stays: the brain deletes nothing.", ""]
+    for m, k, s in rows:
+        w = (m.get("where") or {}).get(k) or {}
+        src = (latest(s)[1].get("src") or {})
+        at = ", ".join(x for x in (w.get("table") and f"table {w['table']}", w.get("row") and f"row {w['row']}",
+                                   (w.get("form") or src.get("form")) and f"{w.get('form') or src.get('form')} p.{w.get('pdf_page') or src.get('pdf_page') or '?'}") if x)
+        inds = industries(m.get("profile"))
+        L.append(f"- {clink(m['ticker'])} as {_md(display_name(k, s.get('name') or k))}" + (f" ({_md(s['scope'])})" if s.get("scope") else "")
+                 + (f": {_md(at)}" if at else "") + (f". Industry: {', '.join(inds)}" if inds else ""))
+    L.append("")
+    return "\n".join(L)
+
+
+def general_page(snap: list) -> str:
+    """The companies the reader files under "General", its catch-all. Listed without links, so the graph does not draw
+    them as one industry."""
+    comps = sorted(m["ticker"] for m in snap if (m.get("profile") or "").strip().lower() == "general")
+    return "\n".join([_fm({"type": "crawler-sector", "profile": "General", "companies": comps}), "# General: the reader's catch-all", "", BANNER, "",
+                      "These companies were read under the reader's General profile, which is not an industry. They are listed "
+                      "without links so the graph does not group them; each has its own page under brain/companies/.", "",
+                      ", ".join(comps) if comps else "None.", ""])
+
+
+def pointer_page(profile: str, parts: list) -> str:
+    """A page written for a two-industry profile before 2026-10-30 now points at one page per industry."""
+    return "\n".join([_fm({"type": "crawler-sector", "profile": profile, "superseded_by": [f"brain/sectors/{sector_slug(p)}.md" for p in parts]}),
+                      f"# {profile}", "", BANNER, "",
+                      "Companies read under this profile are now listed on one page per industry: " + ", ".join(ilink(p) for p in parts) + ".", ""])
+
+
+def industry_pages(vault: Path, profile: Optional[str], snap: list) -> list:
+    """(path, writer) for the industry pages a company of this profile appears on: one per industry, the catch-all
+    page for General, and the old page of a two-industry profile, when there is one, rewritten to point at both."""
+    from .brain import root
+    if not profile:
+        return []
+    parts = industries(profile)
+    d = root(vault) / "sectors"
+    out = [(d / f"{sector_slug(p)}.md", (lambda p=p: sector_page(vault, p, snap))) for p in parts]
+    if not parts:
+        out.append((d / "general.md", lambda: general_page(snap)))
+    if len(parts) > 1 and (d / f"{sector_slug(profile)}.md").exists():
+        out.append((d / f"{sector_slug(profile)}.md", lambda: pointer_page(profile, parts)))
+    return out
+
+
+def kpi_pages(vault: Path, memory: dict, snap: list, ctx: dict) -> list:
+    """(path, writer) for the KPI notes of this company's KPIs: every key two or more companies print, and any note
+    already written for a key that now has fewer (rewritten, never deleted)."""
+    from .brain import root
+    from .brain_peers import _base
+    keys = sorted({_base(k) for k, s in (memory.get("series") or {}).items() if s.get("kind") == "kpi"})
+    d = root(vault) / "kpis"
+    return [(d / f"{kpi_slug(b)}.md", (lambda b=b: kpi_page(b, snap))) for b in keys
+            if b in ctx["kpis"] or (d / f"{kpi_slug(b)}.md").exists()]
+
+
+def sector_page(vault: Path, profile: str, snap: Optional[list] = None) -> str:
     """The companies of one profile, each with its own KPIs. Never a table across companies: measures with the same
     name are defined differently by each filer (M03; falsified.md FALS-02 and FALS-10 for GATX LPI against Trinity
     FLRD), so a side-by-side would read as a comparison no filing supports."""
-    from .brain import root, latest, _fmt, display_name
-    comps = []
-    for p in sorted((root(vault) / "companies").glob("*/memory.json")):
-        try:
-            m = json.loads(p.read_text(encoding="utf-8"))
-        except ValueError:
-            continue
-        if (m.get("profile") or "") == profile:
-            comps.append(m)
-    L = [_fm({"type": "crawler-sector", "profile": profile, "companies": [m["ticker"] for m in comps]}), f"# {profile}: companies the Crawler has read", "", BANNER, "",
+    from .brain import latest, _fmt, display_name
+    from .brain_peers import memories
+    snap = memories(vault) if snap is None else snap
+    comps = [m for m in snap if profile in industries(m.get("profile"))]
+    kshared = shared_kpis(snap)
+    L = [_fm({"type": "crawler-sector", "profile": profile, "companies": [m["ticker"] for m in comps],
+              "tags": [f"industry/{sector_slug(profile)}"] if industries(profile) else None}),
+         f"# {profile}: companies the Crawler has read", "", BANNER, "",
          "Each company's KPIs are listed under that company, as its own filings define them. They are not set side by side: a "
          "measure with the same name is defined differently by each filer, and no comparison is made here (M03; "
          "research/coverage/rail/falsified.md FALS-02, FALS-10).", ""]
@@ -475,8 +655,9 @@ def sector_page(vault: Path, profile: str) -> str:
                 w = ex.get("where") or {}
                 at = ", ".join(x for x in (w.get("table") and f"table {w['table']}", w.get("row") and f"row {w['row']}",
                                            ex["src"].get("form") and f"{ex['src']['form']} p.{ex['src'].get('pdf_page') or '?'}") if x)
-                who.append(f"{tk} as {_md(ex['printed'])}" + (f" ({_md(at)})" if at else ""))
-            L.append(f"- **{_md(g['name'])}**: {'; '.join(who)}")
+                who.append(f"{clink(tk)} as {_md(ex['printed'])}" + (f" ({_md(at)})" if at else ""))
+            head = klink(g["key"], g["name"]) if g["key"] in kshared else _md(g["name"])
+            L.append(f"- **{head}**: {'; '.join(who)}")
         L.append("")
     for m in comps:
         L += [f"## {m['ticker']}: {m.get('name') or ''}", "", f"Company page: {clink(m['ticker'])}", ""]
@@ -531,15 +712,20 @@ def write_all(vault: Path, memory: dict, out: dict, meta: dict, inbox: bool = Tr
     cd = company_dir(vault, t)
     files, errors = [], []
     rec = next((r for r in memory.get("reads", []) if r.get("sha8") == meta.get("sha8")), {**meta})
+    snap, ctx = None, None
+    if not only_read_note:
+        from .brain_peers import memories
+        snap = memories(vault)              # every company once per write (memory.json is saved before the pages)
+        ctx = graph_ctx(snap)
     own = [(cd / "reads" / f"{note_name(t, rec)}.md", lambda: read_note(memory, out, meta)),
-           (cd / f"{t}.md", lambda: company_page(memory, out, (cd / f"{t}.md").read_text(encoding="utf-8") if (cd / f"{t}.md").exists() else ""))]
+           (cd / f"{t}.md", lambda: company_page(memory, out, (cd / f"{t}.md").read_text(encoding="utf-8") if (cd / f"{t}.md").exists() else "", ctx))]
     shared = [(root(vault) / "index.md", lambda: index_page(vault))]
     if out.get("status") == "seen before" and own[0][0].exists():
         own = own[1:]               # a filing read again keeps the note of its first read (what was expected then, Claude's reading)
     if only_read_note:
         own, shared = own[:1], []
-    elif memory.get("profile"):
-        shared.append((root(vault) / "sectors" / f"{re.sub(r'[^a-z0-9]+', '-', memory['profile'].lower()).strip('-')}.md", lambda: sector_page(vault, memory["profile"])))
+    else:
+        shared += industry_pages(vault, memory.get("profile"), snap) + kpi_pages(vault, memory, snap, ctx)
     obs = new_observations(out, memory) if inbox and not only_read_note else []
     if obs:
         day = datetime.now().strftime("%Y-%m-%d")
@@ -565,3 +751,50 @@ def write_all(vault: Path, memory: dict, out: dict, meta: dict, inbox: bool = Tr
                 errors.append(str(e))
     base = str(Path(vault))
     return {"written": [f[len(base) + 1:] if f.startswith(base) else f for f in files], "refused": errors}
+
+
+def rebuild_all(vault: Path) -> dict:
+    """Every company page, industry page, KPI note and the index again from memory.json alone, without reading a filing:
+    after a change to the pages, the whole graph changes at once instead of company by company. Read notes, log.md,
+    inbox notes and memory.json are not touched. Runs in the local Crawler's server process (its locks are that
+    process's), one company lock at a time and then the shared lock. Returns the files written and refused."""
+    from .brain import not_set_up, root, company_dir, _lock, load, measure_thresholds
+    from .brain_peers import memories
+    why = not_set_up(vault)
+    if why:
+        return {"status": "off", "reason": why, "written": [], "refused": []}
+    snap = memories(vault)
+    ctx = graph_ctx(snap)
+    files, errors = [], []
+    for m0 in snap:
+        t = m0["ticker"]
+        with _lock(t):
+            try:
+                mem = load(vault, t)
+            except PermissionError as e:
+                errors.append(str(e))
+                continue
+            reads = mem.get("reads") or []
+            th = measure_thresholds(vault, mem, reads[-1]) if reads else {"measured": []}
+            p = company_dir(vault, t) / f"{t}.md"
+            try:
+                files.append(put(p, company_page(mem, {"thresholds": th}, p.read_text(encoding="utf-8") if p.exists() else "", ctx)))
+            except NotOurs as e:
+                errors.append(str(e))
+    with _lock("__shared__"):
+        shared, seen = [(root(vault) / "index.md", lambda: index_page(vault))], set()
+        for prof in sorted({m.get("profile") for m in snap if m.get("profile")}):
+            for path, make in industry_pages(vault, prof, snap):
+                if path not in seen:
+                    seen.add(path)
+                    shared.append((path, make))
+        for b in sorted(ctx["kpis"]):
+            shared.append((root(vault) / "kpis" / f"{kpi_slug(b)}.md", (lambda b=b: kpi_page(b, snap))))
+        for path, make in shared:
+            try:
+                files.append(put(path, make()))
+            except NotOurs as e:
+                errors.append(str(e))
+    base = str(Path(vault))
+    return {"status": "rebuilt", "companies": len(snap), "kpi_notes": len(ctx["kpis"]),
+            "written": [f[len(base) + 1:] if f.startswith(base) else f for f in files], "refused": errors}

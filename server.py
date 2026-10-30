@@ -4439,6 +4439,22 @@ async def brain_learn_status() -> JSONResponse:
     return JSONResponse(content=_BRAIN_LEARN)
 
 
+@app.post("/api/brain-rebuild")
+async def brain_rebuild() -> JSONResponse:
+    """Rewrite every company page, industry page, KPI note and the index from the brain's memory, without reading a
+    filing (reader/brain_pages.rebuild_all), so the Obsidian graph changes at once. Read notes, the log, the inbox and
+    memory.json are not touched. Owner's Mac only; it runs in this process, so it shares the brain's locks."""
+    _v, _t, err = _brain_guard()
+    if err:
+        return err
+    if not _reader_jobs.MANAGER.brain_vault:
+        return JSONResponse(status_code=409, content={"error": "The brain is not filing reads (BMG_BRAIN=0, or no vault folder found)."})
+    from reader import brain_pages as _bpg
+    out = await asyncio.to_thread(_bpg.rebuild_all, _reader_jobs.MANAGER.brain_vault)
+    return JSONResponse(content={"status": out.get("status"), "reason": out.get("reason"), "companies": out.get("companies"),
+                                 "kpi_notes": out.get("kpi_notes"), "written": len(out.get("written") or []), "refused": out.get("refused") or []})
+
+
 @app.get("/api/read/jobs/{job_id}/report.pdf")
 async def reader_job_pdf(request: Request, job_id: str):
     j = _job_or_404(request, job_id, None)
