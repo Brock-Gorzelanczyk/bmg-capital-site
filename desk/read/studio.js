@@ -657,6 +657,7 @@ const TEMPLATE = `
         <div class="st-auto" hidden>
           <p class="st-qh"><b>Auto-edit highlights</b> <small class="st-auto-st"></small></p>
           <div class="st-row">Length <div class="st-seg" data-set="autolen"><button type="button" data-v="20">20 s</button><button type="button" data-v="30">30 s</button><button type="button" data-v="40">40 s</button><button type="button" data-v="60">60 s</button></div></div>
+          <div class="st-row st-auto-done" hidden><button type="button" class="st-btn" data-a="autoplay">Play preview</button><button type="button" class="st-btn" data-a="goexport">Export &amp; download</button><button type="button" class="st-ib" data-a="autohand">Edit by hand</button></div>
           <div class="st-row"><button type="button" class="st-btn" data-a="autobuild">Make the highlight edit</button><button type="button" class="st-ib" data-a="autorestore" hidden>Restore original</button><button type="button" class="st-ib" data-a="autouse" hidden>Use the highlight edit</button></div>
           <ol class="st-auto-why"></ol>
           <p class="st-msg" data-m="auto" role="status"></p>
@@ -918,7 +919,8 @@ function highlightEdit(meta, dur, secs){
   const why = p => {
     const n = {}; for (const u of inAction) if (u.a >= p.a - 0.01 && u.b <= p.b + 0.01) n[u.k] = (n[u.k] || 0) + 1;
     const what = Object.keys(AUTO.say).filter(k => n[k]).map(k => k === "feat" ? AUTO.say.feat[0] : `${n[k]} ${AUTO.say[k][n[k] === 1 ? 0 : 1]}`).join(", ");
-    return [p.open ? (logoOpen ? "Opening: the company logo and title, as recorded" : "Opening: the title over the moving crawler") : "", what,
+    const titled = !!String(meta.hook || "").trim();
+    return [p.open ? (logoOpen ? `Opening: the company logo${titled ? " and title" : ""}, as recorded` : titled ? "Opening: the title over the moving crawler" : "Opening: the first seconds of the crawl") : "", what,
       p.end ? "the report ending, whole: its first screen to the last frame" : ""].filter(Boolean).join("; ").replace(/^./, c => c.toUpperCase());
   };
   // each part less the stills the page could not draw (meta.freezes, the same clock), a frame of each kept, as the
@@ -1427,7 +1429,7 @@ function mount(root, opts){
     const before = same ? P.auto.before : {segs: P.segs.map(s => ({in: s.in, out: s.out})), title: h ? {t0: h.t0, t1: h.t1, whole: !!h.whole} : null};
     const a = {v: r.v, take: P.take.id, secs: r.secs, made: Date.now(), len: r.len, title: r.title, found: r.found, kept: r.kept,
       segs: r.segs, notes: r.notes, before};
-    autoKeep(P.take.id, {...a, before: undefined, on: undefined});
+    autoKeep(P.take.id, {...a, on: undefined});
     autoMsg = null; autoPut(a);
     flash(`Highlight edit: ${fmt(r.len, true)} from a ${fmt(P.take.dur)} take.`);
     return r;
@@ -1449,11 +1451,22 @@ function mount(root, opts){
     if (!kept || kept.v !== AUTO_V) return;
     pause();
     const h = titleOf();
-    const before = P.auto && P.auto.take === P.take.id ? P.auto.before : {segs: P.segs.map(s => ({in: s.in, out: s.out})), title: h ? {t0: h.t0, t1: h.t1, whole: !!h.whole} : null};
+    const before = P.auto && P.auto.take === P.take.id ? P.auto.before : kept.before || {segs: P.segs.map(s => ({in: s.in, out: s.out})), title: h ? {t0: h.t0, t1: h.t1, whole: !!h.whole} : null};
     autoPut({...kept, take: P.take.id, before});
     flash("The highlight edit is on the timeline.");
   }
   let autoMsg = null, autoLen = 0;
+  // a planned take that asked for Auto-edit highlights has arrived (the clean path, after the freeze cut and the title):
+  // its edit is made once. The same take again keeps the edit it has, or gets the pick kept for it, never a new one.
+  function autoArrive(secs){
+    if (!P.take) return;
+    const id = P.take.id;
+    if (P.auto && P.auto.take === id) return;
+    if (autoKept()[id]){ autoUse(); return; }
+    const r = autoBuild(secs);
+    if (r && r.ok){ seek(0); flash("Your highlight edit is ready: press Play, then Export & download."); }
+    showTab("takes", true);
+  }
   // the Takes panel's Auto-edit box: shown for a take with Auto-edit notes (or one asked for and refused)
   function autoPanel(){
     const box = $(".st-auto"); if (!box) return;
@@ -1468,6 +1481,7 @@ function mount(root, opts){
     $('[data-a="autobuild"]').textContent = a || kept ? `Make it again at ${len} s` : `Make the highlight edit (${len} s)`;
     $('[data-a="autobuild"]').disabled = !has;
     $('[data-a="autorestore"]').hidden = !autoOn();
+    $(".st-auto-done").hidden = !autoOn();
     $('[data-a="autouse"]').hidden = autoOn() || !(a || (kept && kept.v === AUTO_V));
     // one line per part (a part a still was cut from is still one part)
     const parts = []; if (autoOn()) for (const x of a.segs){ if (x.why || !parts.length) parts.push({in: x.in, out: x.out, why: x.why}); else parts[parts.length - 1].out = x.out; }
@@ -1989,6 +2003,8 @@ function mount(root, opts){
     if (a === "autobuild"){ autoBuild(autoLen || (P.auto && P.auto.take === (P.take && P.take.id) && P.auto.secs) || undefined); return; }
     if (a === "autorestore"){ autoRestore(); return; }
     if (a === "autouse"){ autoUse(); return; }
+    if (a === "autoplay"){ seek(0); if (!playing) togglePlay(); return; }
+    if (a === "autohand"){ pause(); tlScroll.scrollIntoView({block: "nearest"}); flash("Edit it on the timeline: drag a part's ends, Split or Delete. Restore original brings the whole take back."); return; }
     if (b.dataset.open){ openTake(b.dataset.open); return; }
     if (b.dataset.rm){
       const id = b.dataset.rm;
@@ -2761,7 +2777,7 @@ function mount(root, opts){
   return {
     show(){ shown = true; ready.then(() => { zoomFit(); renderItems(); drawWave(); listTakes(); }); st.focus({preventScroll: true}); },
     hide(){ shown = false; pause(); if (listenNode) listen($('[data-a="listen"]')); },
-    async openTake(id, o = {}){ await ready; if (o.clean) cleanEdit(); showTab(o.tab || "takes", true); await openTake(id, o.note); if (o.clean){ cutFreezes(); hookItem(); } },
+    async openTake(id, o = {}){ await ready; if (o.clean) cleanEdit(); showTab(o.tab || "takes", true); await openTake(id, o.note); if (o.clean){ cutFreezes(); hookItem(); } if (o.clean && o.auto) autoArrive(o.auto); },
     async takeArrived(id){ await ready; const all = await listTakes(); if (!P.take && all && all.some(t => t.id === id)) await openTake(id); else flash("A new take is in Takes."); },
     // the page waits before loading a new version: an export (from its click), an edit not yet saved, a video not
     // downloaded or still downloading, the edit or a song playing
