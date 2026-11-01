@@ -1105,7 +1105,7 @@ body.av-open{overflow:hidden}
 .mk-flist button b{font:700 14.5px 'IBM Plex Sans',sans-serif;color:#141414}.mk-flist button:hover{border-color:#0f7d47}
 .mk-flist button[aria-checked=true]{border-color:#0f7d47;box-shadow:0 0 0 2px #0f7d47;background:#f3fbf6}
 .mk-flist i{position:absolute;top:8px;right:10px;font:600 10px 'IBM Plex Mono',monospace;text-transform:uppercase;color:#0f7d47;font-style:normal}
-.mk-len{margin:0 0 4px}.mk-len .av-seg[aria-checked=true],.mk-scope .av-seg[aria-checked=true]{background:#141414;border-color:#141414;color:#fff}.mk-scope .av-seg:disabled{opacity:.45;cursor:default}
+.mk-len{margin:0 0 4px}.mk-len .av-seg[aria-checked=true],.mk-scope .av-seg[aria-checked=true],.mk-auto-len .av-seg[aria-checked=true]{background:#141414;border-color:#141414;color:#fff}.mk-scope .av-seg:disabled{opacity:.45;cursor:default}
 .mk-custom{display:inline-flex;align-items:center;gap:4px;font-size:13px;color:#3a3a3a}.mk-custom input{width:66px;height:34px;box-sizing:border-box;border:1px solid #c9cfca;border-radius:17px;padding:0 8px;font:600 13px 'IBM Plex Sans',sans-serif}
 .mk-custom.on input{border-color:#141414;box-shadow:0 0 0 1px #141414}
 .mk-picked{margin:0;font-size:14px}.mk-quick{margin:8px 0 0}
@@ -1158,7 +1158,7 @@ html[data-theme="dark"] .mk-cl-pic{filter:invert(1) hue-rotate(180deg)}
 .mk-cl-pic img{max-width:116px;max-height:66px;object-fit:contain}.mk-cl-pic i{font-style:normal;color:#fff;font-size:12px}
 .mk-cl-txt{min-width:0;flex:1}.mk-cl-txt .mk-note{margin:2px 0 8px}.mk-cl-co{margin:0}.mk-cl-co span{font:600 12px 'IBM Plex Mono',monospace;color:#6b6f76;margin-left:4px}
 .mk-brand{display:flex;flex-direction:column;gap:6px;margin-top:4px}.mk-pvph{margin:0 0 10px}
-.mk-auto{margin-top:12px}.mk-auto .av-chips{margin:6px 0 0}.mk-auto small{color:#6b6f76}
+.mk-auto{margin-top:12px}.mk-auto .av-chips{margin:6px 0 0}.mk-auto-len[hidden],.mk-cl[hidden],#mk-hook-auto[hidden]{display:none}.mk-auto small{color:#6b6f76}
 .mk-pvf .pv-rep{position:absolute;left:0;right:0;bottom:0;top:72%;background:#fff;border-radius:4cqw 4cqw 0 0;padding:2.4cqw 11.2cqw 0 3.4cqw;box-sizing:border-box;overflow:hidden;color:#141414}
 .mk-pvf .pv-head{display:flex;align-items:center;gap:3cqw;padding-bottom:1.6cqw;border-bottom:1px solid #eceee9}.mk-pvf .pv-brand{display:flex;align-items:center;gap:1.2cqw;font-size:3.6cqw;margin-right:auto;white-space:nowrap}.mk-pvf .pv-brand .bmg-line{width:4cqw;height:3.4cqw}
 .mk-pvf .pv-logo{display:flex;align-items:center;gap:1cqw;font-size:2.6cqw;color:#6b6f76;white-space:nowrap}.mk-pvf .pv-logo img{max-height:5cqw;max-width:14cqw;object-fit:contain}.mk-pvf .pv-logo i{font-style:normal;font-weight:700;color:#141414;max-width:20cqw;overflow:hidden;text-overflow:ellipsis}
@@ -4921,7 +4921,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   addEventListener("message", e => {
     if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-rec" || !e.source || recGone.has(e.source) || document.body.classList.contains("rec")) return;
     if (e.data.phase === "closed"){ if (state.recWin === e.source) state.recPhase = "closed"; }
-    else { state.recWin = e.source; state.recPhase = e.data.phase; }
+    else { state.recWin = e.source; state.recPhase = e.data.phase; state.recAuto = e.data.auto === undefined ? null : !!e.data.auto; }
     // The record window shares this window's main thread, so a crawl here during a take (a clip chip pressed while
     // reading, or the Crawler tab clicked mid-take) draws its spider inside the take's frames. It waits, and goes on
     // afterwards only if this pause was the one that stopped it (lag audit, 2026-10-23).
@@ -4961,7 +4961,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const recPhase = ph => {
       if (!isRecord) return;
       window.bmgRec.phase = ph;
-      try { const o = window.opener; if (o && !o.closed) o.postMessage({type: "bmg-rec", phase: ph}, location.origin); } catch (e) {}
+      try { const o = window.opener; if (o && !o.closed) o.postMessage({type: "bmg-rec", phase: ph, auto: state.ae ? 1 : 0}, location.origin); } catch (e) {}
     };
     if (isRecord){
       window.bmgRec = {phase: "setup"};
@@ -5205,7 +5205,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           <dt>Finds</dt><dd>${(plan.find || []).length ? esc(plan.find.join(" · ")) + (excerpt ? " (the clip goes to each)" : " (lit as the spider passes)") : "Nothing asked for"}</dd>
           <dt>Ends on</dt><dd>${plan.ending ? esc(endingWords(plan.kind || (plan.source === "insiders" ? "insider" : plan.source === "fund" ? "holdings" : "other"))) : "The last line read"}</dd>
           ${bp ? `<dt>Branding</dt><dd id="pl-brand"></dd>` : ""}
-          ${plan.autoEdit ? `<dt>Then</dt><dd>Auto-edit highlights: the Studio makes a highlight edit of about ${esc(String(plan.autoEdit.secs))} seconds from this take, and keeps the take</dd>` : ""}
+          ${plan.autoEdit ? `<dt>Then</dt><dd>Auto-edit highlights: the Studio makes a highlight edit of ${plan.length !== "whole" && +plan.length <= plan.autoEdit.secs ? "at most this take's own length" : `about ${esc(String(plan.autoEdit.secs))} seconds`} from this take, and keeps the take</dd>` : ""}
           <dt>Video</dt><dd id="pl-video"></dd></dl>
         <p class="pl-st" id="pl-st" role="status"></p>
         <div class="pl-check"><button type="button" id="pl-check">Check the frame</button><span id="pl-clean" role="status"></span></div>
@@ -5683,6 +5683,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
             setTimeout(() => ws.forEach(w => w.classList.remove("hl-zap")), 2800);
           }
           tlFx("lit", {el: h.el, pink: h.kind === "number"});
+          if (state.ae) state.ae.log("find", h.q, plan.length === "whole" ? 1.8 : 1.1);   // (Auto-edit) a requested item lit
           if (window.bmgRec.find) window.bmgRec.find.lit.push(h.q);
         }
         if (nums.length) clipCards(nums);
@@ -6112,7 +6113,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // are zapped, then a chip flies from them into its row, which waits in place, unseen, until the chip lands
     // (land() shows it). Out of sight or out of the eyes' reach, it returns false and the row simply appears.
     state.insFly = (w, lis, text, land) => {
-      if (!lis.length || !text || !readerSourceVisible(w) || !zapTo(w, false, true)) return false;
+      if (!lis.length || !text || !readerSourceVisible(w) || !zapTo(w, false, true)){
+        if (lis.length){ if (state.ae) state.ae.log("fill", "ins:" + (lis[0].dataset.x || "")); }    // (Auto-edit) the row appears, no chip
+        return false;
+      }
       lis.forEach(li => { li.classList.remove("pending"); li.classList.add("incoming"); });
       w.classList.add("hl-zap"); setTimeout(() => w.classList.remove("hl-zap"), 1100);
       if (state.ae) state.ae.src("ins", "ins:" + (lis[0].dataset.x || ""), w, ZAP_LAND / 1000);    // (Auto-edit) a trade, holding or guidance line
@@ -6178,7 +6182,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       tr.innerHTML = `<td colspan="2"><b class="lr-readt">${esc(title)}</b><span class="lr-src">${page ? "p." + page : ""}</span></td>`;
       tb.appendChild(tr); tb.closest("section").hidden = false;
       const el = els.find(w => readerSourceVisible(w) && nearSpider(w, 1.3)) || els[0];
-      if (!readerSourceVisible(el) || !zapTo(el, true, true)){ revealFound(tr); return; }
+      if (!readerSourceVisible(el) || !zapTo(el, true, true)){ if (state.ae) state.ae.log("fill", "sec:" + key); revealFound(tr); return; }
       els.slice(0, 6).forEach(w => { w.classList.add("hl-zap"); setTimeout(() => w.classList.remove("hl-zap"), 1100); });
       if (state.ae) state.ae.src("sec", "sec:" + key, el, ZAP_LAND / 1000);       // (Auto-edit) a heading leaves the page
       launch(() => fly(el, tr.querySelector("td"), title, true, () => revealFound(tr)));
@@ -6638,10 +6642,16 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // settling after each are left out, as in meta.freezes). Noted only while the recorder runs: a replay or a skip's
     // quick read is not in the video, so it is not noted. A note is a time, a kind, an id and sometimes how long it shows;
     // nothing is measured or drawn. The Studio picks the clip's moments from these after the take. Off, nothing is noted
-    // and state.ae stays unset, so the calls in the crawl cost one property read.
-    const ae = {ev: [], ids: new WeakMap(), secs: 0};
+    // and state.ae stays unset, so the calls in the crawl cost one property read. Past 6000 notes (about 14 minutes of a
+    // busy crawl) the crawl's moments are no longer noted, and "full" says from when; the take's own marks always are.
+    const ae = {ev: [], ids: new WeakMap(), secs: 0, full: false};
+    const AE_MARKS = new Set(["crawl", "intro", "crawled", "end", "one", "done", "stop", "hold"]);
     function aeLog(k, id, d){
-      if (!rec || rec.state !== "recording" || ae.ev.length >= 6000) return;
+      if (!rec || rec.state !== "recording") return;
+      if (ae.ev.length >= 6000 && !AE_MARKS.has(k)){
+        if (!ae.full){ ae.full = true; ae.ev.push([Math.round(takeNow()) / 1000, "full", ""]); }
+        return;
+      }
       const e = [Math.round(takeNow()) / 1000, k, id == null ? "" : String(id).slice(0, 60)];
       if (d) e.push(Math.round(d * 1000) / 1000);
       ae.ev.push(e);
@@ -6659,7 +6669,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       take: () => ({v: 1, secs: ae.secs, events: ae.ev.slice()})
     };
     function aeStart(p){
-      ae.ev.length = 0; ae.secs = p && p.autoEdit ? +p.autoEdit.secs || 40 : 0;
+      ae.ev.length = 0; ae.full = false; ae.secs = p && p.autoEdit ? +p.autoEdit.secs || 40 : 0;
       state.ae = ae.secs && rec ? aeApi : null;
     }
 
@@ -7038,7 +7048,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
             setTimeout(() => window.close(), 1200);
           };
           addEventListener("message", got);
-          try { o.postMessage({type: "bmg-open-take", id: take.id, file: handed, plan: true, missing: planMissing, before: planBefore, cover}, location.origin); } catch (e) {}
+          const auto = take.meta && take.meta.autoEdit ? +take.meta.autoEdit.secs || 40 : 0;     // the take's own Auto-edit length (0: off)
+          try { o.postMessage({type: "bmg-open-take", id: take.id, file: handed, plan: true, missing: planMissing, before: planBefore, cover, auto}, location.origin); } catch (e) {}
         }
       }).catch(e => { b.textContent = "Not kept for the Studio (" + ((e && e.message) || "browser storage") + "): open the downloaded file there"; });
       b.onclick = () => {
@@ -10991,18 +11002,22 @@ Who is the auditor?</textarea>
     addEventListener("message", e => {
       if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-open-take") return;
       const d = e.data, opts = d.plan ? {clean: true, tab: "pics", note: takeNote(d)} : {};
-      if (d.plan && autoAsked()){ opts.auto = autoAsked(); opts.tab = "takes"; }      // Auto-edit highlights (the plan asked for it)
+      if (d.plan && autoFor(d)){ opts.auto = autoFor(d); opts.tab = "takes"; opts.autoNote = takeNote(d, true); opts.find = findNote(d); }   // Auto-edit highlights (the take was recorded for it)
       if (d.file instanceof Blob) takeFiles.set(d.id, d.file);
       try { localStorage.removeItem("bmg-studio-open"); } catch (x) {}
       if (studio) studio.openTake(d.id, opts); else openNext = {id: d.id, opts};
       show("studio");
       if (d.plan){ mk.recording = false; try { e.source && e.source.postMessage({type: "bmg-take-opened", id: d.id}, location.origin); } catch (x) {} }
     });
-    // the last plan sent to the record window asked for Auto-edit highlights (its length)
+    // a take's own Auto-edit length, from the record window; one from before it said so: the last plan sent to it
     const autoAsked = () => { try { const p = JSON.parse(localStorage.getItem("bmg-clip-plan") || "null"); return p && p.autoEdit ? +p.autoEdit.secs || 40 : 0; } catch (e) { return 0; } };
-    const takeNote = d => `Your clip${d.cover === "entire" ? " (the entire filing, cover to final line)" : d.cover === "excerpt" ? " (an excerpt: Specific findings)" : ""} is on the preview. Add pictures here: drop them in, then drag them on the video. Export (the last tab) downloads it; it says what the take measured.`
-      + (d.missing && d.missing.length ? ` Not found in this filing: ${d.missing.join(", ")}.` : "")
+    const autoFor = d => d.auto !== undefined ? +d.auto || 0 : autoAsked();
+    // what the clip's plan did not find, or found outside the part the clip shows
+    const findNote = d => (d.missing && d.missing.length ? ` Not found in this filing: ${d.missing.join(", ")}.` : "")
       + (d.before && d.before.length ? ` Outside the part of the filing the clip shows (start from the cover page, or choose a longer clip, to include them): ${d.before.join(", ")}.` : "");
+    // (hl: the Studio made the take's highlight edit, which is what the preview holds)
+    const takeNote = (d, hl) => `Your clip${d.cover === "entire" ? " (the entire filing, cover to final line)" : d.cover === "excerpt" ? " (an excerpt: Specific findings)" : ""}${hl ? ", cut to its highlight edit," : ""} is on the preview.${hl ? " Restore original, in Takes, puts the whole take back." : ""} Add pictures here: drop them in, then drag them on the video. Export (the last tab) downloads it; it says what the take measured.`
+      + findNote(d);
     try {
       new BroadcastChannel("bmg-studio").onmessage = e => {
         if (!e.data || e.data.type !== "take") return;
@@ -11173,20 +11188,23 @@ Who is the auditor?</textarea>
         : "Specific findings needs the filing's findings: pick a filing in step 1 and wait for its read.";
     }
     // Auto-edit highlights: what the finished video will be. The take itself is recorded as set above, whole, and kept.
-    const autoLine = () => mk.auto.on ? ` Then the Studio makes a highlight edit of about ${mk.auto.secs} seconds from the take (Auto-edit highlights); the take keeps it all.` : "";
+    // a set-length clip (the ending inside its length) as long as the highlight edit, or shorter: the edit is at most the take
+    const autoAbout = () => { const n = typeof mk.length === "number" ? mk.length : Infinity;
+      return n <= mk.auto.secs ? `at most the take's own length (about ${n} seconds${n < mk.auto.secs ? `; the clip is set shorter than ${mk.auto.secs}` : ""})` : `about ${mk.auto.secs} seconds`; };
+    const autoLine = () => mk.auto.on ? ` Then the Studio makes a highlight edit of ${autoAbout()} from the take (Auto-edit highlights); the take keeps it all.` : "";
     function drawAuto(){
       const cb = body.querySelector("#mk-auto"); if (!cb || view !== "make") return;
       cb.checked = mk.auto.on;
       const len = body.querySelector("#mk-auto-len"); len.hidden = !mk.auto.on;
       len.querySelectorAll("[data-asecs]").forEach(b => b.setAttribute("aria-checked", String(+b.dataset.asecs === mk.auto.secs)));
       body.querySelector("#mk-auto-note").textContent = !mk.auto.on ? "Off: the take comes to the Studio whole, to cut by hand."
-        : `The take is recorded as set above, whole, and kept. When it reaches the Studio, a highlight edit of about ${mk.auto.secs} seconds is made from it: your hook over the moving crawler for its first 4 seconds, then the busiest moments in order at their own speed, then ${mk.ending ? "the whole report ending (about 11 seconds)" : "the end of the crawl (the ending is off)"}. Nothing is sped up, repeated or added; a take with less to show gives a shorter edit. Play it, download it or edit it by hand there; Restore original puts the whole take back.`
+        : `The take is recorded as set above, whole, and kept. When it reaches the Studio, a highlight edit of ${autoAbout()} is made from it: ${mk.brand && mk.brand.intro && coReady() ? `the company logo opening${String(mk.hook || "").trim() ? " with your hook" : ""}, as recorded` : String(mk.hook || "").trim() ? "your hook over the moving crawler for its first 4 seconds" : "the moving crawler for its first 4 seconds"}, then the busiest moments in order at their own speed, ${mk.ending ? "then the whole report ending (about 11 seconds)" : "ending on the last of them (the ending is off)"}. Nothing is sped up, repeated or added; a take with less to show gives a shorter edit. Play it, download it or edit it by hand there; Restore original puts the whole take back.`
           + (mk.ending && mk.auto.secs === 20 ? " At 20 seconds the ending and the title leave about 5 seconds of the crawl." : "");
     }
     function recStatus(ph){
       if (view !== "make" || !mk.recording) return;
       mkSay("mk-rst", ph === "busy" ? "Recording in the record window. When it ends, the Studio opens here with the clip."
-        : ph === "done" ? (autoAsked() ? "The take is done: opening it in the Studio, where its highlight edit is made..." : "The take is done: opening it in the Studio...") : ph === "closed" ? "" : "The record window is open with this clip set: press Start recording there.");
+        : ph === "done" ? ((state.recAuto == null ? autoAsked() : state.recAuto) ? "The take is done: opening it in the Studio, where its highlight edit is made..." : "The take is done: opening it in the Studio...") : ph === "closed" ? "" : "The record window is open with this clip set: press Start recording there.");
     }
     state.onRecPhase = ph => { if (ph === "closed" && view === "make") mk.recording = false; recStatus(ph); };
     // your own document goes to the record window when it asks for it (a planned clip with a file from this Mac)
@@ -11369,6 +11387,7 @@ Who is the auditor?</textarea>
       const h = body.querySelector("#mk-hook"); if (h && document.activeElement !== h) h.value = mk.hook || "";
       const a = body.querySelector("#mk-hook-auto"), sug = suggestHook();
       if (a){ a.hidden = !(hookIsMine() && sug && sug !== mk.hook); a.title = sug ? "Suggested: " + sug : ""; }
+      drawAuto();                                     // the Auto-edit note names the hook only when there is one
     }
     // ---- what a clip of this length shows: the report items it reaches, in the filing's order, from just before the
     // featured one. Each gets about 1.3 s, the featured one 1.6 s more, and the clip holds 2 s on the report at the end
@@ -11434,6 +11453,7 @@ Who is the auditor?</textarea>
       if (brandOn() && coLogo.state === "loading"){ mkSay("mk-rst", "The company's logo is still being looked up: a moment.", true); return; }
       const plan = planOf(f);
       if (mkLiveLook) plan.look = {...(plan.look || {}), ...mkLiveLook};
+      if (recOpen() && recPhaseNow() === "busy"){ recordWindow(); mkSay("mk-rst", "Record mode is in the middle of a take: it is in front now. Finish that take, then press Record again.", true); return; }   // its plan stays the take's
       try { localStorage.setItem("bmg-clip-plan", JSON.stringify(plan)); } catch (e) { mkSay("mk-rst", "This browser could not keep the plan (storage full?).", true); return; }
       state.clipWin = null; state.clipFile = null;        // nothing from an earlier one-click clip goes to this window
       const opened = recordWindow(REC_URL + "&plan=1", true);
@@ -11584,6 +11604,7 @@ Who is the auditor?</textarea>
       $b("mk-b-intro").checked = !!B.intro; $b("mk-b-mini").checked = !!B.mini; $b("mk-b-report").checked = !!B.report;
       $b("mk-b-all").setAttribute("aria-checked", String(!!(B.intro && B.mini && B.report)));
       $b("mk-b-off").setAttribute("aria-checked", String(!brandOn()));
+      drawAuto();                                     // the Auto-edit note names the logo opening when it is on
       const lg = coReady(), hook = !!String(mk.hook || "").trim(), notes = [];
       if (brandOn() && !lg){
         if (coLogo.state === "loading") notes.push("Looking for the company's logo (step 1).");
@@ -11781,15 +11802,15 @@ Who is the auditor?</textarea>
         $m("mk-found").querySelectorAll("button[data-feat]").forEach(x => x.setAttribute("aria-checked", String(x === b)));
         drawHook(); drawLen(); drawPreview();
       });
-      $m("mk-hook").addEventListener("input", e => { mk.hook = e.target.value; if (mk.found && mk.found.key) mk.hookMine[mk.found.key] = true; saveMk(); drawPreview(); });
+      $m("mk-hook").addEventListener("input", e => { mk.hook = e.target.value; if (mk.found && mk.found.key) mk.hookMine[mk.found.key] = true; saveMk(); drawAuto(); drawPreview(); });
       $m("mk-hook-auto").addEventListener("click", () => { if (mk.found && mk.found.key) delete mk.hookMine[mk.found.key]; mk.hook = suggestHook(); saveMk(); drawHook(); drawPreview(); });
       body.querySelector(".mk-len").addEventListener("click", e => {
         const b = e.target.closest("button[data-len]"); if (!b) return;
         mk.length = b.dataset.len === "whole" ? "whole" : +b.dataset.len;
         if (mk.length === SHORT){ mk.ending = false; $m("mk-ending").checked = false; }     // a short clip ends on the report
-        saveMk(); drawLen(); drawPreview();
+        saveMk(); drawLen(); drawAuto(); drawPreview();
       });
-      $m("mk-secs").addEventListener("input", e => { const v = Math.round(+e.target.value); if (v >= 10 && v <= 900){ mk.length = v; saveMk(); drawLen(); drawPreview(); } });
+      $m("mk-secs").addEventListener("input", e => { const v = Math.round(+e.target.value); if (v >= 10 && v <= 900){ mk.length = v; saveMk(); drawLen(); drawAuto(); drawPreview(); } });
       $m("mk-speed").addEventListener("change", e => { mk.speed = +e.target.value || 1; saveMk(); drawLen(); drawPreview(); });
       $m("mk-ramp").addEventListener("change", e => { mk.ramp.on = e.target.checked; saveMk(); drawLen(); drawPreview(); });
       $m("mk-ramp-from").addEventListener("change", e => { mk.ramp.from = +e.target.value || 1; mk.ramp.on = true; $m("mk-ramp").checked = true; saveMk(); drawLen(); drawPreview(); });
@@ -11832,6 +11853,7 @@ Who is the auditor?</textarea>
       window.bmgClipPlan = () => { const f = !mk.file && mk.list && mk.pick != null ? mk.list.items[mk.pick] : null; return mk.file || f ? planOf(f) : null; };
       window.bmgOpenRecord = p => {
         if (!(p && p.source && p.at)){ mkLiveLook = (p && p.look) || p || null; try { makeRecord(); } finally { mkLiveLook = null; } return; }
+        if (recOpen() && recPhaseNow() === "busy"){ recordWindow(); throw new Error("Record mode is in the middle of a take: it is in front now. Finish that take, then press Record again."); }
         try { localStorage.setItem("bmg-clip-plan", JSON.stringify(p)); } catch (e) { throw new Error("This browser could not keep the plan (storage full?)."); }
         state.clipWin = null; state.clipFile = null;
         const opened = recordWindow(REC_URL + "&plan=1", true);

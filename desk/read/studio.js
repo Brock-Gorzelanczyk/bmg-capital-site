@@ -537,7 +537,7 @@ function injectCSS(){
 .st-tabs button i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#ff3da6;margin-left:5px;vertical-align:1px}
 .st-panel[hidden]{display:none}.st-panel h4{margin:12px 0 6px;font:700 13px 'IBM Plex Sans',sans-serif}
 .st-note{font-size:12.5px;color:var(--mute);margin:6px 0}.st-msg{font-size:13px;margin:6px 0;color:var(--g);min-height:1em}.st-msg.err{color:#b42318}
-.st-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}
+.st-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}.st-row[hidden]{display:none}
 .st-btn{height:34px;padding:0 13px;border-radius:8px;border:1px solid var(--g);background:var(--g);color:#fff;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
 .st-btn:disabled{opacity:.55;cursor:default}.st-btn.ghost{background:#fff;color:var(--g)}
 .st-drop{display:block;border:2px dashed #c9cfca;border-radius:12px;padding:14px;text-align:center;cursor:pointer;background:#fafaf7;font-size:13px;color:#3a3a3a}
@@ -657,7 +657,7 @@ const TEMPLATE = `
         <div class="st-auto" hidden>
           <p class="st-qh"><b>Auto-edit highlights</b> <small class="st-auto-st"></small></p>
           <div class="st-row">Length <div class="st-seg" data-set="autolen"><button type="button" data-v="20">20 s</button><button type="button" data-v="30">30 s</button><button type="button" data-v="40">40 s</button><button type="button" data-v="60">60 s</button></div></div>
-          <div class="st-row st-auto-done" hidden><button type="button" class="st-btn" data-a="autoplay">Play preview</button><button type="button" class="st-btn" data-a="goexport">Export &amp; download</button><button type="button" class="st-ib" data-a="autohand">Edit by hand</button></div>
+          <div class="st-row st-auto-done" hidden><button type="button" class="st-btn" data-a="autoplay">Play preview</button><button type="button" class="st-btn" data-a="autoexport">Export &amp; download</button><button type="button" class="st-ib" data-a="autohand">Edit by hand</button></div>
           <div class="st-row"><button type="button" class="st-btn" data-a="autobuild">Make the highlight edit</button><button type="button" class="st-ib" data-a="autorestore" hidden>Restore original</button><button type="button" class="st-ib" data-a="autouse" hidden>Use the highlight edit</button></div>
           <ol class="st-auto-why"></ol>
           <p class="st-msg" data-m="auto" role="status"></p>
@@ -784,12 +784,13 @@ const filingText = f => !f ? "" : f.own ? f.name || "" : [f.company ? `${f.compa
 // the take's last frame, are kept whole; the action gets what is left of the length. No cut falls while a chip is in
 // the air, its row is sliding in or a card is up. The same notes and length always give the same edit.
 const AUTO_V = 1, AUTO_LENS = [20, 30, 40, 60];
-const AUTO = {title: 4, curtain: 0.4, lead: 0.5, tail: 0.6, bridge: 1.2, join: 0.35, minPiece: 1, maxPiece: 8, minAction: 3,
-  w: {feat: 6, card: 4, obs: 4, zap: 2, ins: 2, sec: 1, lit: 0.5, fill: 0.3},
+const AUTO = {title: 4, curtain: 0.4, lead: 0.5, tail: 0.6, bridge: 1.2, join: 0.35, minPiece: 1, maxPiece: 8, minAction: 3, wait: 3, minPart: 0.5,
+  w: {feat: 6, card: 4, obs: 4, find: 4, zap: 2, ins: 2, sec: 1, lit: 0.5, fill: 0.3},
   say: {feat: ["the featured figure", "the featured figure"], card: ["number card", "number cards"], obs: ["observation", "observations"],
+    find: ["requested item found", "requested items found"],
     zap: ["figure", "figures"], ins: ["trade or holding", "trades or holdings"], sec: ["section heading", "section headings"],
     lit: ["figure lit", "figures lit"], fill: ["report update", "report updates"]}};
-function highlightEdit(meta, dur, secs){
+function highlightEdit(meta, dur, secs, probe){
   const A = meta && meta.autoEdit;
   secs = AUTO_LENS.includes(+secs) ? +secs : AUTO_LENS.includes(+(A && A.secs)) ? +A.secs : 40;
   const res = {v: AUTO_V, ok: false, secs, segs: [], len: 0, title: 0, notes: [], found: 0, kept: 0};
@@ -802,19 +803,33 @@ function highlightEdit(meta, dur, secs){
     .map(e => ({t: Math.min(+e[0], dur), k: String(e[1] || ""), id: String(e[2] == null ? "" : e[2]), d: Math.max(0, +e[3] || 0)}))
     .sort((a, b) => a.t - b.t);
   const first = k => ev.find(e => e.k === k);
-  const stopE = first("stop");
-  if (stopE && Math.abs(stopE.t - dur) > 1.5) res.notes.push(`The notes end ${f1(Math.abs(stopE.t - dur))} s ${stopE.t > dur ? "after" : "before"} the video does: look over the cuts before you post.`);
+  const stopRaw = (A.events.find(e => Array.isArray(e) && e[1] === "stop") || [])[0];
+  if (Number.isFinite(+stopRaw) && Math.abs(+stopRaw - dur) > 1.5) res.notes.push(`The notes end ${f1(Math.abs(+stopRaw - dur))} s ${+stopRaw > dur ? "after" : "before"} the video does: look over the cuts before you post.`);
   // the report ending: its first screen to the last frame of the file (the notes' own end can be a frame or so off)
   const endE = first("end"), endAt = endE && endE.t < dur - 0.5 ? endE.t : null;
   if (endAt == null) res.notes.push("This take has no report ending (the ending was off, or the take stopped early), so the edit ends on the crawl.");
-  // the opening: the company logo's opening as recorded (with its move or fade), else 4 s of the crawl once the curtain is gone
+  const fullE = first("full");
+  if (fullE) res.notes.push(`The take's notes filled up ${f1(fullE.t)} s in (6000 moments): the crawl after that is not in them, so the edit's moments come from before it.`);
+  // the opening, from the moment the start curtain is gone (the crawler already moving): the company logo's opening as
+  // recorded, to the end of its move or fade, the title ending as the logo starts to move; else 4 s of the crawl
   const brand = meta.brand || {}, introE = first("intro"), crawlE = first("crawl");
-  let i0 = 0, i1;
-  const logoOpen = !!(brand.intro && brand.logo);
-  if (logoOpen){ i1 = introE ? introE.t + introE.d : 4.9; res.title = introE ? introE.t : 4; }
-  else { i0 = crawlE ? crawlE.t : AUTO.curtain; i1 = i0 + AUTO.title; res.title = i1; }
+  // the stills (meta.freezes, the page could not draw), overlapping ones as one. A page frozen as the curtain lifts (or
+  // a frame after) shows nothing moving until it draws again: the opening starts there, past any still that follows
+  // under a frame later (no frame drawn between them shows on its own)
+  const fz = [];
+  for (const f of (meta.freezes || []).filter(f => Array.isArray(f) && f[1] > f[0]).sort((x, y) => x[0] - y[0])){
+    const q = fz[fz.length - 1]; if (q && f[0] <= q[1]) q[1] = Math.max(q[1], f[1]); else fz.push([+f[0], +f[1]]);     // overlapping stills: one still
+  }
+  let i0 = Math.min(crawlE ? crawlE.t : AUTO.curtain, dur);
+  let fz0 = fz.find(([a, b]) => a <= i0 + 1 / 30 && b > i0);
+  if (fz0){ let end = fz0[1]; for (const f of fz) if (f[0] > fz0[0] && f[0] <= end + 1 / 30) end = Math.max(end, f[1]); fz0 = [fz0[0], end]; i0 = Math.min(end, dur); }
   const regionEnd = endAt != null ? endAt : dur;
-  i1 = Math.min(i1, regionEnd);
+  if (fz0 && i0 >= regionEnd - 1 / 30){
+    res.why = `The page could not draw from ${f1(fz0[0])} s ${i0 < dur - 1 / 30 ? `to ${f1(i0)} s (the report ending began at ${f1(endAt)} s)` : "to the end of this take"}, so there is nothing of the crawl to make a highlight edit from: the take stays whole.`;
+    return res;
+  }
+  // the first frame drawn at or after t: in a still, or in the frame after one, that is the still's end
+  const drawnAt = t => { const f = fz.find(([a, b]) => t > a && t < b) || fz.find(([a, b]) => t >= b && t < b + 1 / 30); return f ? Math.max(t, f[1] + 0.034) : t; };
   // what the viewer saw, one unit each, from a (the chip leaves; its zap is in the lead-in) to b (it lands, or the card
   // or the featured moment is over). No cut falls between a and b: at most where one chip lands as the next leaves, as
   // busy stretches go. A chip whose landing fell in a hold (a pause or a rewind) ends there in the video.
@@ -835,35 +850,125 @@ function highlightEdit(meta, dur, secs){
     if (SRC[e.k]) units.push({a: e.t, b: e.t + 0.13, k: "lit", w: AUTO.w.lit});          // lit, its chip never left (or left unseen)
     else if (e.k === "feat") units.push({a: e.t, b: e.t + (e.d || 1.6), k: "feat", w: AUTO.w.feat});
     else if (e.k === "card") units.push({a: e.t, b: e.t + (e.d || 2.7), k: "card", w: AUTO.w.card});
+    else if (e.k === "find") units.push({a: e.t, b: e.t + (e.d || 1.1), k: "find", w: AUTO.w.find});
     else if (e.k === "fill") units.push({a: e.t, b: e.t + 0.1, k: "fill", w: AUTO.w.fill});
   }
-  units.sort((x, y) => x.a - y.a || x.b - y.b);
-  // the opening ends where nothing is in the air (at most 3 s later than planned)
-  for (let moved = true, cap = i1 + 3; moved;){
-    moved = false;
-    for (const u of units) if (u.a < i1 && u.b > i1 && u.b <= Math.min(cap, regionEnd)){ i1 = u.b; moved = true; }
+  // a landing during a still (the page could not draw), or in the frame after one, shows in the first frame after the
+  // still: the part keeps that frame. The still it is in counts first (stills can be a few ms apart). The logged end
+  // stays as b0
+  for (const u of units){
+    u.b0 = u.b;
+    const f = fz.find(([a, b]) => u.b > a && u.b < b) || fz.find(([a, b]) => u.b >= b && u.b < b + 1 / 30);
+    if (f) u.b = Math.max(u.b, f[1] + 0.034);
   }
-  const inAction = units.filter(u => u.a >= i1 && u.b <= regionEnd);
-  res.found = inAction.length;
+  units.sort((x, y) => x.a - y.a || x.b - y.b);
+  // the opening ends where nothing is in the air. A chip, card or featured moment still up when it was to end is waited
+  // for when it is over within 3 s (AUTO.wait). Else, when that stretch of overlapping moments started at least 3 s
+  // into the opening and there is no company logo opening (kept as recorded), the opening ends where the stretch
+  // starts, so it can open the action instead, and the title ends with the opening. Else the crawl runs on past the
+  // opening with no pause: it ends at the first moment within those 3 s with no chip in flight, no featured moment or
+  // found request up and no number card on screen, or, with none, where the fewest are in flight and then the fewest
+  // cards are up (cut there); the edit says so
+  const hard = u => !!SRC[u.k] || u.k === "feat" || u.k === "find";
+  const upAt = (t, only) => units.filter(u => (!only || only(u)) && u.a < t - 0.005 && u.b > t + 0.005);
+  // a page that drew again (the curtain's still) with a chip or card up: the opening starts once that is over, within
+  // 3 s, so the edit does not open mid-flight
+  if (fz0){
+    let to = i0;
+    for (let up = upAt(to); up.length && to < regionEnd; up = upAt(to)) to = drawnAt(Math.max(...up.map(u => u.b)));
+    if (to > i0 && to - i0 <= AUTO.wait && to < regionEnd - 1 / 30) i0 = to;
+  }
+  // the company logo's opening runs to the first frame after its move, the title ending as the logo starts to move.
+  // With under a second of the logo drawn before it moves (a page frozen until then), the opening is the title over the
+  // moving crawler for 4 s, as without a logo
+  const logoAt = introE ? introE.t : 4, logoOpen = !!(brand.intro && brand.logo) && logoAt >= i0 + 1;
+  let i1;
+  if (logoOpen){ i1 = drawnAt(introE ? introE.t + introE.d : 4.9); res.title = logoAt; }
+  else { i1 = i0 + AUTO.title; res.title = i1; }
+  i1 = Math.min(i1, regionEnd); res.title = Math.min(res.title, i1);
+  let openCut = [];
+  {
+    let up = upAt(i1);
+    if (up.length){
+      let from = Math.min(...up.map(u => u.a)), to = i1;
+      for (; up.length && to < regionEnd; up = upAt(to)) to = Math.max(...up.map(u => u.b));
+      for (let back = upAt(from); back.length; back = upAt(from)) from = Math.min(...back.map(u => u.a));
+      if (to - i1 <= AUTO.wait) i1 = Math.min(to, regionEnd);
+      else if (!logoOpen && from - i0 >= AUTO.wait) i1 = from;
+      else {
+        const late = Math.min(i1 + AUTO.wait, regionEnd);
+        // each candidate as it shows: one in a still, or a frame after one, is the first frame drawn after it
+        const at = [...new Set([i1, ...units.flatMap(u => [u.a, u.b]).filter(x => x > i1 && x <= late)].map(x => Math.min(drawnAt(x), regionEnd)))].sort((x, y) => x - y);
+        let best = i1, bn = Infinity;                      // the fewest in flight, then the fewest cards up, then the earliest
+        for (const x of at){ const n = upAt(x, hard).length * 100 + upAt(x, u => u.k === "card").length; if (n < bn){ bn = n; best = x; } if (!n) break; }
+        i1 = best; openCut = upAt(i1);
+      }
+      res.title = Math.min(res.title, i1);
+    }
+  }
+  // the crawl's moments, the opening's included: one still up when the report ending starts is kept up to that frame.
+  // The action is picked from those after the opening; one still up where the opening ends (the crawl ran on past it)
+  // starts the action's first beat there, so a part goes on from the opening or starts after it, never inside it
+  const inCrawl = units.filter(u => (u.a >= i0 - 0.005 || u.b0 > i0 + 0.005) && u.a < regionEnd)
+    .map(u => u.a < i0 || u.b > regionEnd ? {...u, a: Math.max(u.a, i0), b: Math.min(u.b, regionEnd)} : u);
+  const inAction = inCrawl.filter(u => u.a >= i1 - 0.005 || u.b > i1 + 0.005).map(u => u.a < i1 ? {...u, a: i1} : u).sort((x, y) => x.a - y.a || x.b - y.b);
+  res.found = inCrawl.length;
   // beats: units whose times in the air overlap (no cut between them); a cut can fall between two beats
   const beats = [];
   for (const u of inAction){
     const b = beats[beats.length - 1];
-    if (b && u.a < b.b - 0.005){ b.b = Math.max(b.b, u.b); b.us.push(u); }
-    else beats.push({a: u.a, b: u.b, us: [u]});
+    if (b && u.a < b.b - 0.005){ b.b = Math.max(b.b, u.b); b.b0 = Math.max(b.b0, u.b0); b.us.push(u); }
+    else beats.push({a: u.a, b: u.b, b0: u.b0, us: [u]});
   }
   beats.forEach((b, i) => {
     b.pa = Math.max(b.a - AUTO.lead, i ? beats[i - 1].b : i1, i1);                 // the lead-in, never inside the beat before
-    b.pb = Math.min(b.b + AUTO.tail, i + 1 < beats.length ? beats[i + 1].a : regionEnd, regionEnd);     // the landing, up to the next chip leaving
+    b.pb = Math.max(b.b, Math.min(b.b + AUTO.tail, i + 1 < beats.length ? beats[i + 1].a : regionEnd, regionEnd));   // the landing, up to the next chip leaving
     b.w = b.us.reduce((n, u) => n + u.w, 0);
+    // a lead-in that starts during a still starts on the still's first frame (when nothing is in the air there), so the
+    // part opens on the page as it froze, not on a chip that left unseen during the still and is already mid-air. The
+    // beat before is over there when its logged end is (its landing moved only to the frame after an earlier still)
+    const f = fz.find(([fa, fb]) => b.pa > fa && b.pa < fb);
+    if (f) b.pa = Math.max(f[0], i && beats[i - 1].b0 > f[0] ? beats[i - 1].b : f[0], i1);
   });
-  // the length: the opening and the ending first, whole; the action gets the rest
-  const introLen = i1 - i0, endLen = endAt != null ? dur - endAt : 0;
-  let budget = secs - introLen - endLen;
-  if (budget < AUTO.minAction){
-    budget = AUTO.minAction;
-    res.notes.push(`The opening (${f1(introLen)} s) and the whole report ending (${f1(endLen)} s) leave no room for the crawl in ${secs} s, so the edit keeps ${AUTO.minAction} s of it and runs longer than ${secs} s. A longer length shows more of the crawl.`);
+  // what a stretch of the take keeps in the edit: the stretch less the stills the page could not draw (meta.freezes, the
+  // same clock), a frame of each kept as the Studio's own freeze cut does, never inside the report ending. A still of at
+  // most 0.2 s that would leave under 0.1 s of footage beside it is kept instead (no footage dropped, no tiny piece); a
+  // longer one is cut, and any footage left beside it is kept, however short (at least a frame).
+  const fzFrom = t => { let lo = 0, hi = fz.length; while (lo < hi){ const m = (lo + hi) >> 1; if (fz[m][1] <= t) lo = m + 1; else hi = m; } return lo; };
+  const pieces = (a, b) => {
+    const stop = endAt != null ? Math.min(b, endAt) : b, cut = [];
+    let at = a;
+    for (let k = fzFrom(a); k < fz.length && fz[k][0] < stop; k++){
+      const s0 = Math.max(at, fz[k][0] + 1 / 30), e = Math.min(stop, fz[k][1]);
+      if (e - s0 < 0.015 || s0 >= stop) continue;
+      cut.push({x: at, y: s0, still: e - s0}); at = e;
+    }
+    cut.push({x: at, y: b, still: 0});
+    for (let i = cut.length - 1; i > 0; i--){
+      const prev = cut[i - 1], c = cut[i];
+      if ((c.y - c.x < 0.1 || prev.y - prev.x < 0.1) && prev.still <= 0.2){ prev.y = c.y; prev.still = c.still; cut.splice(i, 1); }
+    }
+    const keep = cut.filter(c => c.y - c.x >= 1 / 30 - 1e-6 || (c.y === dur && c.y - c.x > 1e-3));     // never an empty piece
+    // the stills cut with a frame kept (a still whose only frame fell in a piece too short to keep is not one)
+    return {keep, n: keep.filter(c => c.still > 0).length, secs: keep.reduce((t, c) => t + c.y - c.x, 0)};
+  };
+  // a crawl the page barely drew (under half a second of it, stills most of the way): no edit, and why
+  const drawnCrawl = pieces(i0, regionEnd).secs;
+  if (drawnCrawl < AUTO.minPart && drawnCrawl < (regionEnd - i0) / 2){
+    res.why = `The page drew only ${f1(drawnCrawl)} s of the crawl (it could not draw for most of it), so there is nothing of it to make a highlight edit from: the take stays whole.`;
+    return res;
   }
+  // parts that touch (travel under AUTO.join between them runs on, no cut) are one part
+  const merge = (list, gap) => { const out = []; for (const p of [...list].sort((x, y) => x.a - y.a)){ const q = out[out.length - 1];
+    if (q && p.a - q.b < gap) q.b = Math.max(q.b, p.b); else out.push({a: p.a, b: p.b}); } return out; };
+  // how much of the crawl there is to show, in the edit's own seconds: the padded beats, overlaps once, less their stills
+  const action = merge(beats.map(bt => ({a: bt.pa, b: bt.pb})), 0).reduce((t, m) => t + pieces(m.a, m.b).secs, 0);
+  // the length, in the edit's own seconds (stills cut): the opening and the ending first, whole; the action gets the
+  // rest (at least AUTO.minAction)
+  const fixed = [{a: i0, b: i1}, ...(endAt != null ? [{a: endAt, b: dur}] : [])];
+  let cur = merge(fixed, AUTO.join).map(m => ({...m, k: pieces(m.a, m.b).secs}));
+  const introKept = pieces(i0, i1).secs, endKept = endAt != null ? dur - endAt : 0;
+  const base = cur.reduce((t, m) => t + m.k, 0), budget = Math.max(AUTO.minAction, secs - base), target = base + budget;
   // candidate pieces: a run of beats, the gaps between them short travel (under AUTO.bridge), at most AUTO.maxPiece long
   const runs = [];
   for (let i = 0; i < beats.length; i++){
@@ -871,80 +976,130 @@ function highlightEdit(meta, dur, secs){
     for (let j = i; j < beats.length; j++){
       if (j > i && beats[j].a - beats[j - 1].b > AUTO.bridge) break;
       const a = beats[i].pa, b = beats[j].pb;
-      if (b - a > Math.min(Math.max(AUTO.maxPiece, beats[i].pb - beats[i].pa), budget)) break;     // one long beat may run past maxPiece
+      const cap = Math.min(Math.max(AUTO.maxPiece, beats[i].pb - beats[i].pa), budget + 4);      // one long beat may run past maxPiece
+      if (b - a > cap && pieces(a, b).secs > cap) break;                                    // (its footage, a long still cut out)
       w += beats[j].w;
       for (const u of beats[j].us) kinds[u.k] = (kinds[u.k] || 0) + u.w;
       if (b - a >= AUTO.minPiece) runs.push({a, b, w, kinds: {...kinds}, i, j});
     }
   }
-  // the featured moment first (Brock picked it), when it fits; then the busiest pieces, spread over the take and mixing
-  // kinds: each pick counts a kind not shown yet half again, and a piece within 15 s of one already picked counts less.
-  // Ties go to the earlier piece.
+  // what Brock picked first, when it fits: the featured moment, then each requested item found (Find); then the busiest
+  // pieces, spread over the take and mixing kinds: each pick counts a kind not shown yet half again, and a piece within
+  // 15 s of one already picked counts less. Ties go to the earlier piece. A piece costs the seconds it adds to the edit:
+  // its footage less its stills, with the travel it runs on over to a part beside it.
   const picked = [], shown = {};
+  let floorSkipped = false; const floorRuns = new Set();   // pieces that fit, left out as mostly stills
   let left = budget;
-  for (const r of runs) if (r.kinds.feat && r.b - r.a <= left && !picked.some(p => r.i <= p.j && r.j >= p.i) && (r.i === r.j || !runs.some(q => q.kinds.feat && q.i === q.j && q.i >= r.i && q.i <= r.j))){
-    picked.push(r); left -= r.b - r.a; for (const k in r.kinds) shown[k] = 1;
+  const cost = r => {
+    const touch = cur.filter(m => m.b + AUTO.join > r.a && m.a - AUTO.join < r.b);
+    const a = Math.min(r.a, ...touch.map(m => m.a)), b = Math.max(r.b, ...touch.map(m => m.b)), k = pieces(a, b).secs;
+    return {c: k - touch.reduce((t, m) => t + m.k, 0), touch, m: {a, b, k}};
+  };
+  const take = (r, q) => { picked.push(r); left -= q.c; cur = cur.filter(m => !q.touch.includes(m)).concat([q.m]).sort((x, y) => x.a - y.a); for (const k in r.kinds) shown[k] = 1; };
+  const clash = r => picked.some(p => r.i <= p.j && r.j >= p.i);                  // no beat twice (one next to a pick runs on from it)
+  const value = (r, pk) => { let w = 0; for (const k in r.kinds) w += r.kinds[k] * (shown[k] ? 1 : 1.5);
+    const near = pk.reduce((m, p) => Math.min(m, Math.abs((r.a + r.b) / 2 - (p.a + p.b) / 2)), Infinity);
+    return w / (r.b - r.a + 1) * (1 - 0.5 * Math.exp(-near / 15)); };
+  for (const kind of ["feat", "find"]) for (const r of runs) if (r.kinds[kind] && !clash(r) && (r.i === r.j || !runs.some(q => q.kinds[kind] && q.i === q.j && q.i >= r.i && q.i <= r.j))){
+    const q = cost(r); if (q.c <= left + 1e-6) take(r, q);
   }
   for (;;){
-    let best = null, bv = 0;
+    let best = null, bv = 0, bq = null;
     for (const r of runs){
-      const len = r.b - r.a;
-      if (len > left + 1e-6 || picked.some(p => r.i <= p.j && r.j >= p.i)) continue;         // no beat twice (one next to a pick runs on from it)
-      let w = 0; for (const k in r.kinds) w += r.kinds[k] * (shown[k] ? 1 : 1.5);
-      const near = picked.reduce((m, p) => Math.min(m, Math.abs((r.a + r.b) / 2 - (p.a + p.b) / 2)), Infinity);
-      const v = w / (len + 1) * (1 - 0.5 * Math.exp(-near / 15));
-      if (v > bv + 1e-9){ best = r; bv = v; }
+      if (clash(r)) continue;
+      const q = cost(r); if (q.c > left + 1e-6) continue;
+      if (!q.touch.length && q.c < AUTO.minPart){ floorSkipped = true; floorRuns.add(r); continue; }     // a new part mostly stills would only flash by
+      const v = value(r, picked);
+      if (v > bv + 1e-9){ best = r; bv = v; bq = q; }
     }
     if (!best) break;
-    picked.push(best); left -= best.b - best.a;
-    for (const k in best.kinds) shown[k] = 1;
-    if (left < AUTO.minPiece) break;
+    take(best, bq);
+    if (left < 1 / 30) break;
   }
-  picked.sort((x, y) => x.a - y.a);
-  if (!picked.length && endAt == null){ res.why = "The take's notes show nothing happening in the crawl and it has no report ending, so there is no highlight edit to make."; return res; }
-  // a short stretch of travel between two picks (or after the opening, or before the ending) is kept when the length
-  // allows: a moment of crawling instead of a cut
-  const parts = [{a: i0, b: i1, open: true}, ...picked.map(r => ({a: r.a, b: r.b})), ...(endAt != null ? [{a: endAt, b: dur, keep: true}] : [])];
-  for (let i = 1; i < parts.length; i++){
-    const g = parts[i].a - parts[i - 1].b;
-    if (g > AUTO.join && g <= AUTO.bridge && g <= left){ parts[i - 1].fill = true; left -= g; }
+  // nothing fits the time left (the crawl's moments run on, something always in the air): the busiest single moment is
+  // kept whole when it is at most 4 s over, and the edit says so; else the edit is the opening and the ending, and says that
+  let longOne = null;
+  if (!picked.length && beats.length && !floorSkipped){
+    const cand = beats.map((bt, i) => ({a: bt.pa, b: bt.pb, w: bt.w, kinds: bt.us.reduce((o, u) => (o[u.k] = (o[u.k] || 0) + u.w, o), {}), i, j: i}))
+      .map(r => ({r, q: cost(r)})).filter(x => x.q.c <= budget + 4 && x.q.c > 0)
+      .sort((x, y) => y.r.w - x.r.w || x.q.c - y.q.c || x.r.a - y.r.a);
+    if (cand.length){ longOne = cand[0].r; take(longOne, cand[0].q); }
   }
-  const joined = [];
-  for (const p of parts){
-    const q = joined[joined.length - 1];
-    if (q && (q.fill || p.a - q.b < AUTO.join)){ q.b = Math.max(q.b, p.b); q.keep = !!p.keep; q.fill = p.fill; q.open = q.open || p.open; q.end = q.end || !!p.keep; }
-    else joined.push({...p, end: !!p.keep});
+  if (!picked.length && endAt == null){
+    res.why = beats.length ? `${floorSkipped ? `What of the crawl fits in the ${f1(budget)} s an edit of ${secs} s leaves after the opening is mostly frames the page could not draw` : `Every moment of the crawl runs longer than the ${f1(budget)} s an edit of ${secs} s leaves after the opening`}, and the take has no report ending, so there is no highlight edit at ${secs} s.${!probe && AUTO_LENS.some(L => L > secs && highlightEdit(meta, dur, L, true).ok) ? " A longer length shows it." : ""}`
+      : `The take's notes show nothing happening ${inCrawl.length ? "after the opening" : "in the crawl"} and it has no report ending, so there is no highlight edit to make.`;
+    return res;
   }
   // why each part is kept, from what happens in it
+  const titled = !!String(meta.hook || "").trim();
   const why = p => {
-    const n = {}; for (const u of inAction) if (u.a >= p.a - 0.01 && u.b <= p.b + 0.01) n[u.k] = (n[u.k] || 0) + 1;
+    const n = {}; for (const u of inCrawl) if (u.a >= p.a - 0.01 && u.b <= p.b + 0.01) n[u.k] = (n[u.k] || 0) + 1;
     const what = Object.keys(AUTO.say).filter(k => n[k]).map(k => k === "feat" ? AUTO.say.feat[0] : `${n[k]} ${AUTO.say[k][n[k] === 1 ? 0 : 1]}`).join(", ");
-    const titled = !!String(meta.hook || "").trim();
     return [p.open ? (logoOpen ? `Opening: the company logo${titled ? " and title" : ""}, as recorded` : titled ? "Opening: the title over the moving crawler" : "Opening: the first seconds of the crawl") : "", what,
       p.end ? "the report ending, whole: its first screen to the last frame" : ""].filter(Boolean).join("; ").replace(/^./, c => c.toUpperCase());
   };
-  // each part less the stills the page could not draw (meta.freezes, the same clock), a frame of each kept, as the
-  // Studio's own freeze cut does; never inside the report ending
-  const fz = (meta.freezes || []).filter(f => Array.isArray(f) && f[1] > f[0]).sort((x, y) => x[0] - y[0]);
+  // the parts in order (one part where travel under AUTO.join runs on); a gap up to AUTO.bridge between two runs on too
+  // when the time left allows (it costs its own footage). Each part shows its pieces; a part left with under 0.1 s of
+  // footage (all but a flash of it stills) is not kept, unless it is the opening or the ending.
+  let room = target - cur.reduce((t, m) => t + m.k, 0);
+  for (let i = 0; i + 1 < cur.length; i++){
+    const g = cur[i + 1].a - cur[i].b;
+    if (g < AUTO.join || g > AUTO.bridge) continue;
+    const k = pieces(cur[i].a, cur[i + 1].b).secs, c = k - cur[i].k - cur[i + 1].k;
+    if (c <= room + 1e-6){ room -= c; cur.splice(i, 2, {a: cur[i].a, b: cur[i + 1].b, k}); i--; }
+  }
   let stills = 0;
-  for (const p of joined){
-    const w = why(p), cut = [], stop = p.end ? Math.min(p.b, endAt) : p.b;
-    let at = p.a;
-    for (const [fa, fb] of fz){
-      const s0 = Math.max(at, fa + 1 / 30), e = Math.min(stop, fb);
-      if (e - s0 < 0.015 || s0 >= stop) continue;
-      if (s0 > at) cut.push([at, s0]);
-      at = e; stills++;
-    }
-    if (p.b > at) cut.push([at, p.b]);
-    cut.filter(([x, y]) => y - x >= 0.1 || y === dur).forEach(([x, y], n) => res.segs.push({in: r3(x), out: y === dur ? dur : r3(y), why: n ? "" : w}));
+  const shownParts = [];
+  for (const p of cur){
+    p.open = p.a <= i0 + 1e-9; p.end = endAt != null && p.b >= dur - 1e-9;
+    const w = why(p), pc = pieces(p.a, p.b);
+    if (!p.open && !p.end && pc.secs < 0.1) continue;
+    stills += pc.n; shownParts.push(p);
+    pc.keep.forEach((c, k) => res.segs.push({in: r3(c.x), out: c.y === dur ? dur : r3(c.y), why: k ? "" : w}));
+  }
+  if (!res.segs.length){
+    const big = fz.reduce((m, f) => f[1] - f[0] > m[1] - m[0] ? f : m, [0, 0]);
+    res.why = `The edit came out with no footage (the page could not draw in the parts it would show; its longest still is ${f1(big[0])} s to ${f1(Math.min(big[1], dur))} s), so the take stays whole.`;
+    return res;
+  }
+  res.len = r3(res.segs.reduce((t, x) => t + x.out - x.in, 0));
+  res.kept = inCrawl.filter(u => shownParts.some(p => u.a >= p.a - 0.01 && u.b <= p.b + 0.01)).length;
+  // an opening ended while the crawl ran on (no part goes on from there): said
+  const op = shownParts.find(p => p.open);
+  if (openCut.length && op && Math.abs(op.b - i1) < 1e-6){
+    const fl = openCut.filter(u => SRC[u.k]).length, list = [fl ? (fl === 1 ? "a chip in flight" : `${fl} chips in flight`) : "",
+      openCut.some(u => u.k === "feat") ? "the featured moment on screen" : "", openCut.some(u => u.k === "find") ? "a found request on screen" : "",
+      openCut.some(u => u.k === "card") ? "a number card on screen" : ""].filter(Boolean);
+    if (list.length) res.notes.push(`The crawl runs on with no pause for ${AUTO.wait} s after ${logoOpen ? "the logo's move" : "the title"}, so the opening ends with ${list.length > 1 ? list.slice(0, -1).join(", ") + " and " + list[list.length - 1] : list[0]}.`);
   }
   if (stills) res.notes.push(`${stills} moment${stills === 1 ? "" : "s"} the page could not draw ${stills === 1 ? "is" : "are"} cut, a frame of each kept.`);
-  res.kept = inAction.filter(u => joined.some(p => u.a >= p.a - 0.01 && u.b <= p.b + 0.01)).length;
-  const action = beats.reduce((n, b) => n + (b.pb - b.pa), 0);
-  res.len = r3(res.segs.reduce((s, x) => s + x.out - x.in, 0));
-  if (res.len < secs - 1 && picked.length && budget > AUTO.minAction && left > AUTO.minPiece)
-    res.notes.push(`${f1(res.len)} s, shorter than ${secs} s: the crawl had about ${f1(action)} s of action to show, and nothing is added to fill the time.`);
+  // the notes name what the take has (an ending or not), and offer a longer length only when there is one
+  const crawlKept = Math.max(0, res.len - introKept - endKept), squeezed = base + AUTO.minAction >= secs;
+  const fixedWhat = endAt != null ? `The opening (${f1(introKept)} s) and the whole report ending (${f1(endKept)} s)` : `The opening (${f1(introKept)} s)`;
+  const leave = endAt != null ? "leave" : "leaves", takes = endAt != null ? "take" : "takes", them = endAt != null ? "those two" : "the opening";
+  const more = what => !probe && AUTO_LENS.some(L => { if (L <= secs) return false; const r = highlightEdit(meta, dur, L, true); return r.ok && r.len > res.len + 0.05; }) ? ` A longer length shows ${what}.` : "";
+  if (+f1(res.len) > secs){
+    if (longOne && !squeezed){
+      const chain = beats[longOne.i].us.length > 1;             // overlapping moments, something always in the air
+      res.notes.push(`No moment of the crawl fits whole in the ${f1(budget)} s left after ${endAt != null ? "the opening and the ending" : "the opening"}${chain ? " (its moments run on with something always in the air)" : ""}, so its busiest one (${f1(longOne.b - longOne.a)} s with its lead-in and landing) is kept whole rather than cut ${chain ? "mid-flight" : "short"}, and the edit runs longer than ${secs} s (${f1(res.len)} s).${more("more of the crawl")}`);
+    }
+    else if (crawlKept >= 0.05) res.notes.push(`${fixedWhat} ${leave} no room for the crawl in ${secs} s, so the edit keeps ${f1(crawlKept)} s of it${longOne ? ` (its busiest moment, kept whole rather than cut ${beats[longOne.i].us.length > 1 ? "mid-flight" : "short"})` : ""} and runs longer than ${secs} s (${f1(res.len)} s).${more("more of the crawl")}`);
+    else res.notes.push(`${fixedWhat} alone ${takes} more than ${secs} s, so the edit is ${them} and runs longer than ${secs} s (${f1(res.len)} s).${more("the crawl")}`);
+  } else if (!picked.length && beats.length)
+    res.notes.push(`${floorSkipped ? `What of the crawl fits in the ${f1(budget)} s left after ${endAt != null ? "the opening and the ending" : "the opening"} is mostly frames the page could not draw` : `Every moment of the crawl runs longer than the ${f1(budget)} s left after ${endAt != null ? "the opening and the ending" : "the opening"}`}, so the edit is ${them} only.${more("the crawl")}`);
+  else if (+f1(res.len) < secs - 1){
+    // the moments the edit leaves out: ones that do not fit (a piece of them was passed over for the time left, or the
+    // stretch is too long to be a piece at all), and ones whose piece fit but is mostly stills. A moment too short to
+    // be a piece of its own, beside a part already shown, is neither
+    const out = beats.map((bt, i) => i).filter(i => !shownParts.some(p => beats[i].a >= p.a - 0.01 && beats[i].b <= p.b + 0.01));     // not in the edit
+    const stillsOnly = i => [...floorRuns].some(r => i >= r.i && i <= r.j);
+    const passedOver = i => runs.some(r => !clash(r) && !floorRuns.has(r) && i >= r.i && i <= r.j);
+    const tooLong = i => !runs.some(r => i >= r.i && i <= r.j) && beats[i].pb - beats[i].pa >= AUTO.minPiece;
+    const noFit = out.some(i => !stillsOnly(i) && (passedOver(i) || tooLong(i))), mostlyStills = out.some(stillsOnly);
+    res.notes.push(noFit || mostlyStills ? `${f1(res.len)} s, shorter than ${secs} s: the rest of the crawl's moments ${noFit ? `do not fit in the ${f1(secs - res.len)} s left (a moment is never cut short)${mostlyStills ? ", or are mostly frames the page could not draw" : ""}` : "are mostly frames the page could not draw"}.`
+      : `${f1(res.len)} s, shorter than ${secs} s: the crawl had about ${f1(action)} s of action to show, and nothing is added to fill the time.`);
+  }
+  res.title = r3(res.title);
   res.ok = true;
   return res;
 }
@@ -1305,8 +1460,10 @@ function mount(root, opts){
     }
     throw new Error("This take's video is no longer here.");
   }
+  let showSeq = 0;
   async function showTake(id, fresh){
     pause();
+    const seq = ++showSeq, gone = () => seq !== showSeq;       // a newer open started: this one stops, the newer is in charge
     if (!id){
       if (take.url) URL.revokeObjectURL(take.url);
       take.id = take.url = take.file = null; video.removeAttribute("src"); video.load(); video.hidden = true; mock.hidden = false;
@@ -1314,24 +1471,48 @@ function mount(root, opts){
       return true;
     }
     const rec = await db.get("takes", id);
+    if (gone()) return null;
     if (!rec){ flash("The take for this edit is no longer in this browser."); P.take = null; P.segs = []; return showTake(null); }
     let file;
-    try { file = await takeFile(rec); } catch (e) { note("takes", e.message || String(e), true); return false; }
-    if (take.url) URL.revokeObjectURL(take.url);
-    take.id = id; take.url = URL.createObjectURL(file); take.file = file;
-    video.src = take.url; video.hidden = false; mock.hidden = true;
+    try { file = await takeFile(rec); } catch (e) { if (!gone()) note("takes", e.message || String(e), true); return gone() ? null : false; }
+    if (gone()) return null;
+    const prev = {id: take.id, url: take.url, file: take.file}, url = URL.createObjectURL(file);
+    take.id = id; take.url = url; take.file = file;
+    video.src = url; video.hidden = false; mock.hidden = true;
     try { await loadedMeta(video); await fixDuration(video); }
-    catch (e){ note("takes", e.message || String(e), true); return false; }
+    catch (e){
+      if (gone()){ URL.revokeObjectURL(url); return null; }
+      note("takes", e.message || String(e), true);
+      // the take on the preview stays the one it was: its file, and its video
+      URL.revokeObjectURL(url); Object.assign(take, prev);
+      if (prev.url){ video.src = prev.url; try { await loadedMeta(video); } catch (x) {} } else { video.removeAttribute("src"); video.load(); video.hidden = true; mock.hidden = false; }
+      return false;
+    }
+    if (gone()){ URL.revokeObjectURL(url); return null; }
+    if (prev.url && prev.url !== url) URL.revokeObjectURL(prev.url);
     note("takes", "");
     const dur = video.duration, isNew = fresh || !P.take || P.take.id !== id;
     if (isNew){
+      // leaving a take whose highlight edit is on: its highlight side is kept for Use the highlight edit, as Restore
+      // original keeps it
+      if (P.auto && P.take && P.auto.take === P.take.id){
+        P.auto[P.auto.left = P.auto.on ? "side" : "before"] = {segs: segsNow(), items: itemTimes()};
+        autoKeep(P.auto.take, {...P.auto, on: undefined});
+      }
       P.take = {id, name: rec.name || "Take", dur, w: video.videoWidth, h: video.videoHeight, type: file.type, size: file.size, meta: rec.meta || {}, hasAudio: null};
-      P.segs = [{id: uid(), in: 0, out: dur}];
+      autoLen = 0;                                 // the Length choice starts at this take's own length
+      // a take with a highlight edit (in this edit, or kept in this browser): its original side as it was left (its parts,
+      // and the times of the pictures and text it had); any other take: the whole take
+      const k = autoKept()[id], a = P.auto && P.auto.take === id ? P.auto : k && k.v === AUTO_V ? k : null, b = a && a.before;
+      P.segs = b ? b.segs.map(x => ({id: uid(), in: x.in, out: Math.min(x.out, dur)})).filter(x => x.out > x.in) : [];
+      if (!P.segs.length) P.segs = [{id: uid(), in: 0, out: dur}];
+      if (a){ P.auto = {...a, take: id, on: false}; moveItems(a.left && a[a.left] ? a[a.left].segs : null, b && b.items); }
+      else if (P.auto) P.auto.on = false;
     } else P.take.dur = dur;
     // what the take really is, from its file (Record mode measured it as it saved it; a file opened here is read now)
     const m = rec.meta && rec.meta.quality && rec.meta.quality.measured;
     let q = rec.probe || (m && m.basis === "file" ? m : null);
-    if (!q && opts.probe){ q = await opts.probe(file).catch(() => null); if (q && q.w){ rec.probe = q; try { await db.put("takes", rec); } catch (e) {} } }
+    if (!q && opts.probe){ q = await opts.probe(file).catch(() => null); if (gone()) return null; if (q && q.w){ rec.probe = q; try { await db.put("takes", rec); } catch (e) {} } }
     P.take.probe = q && q.w ? q : {w: video.videoWidth, h: video.videoHeight, frames: 0, secs: 0, fps: 0, basis: "browser"};
     if (isNew && fpsFor(P.take.probe)) P.fps = fpsFor(P.take.probe);
     video.volume = clamp(P.origVol, 0, 1); video.muted = P.origVol <= 0;
@@ -1340,18 +1521,19 @@ function mount(root, opts){
   }
   async function openTake(id, msg){
     const ok = await showTake(id, !(P.take && P.take.id === id));
-    if (!ok) return;
+    if (ok !== true) return ok;                    // false: it could not be opened; null: a newer open took over
     cur = 0; selected = null; normalize();
     renderItems(); zoomFit(); renderAt(); panels(); commit(); listTakes();
     flash(msg ? "Your clip is on the preview." : "The take is on the preview. Press Play, or add pictures, text and a song.");
     note("pics", msg || "");             // a Make a clip take's note (what to do next, what was not found); gone with another take
+    return true;
   }
   // a clip made in Posting (Make a clip) starts a clean edit: its pictures, text and song are its own. The export
   // settings stay, and Undo brings the last edit back.
   function cleanEdit(){
-    if (!P.items.length && !P.music) return;
+    if (!P.items.length && !P.music && !(P.parked && P.parked.length)) return;
     pause();
-    P = Object.assign(newProject(), {fit: P.fit, fps: P.fps, origVol: P.origVol, take: P.take, segs: P.segs});
+    P = Object.assign(newProject(), {fit: P.fit, fps: P.fps, origVol: P.origVol, take: P.take, segs: P.segs, auto: P.auto});
     selected = null; textCache.clear();
   }
   // a Make a clip take carries the hook written there: it goes on as the clip's title, a text item at the top in the
@@ -1380,10 +1562,10 @@ function mount(root, opts){
   }
   function hookItem(){
     const h = P.take && P.take.meta && String(P.take.meta.hook || "").trim(), brand = (P.take && P.take.meta && P.take.meta.brand) || {};
-    if (!h || brand.hookShown || P.items.some(x => x.kind === "text" && x.text === h)) return;
+    if (!h || brand.hookShown || P.items.some(x => x.kind === "text" && (x.hook === P.take.id || x.text === h))) return;
     const rep = brand.reportAt > 0 ? toEdit(brand.reportAt) : 0;
     const intro = !!brand.introTitle, until = intro ? Math.min(toEdit(4), editDur()) : brand.mini && rep > 0 && rep < editDur() ? rep : null;
-    const it = Object.assign({id: "i-" + uid(), kind: "text", text: h, wrap: TITLE.wrap, x: 0.5, rot: 0, t0: 0, t1: until == null ? editDur() : until, whole: until == null},
+    const it = Object.assign({id: "i-" + uid(), kind: "text", text: h, hook: P.take.id, wrap: TITLE.wrap, x: 0.5, rot: 0, t0: 0, t1: until == null ? editDur() : until, whole: until == null},
       textDefaults, {style: TITLE.style, color: TITLE.color, bg: TITLE.bg, size: TITLE.size});
     it.y = ((intro || !brand.mini ? TITLE.top : 0.145) * H + textLayout(it).h / 2) / H;
     P.items.push(it);
@@ -1410,61 +1592,115 @@ function mount(root, opts){
     } catch (e) {}
   }
   const autoOn = () => !!(P.take && P.auto && P.auto.take === P.take.id && P.auto.on);
-  const titleOf = () => { const h = P.take && P.take.meta && String(P.take.meta.hook || "").trim(); return h ? P.items.find(x => x.kind === "text" && x.text === h) : null; };
+  const fmtLen = t => fmt(Math.round((+t || 0) * 10) / 10 + 1e-6, true);   // an edit's length to the tenth, rounded as the notes are
+  // the parts on the timeline are still the pick's (not changed by hand since)
+  const joinSegs = segs => { const out = []; for (const x of segs){ const q = out[out.length - 1]; if (q && Math.abs(x.in - q.out) < 0.002) q.out = x.out; else out.push({in: x.in, out: x.out}); } return out; };
+  const autoSame = () => { if (!autoOn()) return false; const a = joinSegs(P.segs), b = joinSegs(P.auto.segs);
+    return a.length === b.length && a.every((x, i) => Math.abs(x.in - b[i].in) < 0.002 && Math.abs(x.out - b[i].out) < 0.002); };
+  const titleOf = () => {
+    const h = P.take && P.take.meta && String(P.take.meta.hook || "").trim();
+    return P.items.find(x => x.kind === "text" && x.hook === P.take.id) || (h ? P.items.find(x => x.kind === "text" && x.text === h) : null);
+  };
+  // a moment of the edit in the take, and a moment of the take in the edit (one cut out: where the edit goes on)
+  const srcAt = (segs, t, end) => { let n = 0; for (const x of segs){ const d = x.out - x.in; if (end ? t <= n + d + 1e-9 : t < n + d - 1e-9) return x.in + Math.max(0, t - n); n += d; } return segs.length ? segs[segs.length - 1].out : 0; };
+  const editAt = (segs, x) => { let n = 0; for (const g of segs){ if (x < g.in) return n; if (x <= g.out) return n + x - g.in; n += g.out - g.in; } return n; };
+  const itemTimes = () => Object.fromEntries(P.items.map(it => [it.id, {t0: it.t0, t1: it.t1, whole: !!it.whole, ...(it.hook ? {hook: it.hook} : {})}]));
+  // pictures and text across a switch between the original and the highlight edit: each gets back the times it had on
+  // that side; one added since keeps its moment in the take; one whose moment is not on that side is set aside until
+  // the side that has it is back (never shown as a flash where the edit goes on)
+  function moveItems(old, kept){
+    const id = P.take && P.take.id, mine = (P.parked || []).filter(q => q.take === id), others = (P.parked || []).filter(q => q.take !== id);
+    const aside = new Map(mine.map(q => [q.it.id, q]));
+    for (const q of mine.slice().sort((x, y) => x.at - y.at)) if (!P.items.some(x => x.id === q.it.id)) P.items.splice(Math.min(q.at, P.items.length), 0, q.it);
+    const keptOf = it => kept && (kept[it.id] || (it.hook && Object.values(kept).find(v => v.hook === it.hook)));
+    const park = [];
+    P.items.forEach((it, at) => {
+      const k = keptOf(it);
+      if (k){ Object.assign(it, k); return; }
+      if (it.whole) return;
+      const q = aside.get(it.id);
+      if (!q && !old) return;                                            // no moment to map it from (another take was on)
+      const s0 = q ? q.s0 : srcAt(old, it.t0), s1 = q ? q.s1 : srcAt(old, it.t1, true);
+      const t0 = editAt(P.segs, s0), t1 = editAt(P.segs, s1);
+      if (t1 - t0 < 0.05){ park.push({it, s0, s1, at, take: id}); return; }   // its moment is not on this side
+      it.t0 = t0; it.t1 = Math.max(t1, t0 + MIN_LEN);
+    });
+    P.parked = [...others, ...park];
+    if (park.length) P.items = P.items.filter(x => !park.some(q => q.it === x));
+  }
+  const segsNow = () => P.segs.map(x => ({in: x.in, out: x.out}));
   function autoPut(a){
-    // the pick's parts; the title from the first frame for its 4 seconds (or the logo opening's), mapped once into the edit
-    P.segs = a.segs.map(s => ({id: uid(), in: s.in, out: s.out}));
+    // the highlight side: as it was left (Restore original), else the pick's parts with the title from the first frame
+    // for its 4 seconds (or the logo opening's), mapped once into the edit; the pictures and text keep their moments
+    const old = segsNow(), side = a.side;
+    P.segs = (side ? side.segs : a.segs).map(x => ({id: uid(), in: x.in, out: x.out}));
+    moveItems(old, side && side.items);
     const h = titleOf();
-    if (h && a.title > 0){ h.whole = false; h.t0 = 0; h.t1 = Math.max(MIN_LEN, Math.min(editDur(), toEdit(a.title))); }
+    if (h && a.title > 0 && !(side && side.items && side.items[h.id])){ h.whole = false; h.t0 = 0; h.t1 = Math.max(MIN_LEN, Math.min(editDur(), toEdit(a.title))); }
     a.on = true;
-    P.auto = a;
-    cur = 0; selected = null; normalize(); renderItems(); drawTimeline(); renderAt(); panels(); commit();
+    P.auto = a; autoMsg = null;
+    selected = null; normalize(); renderItems(); drawTimeline(); seek(0); panels(); commit();
+    autoKeep(a.take, {...a, on: undefined});
   }
   function autoBuild(secs){
     if (!P.take){ note("auto", "Open a take first."); return null; }
     const meta = P.take.meta || {}, r = highlightEdit(meta, P.take.dur, secs);
     if (!r.ok){ autoMsg = {id: P.take.id, text: r.why || "No highlight edit could be made from this take."}; panels(); return r; }
     pause();
-    const h = titleOf(), same = P.auto && P.auto.take === P.take.id;
-    const before = same ? P.auto.before : {segs: P.segs.map(s => ({in: s.in, out: s.out})), title: h ? {t0: h.t0, t1: h.t1, whole: !!h.whole} : null};
+    // what the edit replaces, for Restore original: the original side (with any cut by hand), or, over the highlight
+    // edit, the original it replaced
+    const before = autoOn() ? P.auto.before : {segs: segsNow(), items: itemTimes()};
     const a = {v: r.v, take: P.take.id, secs: r.secs, made: Date.now(), len: r.len, title: r.title, found: r.found, kept: r.kept,
       segs: r.segs, notes: r.notes, before};
     autoKeep(P.take.id, {...a, on: undefined});
     autoMsg = null; autoPut(a);
-    flash(`Highlight edit: ${fmt(r.len, true)} from a ${fmt(P.take.dur)} take.`);
+    flash(`Highlight edit: ${fmtLen(r.len)} from a ${fmt(P.take.dur)} take.`);
     return r;
   }
   function autoRestore(){
     if (!autoOn()) return;
     pause();
-    const b = P.auto.before;
-    P.segs = b.segs.map(s => ({id: uid(), in: s.in, out: s.out}));
-    const h = titleOf(); if (h && b.title) Object.assign(h, b.title);
-    P.auto.on = false;
-    cur = 0; normalize(); renderItems(); drawTimeline(); renderAt(); panels(); commit();
+    const b = P.auto.before, old = segsNow();
+    P.auto.side = {segs: old, items: itemTimes()};          // the highlight side as it is, for Use the highlight edit
+    P.segs = b.segs.map(x => ({id: uid(), in: x.in, out: x.out}));
+    moveItems(old, b.items);
+    if (!b.items){ const h = titleOf(); if (h && b.title) Object.assign(h, b.title); }     // a pick kept before commit 4
+    P.auto.on = false; autoMsg = null;
+    normalize(); renderItems(); drawTimeline(); seek(0); panels(); commit();
+    autoKeep(P.auto.take, {...P.auto, on: undefined});
+    autoText(false);
     flash("The original take is back on the timeline.");
   }
   function autoUse(){
-    // the pick made before (kept with the edit, or for this take in this browser), never picked again here
+    // the pick made before (kept with the edit, or for this take in this browser), never picked again here; what is on
+    // the timeline now is the original side Restore original brings back
     if (!P.take || autoOn()) return;
-    const kept = P.auto && P.auto.take === P.take.id ? P.auto : autoKept()[P.take.id];
+    const mine = P.auto && P.auto.take === P.take.id ? P.auto : null, kept = mine || autoKept()[P.take.id];
     if (!kept || kept.v !== AUTO_V) return;
     pause();
-    const h = titleOf();
-    const before = P.auto && P.auto.take === P.take.id ? P.auto.before : kept.before || {segs: P.segs.map(s => ({in: s.in, out: s.out})), title: h ? {t0: h.t0, t1: h.t1, whole: !!h.whole} : null};
-    autoPut({...kept, take: P.take.id, before});
+    autoPut({...kept, take: P.take.id, before: {segs: segsNow(), items: itemTimes()}, side: kept.side});
+    autoText(true);
     flash("The highlight edit is on the timeline.");
   }
-  let autoMsg = null, autoLen = 0;
+  let autoMsg = null, autoLen = 0, autoFind = null, autoTexts = null;
+  // the Pictures tab's note for a planned take, in the words for what the timeline holds (the highlight edit or the take)
+  const autoText = on => { if (autoTexts && P.take && autoTexts.id === P.take.id && autoTexts.on !== on && (on ? autoTexts.hl : autoTexts.whole)){ note("pics", on ? autoTexts.hl : autoTexts.whole); autoTexts.on = on; } };
   // a planned take that asked for Auto-edit highlights has arrived (the clean path, after the freeze cut and the title):
   // its edit is made once. The same take again keeps the edit it has, or gets the pick kept for it, never a new one.
-  function autoArrive(secs){
-    if (!P.take) return;
-    const id = P.take.id;
-    if (P.auto && P.auto.take === id) return;
-    if (autoKept()[id]){ autoUse(); return; }
-    const r = autoBuild(secs);
-    if (r && r.ok){ seek(0); flash("Your highlight edit is ready: press Play, then Export & download."); }
+  // the take's own Auto-edit notes decide (recorded with Auto-edit on, at this length), not today's Make a clip setting
+  function autoNotes(){ const a = P.take && P.take.meta && P.take.meta.autoEdit; return a && a.v === 1 ? (AUTO_LENS.includes(+a.secs) ? +a.secs : 40) : 0; }
+  function autoArrive(secs, id, o = {}){
+    if (!P.take || P.take.id !== id) return;
+    autoFind = o.find ? {id, text: o.find} : null;        // what the clip's plan did not find, said on the Takes tab too
+    autoTexts = o.autoNote ? {id, whole: o.note || "", hl: o.autoNote} : null;
+    if (autoOn()){
+      const h = titleOf();
+      if (h && P.auto.title > 0){ h.whole = false; h.t0 = 0; h.t1 = Math.max(MIN_LEN, Math.min(editDur(), toEdit(P.auto.title))); renderItems(); drawTimeline(); renderAt(); commit(); }
+      autoText(true); showTab("takes", true); return;
+    }
+    if ((P.auto && P.auto.take === id) || autoKept()[id]) autoUse();
+    else { const r = autoBuild(secs); if (r && r.ok){ seek(0); flash("Your highlight edit is ready: press Play, then Export & download."); } }
+    autoText(autoOn());                                    // the Pictures tab's note says the highlight edit is on the preview
     showTab("takes", true);
   }
   // the Takes panel's Auto-edit box: shown for a take with Auto-edit notes (or one asked for and refused)
@@ -1476,7 +1712,8 @@ function mount(root, opts){
     const a = P.auto && P.auto.take === P.take.id ? P.auto : null, kept = !a && autoKept()[P.take.id];
     const len = autoLen || (a && a.secs) || (meta.autoEdit && meta.autoEdit.secs) || 40;
     setPressed("autolen", len);
-    $(".st-auto-st").textContent = !has ? "" : autoOn() ? `On: ${fmt(a.len, true)} from a ${fmt(P.take.dur)} take, ${a.kept} of ${a.found} moments kept`
+    $(".st-auto-st").textContent = !has ? "" : autoSame() ? `On: ${fmtLen(a.len)} from a ${fmt(P.take.dur)} take, ${a.kept} of ${a.found} moments kept`
+      : autoOn() ? `On, changed by hand: ${fmtLen(editDur())} now (the pick was ${fmtLen(a.len)})`
       : a || kept ? "Off: the original take is on the timeline" : "Not made yet";
     $('[data-a="autobuild"]').textContent = a || kept ? `Make it again at ${len} s` : `Make the highlight edit (${len} s)`;
     $('[data-a="autobuild"]').disabled = !has;
@@ -1484,9 +1721,11 @@ function mount(root, opts){
     $(".st-auto-done").hidden = !autoOn();
     $('[data-a="autouse"]').hidden = autoOn() || !(a || (kept && kept.v === AUTO_V));
     // one line per part (a part a still was cut from is still one part)
-    const parts = []; if (autoOn()) for (const x of a.segs){ if (x.why || !parts.length) parts.push({in: x.in, out: x.out, why: x.why}); else parts[parts.length - 1].out = x.out; }
+    const parts = []; if (autoSame()) for (const x of a.segs){ if (x.why || !parts.length) parts.push({in: x.in, out: x.out, why: x.why}); else parts[parts.length - 1].out = x.out; }
     $(".st-auto-why").innerHTML = parts.map(x => `<li><b>${fmt(x.in, true)} to ${fmt(x.out, true)}</b> ${esc(x.why)}</li>`).join("");
-    note("auto", msg || (autoOn() ? a.notes.join(" ") : ""), !!msg);
+    const find = autoFind && autoFind.id === P.take.id ? autoFind.text.trim() : "";
+    note("auto", [find, msg || (autoSame() ? a.notes.join(" ") : "")].filter(Boolean).join(" "), !!msg);
+    autoText(autoOn());                            // the Pictures tab's note follows the timeline (Undo, Redo, Make it again too)
   }
   // a filmstrip of the take for the timeline, and the take's own thumbnail and length for the list
   async function makeStrip(file, rec){
@@ -1999,6 +2238,7 @@ function mount(root, opts){
     if (a === "link"){ useLink(); return; }
     if (a === "export"){ runExport(); return; }
     if (a === "goexport"){ showTab("export"); $(".st-tools").scrollTop = 0; runExport(true); return; }
+    if (a === "autoexport"){ showTab("export"); $(".st-tools").scrollTop = 0; runExport(true); return; }     // the same, from the Auto-edit box
     if (a === "cancel"){ if (exportJob) exportJob.cancel = true; return; }
     if (a === "autobuild"){ autoBuild(autoLen || (P.auto && P.auto.take === (P.take && P.take.id) && P.auto.secs) || undefined); return; }
     if (a === "autorestore"){ autoRestore(); return; }
@@ -2245,7 +2485,7 @@ function mount(root, opts){
       } catch (e){ if (e && e.name === "AbortError"){ msg("Export cancelled."); return; } handle = writable = null; }
     }
     const job = exportJob = {cancel: false, away: false, onAway: null};
-    const ui = on => { $$('[data-a="export"],[data-a="goexport"]').forEach(b => { b.disabled = on; }); $('[data-a="cancel"]').hidden = !on; $(".st-prog").hidden = !on; };
+    const ui = on => { $$('[data-a="export"],[data-a="goexport"],[data-a="autoexport"]').forEach(b => { b.disabled = on; }); $('[data-a="cancel"]').hidden = !on; $(".st-prog").hidden = !on; };
     const bar = $(".st-prog i"), res = $(".st-result");
     ui(true); bar.style.width = "0%"; res.innerHTML = ""; unsavedResult = false;    // the last result (if any) is gone from the page
     let doing = "Exporting";
@@ -2757,9 +2997,10 @@ function mount(root, opts){
     let saved = null;
     try { saved = await db.get("projects", "current"); } catch (e) {}
     if (saved && saved.p && saved.p.v === 1) P = Object.assign(newProject(), saved.p);
-    const ids = [...P.items.filter(x => x.kind === "pic").map(x => x.media), ...(P.music ? [P.music.media] : [])];
+    const ids = [...[...P.items, ...(P.parked || []).map(q => q.it)].filter(x => x.kind === "pic").map(x => x.media), ...(P.music ? [P.music.media] : [])];
     for (const id of ids) await loadMedia(id).catch(() => null);
     P.items = P.items.filter(x => x.kind !== "pic" || media.has(x.media));
+    if (P.parked) P.parked = P.parked.filter(q => q.it.kind !== "pic" || media.has(q.it.media));    // a picture set aside keeps its image
     if (P.music && !media.has(P.music.media)) P.music = null;
     if (P.take) await showTake(P.take.id, false);
     await loadQuick();
@@ -2773,12 +3014,15 @@ function mount(root, opts){
     showTab(P.take && take.id === P.take.id ? (tab === "takes" ? "pics" : tab) : "takes", true);
     savedEl.textContent = saved ? "Saved in this browser" : "";
   }
+  // the hand-offs, one at a time: a take that arrives while it is being opened finds it open, not opened twice
+  let handoff = Promise.resolve();
+  const serial = f => { const r = handoff.then(() => f(), () => f()); handoff = r.catch(() => {}); return r; };
   const ready = start();
   return {
     show(){ shown = true; ready.then(() => { zoomFit(); renderItems(); drawWave(); listTakes(); }); st.focus({preventScroll: true}); },
     hide(){ shown = false; pause(); if (listenNode) listen($('[data-a="listen"]')); },
-    async openTake(id, o = {}){ await ready; if (o.clean) cleanEdit(); showTab(o.tab || "takes", true); await openTake(id, o.note); if (o.clean){ cutFreezes(); hookItem(); } if (o.clean && o.auto) autoArrive(o.auto); },
-    async takeArrived(id){ await ready; const all = await listTakes(); if (!P.take && all && all.some(t => t.id === id)) await openTake(id); else flash("A new take is in Takes."); },
+    async openTake(id, o = {}){ await ready; return serial(async () => { const was = o.clean ? JSON.stringify(P) : null; if (o.clean) cleanEdit(); showTab(o.tab || "takes", true); const ok = await openTake(id, o.note); if (ok !== true || !P.take || P.take.id !== id){ if (ok === false && was){ P = JSON.parse(was); selected = null; textCache.clear(); normalize(); renderItems(); drawTimeline(); renderAt(); panels(); } return false; } if (o.clean){ cutFreezes(); hookItem(); } if (o.clean && (o.auto || autoNotes())) autoArrive(autoNotes() || o.auto, id, o); return true; }); },
+    async takeArrived(id){ await ready; return serial(async () => { const all = await listTakes(); if (!P.take && all && all.some(t => t.id === id)) await openTake(id); else if (!(P.take && P.take.id === id)) flash("A new take is in Takes."); }); },
     // the page waits before loading a new version: an export (from its click), an edit not yet saved, a video not
     // downloaded or still downloading, the edit or a song playing
     busy: () => !!exportJob || preparing || saving || unsavedResult || Date.now() < holdUntil || playing || !!listenNode,
