@@ -1158,7 +1158,7 @@ html[data-theme="dark"] .mk-cl-pic{filter:invert(1) hue-rotate(180deg)}
 .mk-cl-pic img{max-width:116px;max-height:66px;object-fit:contain}.mk-cl-pic i{font-style:normal;color:#fff;font-size:12px}
 .mk-cl-txt{min-width:0;flex:1}.mk-cl-txt .mk-note{margin:2px 0 8px}.mk-cl-co{margin:0}.mk-cl-co span{font:600 12px 'IBM Plex Mono',monospace;color:#6b6f76;margin-left:4px}
 .mk-brand{display:flex;flex-direction:column;gap:6px;margin-top:4px}.mk-pvph{margin:0 0 10px}
-.mk-auto{margin-top:12px}.mk-auto .av-chips{margin:6px 0 0}.mk-auto-len[hidden],.mk-cl[hidden],#mk-hook-auto[hidden]{display:none}.mk-auto small{color:#6b6f76}
+.mk-auto{margin-top:16px;padding:14px;border:1px solid #45b88a;border-radius:12px}.mk-auto .av-chips{margin:6px 0 0}.mk-auto-len[hidden],.mk-cl[hidden],#mk-hook-auto[hidden]{display:none}.mk-auto small{color:#6b6f76}.mk-auto-flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0;font-size:12px}.mk-auto-flow b{padding:5px 8px;border:1px solid currentColor;border-radius:6px;font-weight:500}
 .mk-pvf .pv-rep{position:absolute;left:0;right:0;bottom:0;top:72%;background:#fff;border-radius:4cqw 4cqw 0 0;padding:2.4cqw 11.2cqw 0 3.4cqw;box-sizing:border-box;overflow:hidden;color:#141414}
 .mk-pvf .pv-head{display:flex;align-items:center;gap:3cqw;padding-bottom:1.6cqw;border-bottom:1px solid #eceee9}.mk-pvf .pv-brand{display:flex;align-items:center;gap:1.2cqw;font-size:3.6cqw;margin-right:auto;white-space:nowrap}.mk-pvf .pv-brand .bmg-line{width:4cqw;height:3.4cqw}
 .mk-pvf .pv-logo{display:flex;align-items:center;gap:1cqw;font-size:2.6cqw;color:#6b6f76;white-space:nowrap}.mk-pvf .pv-logo img{max-height:5cqw;max-width:14cqw;object-fit:contain}.mk-pvf .pv-logo i{font-style:normal;font-weight:700;color:#141414;max-width:20cqw;overflow:hidden;text-overflow:ellipsis}
@@ -6645,7 +6645,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // nothing is measured or drawn. The Studio picks the clip's moments from these after the take. Off, nothing is noted
     // and state.ae stays unset, so the calls in the crawl cost one property read. Past 6000 notes (about 14 minutes of a
     // busy crawl) the crawl's moments are no longer noted, and "full" says from when; the take's own marks always are.
-    const ae = {ev: [], ids: new WeakMap(), secs: 0, full: false};
+    const ae = {ev: [], ids: new WeakMap(), secs: 0, full: false, style: ""};
     const AE_MARKS = new Set(["crawl", "intro", "crawled", "end", "one", "done", "stop", "hold"]);
     function aeLog(k, id, d){
       if (!rec || rec.state !== "recording") return;
@@ -6667,10 +6667,11 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         aeLog("fly", id, FLY_MS / 1000);
         setTimeout(() => aeLog("land", id), FLY_MS - 60);
       },
-      take: () => ({v: 1, secs: ae.secs, events: ae.ev.slice()})
+      take: () => ({v: 1, secs: ae.secs, ...(ae.style ? {style: ae.style} : {}), events: ae.ev.slice()})
     };
     function aeStart(p){
       ae.ev.length = 0; ae.full = false; ae.secs = p && p.autoEdit ? +p.autoEdit.secs || 40 : 0;
+      ae.style = p && p.autoEdit && p.autoEdit.style === "montage" ? "montage" : "";
       state.ae = ae.secs && rec ? aeApi : null;
     }
 
@@ -11214,6 +11215,7 @@ Who is the auditor?</textarea>
       body.querySelector("#mk-auto-note").textContent = !mk.auto.on ? "Off: the take comes to the Studio whole, to cut by hand."
         : `The take is recorded as set above, whole, and kept. When it reaches the Studio, a highlight edit of ${autoAbout()} is made from it: ${mk.brand && mk.brand.intro && coReady() ? `the company logo opening${String(mk.hook || "").trim() ? " with your hook" : ""}, as recorded` : String(mk.hook || "").trim() ? (mk.self && mk.self.on ? "your hook over the moving crawler (it stays on to the last frame: Edit it like my TikToks)" : "your hook over the moving crawler for its first 4 seconds") : "the moving crawler for its first 4 seconds"}, then the busiest moments in order at their own speed, ${mk.ending ? "then the whole report ending (about 11 seconds)" : "ending on the last of them (the ending is off)"}. Nothing is sped up, repeated or added; a take with less to show gives a shorter edit. Play it, download it or edit it by hand there; Restore original puts the whole take back.`
           + (mk.ending && mk.auto.secs === 20 ? " At 20 seconds the ending and the title leave about 5 seconds of the crawl." : "");
+      if (mk.auto.on) body.querySelector("#mk-auto-note").textContent += " Continuous action can be cut into shorter excerpts, favoring the fewest chips in flight. For a full filing at your chosen pace, select Reading speed above; the finished edit length below is separate.";
     }
     function recStatus(ph){
       if (view !== "make" || !mk.recording) return;
@@ -11490,7 +11492,7 @@ Who is the auditor?</textarea>
         mode: entire ? "entire" : "specific", length: mk.length, speed: mk.speed, ramp: rampOn() ? {from: mk.ramp.from, secs: mk.ramp.secs} : null, start: entire ? "cover" : "excerpt", ending: mk.ending, find: findList(), look: mk.look,
         featured: !entire && x && sc && sc.featured ? {...x, missing: undefined} : null, scope: entire ? null : sc, hook: (mk.hook || "").trim().slice(0, 90),
         filing: filingOf(f), coverage: scopeText(), total: mk.found && mk.found.state === "done" ? mk.found.total : null,
-        logos: {built: logo("built"), scan: logo("scan")}, brand: brandPlan(), autoEdit: mk.auto.on ? {secs: mk.auto.secs} : null, ...(mk.self.on ? {selfEdit: {v: 1}} : {})};
+        logos: {built: logo("built"), scan: logo("scan")}, brand: brandPlan(), autoEdit: mk.auto.on ? {secs: mk.auto.secs, style: "montage"} : null, ...(mk.self.on ? {selfEdit: {v: 1}} : {})};
     }
     // ---- the logos: "Built with" (Claude) and "Scanning" (the company), from the pictures kept in the Studio's Quick
     // add. A picture is offered for a role by its name ("claude", the ticker or the company's name), and the one
@@ -11704,7 +11706,7 @@ Who is the auditor?</textarea>
       let palNow = lk.palette; try { palNow = palNow || localStorage.getItem("bmg-crawler-palette") || "default"; } catch (e) { palNow = palNow || "default"; }
       if (!pal[palNow]) palNow = "default";
       body.innerHTML = `<div class="ps mk">${postingTabs("make")}
-        <div class="av-h"><h2>Make a clip</h2><span class="av-st">Pick the filing and one of its findings, write the hook, check the preview, and record. Add pictures in the Studio, then download it.</span></div>
+        <div class="av-h"><h2>Make a clip</h2><span class="av-st">Pick a company and filing, type your title, then turn on Auto-edit highlights to make your post: opening title, crawler action, final report. Preview and download in the Studio.</span></div>
         <ol class="mk-steps">
         <li class="mk-step"><h3><b>1</b>Company and filing</h3>
           <form class="mk-row" id="mk-tk"><input id="mk-ticker" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="Ticker, for example NVDA" aria-label="Ticker" value="${esc(mk.ticker)}"><button type="submit" class="av-btn">Find its forms</button>
@@ -11723,7 +11725,7 @@ Who is the auditor?</textarea>
           <textarea id="mk-find" rows="3" aria-label="What else should the spider find? One per line" placeholder="One per line, for example:&#10;data center revenue&#10;how much cash do they have"></textarea>
           <div class="av-chips mk-quick">${QUICK.map(t => `<button type="button" class="av-chip" data-add="${esc(t)}">+ ${esc(t)}</button>`).join("")}</div>
           <p class="mk-note">The spider lights each one up as it reaches it. With Entire filing it still reads every page; with Specific findings the clip goes to each one. Answers come only from this filing (the Crawler's Ask): anything not in it is listed as not found, on the record window's last screen and in the Studio.</p></details></li>
-        <li class="mk-step"><h3><b>3</b>Hook <small>the line on screen from the first frame; yours to edit</small></h3>
+        <li class="mk-step"><h3><b>3</b>Title / hook <small>the line on screen from the first frame; yours to edit</small></h3>
           <input id="mk-hook" type="text" maxlength="90" autocomplete="off" aria-label="Hook" placeholder="Pick a filing first: a plain line about it is suggested here">
           <button type="button" class="av-chip" id="mk-hook-auto" hidden style="margin-top:6px">Use the suggested hook</button>
           <p class="mk-note">It goes on the video as a text item in the Studio, at the top, where you can still change it. A number in it should be the featured finding's, as the filing prints it. A Form 4 sale or purchase is a disclosed trade, often under a 10b5-1 plan set up in advance: it says nothing on its own about why.</p></li>
@@ -11734,7 +11736,8 @@ Who is the auditor?</textarea>
             <label id="mk-ramp-l"><input type="checkbox" id="mk-ramp"> Start slow: <select id="mk-ramp-from" aria-label="Starting speed">${RAMP_FROM.map(v => `<option value="${v}">${v}x</option>`).join("")}</select> for the first <select id="mk-ramp-secs" aria-label="Seconds at the starting speed">${RAMP_SECS.map(v => `<option value="${v}">${v} s</option>`).join("")}</select>, then speed up to the reading speed</label>
             <label><input type="checkbox" id="mk-ending"> End on the key findings and a one-page summary (about 11 seconds)</label></div>
           <p class="mk-note err" id="mk-ramp-n" role="status"></p>
-          <div class="mk-auto"><label><input type="checkbox" id="mk-auto"> Auto-edit highlights <small>optional: the Studio cuts the finished take down for you</small></label>
+          <div class="mk-auto"><label><input type="checkbox" id="mk-auto"> Auto-edit highlights <small>automatically cut the recording into a finished post</small></label>
+            <div class="mk-auto-flow" aria-label="Auto-edit sequence"><b>Your title · 4 seconds</b><span aria-hidden="true">→</span><b>Busy crawler moments</b><span aria-hidden="true">→</span><b>Final report, when enabled</b></div>
             <div class="av-chips mk-auto-len" id="mk-auto-len" role="radiogroup" aria-label="Length of the highlight edit">${AUTO_SECS.map(v => `<button type="button" role="radio" class="av-seg" data-asecs="${v}">${v} s</button>`).join("")}</div>
             <p class="mk-note" id="mk-auto-note"></p></div>
           <div class="mk-auto mk-self"><label><input type="checkbox" id="mk-self"> Edit it like my TikToks <small>optional: the Studio puts your hook on the whole video the way your posts have it</small></label>
