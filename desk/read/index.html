@@ -5206,6 +5206,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           <dt>Ends on</dt><dd>${plan.ending ? esc(endingWords(plan.kind || (plan.source === "insiders" ? "insider" : plan.source === "fund" ? "holdings" : "other"))) : "The last line read"}</dd>
           ${bp ? `<dt>Branding</dt><dd id="pl-brand"></dd>` : ""}
           ${plan.autoEdit ? `<dt>Then</dt><dd>Auto-edit highlights: the Studio makes a highlight edit of ${plan.length !== "whole" && +plan.length <= plan.autoEdit.secs ? "at most this take's own length" : `about ${esc(String(plan.autoEdit.secs))} seconds`} from this take, and keeps the take</dd>` : ""}
+          ${plan.selfEdit ? `<dt>Edit</dt><dd>Edit it like my TikToks: the Studio puts the hook on the whole video in TikTok's Classic text, and keeps the take</dd>` : ""}
           <dt>Video</dt><dd id="pl-video"></dd></dl>
         <p class="pl-st" id="pl-st" role="status"></p>
         <div class="pl-check"><button type="button" id="pl-check">Check the frame</button><span id="pl-clean" role="status"></span></div>
@@ -7018,6 +7019,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           find: pl ? {asked: pl.find || [], missing: planMissing.slice(), outside: planBefore.slice()} : null,
           brand: pl ? state.brandMeta || null : null,              // the company branding the take shows (the Studio adds no second hook)
           autoEdit: pl && state.ae ? state.ae.take() : null,     // Auto-edit highlights: what happened when, for the Studio's edit
+          ...(pl && pl.selfEdit ? {selfEdit: {v: 1}} : {}),        // Edit it like my TikToks: the Studio's hook on the whole video
           freezes: freezeList()},                         // moments the page could not draw: the Studio cuts them
         name: [ticker || "Crawler", co.form || "", cover === "entire" ? "entire filing" : cover, "take", when.toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})].filter(Boolean).join(" ")};
       if (blob.disk) take.handle = blob.handle; else take.blob = blob;
@@ -11048,7 +11050,7 @@ Who is the auditor?</textarea>
     const mk = {ticker: "", fundCik: "", scope: "entire", length: "whole", lenBy: {entire: "whole", specific: 60}, speed: 1, ending: true, find: "", look: {}, list: null, pick: null, pickKey: null, file: null, all: false, recording: false,
       found: null, feat: null, featBy: {}, hook: "", hookBy: {}, hookMine: {}, logos: {built: "", scan: {}}, safe: true, ramp: {on: false, from: 1, secs: 10},
       brand: {intro: false, mini: false, report: false}, coLogo: {}, auto: {on: false, secs: 40}};
-    const MK_KEEP = ["ticker", "fundCik", "lenBy", "speed", "ramp", "ending", "find", "look", "pickKey", "featBy", "hookBy", "hookMine", "logos", "safe", "brand", "coLogo", "auto"];
+    const MK_KEEP = ["ticker", "fundCik", "lenBy", "speed", "ramp", "ending", "find", "look", "pickKey", "featBy", "hookBy", "hookMine", "logos", "safe", "brand", "coLogo", "auto", "self"];
     // Auto-edit highlights (optional, off unless ticked): the Studio cuts the take down to its busiest moments, at one of these lengths
     const AUTO_SECS = [20, 30, 40, 60];
     // a length either scope can run at: the entire filing at reading speed ("whole") or a set time; an excerpt a set time
@@ -11063,6 +11065,7 @@ Who is the auditor?</textarea>
     mk.length = mk.lenBy.entire;
     mk.ramp = {on: !!(mk.ramp && mk.ramp.on), from: RAMP_FROM.includes(+(mk.ramp || {}).from) ? +mk.ramp.from : 1, secs: RAMP_SECS.includes(+(mk.ramp || {}).secs) ? +mk.ramp.secs : 10};
     mk.auto = {on: !!(mk.auto && mk.auto.on === true), secs: AUTO_SECS.includes(+(mk.auto || {}).secs) ? +mk.auto.secs : 40};
+    mk.self = {on: !!(mk.self && mk.self.on === true)};      // Edit it like my TikToks: off unless ticked
     const saveMk = () => {
       const k = mk.found && mk.found.key;
       if (k){ if (mk.feat) mk.featBy[k] = mk.feat; mk.hookBy[k] = mk.hook; }
@@ -11187,6 +11190,17 @@ Who is the auditor?</textarea>
           + (crawl < 6 ? " That leaves under 6 seconds for findings: choose a longer clip, or turn the ending off." : "")
         : "Specific findings needs the filing's findings: pick a filing in step 1 and wait for its read.";
     }
+    // Edit it like my TikToks (optional, off unless ticked): the take arrives in the Studio edited the way Brock edits
+    // his posts (social/edit-style.md): the hook on the whole video in TikTok's Classic text. The recording is the same.
+    function drawSelf(){
+      const cb = body.querySelector("#mk-self"); if (!cb || view !== "make") return;
+      cb.checked = mk.self.on;
+      const hook = String(mk.hook || "").trim();
+      body.querySelector("#mk-self-note").textContent = !mk.self.on ? "Off: the hook goes on as the Studio's usual title."
+        : (hook ? `In the Studio, "${hook}" goes on the video from the first frame to the last, the report ending included, in TikTok's own Classic text (TikTok Sans, white with a black outline, near the top), as you typed it.`
+          : "Type a hook in step 3: it goes on the video from the first frame to the last, in TikTok's own Classic text.")
+          + " It is an ordinary text item: move, change or delete it there. The take is recorded the same and kept whole. Add the sound in TikTok.";
+    }
     // Auto-edit highlights: what the finished video will be. The take itself is recorded as set above, whole, and kept.
     // a set-length clip (the ending inside its length) as long as the highlight edit, or shorter: the edit is at most the take
     const autoAbout = () => { const n = typeof mk.length === "number" ? mk.length : Infinity;
@@ -11198,7 +11212,7 @@ Who is the auditor?</textarea>
       const len = body.querySelector("#mk-auto-len"); len.hidden = !mk.auto.on;
       len.querySelectorAll("[data-asecs]").forEach(b => b.setAttribute("aria-checked", String(+b.dataset.asecs === mk.auto.secs)));
       body.querySelector("#mk-auto-note").textContent = !mk.auto.on ? "Off: the take comes to the Studio whole, to cut by hand."
-        : `The take is recorded as set above, whole, and kept. When it reaches the Studio, a highlight edit of ${autoAbout()} is made from it: ${mk.brand && mk.brand.intro && coReady() ? `the company logo opening${String(mk.hook || "").trim() ? " with your hook" : ""}, as recorded` : String(mk.hook || "").trim() ? "your hook over the moving crawler for its first 4 seconds" : "the moving crawler for its first 4 seconds"}, then the busiest moments in order at their own speed, ${mk.ending ? "then the whole report ending (about 11 seconds)" : "ending on the last of them (the ending is off)"}. Nothing is sped up, repeated or added; a take with less to show gives a shorter edit. Play it, download it or edit it by hand there; Restore original puts the whole take back.`
+        : `The take is recorded as set above, whole, and kept. When it reaches the Studio, a highlight edit of ${autoAbout()} is made from it: ${mk.brand && mk.brand.intro && coReady() ? `the company logo opening${String(mk.hook || "").trim() ? " with your hook" : ""}, as recorded` : String(mk.hook || "").trim() ? (mk.self && mk.self.on ? "your hook over the moving crawler (it stays on to the last frame: Edit it like my TikToks)" : "your hook over the moving crawler for its first 4 seconds") : "the moving crawler for its first 4 seconds"}, then the busiest moments in order at their own speed, ${mk.ending ? "then the whole report ending (about 11 seconds)" : "ending on the last of them (the ending is off)"}. Nothing is sped up, repeated or added; a take with less to show gives a shorter edit. Play it, download it or edit it by hand there; Restore original puts the whole take back.`
           + (mk.ending && mk.auto.secs === 20 ? " At 20 seconds the ending and the title leave about 5 seconds of the crawl." : "");
     }
     function recStatus(ph){
@@ -11387,7 +11401,7 @@ Who is the auditor?</textarea>
       const h = body.querySelector("#mk-hook"); if (h && document.activeElement !== h) h.value = mk.hook || "";
       const a = body.querySelector("#mk-hook-auto"), sug = suggestHook();
       if (a){ a.hidden = !(hookIsMine() && sug && sug !== mk.hook); a.title = sug ? "Suggested: " + sug : ""; }
-      drawAuto();                                     // the Auto-edit note names the hook only when there is one
+      drawAuto(); drawSelf();                         // the Auto-edit note names the hook only when there is one
     }
     // ---- what a clip of this length shows: the report items it reaches, in the filing's order, from just before the
     // featured one. Each gets about 1.3 s, the featured one 1.6 s more, and the clip holds 2 s on the report at the end
@@ -11476,7 +11490,7 @@ Who is the auditor?</textarea>
         mode: entire ? "entire" : "specific", length: mk.length, speed: mk.speed, ramp: rampOn() ? {from: mk.ramp.from, secs: mk.ramp.secs} : null, start: entire ? "cover" : "excerpt", ending: mk.ending, find: findList(), look: mk.look,
         featured: !entire && x && sc && sc.featured ? {...x, missing: undefined} : null, scope: entire ? null : sc, hook: (mk.hook || "").trim().slice(0, 90),
         filing: filingOf(f), coverage: scopeText(), total: mk.found && mk.found.state === "done" ? mk.found.total : null,
-        logos: {built: logo("built"), scan: logo("scan")}, brand: brandPlan(), autoEdit: mk.auto.on ? {secs: mk.auto.secs} : null};
+        logos: {built: logo("built"), scan: logo("scan")}, brand: brandPlan(), autoEdit: mk.auto.on ? {secs: mk.auto.secs} : null, ...(mk.self.on ? {selfEdit: {v: 1}} : {})};
     }
     // ---- the logos: "Built with" (Claude) and "Scanning" (the company), from the pictures kept in the Studio's Quick
     // add. A picture is offered for a role by its name ("claude", the ticker or the company's name), and the one
@@ -11722,7 +11736,9 @@ Who is the auditor?</textarea>
           <p class="mk-note err" id="mk-ramp-n" role="status"></p>
           <div class="mk-auto"><label><input type="checkbox" id="mk-auto"> Auto-edit highlights <small>optional: the Studio cuts the finished take down for you</small></label>
             <div class="av-chips mk-auto-len" id="mk-auto-len" role="radiogroup" aria-label="Length of the highlight edit">${AUTO_SECS.map(v => `<button type="button" role="radio" class="av-seg" data-asecs="${v}">${v} s</button>`).join("")}</div>
-            <p class="mk-note" id="mk-auto-note"></p></div></li>
+            <p class="mk-note" id="mk-auto-note"></p></div>
+          <div class="mk-auto mk-self"><label><input type="checkbox" id="mk-self"> Edit it like my TikToks <small>optional: the Studio puts your hook on the whole video the way your posts have it</small></label>
+            <p class="mk-note" id="mk-self-note"></p></div></li>
         <li class="mk-step"><h3><b>5</b>Look</h3>
           <p class="mk-lbl">Spider colors</p>
           <div class="mk-pals" id="mk-pals" role="radiogroup" aria-label="Spider colors">${Object.entries(pal).map(([k, p]) => `<button type="button" role="radio" class="mk-pal" data-pal="${esc(k)}" title="${esc(p.name)}">${spiderSwatch(p)}<small>${esc(p.name.replace(/ \(default\)$/, ""))}</small></button>`).join("")}</div>
@@ -11802,7 +11818,7 @@ Who is the auditor?</textarea>
         $m("mk-found").querySelectorAll("button[data-feat]").forEach(x => x.setAttribute("aria-checked", String(x === b)));
         drawHook(); drawLen(); drawPreview();
       });
-      $m("mk-hook").addEventListener("input", e => { mk.hook = e.target.value; if (mk.found && mk.found.key) mk.hookMine[mk.found.key] = true; saveMk(); drawAuto(); drawPreview(); });
+      $m("mk-hook").addEventListener("input", e => { mk.hook = e.target.value; if (mk.found && mk.found.key) mk.hookMine[mk.found.key] = true; saveMk(); drawAuto(); drawSelf(); drawPreview(); });
       $m("mk-hook-auto").addEventListener("click", () => { if (mk.found && mk.found.key) delete mk.hookMine[mk.found.key]; mk.hook = suggestHook(); saveMk(); drawHook(); drawPreview(); });
       body.querySelector(".mk-len").addEventListener("click", e => {
         const b = e.target.closest("button[data-len]"); if (!b) return;
@@ -11816,6 +11832,7 @@ Who is the auditor?</textarea>
       $m("mk-ramp-from").addEventListener("change", e => { mk.ramp.from = +e.target.value || 1; mk.ramp.on = true; $m("mk-ramp").checked = true; saveMk(); drawLen(); drawPreview(); });
       $m("mk-ramp-secs").addEventListener("change", e => { mk.ramp.secs = +e.target.value || 10; mk.ramp.on = true; $m("mk-ramp").checked = true; saveMk(); drawLen(); drawPreview(); });
       $m("mk-ending").addEventListener("change", e => { mk.ending = e.target.checked; saveMk(); drawLen(); drawAuto(); drawPreview(); });
+      $m("mk-self").addEventListener("change", e => { mk.self = {on: e.target.checked}; saveMk(); drawSelf(); drawAuto(); drawPreview(); });
       $m("mk-auto").addEventListener("change", e => { mk.auto = {...mk.auto, on: e.target.checked}; saveMk(); drawAuto(); drawPreview(); });
       $m("mk-auto-len").addEventListener("click", e => { const b = e.target.closest("[data-asecs]"); if (!b) return; mk.auto = {...mk.auto, secs: +b.dataset.asecs}; saveMk(); drawAuto(); drawPreview(); });
       $m("mk-find").addEventListener("input", e => { mk.find = e.target.value; saveMk(); });
@@ -11861,7 +11878,7 @@ Who is the auditor?</textarea>
         if (opened.busy) throw new Error("Record mode is in the middle of a take: it is in front now. Finish that take, then press Record again.");
         mk.recording = true; recStatus("setup");
       };
-      drawForms(); drawFinding(); drawHook(); drawLen(); drawAuto(); drawLogos(); drawPreview(); loadQuickPics();
+      drawForms(); drawFinding(); drawHook(); drawLen(); drawAuto(); drawSelf(); drawLogos(); drawPreview(); loadQuickPics();
       if (coLogo.tk !== logoTk() || coLogo.state === "none") resolveCoLogo(); else { drawCoLogo(); drawBrand(); }
       if (mk.recording && recOpen()) recStatus(state.recPhase || "setup"); else mk.recording = false;
       if (mk.fundCik){ $m("mk-fund-pick").dataset.loaded = "1"; loadFundManagers(""); }
