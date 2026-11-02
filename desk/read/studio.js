@@ -781,8 +781,10 @@ const filingText = f => !f ? "" : f.own ? f.name || "" : [f.company ? `${f.compa
 // and gives them back as parts of the take, in order: the edit's P.segs, which the preview, the sound and both exports
 // already play. Nothing is sped up, repeated or added, and the take itself is not touched. The opening (the title over
 // the moving crawler, or the company logo's opening as it was recorded) and the report ending, from its first screen to
-// the take's last frame, are kept whole; the action gets what is left of the length. No cut falls while a chip is in
-// the air, its row is sliding in or a card is up. The same notes and length always give the same edit.
+// the take's last frame, are kept whole; the action gets what is left of the length. Complete moments are preferred.
+// New Posting takes opt into montage cuts when continuous overlapping action cannot fit whole; older takes retain
+// their original selection rules. This happens after recording, never in the crawler. The same notes and length
+// always give the same edit.
 const AUTO_V = 1, AUTO_LENS = [20, 30, 40, 60];
 const AUTO = {title: 4, curtain: 0.4, lead: 0.5, tail: 0.6, bridge: 1.2, join: 0.35, minPiece: 1, maxPiece: 8, minAction: 3, wait: 3, minPart: 0.5,
   w: {feat: 6, card: 4, obs: 4, find: 4, zap: 2, ins: 2, sec: 1, lit: 0.5, fill: 0.3},
@@ -792,6 +794,7 @@ const AUTO = {title: 4, curtain: 0.4, lead: 0.5, tail: 0.6, bridge: 1.2, join: 0
     lit: ["figure lit", "figures lit"], fill: ["report update", "report updates"]}};
 function highlightEdit(meta, dur, secs, probe){
   const A = meta && meta.autoEdit;
+  const montage = !!(A && A.style === "montage");
   secs = AUTO_LENS.includes(+secs) ? +secs : AUTO_LENS.includes(+(A && A.secs)) ? +A.secs : 40;
   const res = {v: AUTO_V, ok: false, secs, segs: [], len: 0, title: 0, notes: [], found: 0, kept: 0};
   if (!A || A.v !== 1 || !Array.isArray(A.events) || !(dur > 1)){
@@ -1016,6 +1019,46 @@ function highlightEdit(meta, dur, secs, probe){
     take(best, bq);
     if (left < 1 / 30) break;
   }
+  // A continuous chain of overlapping flights can be longer than the entire edit. In montage mode it must not
+  // disappear in favor of a title and report alone. Pick bounded excerpts from that chain, preferring boundaries
+  // with the fewest things in flight. Each excerpt must contain complete visible moments; partial ones never count
+  // as kept. Existing complete-moment selections and the recorded intro/ending are left intact.
+  const montagePicks = [];
+  if (montage && left >= AUTO.minAction){
+    const dense = beats.filter(bt => pieces(bt.pa, bt.pb).secs > budget + 4 && bt.us.length > 1);
+    const boundaryCost = t => upAt(t).reduce((n, u) => n + (u.k === "feat" || u.k === "find" ? 8 : u.k === "card" ? 4 : hard(u) ? 1 : 0), 0);
+    const overlapsPick = (a, b) => picked.some(p => a < p.b - 0.005 && b > p.a + 0.005);
+    // Bound candidate work even for a take whose log reached its cap. Use real event boundaries, never frames
+    // sampled from the video or DOM reads. They are snapped past recorded freezes like the opening's cuts.
+    const edges = dense.map(bt => {
+      const all = [...new Set([bt.pa, bt.pb, ...bt.us.flatMap(u => [u.a, u.b])].map(t => Math.min(bt.pb, Math.max(bt.pa, drawnAt(t)))))].sort((a, b) => a - b);
+      const stride = Math.max(1, Math.ceil(all.length / 240));
+      return {bt, all, starts: all.filter((_, i) => i % stride === 0 || i === all.length - 1)};
+    });
+    while (left >= AUTO.minAction){
+      const span = Math.min(AUTO.maxPiece, left);
+      let best = null, bq = null, bv = 0;
+      for (const {bt, all, starts} of edges) for (const a of starts){
+        if (a < i1 - 0.005 || a >= regionEnd || overlapsPick(a, a + AUTO.minAction)) continue;
+        const ends = all.filter(b => b - a >= AUTO.minAction && b - a <= span + 0.001);
+        // Search the last second of the window for the least interrupted boundary. Shorten only to save a cut,
+        // not to create subsecond flashes. No excerpt extends past the crawl or into a selected part.
+        const candidates = ends.filter(b => b - a >= Math.max(AUTO.minAction, span - 1));
+        const b = candidates.sort((x, y) => boundaryCost(x) - boundaryCost(y) || y - x)[0];
+        if (b == null || overlapsPick(a, b)) continue;
+        const us = bt.us.filter(u => u.a >= a - 0.005 && u.b <= b + 0.005);
+        if (!us.some(u => hard(u) || u.k === "card")) continue;
+        const kinds = us.reduce((o, u) => (o[u.k] = (o[u.k] || 0) + u.w, o), {});
+        const r = {a, b, w: us.reduce((n, u) => n + u.w, 0), kinds, montage: true};
+        const q = cost(r);
+        if (q.c < AUTO.minAction || q.c > left + 1e-6) continue;
+        const v = value(r, picked) / (1 + 0.12 * (boundaryCost(a) + boundaryCost(b)));
+        if (v > bv + 1e-9){ best = r; bq = q; bv = v; }
+      }
+      if (!best) break;
+      take(best, bq); montagePicks.push(best);
+    }
+  }
   // nothing fits the time left (the crawl's moments run on, something always in the air): the busiest single moment is
   // kept whole when it is at most 4 s over, and the edit says so; else the edit is the opening and the ending, and says that
   let longOne = null;
@@ -1064,6 +1107,9 @@ function highlightEdit(meta, dur, secs, probe){
   }
   res.len = r3(res.segs.reduce((t, x) => t + x.out - x.in, 0));
   res.kept = inCrawl.filter(u => shownParts.some(p => u.a >= p.a - 0.01 && u.b <= p.b + 0.01)).length;
+  if (montagePicks.length){
+    res.notes.push("Continuous action was too long to keep whole, so the montage uses excerpts at the original speed. Cuts favor the fewest chips in flight; only complete moments inside each excerpt count as kept. The full take is still available with Restore original.");
+  }
   // an opening ended while the crawl ran on (no part goes on from there): said
   const op = shownParts.find(p => p.open);
   if (openCut.length && op && Math.abs(op.b - i1) < 1e-6){
@@ -1096,7 +1142,7 @@ function highlightEdit(meta, dur, secs, probe){
     const passedOver = i => runs.some(r => !clash(r) && !floorRuns.has(r) && i >= r.i && i <= r.j);
     const tooLong = i => !runs.some(r => i >= r.i && i <= r.j) && beats[i].pb - beats[i].pa >= AUTO.minPiece;
     const noFit = out.some(i => !stillsOnly(i) && (passedOver(i) || tooLong(i))), mostlyStills = out.some(stillsOnly);
-    res.notes.push(noFit || mostlyStills ? `${f1(res.len)} s, shorter than ${secs} s: the rest of the crawl's moments ${noFit ? `do not fit in the ${f1(secs - res.len)} s left (a moment is never cut short)${mostlyStills ? ", or are mostly frames the page could not draw" : ""}` : "are mostly frames the page could not draw"}.`
+    res.notes.push(noFit || mostlyStills ? `${f1(res.len)} s, shorter than ${secs} s: the rest of the crawl's moments ${noFit ? `do not fit in the ${f1(secs - res.len)} s left (${montagePicks.length ? "montage excerpts keep at least 3 seconds of action" : "a moment is never cut short"})${mostlyStills ? ", or are mostly frames the page could not draw" : ""}` : "are mostly frames the page could not draw"}.`
       : `${f1(res.len)} s, shorter than ${secs} s: the crawl had about ${f1(action)} s of action to show, and nothing is added to fill the time.`);
   }
   res.title = r3(res.title);
