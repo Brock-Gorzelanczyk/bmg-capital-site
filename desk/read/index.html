@@ -1158,7 +1158,7 @@ html[data-theme="dark"] .mk-cl-pic{filter:invert(1) hue-rotate(180deg)}
 .mk-cl-pic img{max-width:116px;max-height:66px;object-fit:contain}.mk-cl-pic i{font-style:normal;color:#fff;font-size:12px}
 .mk-cl-txt{min-width:0;flex:1}.mk-cl-txt .mk-note{margin:2px 0 8px}.mk-cl-co{margin:0}.mk-cl-co span{font:600 12px 'IBM Plex Mono',monospace;color:#6b6f76;margin-left:4px}
 .mk-brand{display:flex;flex-direction:column;gap:6px;margin-top:4px}.mk-pvph{margin:0 0 10px}
-.mk-auto{margin-top:16px;padding:14px;border:1px solid #45b88a;border-radius:12px}.mk-auto .av-chips{margin:6px 0 0}.mk-auto-len[hidden],.mk-cl[hidden],#mk-hook-auto[hidden]{display:none}.mk-auto small{color:#6b6f76}.mk-auto-flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0;font-size:12px}.mk-auto-flow b{padding:5px 8px;border:1px solid currentColor;border-radius:6px;font-weight:500}
+.mk-auto{margin-top:16px;padding:14px;border:1px solid #45b88a;border-radius:12px}.mk-auto .av-chips{margin:6px 0 0}.mk-auto-len[hidden],.mk-len[hidden],.mk-cl[hidden],#mk-hook-auto[hidden]{display:none}.mk-auto-len-l{font-weight:600;margin-right:8px;align-self:center}.mk-auto small{color:#6b6f76}.mk-auto-flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0;font-size:12px}.mk-auto-flow b{padding:5px 8px;border:1px solid currentColor;border-radius:6px;font-weight:500}
 .mk-pvf .pv-rep{position:absolute;left:0;right:0;bottom:0;top:72%;background:#fff;border-radius:4cqw 4cqw 0 0;padding:2.4cqw 11.2cqw 0 3.4cqw;box-sizing:border-box;overflow:hidden;color:#141414}
 .mk-pvf .pv-head{display:flex;align-items:center;gap:3cqw;padding-bottom:1.6cqw;border-bottom:1px solid #eceee9}.mk-pvf .pv-brand{display:flex;align-items:center;gap:1.2cqw;font-size:3.6cqw;margin-right:auto;white-space:nowrap}.mk-pvf .pv-brand .bmg-line{width:4cqw;height:3.4cqw}
 .mk-pvf .pv-logo{display:flex;align-items:center;gap:1cqw;font-size:2.6cqw;color:#6b6f76;white-space:nowrap}.mk-pvf .pv-logo img{max-height:5cqw;max-width:14cqw;object-fit:contain}.mk-pvf .pv-logo i{font-style:normal;font-weight:700;color:#141414;max-width:20cqw;overflow:hidden;text-overflow:ellipsis}
@@ -11046,7 +11046,12 @@ Who is the auditor?</textarea>
     // Start slow (reading speed only): the spider reads at a slow speed for the first seconds, then speeds up to the
     // reading speed, as in a clip where the crawl starts calm and then races
     const RAMP_FROM = [1, 1.5, 2, 3], RAMP_SECS = [5, 10, 15, 20, 30];
-    const rampOn = () => mk.length === "whole" && mk.ramp.on && mk.ramp.from < mk.speed;
+    // With Auto-edit on, an entire filing is recorded whole, at the reading speed (Start slow too): the one length to pick
+    // is the finished video's, the highlight edit's. (A set recording time for an entire filing is a race through every
+    // page, so short that the edit has nothing to cut.) An excerpt (Specific findings) keeps its set recording time.
+    const autoWhole = () => !!(mk.auto && mk.auto.on) && mk.scope !== "specific";
+    const recLen = () => autoWhole() ? "whole" : mk.length;
+    const rampOn = () => recLen() === "whole" && mk.ramp.on && mk.ramp.from < mk.speed;
     const paceWords = () => rampOn() ? `at ${mk.ramp.from}x for the first ${mk.ramp.secs} seconds, then speeding up to ${mk.speed}x` : `at ${mk.speed}x reading speed`;
     const QUICK = ["Revenue", "Net income", "Diluted EPS", "Cash and cash equivalents", "Share repurchases", "Guidance"];
     // What the clip covers (its scope) and how long it runs (its length) are two choices. The entire filing is the
@@ -11175,7 +11180,8 @@ Who is the auditor?</textarea>
     }
     function drawLen(){
       const box = body.querySelector(".mk-len"); if (!box) return;
-      const entire = mk.scope !== "specific";
+      const entire = mk.scope !== "specific", aw = autoWhole();
+      box.hidden = aw;                     // Auto-edit on: the whole filing is recorded, and the one length is the video's
       const custom = typeof mk.length === "number" && !LENS.includes(mk.length) && mk.length !== SHORT;
       // the entire filing runs at reading speed or in a set time; an excerpt in a set time (Short is an excerpt's preset)
       box.querySelectorAll("[data-len]").forEach(b => {
@@ -11185,16 +11191,19 @@ Who is the auditor?</textarea>
       const sec = body.querySelector("#mk-secs");
       if (sec && document.activeElement !== sec) sec.value = custom ? mk.length : "";
       body.querySelector(".mk-custom").classList.toggle("on", custom);
-      body.querySelector("#mk-speed-l").hidden = body.querySelector("#mk-ramp-l").hidden = mk.length !== "whole";
+      body.querySelector("#mk-speed-l").hidden = body.querySelector("#mk-ramp-l").hidden = recLen() !== "whole";
       const rn = body.querySelector("#mk-ramp-n"); if (rn) rn.textContent = mk.ramp.on && mk.ramp.from >= mk.speed ? `Start slow needs a reading speed above ${mk.ramp.from}x: pick a faster reading speed or a slower start.` : "";
       const sc = clipScope(), end = mk.ending ? ", the last 11 seconds on the key findings and summary" : "";
       const crawl = typeof mk.length === "number" ? mk.length - (mk.ending ? 11 : 0) - (sc ? END_HOLD + LEAD_IN + (featItem() ? FEATURE_HOLD : 0) : 1.6) : 0;
-      body.querySelector("#mk-len-note").textContent = mk.length === "whole"
+      body.querySelector("#mk-len-note").textContent = aw
+        ? `Auto-edit is on, so the spider records the whole filing ${paceWords()}${mk.ending ? ", then about 11 seconds on the key findings and summary" : ""}, and the Studio cuts it into a video of the length you pick under Auto-edit highlights below (now ${mk.auto.secs} seconds).`
+        : mk.length === "whole"
         ? `The spider reads every page, from the cover to the final line, ${paceWords()}: the clip is as long as that takes (a long 10-K takes many minutes at 1x)${mk.ending ? ", then about 11 seconds on the key findings and summary" : ""}.`
         : entire ? `${lenLabel(mk.length)} in all${end}. The spider covers every page, from the cover to the final line, in the time left: a long filing in a short clip is a very fast crawl.`
           + (crawl < 10 ? " That leaves under 10 seconds of crawling: choose a longer clip, or turn the ending off." : "")
         : sc ? `${lenLabel(mk.length)} in all${end}. An excerpt: the spider reads the stretch of the filing with the findings that fit${featItem() ? ", from just before your featured one" : ""}, goes to each Find request, and the clip ends 2 seconds after the last one reaches the report.`
           + (crawl < 6 ? " That leaves under 6 seconds for findings: choose a longer clip, or turn the ending off." : "")
+          + (mk.auto.on ? " With Auto-edit on, this is the recording: your video is cut from it, at the Video length below or shorter." : "")
         : "Specific findings needs the filing's findings: pick a filing in step 1 and wait for its read.";
     }
     // Edit it like my TikToks (optional, off unless ticked): the take arrives in the Studio edited the way Brock edits
@@ -11210,7 +11219,7 @@ Who is the auditor?</textarea>
     }
     // Auto-edit highlights: what the finished video will be. The take itself is recorded as set above, whole, and kept.
     // a set-length clip (the ending inside its length) as long as the highlight edit, or shorter: the edit is at most the take
-    const autoAbout = () => { const n = typeof mk.length === "number" ? mk.length : Infinity;
+    const autoAbout = () => { const r = recLen(), n = typeof r === "number" ? r : Infinity;
       return n <= mk.auto.secs ? `at most the take's own length (about ${n} seconds${n < mk.auto.secs ? `; the clip is set shorter than ${mk.auto.secs}` : ""})` : `about ${mk.auto.secs} seconds`; };
     const autoLine = () => mk.auto.on ? ` Then the Studio makes a highlight edit of ${autoAbout()} from the take (Auto-edit highlights); the take keeps it all.` : "";
     function drawAuto(){
@@ -11219,9 +11228,9 @@ Who is the auditor?</textarea>
       const len = body.querySelector("#mk-auto-len"); len.hidden = !mk.auto.on;
       len.querySelectorAll("[data-asecs]").forEach(b => b.setAttribute("aria-checked", String(+b.dataset.asecs === mk.auto.secs)));
       body.querySelector("#mk-auto-note").textContent = !mk.auto.on ? "Off: the take comes to the Studio whole, to cut by hand."
-        : `The take is recorded as set above, whole, and kept. When it reaches the Studio, a highlight edit of ${autoAbout()} is made from it: ${mk.brand && mk.brand.intro && coReady() ? `the company logo opening${String(mk.hook || "").trim() ? " with your hook" : ""}, as recorded` : String(mk.hook || "").trim() ? (mk.self && mk.self.on ? "your hook over the moving crawler (it stays on to the last frame: Edit it like my TikToks)" : "your hook over the moving crawler for its first 4 seconds") : "the moving crawler for its first 4 seconds"}, then the busiest moments in order at their own speed, ${mk.ending ? "then the whole report ending (about 11 seconds)" : "ending on the last of them (the ending is off)"}. Nothing is sped up, repeated or added; a take with less to show gives a shorter edit. Play it, download it or edit it by hand there; Restore original puts the whole take back.`
+        : `Your video: ${autoAbout()}, cut from ${autoWhole() ? `the whole filing read ${paceWords()}` : `the recording of the findings (${lenLabel(mk.length)})`}. The take is recorded as set above, whole, and kept. When it reaches the Studio, the highlight edit is made from it: ${mk.brand && mk.brand.intro && coReady() ? `the company logo opening${String(mk.hook || "").trim() ? " with your hook" : ""}, as recorded` : String(mk.hook || "").trim() ? (mk.self && mk.self.on ? "your hook over the moving crawler (it stays on to the last frame: Edit it like my TikToks)" : "your hook over the moving crawler for its first 4 seconds") : "the moving crawler for its first 4 seconds"}, then the busiest moments in order at their own speed, ${mk.ending ? "then the whole report ending (about 11 seconds)" : "ending on the last of them (the ending is off)"}. Nothing is sped up, repeated or added; a take with less to show gives a shorter edit. Play it, download it or edit it by hand there; Restore original puts the whole take back.`
           + (mk.ending && mk.auto.secs === 20 ? " At 20 seconds the ending and the title leave about 5 seconds of the crawl." : "");
-      if (mk.auto.on) body.querySelector("#mk-auto-note").textContent += " Continuous action can be cut into shorter excerpts, favoring the fewest chips in flight. For a full filing at your chosen pace, select Reading speed above; the finished edit length below is separate.";
+      if (mk.auto.on) body.querySelector("#mk-auto-note").textContent += " Continuous action can be cut into shorter excerpts, favoring the fewest chips in flight.";
     }
     function recStatus(ph){
       if (view !== "make" || !mk.recording) return;
@@ -11434,10 +11443,10 @@ Who is the auditor?</textarea>
       const F = mk.found, sc = clipScope(), x = featItem(), asks = findList();
       const lit = asks.length ? ` Find requests (${asks.join(", ")}) are lit as the spider passes them; anything not in the filing is listed as not found.` : "";
       const ending = mk.ending ? " Then " + endingWords(F && F.docKind || "other").replace(/^The /, "the ") + "." : "";
-      if (mk.file) return `Your own document, all of it from its start${mk.length === "whole" ? `, ${paceWords()}` : `, in ${lenLabel(mk.length)}`}.${lit}${ending}`;
+      if (mk.file) return `Your own document, all of it from its start${recLen() === "whole" ? `, ${paceWords()}` : `, in ${lenLabel(mk.length)}`}.${lit}${ending}`;
       if (!F || F.state !== "done") return F && F.state === "loading" ? "What the clip shows is written here once the filing is read." : "";
       if (mk.scope !== "specific"){
-        const pace = mk.length === "whole" ? `${paceWords()}, as long as that takes` : `in ${lenLabel(mk.length)} (a fast crawl)`;
+        const pace = recLen() === "whole" ? `${paceWords()}, as long as that takes` : `in ${lenLabel(mk.length)} (a fast crawl)`;
         const items = F.total ? ` The report's ${F.total} ${F.total === 1 ? F.noun[0] : F.noun[1]} arrive as the spider reaches each one.` : "";
         return `The entire filing: every page from the cover to the final line, ${pace}.${items}${lit}${ending}`;
       }
@@ -11469,7 +11478,7 @@ Who is the auditor?</textarea>
     function makeRecord(){
       const f = !mk.file && mk.list && mk.pick != null ? mk.list.items[mk.pick] : null;
       if (!mk.file && !f){ mkSay("mk-rst", mk.list ? "Pick a form in step 2 first." : "Find a ticker's forms in step 1, or use your own document.", true); return; }
-      if (mk.length !== "whole" && !(mk.length >= 10)){ mkSay("mk-rst", "Choose how long the clip is in step 4.", true); return; }
+      if (recLen() !== "whole" && !(mk.length >= 10)){ mkSay("mk-rst", "Choose how long the clip is in step 4.", true); return; }
       if (mk.found && mk.found.state === "loading"){ mkSay("mk-rst", "The filing is still being read for its findings: a moment.", true); return; }
       if (mk.scope === "specific" && !mk.file && !clipScope()){ mkSay("mk-rst", "Specific findings needs the filing's findings: wait for its read, or choose Entire filing.", true); return; }
       if (brandOn() && coLogo.state === "loading"){ mkSay("mk-rst", "The company's logo is still being looked up: a moment.", true); return; }
@@ -11495,7 +11504,7 @@ Who is the auditor?</textarea>
         manager: !mk.file && mk.list ? mk.list.manager || "" : "", period: f ? f.period || "" : "", filed: f ? f.filed || "" : "", kind: mk.found && mk.found.docKind || (f && f.holdings ? "holdings" : "other"),
         form: f ? f.form : "", accession: f ? f.accession : null, document: f ? f.document : null, fileName: f ? f.fileName : null,
         when: f ? f.when : "", customName: mk.file ? mk.file.name : "",
-        mode: entire ? "entire" : "specific", length: mk.length, speed: mk.speed, ramp: rampOn() ? {from: mk.ramp.from, secs: mk.ramp.secs} : null, start: entire ? "cover" : "excerpt", ending: mk.ending, find: findList(), look: mk.look,
+        mode: entire ? "entire" : "specific", length: recLen(), speed: mk.speed, ramp: rampOn() ? {from: mk.ramp.from, secs: mk.ramp.secs} : null, start: entire ? "cover" : "excerpt", ending: mk.ending, find: findList(), look: mk.look,
         featured: !entire && x && sc && sc.featured ? {...x, missing: undefined} : null, scope: entire ? null : sc, hook: (mk.hook || "").trim().slice(0, 90),
         filing: filingOf(f), coverage: scopeText(), total: mk.found && mk.found.state === "done" ? mk.found.total : null,
         logos: {built: logo("built"), scan: logo("scan")}, brand: brandPlan(), autoEdit: mk.auto.on ? {secs: mk.auto.secs, style: "montage"} : null, ...(mk.self.on ? {selfEdit: {v: 1}} : {})};
@@ -11744,7 +11753,7 @@ Who is the auditor?</textarea>
           <p class="mk-note err" id="mk-ramp-n" role="status"></p>
           <div class="mk-auto"><label><input type="checkbox" id="mk-auto"> Auto-edit highlights <small>automatically cut the recording into a finished post</small></label>
             <div class="mk-auto-flow" aria-label="Auto-edit sequence"><b>Your title · 4 seconds</b><span aria-hidden="true">→</span><b>Busy crawler moments</b><span aria-hidden="true">→</span><b>Final report, when enabled</b></div>
-            <div class="av-chips mk-auto-len" id="mk-auto-len" role="radiogroup" aria-label="Length of the highlight edit">${AUTO_SECS.map(v => `<button type="button" role="radio" class="av-seg" data-asecs="${v}">${v} s</button>`).join("")}</div>
+            <div class="av-chips mk-auto-len" id="mk-auto-len" role="radiogroup" aria-label="Video length"><span class="mk-auto-len-l" aria-hidden="true">Video length</span>${AUTO_SECS.map(v => `<button type="button" role="radio" class="av-seg" data-asecs="${v}">${v} s</button>`).join("")}</div>
             <p class="mk-note" id="mk-auto-note"></p></div>
           <div class="mk-auto mk-self"><label><input type="checkbox" id="mk-self"> Edit it like my TikToks <small>optional: the Studio puts your hook on the whole video the way your posts have it</small></label>
             <p class="mk-note" id="mk-self-note"></p></div></li>
@@ -11816,7 +11825,7 @@ Who is the auditor?</textarea>
         const b = e.target.closest("button[data-scope]"); if (!b || b.disabled) return;
         if (!setScope(b.dataset.scope)) return;
         $m("mk-ending").checked = !!mk.ending;
-        drawFinding(); drawHook(); drawLen(); drawPreview();
+        drawFinding(); drawHook(); drawLen(); drawAuto(); drawPreview();
       });
       $m("mk-found").addEventListener("click", e => {
         if (e.target.closest("[data-reread]")){ loadFindings(); return; }
@@ -11836,14 +11845,14 @@ Who is the auditor?</textarea>
         saveMk(); drawLen(); drawAuto(); drawPreview();
       });
       $m("mk-secs").addEventListener("input", e => { const v = Math.round(+e.target.value); if (v >= 10 && v <= 900){ mk.length = v; saveMk(); drawLen(); drawAuto(); drawPreview(); } });
-      $m("mk-speed").addEventListener("change", e => { mk.speed = +e.target.value || 1; saveMk(); drawLen(); drawPreview(); });
-      $m("mk-ramp").addEventListener("change", e => { mk.ramp.on = e.target.checked; saveMk(); drawLen(); drawPreview(); });
-      $m("mk-ramp-from").addEventListener("change", e => { mk.ramp.from = +e.target.value || 1; mk.ramp.on = true; $m("mk-ramp").checked = true; saveMk(); drawLen(); drawPreview(); });
-      $m("mk-ramp-secs").addEventListener("change", e => { mk.ramp.secs = +e.target.value || 10; mk.ramp.on = true; $m("mk-ramp").checked = true; saveMk(); drawLen(); drawPreview(); });
+      $m("mk-speed").addEventListener("change", e => { mk.speed = +e.target.value || 1; saveMk(); drawLen(); drawAuto(); drawPreview(); });
+      $m("mk-ramp").addEventListener("change", e => { mk.ramp.on = e.target.checked; saveMk(); drawLen(); drawAuto(); drawPreview(); });
+      $m("mk-ramp-from").addEventListener("change", e => { mk.ramp.from = +e.target.value || 1; mk.ramp.on = true; $m("mk-ramp").checked = true; saveMk(); drawLen(); drawAuto(); drawPreview(); });
+      $m("mk-ramp-secs").addEventListener("change", e => { mk.ramp.secs = +e.target.value || 10; mk.ramp.on = true; $m("mk-ramp").checked = true; saveMk(); drawLen(); drawAuto(); drawPreview(); });
       $m("mk-ending").addEventListener("change", e => { mk.ending = e.target.checked; saveMk(); drawLen(); drawAuto(); drawPreview(); });
       $m("mk-self").addEventListener("change", e => { mk.self = {on: e.target.checked}; saveMk(); drawSelf(); drawAuto(); drawPreview(); });
-      $m("mk-auto").addEventListener("change", e => { mk.auto = {...mk.auto, on: e.target.checked}; saveMk(); drawAuto(); drawPreview(); });
-      $m("mk-auto-len").addEventListener("click", e => { const b = e.target.closest("[data-asecs]"); if (!b) return; mk.auto = {...mk.auto, secs: +b.dataset.asecs}; saveMk(); drawAuto(); drawPreview(); });
+      $m("mk-auto").addEventListener("change", e => { mk.auto = {...mk.auto, on: e.target.checked}; saveMk(); drawLen(); drawAuto(); drawPreview(); });
+      $m("mk-auto-len").addEventListener("click", e => { const b = e.target.closest("[data-asecs]"); if (!b) return; mk.auto = {...mk.auto, secs: +b.dataset.asecs}; saveMk(); drawLen(); drawAuto(); drawPreview(); });
       $m("mk-find").addEventListener("input", e => { mk.find = e.target.value; saveMk(); });
       body.querySelector(".mk-quick").addEventListener("click", e => {
         const b = e.target.closest("[data-add]"); if (!b) return;
