@@ -994,6 +994,15 @@ function highlightEdit(meta, dur, secs, probe){
   if (logoOpen){ i1 = drawnAt(introE ? introE.t + introE.d : 4.9); res.title = logoAt; }
   else { i1 = i0 + AUTO.title; res.title = i1; }
   i1 = Math.min(i1, regionEnd); res.title = Math.min(res.title, i1);
+  // a take recorded with Start slow: the opening runs on through the slow start to the moment the crawl reaches its
+  // reading speed (the record window's "fast" note), so the edit starts slow and speeds up as the take did. It stops
+  // sooner only where the length asked would leave no room for the ending and AUTO.minAction s of action
+  const fastE = first("fast"), roomAt = L => i0 + L - (endAt != null ? dur - endAt : 0) - AUTO.minAction;
+  let slowAll = 0;
+  if (fastE && fastE.t > i1){
+    const until = Math.min(fastE.t, roomAt(secs), regionEnd - AUTO.minAction);
+    if (until > i1){ i1 = Math.min(drawnAt(until), regionEnd); slowAll = fastE.t - i0; }
+  }
   let openCut = [];
   {
     let up = upAt(i1);
@@ -1014,6 +1023,8 @@ function highlightEdit(meta, dur, secs, probe){
       res.title = Math.min(res.title, i1);
     }
   }
+  if (slowAll) res.notes.push(i1 >= i0 + slowAll - 0.05 ? `The opening keeps the take's slow start whole (${f1(i1 - i0)} s): the crawl starts slow and speeds up, as recorded.`
+    : `The take starts slow for ${f1(slowAll)} s; at ${secs} s the opening keeps the first ${f1(i1 - i0)} s of it, so the ending and some action fit.${AUTO_LENS.some(L => L > secs && roomAt(L) >= fastE.t) ? " A longer length keeps all of it." : ""}`);
   // the crawl's moments, the opening's included: one still up when the report ending starts is kept up to that frame.
   // The action is picked from those after the opening; one still up where the opening ends (the crawl ran on past it)
   // starts the action's first beat there, so a part goes on from the opening or starts after it, never inside it

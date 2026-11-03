@@ -2045,6 +2045,49 @@ def _edgar_denied() -> Optional[JSONResponse]:
 
 TTL_SUBMISSIONS_WATCH = 60    # earnings watch: the filing list is at most a minute old
 TTL_FILING_INDEX = 30 * 86400 # a filing's file list never changes once filed
+# The forms that mark a successor issuer (a new holding company that took over a listed company's registration under
+# Rule 12g-3: an 8-K12B or 8-K12G3 in its feed), and the forms other people file about a company (insiders, holders,
+# funds), which never make their filer the company's predecessor
+EDGAR_SUCCESSION_FORMS = ("8-K12B", "8-K12B/A", "8-K12G3", "8-K12G3/A")
+EDGAR_OWNERSHIP_FORMS = ("3", "3/A", "4", "4/A", "5", "5/A", "144", "144/A", "13F-HR", "13F-HR/A", "SC 13D", "SC 13D/A",
+                         "SC 13G", "SC 13G/A", "SCHEDULE 13D", "SCHEDULE 13D/A", "SCHEDULE 13G", "SCHEDULE 13G/A")
+_EDGAR_PREDECESSORS: dict = {}  # successor CIK -> its predecessors' CIKs, as edgar_filings found them (for edgar_document)
+
+
+async def _edgar_predecessors(cik: int, recent: dict, client: httpx.AsyncClient) -> list:
+    """The company a successor issuer took over from, whose filings stay under the old CIK. When a listed company
+    moves under a new holding company (ExxonMobil Holdings Corp became the successor issuer of Exxon Mobil Corp on
+    2026-07-01, 8-K12B), SEC's ticker list names the new company, whose own feed has no annual report until its first
+    10-K: the last 10-K is the predecessor's. The predecessor shows in the successor's own feed as a report both filed
+    (Exxon Mobil Corp's last 10-Q lists both companies), whose accession number starts with the predecessor's CIK. It
+    must have no ticker of its own now, list that same filing, and file 10-Ks or 10-Qs. A company whose feed has no
+    8-K12B or 8-K12G3 costs nothing here. Returns [(cik, submissions)], at most two."""
+    forms, accs = recent.get("form") or [], recent.get("accessionNumber") or []
+    if not any(f in EDGAR_SUCCESSION_FORMS for f in forms):
+        return []
+    mine, tried, found = set(accs), set(), []
+    for form, acc in zip(forms, accs):
+        if form in EDGAR_OWNERSHIP_FORMS or not re.fullmatch(r"\d{10}-\d{2}-\d{6}", acc or ""):
+            continue
+        other = int(acc[:10])
+        if other in (0, cik) or other in tried:
+            continue
+        if len(tried) >= 6:
+            break
+        tried.add(other)
+        try:
+            sub = await _sec_fetch_json(f"https://data.sec.gov/submissions/CIK{other:010d}.json", TTL_SUBMISSIONS, client)
+        except httpx.HTTPError:
+            continue                          # a filing agent's number, or SEC busy: not a predecessor
+        blk = ((sub or {}).get("filings") or {}).get("recent") or {}
+        if not sub or sub.get("tickers") or not mine & set(blk.get("accessionNumber") or []) \
+                or not any(f in ("10-K", "10-Q") for f in blk.get("form") or []):
+            continue
+        found.append((other, sub))
+        if len(found) >= 2:
+            break
+    _EDGAR_PREDECESSORS[cik] = [k for k, _ in found]
+    return found
 EX99_1 = re.compile(r"ex[-_]?99[-_.]?0?1\b|ex[-_]?991|ex99[-_]?1|exhibit[-_]?99[-_.]?0?1", re.I)
 
 
@@ -2155,56 +2198,75 @@ async def edgar_filings(ticker: str = Query(..., max_length=12), fresh: bool = F
         block = ((sub or {}).get("filings") or {}).get("recent") or {}
         older = list(((sub or {}).get("filings") or {}).get("files") or [])
         out = []
-        while True:
-            items = block.get("items") or [""] * len(block.get("form", []))
-            for i, form in enumerate(block.get("form", [])):
-                acc, doc = block["accessionNumber"][i], block["primaryDocument"][i]
-                if only and form.replace("/A", "") not in only:
-                    continue
-                exhibit = None
-                if form in EDGAR_FORMS:
-                    label = form
-                    if form in ("10-K", "10-K/A"):
-                        try:
-                            exhibit = _annual_report_exhibit((await _filing_index(client, cik, acc))["docs"], doc)
-                        except httpx.HTTPError:
-                            exhibit = None
-                        doc = _with_exhibit(doc, exhibit)
-                elif earnings and form == "8-K" and "2.02" in (items[i] or ""):
-                    label, doc = "8-K earnings release", await _earnings_exhibit(client, cik, acc, doc)
-                else:
-                    continue
-                out.append({"form": label, "filed": block["filingDate"][i], "period": (block.get("reportDate") or [""] * (i + 1))[i],
-                            "accession": acc, "document": doc, **({"exhibit": "EX-13 (annual report)"} if exhibit else {}),
-                            "url": f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/{doc.split('+')[0]}"})
-                if len(out) >= limit:
-                    break
-            # a large filer's "recent" block can cover only a year (Wells Fargo files thousands of prospectuses): a request
-            # for its earnings releases reads the feed's older pages, newest first, until it has them
-            if len(out) >= limit or not (earnings and "8-K" in only) or not older:
-                break
-            block = await _sec_fetch_json(f"https://data.sec.gov/submissions/{older.pop(0)['name']}", TTL_SUBMISSIONS, client) or {}
-        # A large filer's "recent" block can cover only a year (JPMorgan files thousands of prospectuses), so a
-        # request for one form also asks EDGAR's company feed for that form: last year's 10-K is still listed.
-        for form in sorted(f for f in only if f in EDGAR_FORMS) if len(out) < limit else []:
+
+        async def scan(k: int, blk: dict, pages: list, extra: dict) -> None:
+            """The filings of one registrant's feed (k), newest first, into out (a report two registrants filed
+            together is in both feeds: listed once)."""
             have = {o["accession"] for o in out}
-            feed = await _sec_fetch_text(f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik:010d}&type={form}"
-                                         f"&dateb=&owner=include&count=40&output=atom", TTL_SUBMISSIONS, client) or ""
-            for ent in re.findall(r"(?s)<entry>(.*?)</entry>", feed):
-                acc = (re.search(r"<accession-number>([\d-]+)</accession-number>", ent) or [None, None])[1]
-                typ = (re.search(r"<filing-type>([^<]+)</filing-type>", ent) or [None, ""])[1]
-                filed = (re.search(r"<filing-date>([\d-]+)</filing-date>", ent) or [None, ""])[1]
-                if not acc or acc in have or typ.replace("/A", "") != form:
-                    continue
-                idx = await _filing_index(client, cik, acc)
-                doc = next((d["document"] for d in idx["docs"] if d["type"] == typ and re.search(r"\.(?:htm|html|txt|pdf)$", d["document"], re.I)), None)
-                if not doc:
-                    continue
-                exhibit = _annual_report_exhibit(idx["docs"], doc) if typ in ("10-K", "10-K/A") else None
-                doc = _with_exhibit(doc, exhibit)
-                out.append({"form": typ, "filed": filed, "period": idx.get("period") or "", "accession": acc, "document": doc,
-                            **({"exhibit": "EX-13 (annual report)"} if exhibit else {}),
-                            "url": f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/{doc.split('+')[0]}"})
+            while True:
+                items = blk.get("items") or [""] * len(blk.get("form", []))
+                for i, form in enumerate(blk.get("form", [])):
+                    acc, doc = blk["accessionNumber"][i], blk["primaryDocument"][i]
+                    if (only and form.replace("/A", "") not in only) or acc in have:
+                        continue
+                    exhibit = None
+                    if form in EDGAR_FORMS:
+                        label = form
+                        if form in ("10-K", "10-K/A"):
+                            try:
+                                exhibit = _annual_report_exhibit((await _filing_index(client, k, acc))["docs"], doc)
+                            except httpx.HTTPError:
+                                exhibit = None
+                            doc = _with_exhibit(doc, exhibit)
+                    elif earnings and form == "8-K" and "2.02" in (items[i] or ""):
+                        label, doc = "8-K earnings release", await _earnings_exhibit(client, k, acc, doc)
+                    else:
+                        continue
+                    out.append({"form": label, "filed": blk["filingDate"][i], "period": (blk.get("reportDate") or [""] * (i + 1))[i],
+                                "accession": acc, "document": doc, **({"exhibit": "EX-13 (annual report)"} if exhibit else {}),
+                                "url": f"https://www.sec.gov/Archives/edgar/data/{k}/{acc.replace('-', '')}/{doc.split('+')[0]}", **extra})
+                    if len(out) >= limit:
+                        break
+                # a large filer's "recent" block can cover only a year (Wells Fargo files thousands of prospectuses): a
+                # request for its earnings releases reads the feed's older pages, newest first, until it has them
+                if len(out) >= limit or not (earnings and "8-K" in only) or not pages:
+                    break
+                blk = await _sec_fetch_json(f"https://data.sec.gov/submissions/{pages.pop(0)['name']}", TTL_SUBMISSIONS, client) or {}
+
+        async def by_feed(k: int, extra: dict) -> None:
+            """A large filer's "recent" block can cover only a year (JPMorgan files thousands of prospectuses), so a
+            request for one form also asks EDGAR's company feed for that form: last year's 10-K is still listed."""
+            for form in sorted(f for f in only if f in EDGAR_FORMS) if len(out) < limit else []:
+                have = {o["accession"] for o in out}
+                feed = await _sec_fetch_text(f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={k:010d}&type={form}"
+                                             f"&dateb=&owner=include&count=40&output=atom", TTL_SUBMISSIONS, client) or ""
+                for ent in re.findall(r"(?s)<entry>(.*?)</entry>", feed):
+                    acc = (re.search(r"<accession-number>([\d-]+)</accession-number>", ent) or [None, None])[1]
+                    typ = (re.search(r"<filing-type>([^<]+)</filing-type>", ent) or [None, ""])[1]
+                    filed = (re.search(r"<filing-date>([\d-]+)</filing-date>", ent) or [None, ""])[1]
+                    if not acc or acc in have or typ.replace("/A", "") != form:
+                        continue
+                    idx = await _filing_index(client, k, acc)
+                    doc = next((d["document"] for d in idx["docs"] if d["type"] == typ and re.search(r"\.(?:htm|html|txt|pdf)$", d["document"], re.I)), None)
+                    if not doc:
+                        continue
+                    exhibit = _annual_report_exhibit(idx["docs"], doc) if typ in ("10-K", "10-K/A") else None
+                    doc = _with_exhibit(doc, exhibit)
+                    out.append({"form": typ, "filed": filed, "period": idx.get("period") or "", "accession": acc, "document": doc,
+                                **({"exhibit": "EX-13 (annual report)"} if exhibit else {}),
+                                "url": f"https://www.sec.gov/Archives/edgar/data/{k}/{acc.replace('-', '')}/{doc.split('+')[0]}", **extra})
+                    if len(out) >= limit:
+                        break
+
+        await scan(cik, block, older, {})
+        await by_feed(cik, {})
+        # a successor issuer (a new holding company) has its predecessor's earlier filings under the predecessor's CIK:
+        # listed after its own, each with the CIK and name it was filed under (edgar_document finds it either way)
+        if len(out) < limit:
+            for pk, psub in await _edgar_predecessors(cik, ((sub or {}).get("filings") or {}).get("recent") or {}, client):
+                extra = {"cik": pk, "registrant": psub.get("name") or ""}
+                await scan(pk, (psub.get("filings") or {}).get("recent") or {}, [], extra)
+                await by_feed(pk, extra)
                 if len(out) >= limit:
                     break
         out.sort(key=lambda o: o["filed"], reverse=True)
@@ -2331,41 +2393,57 @@ async def edgar_document(cik: int, accession: str, document: str):
             or not all(re.fullmatch(r"[\w.\-]{1,120}\.(?:htm|html|txt|pdf)", d, re.I) for d in parts) \
             or (len(parts) == 2 and not all(re.search(r"\.html?$", d, re.I) for d in parts)):
         return JSONResponse(status_code=400, content={"error": "That is not an EDGAR filing reference."})
-    got = []
+    got, filer = [], cik
+    # the CIKs that may hold this filing: the one asked for, then (when SEC has nothing there) the filer whose number
+    # starts the accession, and a successor issuer's predecessors (a filing listed for XOM that Exxon Mobil Corp filed
+    # before ExxonMobil Holdings Corp took over is stored only under Exxon Mobil Corp's CIK)
+    own = int(accession[:10])
+    ciks = list(dict.fromkeys([cik, *([own] if own else []), *_EDGAR_PREDECESSORS.get(cik, [])]))
     for part in parts:
         path = EDGAR_DOC_DIR / f"{cik}-{accession}-{part}"
+        noted = Path(f"{path}.filer")                 # kept beside a copy found under another filer's CIK
         if path.exists():
             got.append(path.read_bytes())
+            if noted.exists() and noted.read_text().strip().isdigit():
+                filer = int(noted.read_text().strip())
             continue
-        url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession.replace('-', '')}/{part}"
         client = HTTP_CLIENT or httpx.AsyncClient(timeout=60.0, follow_redirects=True)
-        try:
-            await SEC_LIMITER.acquire()
-            r = await client.get(url, headers={"User-Agent": SEC_USER_AGENT}, timeout=60.0)
-            r.raise_for_status()
-        except httpx.HTTPError as e:
-            return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return the filing ({type(e).__name__})."})
+        r = None
+        for k in ciks:
+            url = f"https://www.sec.gov/Archives/edgar/data/{k}/{accession.replace('-', '')}/{part}"
+            try:
+                await SEC_LIMITER.acquire()
+                r = await client.get(url, headers={"User-Agent": SEC_USER_AGENT}, timeout=60.0)
+                if r.status_code == 404 and k != ciks[-1]:
+                    continue
+                r.raise_for_status()
+            except httpx.HTTPError as e:
+                return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return the filing ({type(e).__name__})."})
+            filer = k
+            break
         data = r.content
         if len(data) > CHECK_MAX_BYTES:
             return JSONResponse(status_code=413, content={"error": f"The filing is {len(data) / 1e6:.1f} MB; the limit is {CHECK_MAX_BYTES // 1048576} MB."})
         EDGAR_DOC_DIR.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
+        if filer != cik:
+            noted.write_text(str(filer))
         got.append(data)
     data = got[0] if len(got) == 1 else _join_html(*got)
     if len(data) > CHECK_MAX_BYTES:
         return JSONResponse(status_code=413, content={"error": f"The filing is {len(data) / 1e6:.1f} MB; the limit is {CHECK_MAX_BYTES // 1048576} MB."})
     last = parts[-1].lower()
     kind = "application/pdf" if last.endswith(".pdf") else "text/plain" if last.endswith(".txt") else "text/html; charset=utf-8"
-    _remember_edgar_source(data, cik, accession, parts)
+    _remember_edgar_source(data, filer, accession, parts)
     # the filer's fiscal year end ("1231"), from the submissions feed the Crawler already caches, so the brain can date a
     # release that names its quarter only in words before it holds the company's 10-K
     try:
-        sub = await _sec_fetch_json(f"https://data.sec.gov/submissions/CIK{cik:010d}.json", TTL_SUBMISSIONS,
+        sub = await _sec_fetch_json(f"https://data.sec.gov/submissions/CIK{filer:010d}.json", TTL_SUBMISSIONS,
                                     HTTP_CLIENT or httpx.AsyncClient(timeout=20.0, follow_redirects=True))
         if sub and re.fullmatch(r"\d{4}", str(sub.get("fiscalYearEnd") or "")):
             _EDGAR_SOURCES[hashlib.sha256(data).hexdigest()]["fiscal_year_end"] = sub["fiscalYearEnd"]
     except Exception as e:                     # never costs the filing: the brain then dates only from its own 10-Ks
-        log.info("fiscal year end lookup failed for CIK %s: %s", cik, type(e).__name__)
+        log.info("fiscal year end lookup failed for CIK %s: %s", filer, type(e).__name__)
     return Response(content=data, media_type=kind, headers={"Cache-Control": "no-store"})
 
 
@@ -4293,7 +4371,7 @@ async def brain_competitors(ticker: str) -> JSONResponse:
         if f:
             named = _COMPETITORS_NAMED.get((t, f["accession"]))
             if named is None:
-                d = await edgar_document(cik=fl["cik"], accession=f["accession"], document=f["document"])
+                d = await edgar_document(cik=f.get("cik") or fl["cik"], accession=f["accession"], document=f["document"])
                 if d.status_code != 200:
                     raise ValueError(json.loads(d.body).get("error") or f"the 10-K did not load ({d.status_code})")
                 kind = "pdf" if f["document"].lower().endswith(".pdf") else "html"
@@ -4385,7 +4463,7 @@ async def _brain_learn_run(tickers: list[str], forms: str, per: int) -> None:
                     raise ValueError(f"no {forms} on EDGAR")
                 for f in files:
                     item["state"] = f"reading {f['form']} {f.get('period') or f['filed']}"
-                    d = await edgar_document(cik=fl["cik"], accession=f["accession"], document=f["document"])
+                    d = await edgar_document(cik=f.get("cik") or fl["cik"], accession=f["accession"], document=f["document"])
                     if d.status_code != 200:
                         raise ValueError(json.loads(d.body).get("error") or f"download {d.status_code}")
                     ext = f["document"].split("+")[0].rsplit(".", 1)[-1] if "." in f["document"] else "htm"
