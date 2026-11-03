@@ -11,6 +11,7 @@ those rows and say so. Nothing is estimated: a trade without a price shows no va
 from __future__ import annotations
 
 import html
+import math
 import re
 import xml.etree.ElementTree as ET
 from typing import Optional
@@ -145,14 +146,43 @@ def _page(title: str, marker: str, body: str) -> str:
             '</head><body>' + body + "</body></html>")
 
 
+# the table's action column in a few words, so it never wraps into a tall row on a phone (Tesla's Form 4 video,
+# 2026-11-03: "Open-market sale (10b5-1 plan)" took five lines); the summary lines keep the full words
+SHORT = {"P": "Buy", "S": "Sale", "A": "Grant", "M": "Exercise", "X": "Option exercise", "O": "Option exercise", "F": "Tax withholding",
+         "G": "Gift", "D": "Returned", "C": "Conversion", "W": "Inheritance", "J": "Other"}
+_ENTITY = re.compile(r"(?i)\b(?:llc|inc|corp|corporation|trust|fund|capital|partners|holdings|lp|l\.p|ltd|group|foundation|management|company|co)\b")
+
+
+def person(name: str) -> str:
+    """SEC's reporting-owner name, last name first ("MUSK ELON", "Wilson-Thompson Kathleen"), as it is said: Elon Musk,
+    Kathleen Wilson-Thompson. A company, a trust or a fund keeps its name."""
+    n = " ".join((name or "").split())
+    ws = n.split()
+    if not (2 <= len(ws) <= 4) or _ENTITY.search(n) or not all(re.fullmatch(r"[A-Za-z][A-Za-z.'\-]*", w) for w in ws):
+        return n
+    if n.isupper():
+        ws = ["-".join(x.capitalize() for x in w.split("-")) for w in ws]
+    sfx = [w for w in ws[1:] if w.rstrip(".").upper() in ("JR", "SR", "II", "III", "IV")]
+    core = [w for w in ws if w not in sfx]
+    return " ".join(core[1:] + core[:1] + sfx)
+
+
+def _pct(x: float) -> str:
+    """A small percentage with enough decimals to show it: 0.005, 0.00016 (never 0.000 for shares that were sold)."""
+    if not x or x >= 0.001:
+        return f"{x:.3f}"
+    return f"{x:.{-math.floor(math.log10(x)) + 1}f}"
+
+
 def _who(name: str, role: str, n: int) -> str:
     cut = role[:n]
     cut += ")" * max(0, cut.count("(") - cut.count(")"))        # a title cut inside its own parentheses closes them
     return f"{name} ({cut})" if role else name
 
 
-def form4_document(company: str, ticker: str, cik: int, filings: list, months: int) -> str:
-    """filings: [{filed, accession, url, parsed}] newest first."""
+def form4_document(company: str, ticker: str, cik: int, filings: list, months: int, shares_out: Optional[dict] = None) -> str:
+    """filings: [{filed, accession, url, parsed}] newest first. shares_out: the company's shares outstanding as its
+    latest 10-K or 10-Q cover reports them ({value, end, form, filed, accession}), for the context line."""
     rows, groups = [], []
     # a Form 4/A restates an earlier Form 4 (the same insider or insiders, the same reporting date): only the latest
     # version is counted, so a corrected price or share count is not added on top of the original
@@ -165,7 +195,7 @@ def form4_document(company: str, ticker: str, cik: int, filings: list, months: i
     filings_used = [f for f in filings if not any(f is r for r in replaced)]
     for f in filings_used:
         p = f["parsed"]
-        who = "; ".join(o["name"] for o in p["owners"]) or "Unknown"
+        who = "; ".join(person(o["name"]) for o in p["owners"]) or "Unknown"
         role = "; ".join(r for o in p["owners"] for r in o["roles"])
         mine = []
         for t in p["transactions"]:
@@ -199,13 +229,46 @@ def form4_document(company: str, ticker: str, cik: int, filings: list, months: i
         f"Other transactions: {sum(1 for r in rows if r['code'] == 'A')} grants or awards, {sum(1 for r in rows if r['code'] == 'F')} share withholdings for tax, "
         f"{sum(1 for r in rows if r['code'] in ('M', 'X'))} exercises or conversions of options and stock units, {sum(1 for r in rows if r['code'] == 'G')} gifts.",
     ]
+    if shares_out and shares_out.get("value") and len(classes) < 2 and sells + buys:
+        so = shares_out["value"]
+        summary.append(f"Shares outstanding: {_int(so)} as of {shares_out.get('end')} (the cover of the {shares_out.get('form')} filed "
+                       f"{shares_out.get('filed')}, filing {shares_out.get('accession')}). Open-market shares sold are {_pct(shares(sells) / so * 100)}% "
+                       f"of them; bought, {_pct(shares(buys) / so * 100)}%.")
     big = sorted([r for r in rows if r["value"] and r["code"] in ("P", "S")], key=lambda r: -r["value"])[:5]
+    # the largest share movements that are not open-market trades: a grant, shares returned to the company, a gift,
+    # an exercise. In a document of trades they can dwarf every sale (Tesla, 2025-11: a grant of 423.7 million shares)
+    other = sorted([r for r in rows if r["code"] not in ("P", "S") and r["shares"] and not r["derivative"]], key=lambda r: -r["shares"])[:3]
+    # (no value: the price a grant or an exercise reports is an award or strike price, not what the shares traded at)
+    other_lines = [f"{_who(r['insider'], r['role'], 50)}: {r['action'].lower()}, {_int(r['shares'])} shares on {r['date']}"
+                   + (f"; owned after: {_int(r['owned_after'])}" if r["owned_after"] is not None else "") + f". Filing {r['accession']}." for r in other]
+    # several open-market sales by one insider on one day are one decision: one line
+    days = {}
+    for r in sells:
+        days.setdefault((r["insider"], r["role"], r["date"]), []).append(r)
+    day_lines = []
+    for (who, role, d), rs in sorted(days.items(), key=lambda kv: -sum(r["value"] or 0 for r in kv[1])):
+        if len(rs) >= 3:
+            day_lines.append(f"{_who(who, role, 50)}: {len(rs)} open-market sales on {d}, {_int(shares(rs))} shares, {_money(tot(rs))}"
+                             + (f", {sum(1 for r in rs if r['plan'])} under a 10b5-1 plan" if any(r["plan"] for r in rs) else "") + ".")
+    # how much of their holding each seller sold: the shares sold against those sold plus those still held after the
+    # last sale, as the filings report them. (Shares held before the first sale would undercount: an insider who
+    # exercises options and sells the shares in the period sells more than they held at the start.)
+    stake_lines = []
+    for who in sorted({r["insider"] for r in sells}, key=lambda w: -tot([r for r in sells if r["insider"] == w])):
+        rs = [r for r in sells if r["insider"] == who and r["shares"]]
+        last = max((r for r in rs if r["owned_after"] is not None), key=lambda r: (r["date"] or "", -(r["owned_after"] or 0)), default=None)
+        if not last:
+            continue
+        sold, held = shares(rs), last["owned_after"]
+        if sold + held > 0:
+            stake_lines.append(f"{who}: sold {_int(sold)} shares and held {_int(held)} after the last sale on {last['date']}: "
+                               f"the sales are {sold / (sold + held) * 100:.1f}% of the two together.")
     # One full-width line per filing (who filed it, their role, the filing), then its transactions: seven columns
     # fit the reading column, where eleven split words and numbers.
     table = []
     for f, who, role, mine in groups:
         table.append(f"Filed {_E(f['filed'])} by {_E(_who(who, role, 60))}, filing <a href=\"{_E(f['url'])}\"{_LINK}>{_E(f['accession'])}</a>")
-        table += [[_E(r["date"] or NA), _E(r["code"] or NA), _E(r["action"] + (" (10b5-1 plan)" if r["plan"] and r["code"] == "S" else "")),
+        table += [[_E(r["date"] or NA), _E(r["code"] or NA), _E(SHORT.get(r["code"], r["action"]) + (" (plan)" if r["plan"] and r["code"] == "S" else "")),
                    _int(r["shares"]), f"${r['price']:,.2f}" if r["price"] else NA, _money(r["value"]), _int(r["owned_after"])] for r in mine]
     body = (f"<h1>BMG insider trades: {_E(company)} ({_E(ticker)})</h1>"
             f"<p>Form 4 filings by {_E(company)}'s officers, directors and 10% owners from SEC EDGAR, {len(filings)} filings filed {span} "
@@ -213,12 +276,17 @@ def form4_document(company: str, ticker: str, cik: int, filings: list, months: i
             + (f"; {len(replaced)} earlier filing{'s are' if len(replaced) != 1 else ' is'} left out because a Form 4/A restates {'them' if len(replaced) != 1 else 'it'}" if replaced else "")
             + ".</p>"
             "<h2>Summary</h2>" + "".join(f"<p>{_E(x)}</p>" for x in summary)
+            + ("<h2>Largest other transactions</h2><p>Grants, exercises, gifts, tax withholding and shares returned to the company: not "
+               "open-market trades, and often the largest share movements.</p>" + "".join(f"<p>{_E(x)}</p>" for x in other_lines) if other_lines else "")
+            + ("<h2>Share of holdings sold</h2>" + "".join(f"<p>{_E(x)}</p>" for x in stake_lines) if stake_lines else "")
+            + ("<h2>Same-day sales</h2>" + "".join(f"<p>{_E(x)}</p>" for x in day_lines) if day_lines else "")
             + ("<h2>Largest open-market trades</h2>" + "".join(f"<p>{_E(_who(r['insider'], r['role'], 50))}: {_E(r['action'].lower())} of {_int(r['shares'])} shares "
                                                                f"at ${r['price']:,.2f} on {_E(r['date'])}{' (10b5-1 plan)' if r['plan'] and r['code'] == 'S' else ''}, {_money(r['value'])}. "
                                                                f"Filing {_E(r['accession'])}.</p>" for r in big) if big else "")
             + "<h2>Every transaction</h2><p>Each filing, newest first, with the transactions it reports: trade date, the SEC transaction code, "
-              "shares, price per share, value (shares times price) and the shares the insider owned after the trade.</p>"
-            + _table(["Trade date", "Code", "Action", "Shares", "Price", "Value", "Owned after"], {3, 4, 5, 6}, {0, 1}, table)
+              "the action (a sale marked plan was made under a Rule 10b5-1 plan), shares, price per share, value (shares times price) and "
+              "the shares the insider owned after the trade.</p>"
+            + _table(["Trade date", "Code", "Action", "Shares", "Price", "Value", "Owned after"], {3, 4, 5, 6}, {0, 1, 2}, table)
             + f'<p{_NOTE}>BMG note: open-market purchases are trades insiders choose to make with their own money; sales are often '
             "pre-scheduled under Rule 10b5-1 plans or made to pay taxes on vesting shares, so a sale alone says little. Values are shares times "
             "the reported price. Codes are the SEC's transaction codes. Not investment advice.</p>")

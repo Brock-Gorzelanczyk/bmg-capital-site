@@ -1324,6 +1324,22 @@ _INS_SELLS = re.compile(r"^Open-market sales: (\d+) by (\d+) insiders?, " + _INS
 _INS_BIG = re.compile(r": open-market (buy|sale) of ([\d,]+) shares at (\$[\d,.]+) on (\d{4}-\d\d-\d\d)(?: \(10b5-1 plan\))?, "
                       + _INS_MONEY + r"\. Filing (\d{10}-\d\d-\d{6})\.$")
 _INS_SHARES = re.compile(r"^Open-market shares: ([\d,]+) bought, ([\d,]+) sold, net ([\d,]+)(?: (bought|sold))?\.$")
+# the sections added 2026-11-03 (ownership.form4_document): shares outstanding, the largest transactions that are not
+# open-market trades, the share of their holdings each seller sold, and several sales on one day
+_INS_OUT = re.compile(r"^Shares outstanding: ([\d,]+) as of (\d{4}-\d\d-\d\d) \(the cover of the ([^ ]+) filed (\d{4}-\d\d-\d\d), filing ([\d-]+)\)\. "
+                      r"Open-market shares sold are ([\d.]+)% of them; bought, ([\d.]+)%\.$")
+_INS_OTHER = re.compile(r"^(?P<who>.+?): (?P<act>[a-z][a-z ]+?), (?P<sh>[\d,]+) shares on (?P<d>\d{4}-\d\d-\d\d)"
+                        r"(?:; owned after: (?P<after>[\d,]+))?\. Filing (?P<acc>\d{10}-\d\d-\d{6})\.$")
+_INS_STAKE = re.compile(r"^(?P<who>.+?): sold (?P<sh>[\d,]+) shares and held (?P<held>[\d,]+) after the last sale on (?P<d>\d{4}-\d\d-\d\d): "
+                        r"the sales are (?P<pct>[\d.]+)% of the two together\.$")
+_INS_DAY = re.compile(r"^(?P<who>.+?): (?P<n>\d+) open-market sales on (?P<d>\d{4}-\d\d-\d\d), (?P<sh>[\d,]+) shares, (?P<v>\$[\d,.]+(?: million| billion)?)"
+                      r"(?:, (?P<plan>\d+) under a 10b5-1 plan)?\.$")
+_ROLE_TAIL = re.compile(r" \((.*)\)$")
+
+
+def _split_who(who: str) -> tuple:
+    m = _ROLE_TAIL.search(who)
+    return (who[:m.start()], m[1]) if m else (who, "")
 
 
 def _ins_num(s: str) -> float:
@@ -1339,7 +1355,8 @@ def insider_summary(doc, trades: list) -> dict:
     bought and sold, and the largest open-market trades (the document's own rows, each with its page)."""
     out = {"company": "", "ticker": "", "filings": None, "first": "", "last": "", "months": None,
            "buys": {"count": 0, "insiders": 0, "value": "$0", "shares": "0"}, "sells": {"count": 0, "insiders": 0, "value": "$0", "plan": 0, "shares": "0"},
-           "net": {"shares": "0", "side": ""}, "other": "", "largest": [], "pages": {}}
+           "net": {"shares": "0", "side": ""}, "other": "", "largest": [], "pages": {}, "notable": [], "stakes": [], "days": [], "shares_out": None,
+           "names": "sec"}
     listed = []                     # the document's own "Largest open-market trades", in its order (exact values)
     for off, cells in _rows(doc):
         line = " ".join(cells)
@@ -1366,6 +1383,22 @@ def insider_summary(doc, trades: list) -> dict:
             out["other"] = line[len("Other transactions: "):]
         elif m := _INS_BIG.search(line):
             listed.append((("P" if m[1] == "buy" else "S"), m[2], m[3], m[4], m[6]))
+        elif m := _INS_OUT.match(line):
+            out["shares_out"] = {"value": m[1], "end": m[2], "form": m[3], "filed": m[4], "accession": m[5], "sold_pct": float(m[6]),
+                                 "bought_pct": float(m[7]), **_loc(doc, off)}
+        elif m := _INS_STAKE.match(line):
+            name, role = _split_who(m["who"])
+            out["stakes"].append({"insider": name, "shares": m["sh"], "pct": float(m["pct"]), "held": m["held"], "date": m["d"], **_loc(doc, off)})
+        elif m := _INS_DAY.match(line):
+            name, role = _split_who(m["who"])
+            out["days"].append({"insider": name, "title": role, "count": int(m["n"]), "date": m["d"], "shares": m["sh"], "value": m["v"],
+                                "plan": int(m["plan"] or 0), **_loc(doc, off)})
+        elif (m := _INS_OTHER.match(line)) and not line.startswith("Open-market"):
+            name, role = _split_who(m["who"])
+            out["notable"].append({"insider": name, "title": role, "action": m["act"], "shares": m["sh"], "date": m["d"],
+                                   "owned_after": m["after"] or "", "accession": m["acc"], **_loc(doc, off)})
+        elif "a sale marked plan was made under a Rule 10b5-1 plan" in line:
+            out["names"] = "readable"          # this document writes insiders' names as they are said (Elon Musk), not SEC's MUSK ELON
     opens = [t for t in trades if t["code"] in ("P", "S")]
     if not out.pop("_shares_line", False):
         # a document made before it printed the shares line: the sum of its own rows (whole shares, as printed)
@@ -1383,7 +1416,7 @@ def insider_summary(doc, trades: list) -> dict:
         big = sorted([t for t in opens if _ins_num(t["shares"]) and _ins_num(t["price"])], key=lambda t: -_ins_num(t["shares"]) * _ins_num(t["price"]))
     big = big[:5]
     out["largest"] = [{k: t.get(k) for k in ("insider", "title", "code", "action", "date", "shares", "price", "value", "accession", "filed", "page", "offset")}
-                      | {"plan": "10b5-1" in (t.get("action") or "")} for t in big]
+                      | {"plan": "10b5-1" in (t.get("action") or "") or "(plan)" in (t.get("action") or "")} for t in big]
     return out
 
 

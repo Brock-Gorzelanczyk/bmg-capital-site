@@ -10,6 +10,7 @@ mean something. The reading is BMG's interpretation and says so; it is never a r
 or sell, and nothing here is a forecast of its own (an outlook is management's, quoted)."""
 from __future__ import annotations
 
+import math
 import re
 from datetime import date
 from typing import Optional
@@ -24,7 +25,7 @@ BASIS = ("BMG's reading of the figures in this document, each linked to its page
 # bottom line, the outlook, cash, the balance sheet, then the disclosures
 ORDER = {"flag_severe": 0, "growth": 1, "segments": 2, "below": 3, "per_share": 4, "guide": 5, "cash": 6, "invest": 7,
          "balance": 8, "roe": 9, "gains": 10, "maturity": 11, "flag": 12,
-         "ins_direction": 1, "ins_plans": 2, "ins_largest": 3, "ins_who": 4,
+         "ins_notable": 0, "ins_direction": 1, "ins_plans": 2, "ins_stake": 3, "ins_day": 4, "ins_largest": 5, "ins_who": 6,
          "fund_concentration": 1, "fund_added": 2, "fund_cut": 3, "fund_new": 4,
          "call_guide": 1, "call_focus": 2, "call_claim": 3, "call_cast": 4}
 
@@ -787,6 +788,17 @@ def financial(rep: dict, ins: dict) -> list:
 
 
 # ---------------------------------------------------------------------- insider trades (Form 4)
+def _small_pct(x) -> str:
+    """0.005, 0.00016: a small share of the company shown with enough decimals, never as 0.000."""
+    if not x or x >= 0.001:
+        return f"{x:.3f}"
+    return f"{x:.{-math.floor(math.log10(x)) + 1}f}"
+
+
+def _count(n: float) -> str:
+    return f"{n / 1e9:.2f} billion" if n >= 1e9 else f"{n / 1e6:.1f} million" if n >= 1e6 else f"{n:,.0f}"
+
+
 def _usd(s: str) -> float:
     m = re.search(r"\$?\s*([\d,]+(?:\.\d+)?)\s*(billion|million|thousand)?", s or "")
     return _num(m.group(1), m.group(2)) if m else 0.0
@@ -800,13 +812,19 @@ def insider(ins: dict) -> list:
     nb, ns = int(buys.get("count") or 0), int(sells.get("count") or 0)
     span = f"{_day(s.get('first'))} to {_day(s.get('last'))}" if s.get("first") else f"the last {s.get('months') or 12} months"
     largest = s.get("largest") or []
+    nm = (lambda x: x or "") if s.get("names") == "readable" else person
     out = []
     lq = [_quote(x, f"{x.get('insider')} {x.get('action')} {x.get('shares')} at {x.get('price')}") for x in largest[:1]]
+    so = s.get("shares_out") or {}
+    ctx = (f" Those shares are {_small_pct(so['sold_pct'])}% of the {so['value']} shares outstanding ({_day(so.get('end'))})." if so.get("value") and ns else "")
+    tiny = " Next to the whole company, the selling is tiny." if so.get("value") and ns and so["sold_pct"] < 0.1 else ""
+    if so.get("page"):
+        lq.append(_quote(so, f"Shares outstanding: {so['value']}"))
     if ns and not nb:
         out.append(_item("ins_direction", f"Insiders sold {sells.get('value')} and bought nothing in the open market",
-                         f"{ns} open-market sales by {sells.get('insiders')} insiders ({sells.get('shares')} shares), {span}; no open-market purchases.",
+                         f"{ns} open-market sales by {sells.get('insiders')} insiders ({sells.get('shares')} shares), {span}; no open-market purchases." + ctx,
                          "Insider selling is common and often routine (pay, taxes, diversifying), so on its own it says little. "
-                         "Buying with their own money is the stronger signal, and there was none in this period.",
+                         "Buying with their own money is the stronger signal, and there was none in this period." + tiny,
                          "Any open-market purchase: it would be the first in this period.", [], lq, tone="=",
                          short=f"{sells.get('value')} sold, nothing bought", score=90))
     elif nb and not ns:
@@ -845,12 +863,72 @@ def insider(ins: dict) -> list:
     pick = next((x for x in largest if x.get("code") == "P"), None) or next((x for x in largest if x.get("code") == "S" and not x.get("plan")), None)
     if pick:
         buy = pick.get("code") == "P"
-        out.append(_item("ins_largest", f"{'Largest purchase' if buy else 'Largest sale outside a plan'}: {person(pick.get('insider'))} ({pick.get('title') or 'insider'}), {pick.get('value')}",
+        out.append(_item("ins_largest", f"{'Largest purchase' if buy else 'Largest sale outside a plan'}: {nm(pick.get('insider'))} ({pick.get('title') or 'insider'}), {pick.get('value')}",
                          f"{pick.get('action')} of {pick.get('shares')} shares at {pick.get('price')} on {_day(pick.get('date'))} (filed {_day(pick.get('filed'))}).",
                          ("An insider buying in size with personal money is the clearest signal a Form 4 can give." if buy else
                           "A discretionary sale by someone with an inside view; one sale is not a pattern, but repeated ones by the same person are worth watching."),
                          "", [], [_quote(pick, f"{pick.get('insider')} {pick.get('action')} {pick.get('shares')}")], tone="+" if buy else "=",
-                         short=f"largest {'buy' if buy else 'discretionary sale'} by {person(pick.get('insider'))}", score=66))
+                         short=f"largest {'buy' if buy else 'discretionary sale'} by {nm(pick.get('insider'))}", score=66))
+    # the largest share movement that is not a trade (a grant, shares returned to the company, a gift, an exercise)
+    sold_sh = _usd(sells.get("shares") or "0")
+    nt = s.get("notable") or []
+    if nt:
+        top = max(nt, key=lambda x: _usd(x.get("shares")))
+        sh = _usd(top.get("shares"))
+        act = top.get("action") or ""
+        verb = {"grant or award": "received a grant of", "returned to the company": "returned to the company", "gift": "gave as a gift",
+                "exercise or conversion": "exercised or converted", "option exercise": "exercised options for", "shares withheld for tax": "had withheld for tax"}.get(act, act)
+        lines = "; ".join(f"{nm(x.get('insider'))}: {x.get('action')}, {x.get('shares')} shares on {_day(x.get('date'))}"
+                          + (f", owned after {x.get('owned_after')}" if x.get("owned_after") else "") for x in nt[:3])
+        kinds = {x.get("action") for x in nt[:3]}
+        why = []
+        if "grant or award" in kinds:
+            why.append("A grant is pay in shares, not a decision to buy.")
+        if "returned to the company" in kinds:
+            why.append("Shares returned to the company are not an open-market sale: usually a cancelled or forfeited award, or a sale back "
+                       "to the company; the filing's footnotes say which.")
+        if "gift" in kinds:
+            why.append("A gift moves shares without a sale.")
+        if kinds & {"exercise or conversion", "option exercise"}:
+            why.append("An exercise turns an award into shares; a sale that follows is the trade to watch.")
+        if kinds & {"shares withheld for tax"}:
+            why.append("Shares withheld for tax pay the tax on vesting shares; no decision to sell.")
+        out.append(_item("ins_notable", f"The biggest share movement was not a trade: {nm(top.get('insider'))} {verb} {_count(sh)} shares",
+                         lines + ".", " ".join(why) or "Not an open-market trade.", "The filing's footnotes, for what each of these transactions was.",
+                         [], [_quote(x, f"{x.get('insider')} {x.get('action')} {x.get('shares')}") for x in nt[:2]], tone="=",
+                         short=f"{nm(top.get('insider'))} {verb} {_count(sh)} shares", score=93 if sh > max(sold_sh, 1) else 58))
+    # how much of their own holding the biggest sellers sold
+    st = s.get("stakes") or []
+    if st:
+        days, many = {}, {}
+        for d in s.get("days") or []:                     # the largest day of each seller (the document lists them largest first)
+            days.setdefault(d.get("insider"), d)
+            many[d.get("insider")] = many.get(d.get("insider"), 0) + 1
+        lines = "; ".join(f"{nm(x['insider'])} sold {x['shares']} shares and still held {x['held']} ({x['pct']:.1f}% sold)"
+                          + (f" ({days[x['insider']]['count']} sales on {_day(days[x['insider']]['date'])})" if many.get(x["insider"]) == 1 else "") for x in st[:3])
+        hi = max(st[:3], key=lambda x: x["pct"])
+        if hi["pct"] >= 50:
+            means = f"{nm(hi['insider'])} sold most of their holding: a far bigger step than trimming."
+        elif hi["pct"] >= 15:
+            means = "A meaningful slice of their holdings, though they kept most of their shares."
+        else:
+            means = "Each seller kept the large majority of their shares: selling a small slice of a big holding is common."
+        ps = ["%.0f%%" % x["pct"] for x in st[:3]]
+        pcts = ps[0] if len(ps) == 1 else ", ".join(ps[:-1]) + " and " + ps[-1]
+        out.append(_item("ins_stake", f"The biggest sellers sold {pcts} of their holdings",
+                         lines + ". Each share is of the shares sold plus those still held after the last sale; shares from options exercised in the "
+                         "period count as sold when they were sold.", means, "Whether the same people keep selling, and how much of their holding is left.",
+                         [], [_quote(x, f"{x['insider']} sold {x['shares']} shares") for x in st[:2]], tone="=",
+                         short=f"sellers kept most of their shares" if hi["pct"] < 15 else f"{nm(hi['insider'])} sold {hi['pct']:.0f}% of holdings", score=80))
+    # several sales on one day: one decision
+    dy = s.get("days") or []
+    if dy:
+        d0 = max(dy, key=lambda x: _usd(x.get("value")))
+        out.append(_item("ins_day", f"{nm(d0['insider'])}: {d0['count']} sales on one day, {d0['value']}",
+                         f"{d0['count']} open-market sales on {_day(d0['date'])}, {d0['shares']} shares, {d0['value']}"
+                         + (f"; {d0['plan']} under a 10b5-1 plan." if d0.get("plan") else "."),
+                         "Many sales on one day are usually one order filled in pieces, often by a broker under a 10b5-1 plan: read them as one decision.",
+                         "", [], [_quote(d0, f"{d0['insider']} {d0['count']} open-market sales")], tone="=", short="", score=62))
     # how concentrated the selling is
     per = {}
     for t in ins.get("trades") or []:
@@ -860,10 +938,10 @@ def insider(ins: dict) -> list:
     if tot > 0 and len(per) >= 2:
         name, v = max(per.items(), key=lambda kv: kv[1])
         if v / tot >= 0.6:
-            out.append(_item("ins_who", f"{person(name)} accounts for {v / tot * 100:.0f}% of the selling",
+            out.append(_item("ins_who", f"{nm(name)} accounts for {v / tot * 100:.0f}% of the selling",
                              f"{_money(v)} of the {_money(tot)} sold in the document's sales rows.",
                              "The selling is mostly one person's; it reflects that person's situation more than a broad view inside the company.",
-                             "", [], [], tone="=", short=f"selling mostly by {person(name)}", score=60))
+                             "", [], [], tone="=", short=f"selling mostly by {nm(name)}", score=60))
     return out
 
 
@@ -1034,7 +1112,7 @@ def headline(lead: str, items: list) -> str:
     second = next((x for x in shorts[1:] if x["_score"] >= 60), None)
     if second:
         opposite = {first["tone"], second["tone"]} == {"+", "-"}
-        joiner = ", but " if opposite and " but " not in text else ("; " if " and " in text or "," in text or " but " in text else " and ")
+        joiner = ", but " if opposite and " but " not in text else ("; " if " and " in text or "," in text or " but " in text or "," in second["_short"] else " and ")
         text += joiner + second["_short"]
     return f"{lead}: {text}."
 

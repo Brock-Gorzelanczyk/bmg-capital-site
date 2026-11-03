@@ -2557,7 +2557,27 @@ async def edgar_insiders(ticker: str = Query(..., max_length=12), months: int = 
     if not filings:
         return JSONResponse(status_code=404, content={"error": f"{sub.get('name') or t} has no Form 4 filings in the last {months} months."})
     company = sub.get("name") or row.get("title") or t
-    return _html_doc(_own.form4_document(company, t, cik, filings, months), f"{t} Form 4 insider trades {filings[-1]['filed']} to {filings[0]['filed']}.htm")
+    shares_out = await _shares_outstanding(cik, client)
+    return _html_doc(_own.form4_document(company, t, cik, filings, months, shares_out), f"{t} Form 4 insider trades {filings[-1]['filed']} to {filings[0]['filed']}.htm")
+
+
+async def _shares_outstanding(cik: int, client) -> Optional[dict]:
+    """The shares outstanding on the cover of the company's latest 10-K or 10-Q (SEC's dei:EntityCommonStockSharesOutstanding),
+    for the insider-trades document's context line: {value, end, form, filed, accession}. None when SEC has none, or
+    when the cover lists several classes (their shares are never added together)."""
+    try:
+        j = await _sec_fetch_json(f"https://data.sec.gov/api/xbrl/companyconcept/CIK{cik:010d}/dei/EntityCommonStockSharesOutstanding.json",
+                                  TTL_SUBMISSIONS, client) or {}
+    except Exception:
+        return None
+    rows = [r for r in ((j.get("units") or {}).get("shares") or []) if r.get("form") in ("10-K", "10-Q", "10-K/A", "10-Q/A") and r.get("val")]
+    if not rows:
+        return None
+    last = max(rows, key=lambda r: (r.get("filed") or "", r.get("end") or ""))
+    same = [r for r in rows if r.get("accn") == last.get("accn")]
+    if len({r.get("val") for r in same}) > 1:
+        return None
+    return {"value": float(last["val"]), "end": last.get("end"), "form": last.get("form"), "filed": last.get("filed"), "accession": last.get("accn")}
 
 
 @app.get("/api/edgar/funds")

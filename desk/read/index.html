@@ -451,7 +451,7 @@ body.recmode.rec-social .read-side{padding:.8vh 11.6vw 0 6.4vw!important}
 body.recmode.rec-social .htmldoc{border-width:0 4.6vw 0 0}
 body.vis-live #read-live{visibility:hidden}body.vis-live .read-side{position:relative}#vis-live{position:absolute;inset:0;overflow:hidden;z-index:3}
 body.recmode.rec-social #vis-live{top:.8vh;left:6.4vw;right:11.6vw;bottom:0}
-body.rec-social .lr-ins li q{-webkit-line-clamp:2}body.rec-social .lr-ins li .go{display:none}body.rec-social .lr-sum{display:none}
+body.rec-social .lr-ins li q{-webkit-line-clamp:2}body.rec-social .lr-ins li .go{display:none}body.rec-social .lr-sum{display:none}body.rec-social .lr-tally{font-size:2.6vw;padding:1.2vw 1.6vw}
 body.rec-social .lr-ins li.incoming{visibility:hidden}
 body.rec-social .lr-ins li.feat,body.rec-social tr.feat td{background:color-mix(in srgb,var(--crawler-main,#6ff4ff) 16%,#fff)}body.rec-social .lr-ins li.feat{box-shadow:inset .9vw 0 0 var(--crawler-main,#6ff4ff)}body.rec-social tr.feat td:first-child{box-shadow:inset .9vw 0 0 var(--crawler-main,#6ff4ff)}
 body.rec-social #read-live .lr-obs{display:none;padding-bottom:0}body.rec-social #read-live .lr-obs.has{display:block}
@@ -506,7 +506,7 @@ body.recmode.rec-brand-mini #num-cards{top:15vh}body.recmode.rec-brand-intro #nu
 .rk-tile span{display:block;font-size:12px;color:#8fa0b3}.rk-tile b{display:block;font-size:24px}.rk-tile em{font-style:normal;font-weight:700}.rk-tile em.up{color:#2fdc74}.rk-tile em.down{color:#ff4d6d}
 .rk-tile small{display:block;color:#6b7a8c;font:11px 'IBM Plex Mono',monospace;margin-top:2px}
 .rk-mini li{border-left:3px solid var(--c);padding:4px 10px;margin:0 0 6px;font-size:14px}.rk-mini small{color:#8fa0b3;font-family:'IBM Plex Mono',monospace}
-.rk-foot{margin:12px 0 0;color:#6b7a8c;font-size:12px}
+.rk-foot{margin:12px 0 0;color:#6b7a8c;font-size:12px}.rk-lead{margin:0 0 12px;font-size:17px;font-weight:600;line-height:1.3}.rk-lead small{display:block;margin-top:2px;color:#8fa0b3;font-size:13px;font-weight:400}
 #rec-final{position:absolute;left:16px;right:16px;bottom:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 #rec-final a,#rec-final button{font:600 14px 'IBM Plex Sans',sans-serif;border-radius:9px;padding:10px 14px;cursor:pointer;text-decoration:none;border:1px solid #3a4656;background:#0c121a;color:#e8edf2}
 #rec-final .rf-dl{background:#2fdc74;color:#04130a;border:0}#rec-final span{color:#8fa0b3;font-size:13px;width:100%;text-align:center}
@@ -920,7 +920,7 @@ body.readerfx.rec-dark .stage .strip{background:#fff}
 .lr-ins li b{font-size:12.5px}
 .dir{display:inline-block;font:700 9px 'IBM Plex Mono',monospace;text-transform:uppercase;border-radius:3px;padding:0 4px;margin-right:4px;background:#eef0ec;color:#5d6862;vertical-align:1px}
 .dir.raised{background:#e3f6ea;color:#0f7d47}.dir.lowered{background:#fde8e8;color:#b42318}.dir.reaffirmed,.dir.unchanged{background:#e7efff;color:#1f5fd6}.dir.updated,.dir.narrowed{background:#fff1e0;color:#a35d00}
-.lr-sum{margin:2px 0 6px;color:#3a3a3a;font-size:12px}
+.lr-sum{margin:2px 0 6px;color:#3a3a3a;font-size:12px}.lr-tally{margin:2px 0 6px;padding:6px 8px;border-radius:6px;background:#f6f6f2;font-size:12px;color:#2a2a2a}.lr-tally[hidden]{display:none}.lr-tally b{font-variant-numeric:tabular-nums}.lr-tally .dn{color:#b3261e}.lr-tally .up{color:#1b7f3b}.lr-tally ol{margin:3px 0 0;padding:0 0 0 16px}.lr-tally li{margin:1px 0}
 body.rec #pane-flags{display:none!important}
 
 /* ---- Number cards: a big, sourced figure when the spider zaps one ---- */
@@ -6816,30 +6816,50 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // open-market trades, then one page with what insiders bought and sold, every value as the document prints it
     // (its summary, summed from the Form 4 XML, and its own rows). Says what happened, never what to do.
     function insiderEnding(S, co){
+      // dates as they are said (Dec 9, 2025), names as the document writes them (since 2026-11-03: Kimbal Musk, not MUSK KIMBAL)
+      const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const day = d => { const m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(d || ""); return m ? `${MON[+m[2] - 1]} ${+m[3]}, ${m[1]}` : String(d || ""); };
+      const num = v => +String(v || "").replace(/[^\d.]/g, "") || 0;
       const who = t => esc(t.insider || "") + (t.title ? ` <small>(${esc(String(t.title).slice(0, 40))})</small>` : "");
       const side = t => t.code === "P" ? "buy" : "sell";
       const kind = t => (t.code === "P" ? "Purchase" : "Sale") + (t.plan ? " · 10b5-1 plan" : "");
-      const big = (S.largest || []).slice(0, 4), name = S.company || co.name || "", tk = S.ticker || co.ticker || co.ticker_hint || "";
-      const net = S.net, b = S.buys || {}, s = S.sells || {}, top = big[0];
+      const name = S.company || co.name || "", tk = S.ticker || co.ticker || co.ticker_hint || "";
+      const net = S.net, b = S.buys || {}, s = S.sells || {}, so = S.shares_out;
+      // the largest share movement that is not a trade (a grant, shares returned to the company), when it is bigger than
+      // every open-market sale together: it leads (Tesla, 2025-11: a grant of 423.7 million shares to Elon Musk)
+      const nt = (S.notable || []).slice().sort((x, y) => num(y.shares) - num(x.shares))[0];
+      const lead = nt && num(nt.shares) > num(s.shares) ? nt : null;
+      const big = (S.largest || []).slice(0, lead ? 3 : 4), top = (S.largest || [])[0];
       const sh = x => x.shares == null ? "shares by class" : `${esc(x.shares)} shares`;      // several classes: never added together
       const many = (n, one, more) => `${n} ${n === 1 ? one : more}`;
-      const span = S.first && S.last ? `${S.first} to ${S.last}` : "";
+      const span = S.first && S.last ? `${day(S.first)} to ${day(S.last)}` : "";
+      const cap = x => String(x || "").replace(/^./, c => c.toUpperCase());
+      const leadLi = lead ? `<li class="s-observation"><span class="sev s-observation">${esc(cap(lead.action))}</span><b>${who(lead)}</b>${esc(lead.shares)} shares, not an open-market trade<small>${esc(day(lead.date))} &middot; Form 4 ${esc(lead.accession || "")}</small></li>` : "";
+      // who sold how much of their holding, and several sales on one day as one line; a document from before
+      // 2026-11-03 has neither, so its largest trades are listed as before
+      const daysOf = {}; (S.days || []).forEach(d => { (daysOf[d.insider] = daysOf[d.insider] || []).push(d); });
+      const stakeLi = x => { const ds = daysOf[x.insider] || [];
+        return `<li class="s-sell"><b>${esc(x.insider)}</b> sold ${esc(x.shares)} shares, ${esc(String(x.pct))}% of holdings${ds.length === 1 ? ` <small>${esc(String(ds[0].count))} sales on ${esc(day(ds[0].date))}</small>` : ""}</li>`; };
+      const mini = (S.stakes || []).length ? (S.stakes || []).slice(0, 3).map(stakeLi).join("")
+        : big.slice(1, 4).map(t => `<li class="s-${side(t)}"><b>${esc(t.insider)}</b> ${t.code === "P" ? "bought" : "sold"} ${esc(t.shares)} shares, ${esc(t.value)} <small>${esc(day(t.date))}</small></li>`).join("");
       return `<div class="rk-phase rk-keys"><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span></div>
           <h3>Largest insider trades &middot; ${esc(name)}</h3>
-          <ol>${big.map(t => `<li class="s-${side(t)}"><span class="sev s-${side(t)}">${esc(kind(t))}</span><b>${who(t)}</b>${esc(t.shares)} shares at ${esc(t.price)}, <b class="rk-amt">${esc(t.value)}</b><small>${esc(t.date)} &middot; Form 4 ${esc(t.accession)}</small></li>`).join("")
-            || `<li class="s-observation"><b>${(b.count || 0) + (s.count || 0) ? "No open-market trade in these filings reports a price" : "No open-market buys or sales in these filings"}</b><small>${esc(S.other || "")}</small></li>`}</ol></div>
+          <ol>${leadLi}${big.map(t => `<li class="s-${side(t)}"><span class="sev s-${side(t)}">${esc(kind(t))}</span><b>${who(t)}</b>${esc(t.shares)} shares at ${esc(t.price)}, <b class="rk-amt">${esc(t.value)}</b><small>${esc(day(t.date))} &middot; Form 4 ${esc(t.accession)}</small></li>`).join("")
+            || (leadLi ? "" : `<li class="s-observation"><b>${(b.count || 0) + (s.count || 0) ? "No open-market trade in these filings reports a price" : "No open-market buys or sales in these filings"}</b><small>${esc(S.other || "")}</small></li>`)}</ol></div>
         <div class="rk-phase rk-one" hidden><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span><em>Insider trades</em></div>
           <h2>${esc(name)} <span>${esc(tk)}</span></h2>
           <p class="rk-sub">${esc(["Form 4 filings", S.filings >= 60 ? `the latest ${S.filings}` : S.months ? `last ${S.months} months` : "", span].filter(Boolean).join(" · "))}</p>
+          ${s.count ? `<p class="rk-lead">${esc(String(s.plan || 0))} of ${esc(many(s.count, "sale", "sales"))} ${s.plan === 1 ? "was" : "were"} scheduled in advance under 10b5-1 plans${!b.count ? "; no insider bought" : ""}${so ? `<small>The shares sold are ${esc(+so.sold_pct >= 0.001 || !+so.sold_pct ? Number(so.sold_pct).toFixed(3) : String(Number(Number(so.sold_pct).toPrecision(2))))}% of the company's ${esc(so.value)} shares</small>` : ""}</p>` : ""}
           <div class="rk-tiles">
             <div class="rk-tile"><span>Insiders bought</span><b>${esc(b.value || "$0")}</b><em class="up">${sh(b)}</em><small>${esc(many(b.count || 0, "buy", "buys"))} &middot; ${esc(many(b.insiders || 0, "insider", "insiders"))}</small></div>
-            <div class="rk-tile"><span>Insiders sold</span><b>${esc(s.value || "$0")}</b><em class="down">${sh(s)}</em><small>${esc(many(s.count || 0, "sale", "sales"))}${s.count ? ` &middot; ${esc(String(s.plan || 0))} marked 10b5-1 plan` : ""}</small></div>
-            ${net ? `<div class="rk-tile"><span>Net shares, open market</span><b>${esc(net.shares || "0")}</b><em class="${net.side === "bought" ? "up" : net.side === "sold" ? "down" : ""}">${net.side ? "net " + esc(net.side) : "even"}</em><small>bought minus sold</small></div>`
+            <div class="rk-tile"><span>Insiders sold</span><b>${esc(s.value || "$0")}</b><em class="down">${sh(s)}</em><small>${esc(many(s.count || 0, "sale", "sales"))} &middot; ${esc(many(s.insiders || 0, "insider", "insiders"))}</small></div>
+            ${lead ? `<div class="rk-tile"><span>Largest share movement</span><b>${esc(lead.shares)}</b><em>${esc(cap(lead.action))}</em><small>${esc(lead.insider)} &middot; ${esc(day(lead.date))} &middot; not a trade</small></div>`
+              : net ? `<div class="rk-tile"><span>Net shares, open market</span><b>${esc(net.shares || "0")}</b><em class="${net.side === "bought" ? "up" : net.side === "sold" ? "down" : ""}">${net.side ? "net " + esc(net.side) : "even"}</em><small>bought minus sold</small></div>`
               : `<div class="rk-tile"><span>Shares, open market</span><b>By class</b><small>${esc(S.classes || "")}</small></div>`}
-            ${top ? `<div class="rk-tile"><span>Largest trade</span><b>${esc(top.value)}</b><em class="${top.code === "P" ? "up" : "down"}">${top.code === "P" ? "Purchase" : "Sale"}</em><small>${esc(top.insider)} &middot; ${esc(top.date)}</small></div>` : ""}
+            ${top ? `<div class="rk-tile"><span>Largest trade</span><b>${esc(top.value)}</b><em class="${top.code === "P" ? "up" : "down"}">${top.code === "P" ? "Purchase" : "Sale"}${top.plan ? " · plan" : ""}</em><small>${esc(top.insider)} &middot; ${esc(day(top.date))}</small></div>` : ""}
           </div>
-          <ul class="rk-mini">${big.slice(1, 4).map(t => `<li class="s-${side(t)}"><b>${esc(t.insider)}</b> ${t.code === "P" ? "bought" : "sold"} ${esc(t.shares)} shares, ${esc(t.value)} <small>${esc(t.date)}</small></li>`).join("")}</ul>
-          <p class="rk-foot">${S.filings ? esc(many(S.filings, "Form 4 filing", "Form 4 filings")) + " &middot; " : ""}sales are often planned in advance (Rule 10b5-1) or pay tax on vesting shares &middot; not investment advice</p></div>`;
+          <ul class="rk-mini">${mini}</ul>
+          <p class="rk-foot">${S.filings ? esc(many(S.filings, "Form 4 filing", "Form 4 filings")) + " &middot; " : ""}a sale under a 10b5-1 plan was scheduled in advance; grants and exercises are pay, not trades &middot; not investment advice</p></div>`;
     }
     function finalControls(end, blob, stopped){
       recPhase("done");
@@ -9786,8 +9806,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (ins.kind === "insider"){
       const t = ins.trades || [], buys = t.filter(x => x.code === "P"), sells = t.filter(x => x.code === "S");
       const sum = `${t.length} transactions: ${buys.length} open-market buy${buys.length === 1 ? "" : "s"}, ${sells.length} open-market sale${sells.length === 1 ? "" : "s"}; the rest are grants, tax withholding, exercises and gifts. The summary at the top of the document gives the totals.`;
-      parts.push(insSection("trades", "Open-market trades", "buys and sales, as filed", buys.concat(sells).slice(0, 40).map(x => insLi({...x, kind: "trade", raw: null, text: tradeCells(x), who: x.insider},
-        `<b>${esc(x.action)}</b> <q>${esc(x.shares)} shares${x.price && x.price !== "n/a" ? " at " + esc(x.price) : ""}${x.value && x.value !== "n/a" ? ", " + esc(x.value) : ""} on ${esc(x.date)}</q>`)), sum));
+      const usd = v => dollars(v);
+      const byValue = buys.concat(sells).map((x, k) => [x, k]).sort((a, b) => usd(b[0].value) - usd(a[0].value) || a[1] - b[1]).map(a => a[0]);
+      parts.push(insSection("trades", "Open-market trades", "buys and sales, largest first", byValue.slice(0, 40).map(x => insLi({...x, kind: "trade", raw: null, text: tradeCells(x), who: x.insider},
+        `<b>${esc(x.action)}</b> <q>${esc(x.shares)} shares${x.price && x.price !== "n/a" ? " at " + esc(x.price) : ""}${x.value && x.value !== "n/a" ? ", " + esc(x.value) : ""} on ${esc(isoDay(x.date))}</q>`)), sum));
     }
     if (ins.kind === "holdings"){
       const hs = ins.holdings || [];
@@ -9796,14 +9818,36 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     }
     const html = parts.filter(Boolean).join("");
     if (!html) return;
+    tally = {sold: 0, bought: 0, ns: 0, nb: 0, top: []};
     const obs = liveEl.querySelector(".lr-obs"), foot = document.getElementById("lr-foot");
     (obs || foot) ? (obs || foot).insertAdjacentHTML(obs ? "afterend" : "beforebegin", html) : liveEl.insertAdjacentHTML("beforeend", html);
     liveProgress();                                   // its count names these sections from the start ("0 of 40 trades")
+    const ol = document.getElementById("lr-trades");
+    if (ol) ol.insertAdjacentHTML("beforebegin", `<div class="lr-tally" id="lr-tally" hidden></div>`);
+  }
+  // the running total of the open-market trades shown so far, with the three largest of them, so the panel says
+  // what the trades add up to while the spider reads them (since 2026-11-03)
+  let tally = null;
+  // a value as the document prints it ("$9,600", "$25.61 million", "$1.2 billion") in dollars
+  const dollars = v => { const m = /([\d,.]+)\s*(thousand|million|billion|K|M|B)?/i.exec(String(v || "")); if (!m) return 0;
+    const n = +m[1].replace(/,/g, "") || 0, u = (m[2] || "").toLowerCase(); return n * (u[0] === "b" ? 1e9 : u[0] === "m" ? 1e6 : u[0] === "t" || u === "k" ? 1e3 : 1); };
+  const isoDay = d => { const m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(d || ""); return m ? `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][+m[2] - 1]} ${+m[3]}, ${m[1]}` : String(d || ""); };
+  const fmtUsd = v => v >= 1e9 ? "$" + (v / 1e9).toFixed(2) + "B" : v >= 1e6 ? "$" + (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? "$" + Math.round(v / 1e3) + "K" : "$" + Math.round(v);
+  function tallyAdd(x){
+    const el = document.getElementById("lr-tally");
+    if (!el || !tally || !x || x.kind !== "trade") return;
+    const v = dollars(x.value), buy = x.code === "P";
+    if (buy){ tally.bought += v; tally.nb++; } else { tally.sold += v; tally.ns++; }
+    if (v){ tally.top.push({who: x.insider || "", v, buy, date: x.date || ""}); tally.top.sort((a, b) => b.v - a.v); tally.top = tally.top.slice(0, 3); }
+    el.hidden = false;
+    el.innerHTML = `So far: sold <b class="dn">${fmtUsd(tally.sold)}</b> (${tally.ns} sale${tally.ns === 1 ? "" : "s"}) · bought <b class="up">${fmtUsd(tally.bought)}</b> (${tally.nb} buy${tally.nb === 1 ? "" : "s"})`
+      + (tally.top.length ? `<ol>${tally.top.map(t => `<li>${esc(t.who)}: <b class="${t.buy ? "up" : "dn"}">${t.buy ? "bought" : "sold"} ${fmtUsd(t.v)}</b></li>`).join("")}</ol>` : "");
   }
   function revealIns(i, quiet){
     const li = liveEl && liveEl.querySelector(`.lr-ins li[data-x="${i}"]`);
     if (!li || !(li.classList.contains("pending") || li.classList.contains("incoming"))) return;
     li.classList.remove("pending", "incoming");
+    tallyAdd(insItems[i]);
     liveProgress();                                   // the report's count includes it now
     if (!quiet){ li.classList.add("arrived"); setTimeout(() => li.classList.remove("arrived"), 500); liveFollow(li); }
     else li.querySelector("small").insertAdjacentText("beforeend", " · full read");
