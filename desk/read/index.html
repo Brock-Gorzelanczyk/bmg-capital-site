@@ -476,7 +476,7 @@ body.recmode .lr-c.flash{animation:reccell 1.3s ease}@keyframes reccell{0%{backg
 #rec-end h3{margin:0 0 14px;font:600 13px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#6ff4ff}
 #rec-end ol,#rec-end ul{list-style:none;margin:0;padding:0}
 .rk-keys li{border-left:4px solid var(--c,#6ff4ff);background:rgba(255,255,255,.05);border-radius:0 10px 10px 0;padding:10px 12px;margin:0 0 10px;opacity:0;transform:translateX(-30px);transition:opacity .45s,transform .55s cubic-bezier(.2,1.4,.4,1)}
-.rk-keys li.in{opacity:1;transform:none}.rk-keys li b small{font-size:13px;font-weight:400;color:#8fa0b3}.rk-keys li b.rk-amt{display:inline;font-size:inherit;color:var(--c)}.rk-keys li.s-buy>small,.rk-keys li.s-sell>small{display:block;margin-top:2px}.rk-keys li b{display:block;font-size:18px;margin-top:3px}.rk-keys li small{color:#8fa0b3;font-family:'IBM Plex Mono',monospace}
+.rk-keys li.in{opacity:1;transform:none}.rk-keys li b small{font-size:13px;font-weight:400;color:#8fa0b3}.rk-keys li b.rk-amt{display:inline;font-size:inherit;color:var(--c)}.rk-keys li.s-buy>small,.rk-keys li.s-sell>small,.rk-keys li.s-observation>small{display:block;margin-top:2px}.rk-keys li b{display:block;font-size:18px;margin-top:3px}.rk-keys li small{color:#8fa0b3;font-family:'IBM Plex Mono',monospace}
 #rec-end .s-watch{--c:#ffb020}#rec-end .s-flag{--c:#ff4d6d}#rec-end .s-observation{--c:#6ff4ff}#rec-end .s-sell{--c:#ff4d6d}#rec-end .s-buy{--c:#2fdc74}
 /* company branding (Make a clip, optional): the logo and the hook over the take's opening, then a small logo at the top
    center; on the final report, the logo beside "BMG Capital". Placed once in px from the window's size, moved only by
@@ -9822,8 +9822,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const obs = liveEl.querySelector(".lr-obs"), foot = document.getElementById("lr-foot");
     (obs || foot) ? (obs || foot).insertAdjacentHTML(obs ? "afterend" : "beforebegin", html) : liveEl.insertAdjacentHTML("beforeend", html);
     liveProgress();                                   // its count names these sections from the start ("0 of 40 trades")
-    const ol = document.getElementById("lr-trades");
-    if (ol) ol.insertAdjacentHTML("beforebegin", `<div class="lr-tally" id="lr-tally" hidden></div>`);
+    // in the panel's top block, which stays on screen in Record mode while the trades scroll under it
+    const top = liveEl.querySelector(".lr-top"), ol = document.getElementById("lr-trades"), old = document.getElementById("lr-tally");
+    if (old) old.remove();
+    if (ol) (top || ol).insertAdjacentHTML(top ? "beforeend" : "beforebegin", `<div class="lr-tally" id="lr-tally" hidden></div>`);
   }
   // the running total of the open-market trades shown so far, with the three largest of them, so the panel says
   // what the trades add up to while the spider reads them (since 2026-11-03)
