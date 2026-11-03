@@ -612,6 +612,7 @@ body.rp-open{overflow:hidden}
 .cmp-pick span,.rp-compare .cmp-open{display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:8px;border:1px dashed #0f7d47;color:#0f7d47;font-weight:600;cursor:pointer;background:#fff;font-size:13.5px}.rp-compare.busy .cmp-pick span{opacity:.5;pointer-events:none}.cmp-status{font-size:12.5px;color:#4a4a4a}
 .rp-sigs{list-style:none;padding:0}.rp-sigs li{border-left:4px solid var(--c,#3e7bfa);padding:6px 10px;margin:0 0 10px;background:#fbfbf9}.rp-sigs li.s-flag{--c:#e5484d}.rp-sigs li.s-watch{--c:#e8920c}
 .rp-sigs li p{margin:3px 0;font-size:13.5px}.rp-sigs li small{color:#6b6f76;font-size:11.5px}.rp-sigs li b{margin-left:6px}
+.rp-take{margin:0 0 26px;padding:16px 20px 6px;border:1px solid #e3e3dc;border-left:4px solid #0f7d47;border-radius:10px;background:#fbfbf9}.rp-take h2{margin:0 0 6px}.rp-take-head{font-size:17px;font-weight:600;line-height:1.4;margin:0 0 14px}.rp-take ol{margin:0 0 6px;padding:0 0 0 22px}.rp-take li{margin:0 0 14px;padding-left:2px}.rp-take li>b{font-size:14.5px}.rp-take li p{margin:3px 0;font-size:13.5px}.rp-take li.t-up::marker{color:#0f7d47}.rp-take li.t-down::marker{color:#b42318}.rp-means span,.rp-watch span{font:600 10px 'IBM Plex Mono',monospace;color:#0f7d47;text-transform:uppercase;margin-right:6px}.rp-watch{color:#3a3a3a}.rp-watch span{color:#6b6f76}
 .cmp h1 .vs{font:600 16px 'IBM Plex Mono',monospace;color:#6b6f76}.cmp-sum{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0 18px}.cmp-sum div{border:1px solid #e3e3dc;border-radius:10px;padding:10px 12px}.cmp-sum h3{margin:0 0 4px!important}.cmp-sum p{margin:0;font-size:13.5px}
 .cmp-t td small{display:block;font-size:10.5px;color:#8a9099;font-family:'IBM Plex Sans',sans-serif}.cmp-t tr.cg td{font:600 11px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.06em;color:#0f7d47;border-bottom:1px solid #141414;padding-top:14px}
 .cmp-t td.lead{font-weight:700;color:#0f7d47}.cmp-t td.who b{color:#0f7d47}.cbar{display:block;height:5px;background:#eef0ec;border-radius:3px;margin:4px 0 0 auto;width:90px}.cbar i{display:block;height:100%;background:#9aa0a8;border-radius:3px;margin-left:auto}.cbar.lead i{background:#2fdc74}
@@ -8796,6 +8797,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       ${docOnly ? "" : `<p class="rp-cov">Coverage: <b>${esc(rep.coverage.status)}</b> &middot; ${rep.coverage.facts_published} headline figures &middot; ${rep.coverage.checks_run} checks, ${rep.coverage.checks_failed} failed &middot; validation ${rep.validation.passed ? "passed" : "withdrew " + rep.validation.withdrawn.length + " item(s)"}</p>
       ${secondCheck(rep.second_check)}
       ${specific ? "" : `<section class="rp-tiles">${tile("revenue", "Revenue")}${tile("net_income", "Net income")}${tile("eps_diluted", "Diluted EPS")}${tile("fcf", "Free cash flow")}</section>`}`}`);
+    T.summary.push(takeawaysHTML(ins.takeaways || rep.takeaways, srcOf, ev));    // what the numbers mean, first
     if (specific) T.summary.push(documentSummaryHTML(specific));
     if (ins.kind !== "insider" && ins.kind !== "holdings") T.summary.push(summaryBox());
     const insight = insightsHTML(ins, state.yoy, srcOf);
@@ -8809,7 +8811,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       <p class="rp-note">Read as <b>${esc(bz.profile || op.profile || "")}</b>.${(bz.drivers || []).length ? ` Operating measures found: ${esc(bz.drivers.join("; "))}.` : ""}</p>
       ${ov.market_value_note ? `<p class="rp-note">${esc(ov.market_value_note.text)} ${srcOf(ev(ov.market_value_note.fact))}</p>` : ""}`,
       `<h2 id="rp-analysis">Executive findings</h2>
-      ${(rep.exec_findings || []).length ? `<ul class="rp-sigs">${rep.exec_findings.map(x => `<li class="s-${x.severity}"><span class="sev s-${x.severity}">${SEV[x.severity].l}</span><b>${esc(x.headline)}</b> ${srcOf(...(x.refs || []).map(ev)) || (x.source ? srcOf({source: x.source}) : "")}<p>${esc(x.text)}</p><small>Why it may matter (BMG interpretation): ${esc(x.why || "")}</small></li>`).join("")}</ul>
+      ${(rep.exec_findings || []).length ? `<ul class="rp-sigs">${rep.exec_findings.map(x => `<li class="s-${x.severity}"><span class="sev s-${x.severity}">${SEV[x.severity].l}</span><b>${esc(x.headline)}</b> ${srcOf(...(x.refs || []).map(ev)) || (x.source ? srcOf({source: x.source}) : "")}<p>${esc(x.text)}</p><small>What it means (BMG interpretation): ${esc(x.why || "")}</small></li>`).join("")}</ul>
       <p class="rp-note">Flag and Watch mean a value is beyond a stated screen for this kind of business (screens ${esc(rep.screens_version || "")}); Observation means no screen applies. None of these is a rating or a recommendation.</p>` : `<p class="muted">No findings could be supported by the extracted figures.</p>`}`);
     T.statements.push(`
       <h2 id="rp-financials">Financial performance</h2>
@@ -8885,6 +8887,17 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     </article>`;
   }
   // The insight sections of the report: quotes with their page, never paraphrased into numbers.
+  // What the numbers mean (reader/takeaways.py): a headline that states the conclusion, then three to five points, each
+  // with its numbers' pages, what it means (BMG's reading, never a rating or a call to buy or sell) and what to watch.
+  function takeawaysHTML(tk, srcOf, ev){
+    if (!tk || !(tk.items || []).length) return "";
+    const qchips = qs => { const seen = new Set(); return (qs || []).filter(q => q && q.page && !seen.has(q.page) && seen.add(q.page))
+      .map(q => `<a class="rp-src" href="#" data-page="${q.page}" data-q="${esc((q.text || "").slice(0, 160))}" data-off="${q.offset != null ? q.offset : ""}">p. ${q.page}</a>`).join(" "); };
+    const li = x => `<li class="t-${x.tone === "+" ? "up" : x.tone === "-" ? "down" : "eq"}"><b>${esc(x.title)}</b> ${srcOf(...(x.refs || []).map(ev))} ${qchips(x.quotes)}`
+      + `${x.detail ? `<p>${esc(x.detail)}</p>` : ""}<p class="rp-means"><span>What it means</span>${esc(x.means)}</p>${x.watch ? `<p class="rp-watch"><span>Watch</span>${esc(x.watch)}</p>` : ""}</li>`;
+    return `<section class="rp-take" id="rp-takeaway"><h2>The takeaway</h2>${tk.headline ? `<p class="rp-take-head">${esc(tk.headline)}</p>` : ""}`
+      + `<ol>${tk.items.map(li).join("")}</ol><p class="rp-note">${esc(tk.basis || "")}</p></section>`;
+  }
   function insightsHTML(ins, yoy, srcOf){
     const lead = [], obs = [];
     const qchip = (q, label) => q && q.page ? `<a class="rp-src" href="#" data-page="${q.page}" data-q="${esc((q.text || "").slice(0, 160))}" data-off="${q.offset != null ? q.offset : ""}">${esc(label || "p. " + q.page)}</a>` : "";

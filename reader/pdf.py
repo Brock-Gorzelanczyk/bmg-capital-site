@@ -200,6 +200,21 @@ def render(rep: dict) -> bytes:
     tt.setStyle(TableStyle([("BOX", (i, 0), (i, 0), 0.6, RULE) for i in range(4)] + [("VALIGN", (0, 0), (-1, -1), "TOP")]))
     story += [Spacer(1, 8), tt]
 
+    # ---------------- the takeaway: what the numbers mean (reader/takeaways.py)
+    tk = rep.get("takeaways") or {}
+    if tk.get("items"):
+        story.append(P("The takeaway", "h2"))
+        if tk.get("headline"):
+            story.append(P(f"<b>{e(tk['headline'])}</b>", "body"))
+        for k, x in enumerate(tk["items"], 1):
+            pgs = sorted({q["page"] for q in x.get("quotes") or [] if q and q.get("page")})
+            qc = f' <font size="7" color="#5f646b">[{e("; ".join(f"p. {pg}" for pg in pgs))}]</font>' if pgs else ""
+            story.append(KeepTogether([P(f"<b>{k}. {e(x['title'])}</b>" + cite(x.get("refs") or []) + qc, "body")]
+                                      + ([P(e(x["detail"]), "cell")] if x.get("detail") else [])
+                                      + [P(f"<i>What it means (BMG interpretation): {e(x['means'])}</i>", "cellm")]
+                                      + ([P(f"Watch: {e(x['watch'])}", "cellm")] if x.get("watch") else []) + [Spacer(1, 5)]))
+        story.append(P(e(tk.get("basis") or ""), "small"))
+
     # ---------------- 1. business overview
     bz = rep.get("business") or {}
     story.append(P("Business overview", "h2"))
@@ -221,7 +236,7 @@ def render(rep: dict) -> bytes:
         for x in rep["exec_findings"]:
             story.append(KeepTogether([
                 P(f'<font name="Helvetica-Bold" size="7" color="{SEV_COL[x["severity"]]}">{SEV_LAB[x["severity"]]}</font>  <b>{e(x["headline"])}</b>' + cite(x["refs"], x if x.get("source") else None), "body"),
-                P(e(x["text"]), "cell"), P(f"<i>Why it may matter (BMG interpretation): {e(x['why'])}</i>", "cellm"), Spacer(1, 5)]))
+                P(e(x["text"]), "cell"), P(f"<i>What it means (BMG interpretation): {e(x['why'])}</i>", "cellm"), Spacer(1, 5)]))
         story.append(P("Flag and Watch mean a value is beyond a stated screen for this kind of business; Observation means no screen applies. "
                        "None of these is a rating or a recommendation.", "small"))
     else:

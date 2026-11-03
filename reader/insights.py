@@ -708,12 +708,16 @@ def _participants(body: str) -> dict:
 
 
 def _speaker_lines(body: str, known: dict):
-    """(offset, label, text_start) for each speaker turn: "Name: text", "Name^ text", "Name -- text", or a
-    name alone on its line (optionally followed by a role line). A label counts when it is a listed participant,
+    """(offset, label, text_start) for each speaker turn: "Name: text", "Name^ text", "Name -- text", a name alone
+    on its line (optionally followed by a role line), or "Name:" alone on its line with the words below it (GATX's
+    call transcripts: "Shari Hellerman:", a blank line, then what she said). A label counts when it is a listed participant,
     shares a last name with one (a nickname: "Bill Angrick" for "William P. Angrick, III"), is the operator, or
     labels at least two turns."""
-    rx_inline = re.compile(rf"(?m)^[ \t]*(Operator|OPERATOR|{_NAME})[ \t]*(?:[:^]|--|\u2014|\u2013)[ \t]*(?=\S)")
-    rx_alone = re.compile(rf"(?m)^[ \t]*(Operator|OPERATOR|{_NAME})[ \t]*$")
+    # a label is one line: a name that ran over a line break would swallow the next label ("Correct. Right." over
+    # "Justin Bergner:" in GATX's call read as one four-word name, and his question went to the speaker before him)
+    name = _NAME.replace(r"\s+", r"[ \t]+")
+    rx_inline = re.compile(rf"(?m)^[ \t]*(Operator|OPERATOR|{name})[ \t]*(?:[:^]|--|\u2014|\u2013)[ \t]*(?=\S)")
+    rx_alone = re.compile(rf"(?m)^[ \t]*(Operator|OPERATOR|{name})[ \t]*(:?)[ \t]*$")
     cands = []
     for rx in (rx_inline, rx_alone):
         for m in rx.finditer(body):
@@ -723,7 +727,12 @@ def _speaker_lines(body: str, known: dict):
             elif not _name_ok(name):
                 continue
             ts = m.end()
-            if rx is rx_alone:
+            if rx is rx_alone and m.group(2):
+                while ts < len(body) and body[ts] in "\n \t":
+                    ts += 1                     # "Name:" alone: the words start on the next line that has any
+                if ts >= len(body):
+                    continue
+            elif rx is rx_alone:
                 if ts < len(body) and body[ts] == "\n":
                     ts += 1
                 nxt_e = body.find("\n", ts)
@@ -785,7 +794,15 @@ def _call_company(doc, known: dict, view: str) -> Optional[dict]:
         if len(a.strip()) < 80 and _CO_END.search(a.strip()) and re.search(r"(?i)earnings|conference call|\bcall\b", b):
             return at(a.strip(" ,"), pos + len(a) - len(a.lstrip()), "title line")
         pos += len(a) + 1
+    # the host names it: "thank you for joining GATX Corporation's 2026 Second-Quarter Earnings Conference Call"
+    m = _HOST_NAMES.search(view[:6000])
+    if m:
+        return at(m.group(1), m.start(1), "opening remarks")
     return None
+
+
+_HOST_NAMES = re.compile(r"\b((?:[A-Z][A-Za-z&.\-]*[ \t]+){0,4}?(?:[A-Z][A-Za-z&.\-]*[ \t]+)(?:Corporation|Incorporated|Inc\.?|Company|Corp\.?|Holdings|Group|plc|Ltd\.?))"
+                         r"['\u2019]s\b[^.]{0,80}?\b(?:[Ee]arnings|[Cc]onference)\s+(?:[Cc]onference\s+)?[Cc]all")
 
 
 def transcript(doc) -> dict:
@@ -810,7 +827,9 @@ def transcript(doc) -> dict:
     intro, first_intro = {}, None
     for mm in re.finditer(rf"(?:question|line|comes)\s+(?:comes |is |will come )?(?:from|of)\s+(?:the line of\s+)?({_NAME})\s+(?:with|from|of|at)\s+([^\n]{{2,90}})", body):
         firm = re.split(r"\.\s+(?:Your|Please|Go|You)|,\s*(?:please|your)|\s+(?:please|your line)", mm.group(2))[0].strip().rstrip(".")
-        intro[mm.group(1).strip().rstrip(",")] = firm[:80]
+        first = mm.group(1).split()[0]
+        firm = re.split(rf"\.\s+{re.escape(first)}\b", firm)[0].strip().rstrip(".")       # "with Citigroup. Ben, please go ahead."
+        intro[" ".join(mm.group(1).split()).rstrip(",")] = " ".join(firm.split())[:80]      # a name wrapped over two lines is one name
         first_intro = mm.start() if first_intro is None else first_intro
     # where the questions start: the earliest of a Q&A heading, the operator opening the line, the first introduction
     marks = []
@@ -835,10 +854,18 @@ def transcript(doc) -> dict:
             company_seen.add(t["name"])
         if t["side"] == "analyst" and not t["firm"] and t["name"] in intro:
             t["firm"] = intro[t["name"]]
-    for t in turns:                     # after the questions start, someone never introduced who asks a question is an analyst
+    # after the questions start, someone never introduced is an analyst when at least half of their turns ask something:
+    # decided per person, so an executive's one "right?" does not make one of their answers a question
+    asks = {}
+    for t in turns:
         if t["side"] == "unknown":
-            asks = "?" in body[t["text_offset"]:t["end"]]
-            t["side"] = "company" if t["name"] in company_seen or not asks else "analyst"
+            a = asks.setdefault(t["name"], [0, 0])
+            a[0] += "?" in body[t["text_offset"]:t["end"]]
+            a[1] += 1
+    for t in turns:
+        if t["side"] == "unknown":
+            q, n = asks[t["name"]]
+            t["side"] = "company" if t["name"] in company_seen or q * 2 < n else "analyst"
     speakers = {}
     for t in turns:
         s = speakers.setdefault(t["name"], {"name": t["name"], "side": t["side"], "role": t["role"], "firm": t["firm"], "turns": 0, "words": 0, "offset": t["offset"]})
@@ -1454,4 +1481,12 @@ def build(doc, rep: dict, title: str = "") -> dict:
     ending = endings.build(doc, rep, out, title)
     if ending is not None:
         out["ending"] = ending
+    # what the numbers mean: a headline and three to five takeaways, each cited (reader/takeaways.py)
+    from . import takeaways
+    try:
+        t = takeaways.build(rep, out)
+        if t:
+            out["takeaways"] = t
+    except Exception as e:                  # an analysis failure never fails the read
+        out.setdefault("errors", []).append(f"takeaways: {e.__class__.__name__}")
     return out

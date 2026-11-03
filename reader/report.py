@@ -505,7 +505,21 @@ def markdown(rep: dict, source_name: str, read_at: str) -> str:
            f"- Source: `{source_name}` (PRIMARY: the document as uploaded), sha256 `{rep['source']['sha256']}`, {rep['source']['pages']} pages",
            f"- Generated: {read_at}. {rep['review']}",
            f"- Coverage: {rep['coverage']['status']}; validation {'passed' if rep['validation']['passed'] else 'withdrew ' + str(len(rep['validation']['withdrawn'])) + ' item(s)'}",
-           "", "## Executive overview", ""]
+           ""]
+    tk = rep.get("takeaways") or {}
+    if tk.get("items"):                       # what the numbers mean (reader/takeaways.py), first
+        out += ["## The takeaway", "", f"**{tk.get('headline') or ''}**", ""]
+        for k, x in enumerate(tk["items"], 1):
+            where = list(dict.fromkeys([loc(ev(r)) for r in x.get("refs") or [] if loc(ev(r))]
+                                       + [f"p.{q['page']}" for q in x.get("quotes") or [] if q and q.get("page")]))
+            out.append(f"{k}. **{x['title']}**" + (f" ({'; '.join(where)})" if where else ""))
+            if x.get("detail"):
+                out.append(f"   {x['detail']}")
+            out.append(f"   What it means (BMG interpretation): {x['means']}")
+            if x.get("watch"):
+                out.append(f"   Watch: {x['watch']}")
+        out += ["", f"_{tk.get('basis') or ''}_", ""]
+    out += ["## Executive overview", ""]
     d = rep["overview"]["description"]
     if d.get("text"):
         out += [d["text"] + (f" ({loc(d)})" if loc(d) else ""), ""]
@@ -519,7 +533,7 @@ def markdown(rep: dict, source_name: str, read_at: str) -> str:
     if rep.get("exec_findings"):
         out += ["", "## Executive findings", ""]
         for x in rep["exec_findings"]:
-            out.append(f"- **{x['severity'].upper()}** {x['headline']}. {x['text']} Why it may matter (BMG interpretation): {x['why']} ("
+            out.append(f"- **{x['severity'].upper()}** {x['headline']}. {x['text']} What it means (BMG interpretation): {x['why']} ("
                        + "; ".join(dict.fromkeys(loc(ev(i)) for i in x["refs"])) + ")")
     p3 = (rep.get("performance3") or {}).get("rows") or []
     if p3:
@@ -597,6 +611,54 @@ WHY_SIG = {
 }
 
 
+def why_for(s: dict, financial: bool = False) -> str:
+    """What this signal's own value means, in plain words, where a rule fits it; else the general reason it matters
+    (WHY_SIG). BMG interpretation, labeled as such where it is shown."""
+    sid, v = s.get("id"), s.get("value")
+    if not isinstance(v, (int, float)):
+        return WHY_SIG.get(sid, "")
+    if sid == "interest_coverage" and v > 0:
+        if v >= 50:
+            return f"At {v:.0f}x, interest is a rounding error next to profit: the debt is no burden at this level of earnings."
+        return (f"At {v:.1f}x, interest takes about {100 / v:.0f}% of profit before interest and tax"
+                + (", a comfortable cushion." if v >= 8 else ": a thinner cushion if earnings fall." if v >= 4 else ": little room if earnings fall or rates rise."))
+    if sid == "debt_to_assets":
+        return f"About {v:.0f} cents of every dollar of assets is financed with debt; the rest comes from shareholders and other liabilities."
+    if sid == "debt_to_equity":
+        return f"Lenders have put in ${v:.2f} for every dollar shareholders have; their claims come first in a bad year."
+    if sid == "equity_multiplier":
+        return (f"Each dollar of shareholders' equity carries ${v:.1f} of assets, so a 10% fall in asset values would cut equity by about {min(10 * v, 100):.0f}%."
+                + (" Equity this thin is often the result of buybacks rather than losses; the equity statement shows which." if v >= 4 else ""))
+    if sid == "payout_vs_fcf" and v > 0:
+        return (f"It paid out ${v / 100:.2f} for every dollar of free cash flow; the extra came from cash on hand or borrowing." if v > 100
+                else f"It paid out {v:.0f} cents of every dollar of free cash flow; the rest stayed in the company.")
+    if sid == "cash_conversion" and financial:
+        return ("For a bank or another financial company, operating cash flow moves with loans, deposits and trading assets, "
+                "so it says little about the quality of earnings.")
+    if sid == "cash_conversion" and v < 0:
+        return "Operating cash flow was negative while profit was positive: a question for receivables, inventory or noncash gains."
+    if sid == "cash_conversion":
+        return (f"Each dollar of net income came with ${v:.2f} of operating cash" + (": profit is backed by cash." if v >= 1 else
+                ": profit ran ahead of cash, a question for receivables, inventory or noncash gains." if v < 0.8 else "."))
+    if sid == "roe":
+        return ((f"Each dollar of shareholders' equity earned about ${v / 100:.2f} in the period." if v >= 100 else
+                 f"Each dollar of shareholders' equity earned about {v:.0f} cents in the period.")
+                + (" A return this high usually means equity is small next to profit (often after buybacks), so it overstates how well capital is used." if v >= 50 else ""))
+    if sid == "fcf":
+        return ("Negative: capital spending was larger than operating cash flow, so the difference came from cash on hand or borrowing." if v < 0
+                else "The cash left after capital spending, available for dividends, buybacks, debt repayment or acquisitions.")
+    if sid == "revenue_growth":
+        return (f"Sales {'grew' if v > 0 else 'fell'} {abs(v):.1f}%: " + ("growth this fast usually comes from a product cycle or a jump in demand." if v >= 25 else
+                "the business sold more, charged more, or both." if v >= 5 else "a mature pace, where profit growth has to come from margins or fewer shares." if v >= 0 else
+                "costs have to fall as fast to protect profit."))
+    if sid == "margin_trend":
+        return (f"The margin {'widened' if v > 0 else 'narrowed'} {abs(v):.1f} points: "
+                + ("costs grew more slowly than sales, so more of each dollar of sales reached profit." if v > 0 else "costs grew faster than sales."))
+    if sid == "net_cash":
+        return "More cash than debt: the debt could be repaid from cash on hand." if v > 0 else "More debt than cash on hand (marketable securities are not counted)."
+    return WHY_SIG.get(sid, "")
+
+
 def _cf_items(fb, ni) -> list:
     """Reconciling lines between net income and operating cash flow, as
     printed in the operating section of the cash flow statement."""
@@ -656,6 +718,7 @@ def research_sections(doc, rows, fb, rep: dict) -> None:
                        "profile": (rep.get("brief") or {}).get("profile") or rep["operating"]["profile"],
                        "drivers": kp[:6]}
 
+    fin = bool(re.search(r"(?i)\bbank|insur|broker", str(rep["business"].get("profile") or "")))
     # executive findings: screened items first, then the most informative observations
     pri = ["maturity_wall", "interest_coverage", "debt_to_assets", "equity_multiplier", "debt_to_equity", "payout_vs_fcf", "gains_share",
            "margin_trend", "fcf", "cash_conversion", "inventory_build", "revenue_growth", "utilization", "roe"]
@@ -673,7 +736,7 @@ def research_sections(doc, rows, fb, rep: dict) -> None:
             continue
         chosen.append(s)
     rep["exec_findings"] = [{"id": s["id"], "severity": s["severity"], "headline": s["headline"], "text": s["text"],
-                             "why": WHY_SIG.get(s["id"], ""), "refs": s.get("inputs") or [], "source": s.get("source")} for s in chosen[:5]]
+                             "why": why_for(s, fin), "refs": s.get("inputs") or [], "source": s.get("source")} for s in chosen[:5]]
 
     # three-year performance, same period type only
     perf3 = []
