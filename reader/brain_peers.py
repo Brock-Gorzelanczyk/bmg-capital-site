@@ -15,27 +15,71 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from datetime import date
 from pathlib import Path
 from typing import Callable, Optional
 
+from . import brain_universe as U
 from .brain import _fmt, display_name, latest, root
 
 _PERIOD_SUFFIX = re.compile(r":(?:Q|FY|3M|6M|9M|H1|YTD|TTM)$", re.I)
 
 
 # ---------------------------------------------------------------------------------------------------- the companies
+_MEM_CACHE: dict = {}
+_MEM_GUARD = threading.Lock()
+
+
 def memories(vault: Path) -> list[dict]:
-    """Every company book in the brain (memory.json), in ticker order."""
+    """Every company book in the brain (memory.json), in ticker order. A book is parsed again only when its file changes
+    (the brain saves through a new file, so its time and size change); with 500 companies every read rebuilds the shared
+    pages from all of them. The books returned are shared: callers read them and never change them."""
     out = []
     for p in sorted((root(vault) / "companies").glob("*/memory.json")):
         try:
-            m = json.loads(p.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+            st = p.stat()
+        except OSError:
             continue
-        if m.get("ticker") and m.get("generated_by") == "crawler-brain" and isinstance(m.get("series", {}), dict) and isinstance(m.get("where", {}), dict):
+        sig = (st.st_mtime_ns, st.st_size)
+        with _MEM_GUARD:
+            hit = _MEM_CACHE.get(str(p))
+        if hit and hit[0] == sig:
+            m = hit[1]
+        else:
+            try:
+                m = json.loads(p.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            with _MEM_GUARD:
+                _MEM_CACHE[str(p)] = (sig, m)
+        if isinstance(m, dict) and m.get("ticker") and m.get("generated_by") == "crawler-brain" and isinstance(m.get("series", {}), dict) \
+                and isinstance(m.get("where", {}), dict):
             out.append(m)
     return out
+
+
+def map_groups(vault: Path, ticker: str) -> list[tuple[str, set]]:
+    """[(label, tickers)] of the companies a company is read with on the brain's map, closest first: its comp set (who an
+    analyst compares it with), then the other companies of its GICS sub-industry (a wider net: GICS puts GATX, a railcar
+    lessor, beside Caterpillar). Empty when the map does not hold the company."""
+    t = U.canonical(vault, ticker)
+    cl = U.classification(vault, t)
+    if not cl:
+        return []
+    comps = {x["ticker"] for x in U.comps(vault, t)} - {t}
+    same = set(U.members(vault, cl["sector"], cl["industry"])) - {t}
+    return [(f"{t}'s comp set", comps)] * bool(comps) + [(f"{cl['industry']} (GICS)", same)] * bool(same)
+
+
+def map_group(vault: Path, ticker: str) -> tuple[Optional[str], set]:
+    """The first of map_groups whose companies the brain has read with KPIs on record (the comp set, else the
+    sub-industry); (None, empty) when there is none."""
+    have = {m["ticker"] for m in memories(vault) if any(s.get("kind") == "kpi" for s in (m.get("series") or {}).values())}
+    for label, group in map_groups(vault, ticker):
+        if group & have:
+            return label, group
+    return None, set()
 
 
 def profile_parts(profile: Optional[str]) -> set[str]:
@@ -58,13 +102,15 @@ def _base(key: str) -> str:
 
 
 # ---------------------------------------------------------------------------------------------------- 1. the playbook
-def playbook(vault: Path, profile: str, ticker: Optional[str] = None, snap: Optional[list] = None) -> dict:
+def playbook(vault: Path, profile: str, ticker: Optional[str] = None, snap: Optional[list] = None, members: Optional[set] = None) -> dict:
     """What the brain learned about reading one industry: every KPI its companies print, grouped by the brain's key,
     with each company's own printed name, where in its filing it sits and the latest printed line. Grouping is by key
     only; no figure is compared here. With a ticker: the KPIs other companies of the profile print that the brain has
-    not seen for this one (either its filings do not print them or the Crawler has not found them)."""
+    not seen for this one (either its filings do not print them or the Crawler has not found them). With members (a set
+    of tickers, from map_group): those companies, and the ticker itself, instead of the profile's."""
     t = (ticker or "").upper()
-    ms = [m for m in (memories(vault) if snap is None else snap) if same_profile(m, profile)]
+    every = memories(vault) if snap is None else snap
+    ms = [m for m in every if m["ticker"] in members or m["ticker"] == t] if members is not None else [m for m in every if same_profile(m, profile)]
     groups: dict[str, dict] = {}
     for m in ms:
         where = m.get("where") or {}
@@ -93,9 +139,9 @@ def playbook(vault: Path, profile: str, ticker: Optional[str] = None, snap: Opti
     return out
 
 
-def brief_lines(vault: Path, profile: str, ticker: str, n: int = 8) -> list[dict]:
-    """The playbook's KPIs for the analyst brief: what other companies of the profile print, and where."""
-    pb = playbook(vault, profile, ticker)
+def brief_lines(vault: Path, profile: str, ticker: str, n: int = 8, members: Optional[set] = None) -> list[dict]:
+    """The playbook's KPIs for the analyst brief: what other companies of the profile (or of the map's group) print, and where."""
+    pb = playbook(vault, profile, ticker, members=members)
     t = (ticker or "").upper()
     out = []
     for g in pb["kpis"]:
@@ -210,14 +256,20 @@ def _ratios(m: dict) -> list[dict]:
 
 
 def side_by_side(vault: Path, ticker: str, peers: Optional[list[str]] = None, profile: Optional[str] = None, n: int = 6) -> dict:
-    """The company's figures beside its peers' from the brain. Peers: the tickers given that the brain holds, else the
-    companies of the same profile. One row per measure; a row is ranked only when comparable() says "same"."""
-    t = ticker.upper()
+    """The company's figures beside its peers' from the brain. Peers: the tickers given that the brain holds, else its
+    comp set on the brain's map (closest first), then the other companies of its GICS sub-industry, then the companies of
+    the same reader profile, each only when the brain has read it. One row per measure; a row is ranked only when
+    comparable() says "same"."""
+    t = U.canonical(vault, ticker)
     allm = {m["ticker"]: m for m in memories(vault)}
     me = allm.get(t)
     prof = profile or (me or {}).get("profile")
-    asked = [p.upper() for p in (peers or []) if p and p.upper() != t]
-    chosen = [p for p in asked if p in allm] or [x for x, m in allm.items() if x != t and same_profile(m, prof)]
+    asked = [U.canonical(vault, p) for p in (peers or []) if p and U.canonical(vault, p) != t]
+    cl = U.classification(vault, t)
+    comp_read = [x["ticker"] for x in U.comps(vault, t) if x["ticker"] in allm and x["ticker"] != t]
+    same_read = [x for x in (U.members(vault, cl["sector"], cl["industry"]) if cl else []) if x in allm and x != t]
+    mapped = comp_read + same_read
+    chosen = [p for p in asked if p in allm] or comp_read or same_read or [x for x, m in allm.items() if x != t and same_profile(m, prof)]
     chosen = chosen[:n]
     group = ([me] if me else []) + [allm[p] for p in chosen]
     rows = []
@@ -256,7 +308,9 @@ def side_by_side(vault: Path, ticker: str, peers: Optional[list[str]] = None, pr
             r["periods"] = f"Periods end up to {gap} days apart; each cell shows its own."
         if r["status"] == "same":
             _rank(r["cells"])
-    return {"ticker": t, "known": bool(me), "profile": prof, "peers": chosen,
+    return {"ticker": t, "known": bool(me), "profile": prof, "peers": chosen, "peers_from": ("the tickers asked for" if asked and chosen and chosen[0] in asked
+            else "the comp set on the brain's map" if chosen and chosen[0] in comp_read else "the GICS sub-industry on the brain's map" if chosen
+            and chosen[0] in same_read else "the reader profile" if chosen else None),
             "not_in_brain": [p for p in asked if p not in allm], "rows": rows,
             "note": "Each figure is the company's own latest printed figure with its page. A rank says where a figure sits in "
                     "the group, largest first; it does not say which is better. Rows that are not comparable are shown, not ranked (M03)."}

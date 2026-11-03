@@ -13,10 +13,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from . import brain_universe as U
+
 MARK = "generated_by: crawler-brain"
 NOTES_HEAD = "## Brock's notes"
 BANNER = ("> Machine-written by the Crawler from the filings named on this page. Not a source: cite the filing and page, "
           "never this file (inbox/README.md, M39). Detection only; no judgment (M24).")
+MAP_BANNER = ("> Machine-written by the Crawler brain from its map (brain/universe.json: GICS as S&P lists it, SECONDARY; SEC fields "
+              "PRIMARY) and BMG's comp sets (brain/comp-sets.json: BMG judgment). Not a source: cite the filing and page (M39).")
 
 
 _NEEDS_QUOTE = re.compile(r"[:#\[\]{}]|^[-?]")
@@ -51,6 +55,28 @@ def _alias(s: str) -> str:
 def ilink(name: str, table: bool = False) -> str:
     """A link to an industry page by its path."""
     return f"[[brain/sectors/{sector_slug(name)}{chr(92) if table else ''}|{_alias(name)}]]"
+
+
+def seclink(sector: str, table: bool = False) -> str:
+    """A link to a GICS sector page (brain/industries/<sector>.md)."""
+    return f"[[{U.sector_path(sector)}{chr(92) if table else ''}|{_alias(sector)}]]"
+
+
+def glink(sector: str, industry: str, table: bool = False) -> str:
+    """A link to a GICS sub-industry page (brain/industries/<sector>/<sub-industry>.md)."""
+    return f"[[{U.industry_path(sector, industry)}{chr(92) if table else ''}|{_alias(industry)}]]"
+
+
+def _tags(cl: Optional[dict], inds: list) -> Optional[list]:
+    """A company's graph tags: its GICS sector and sub-industry (the colors and clusters), then its reader profile."""
+    out = ([f"sector/{cl['sector_slug']}", f"industry/{cl['industry_slug']}"] if cl else []) + [f"profile/{sector_slug(x)}" for x in inds]
+    return out or None
+
+
+def _where_line(cl: dict) -> str:
+    src = cl.get("source") or ""
+    how = "BMG's assignment: not on the S&P 500, 400 or 600 lists" if src.startswith("BMG") else f"GICS as S&P lists it; {cl.get('index')}"
+    return f"Sector: {seclink(cl['sector'])} · Industry: {glink(cl['sector'], cl['industry'])} ({how})."
 
 
 def kpi_slug(base: str) -> str:
@@ -321,22 +347,30 @@ def company_page(memory: dict, last: dict, existing: str = "", ctx: Optional[dic
     from .brain import latest, track_record, _fmt, display_name
     t = memory["ticker"]
     inds = industries(memory.get("profile"))
+    vault = (ctx or {}).get("vault")
+    cl = U.classification(vault, t) if vault else None
+    title = (cl or {}).get("name") or memory.get("name") or t            # the map's name ("CSX Corporation", not SEC's capitals)
     kp = {k: s for k, s in memory.get("series", {}).items() if s["kind"] == "kpi"}
     reads = memory.get("reads", [])
     lr = reads[-1] if reads else {}
     th = (last.get("thresholds") or {}).get("measured", [])
-    fm = _fm({"ticker": t, "company": memory.get("name"), "cik": memory.get("cik"), "profile": memory.get("profile"), "type": "crawler-company",
+    fm = _fm({"ticker": t, "company": title, "cik": memory.get("cik"), "profile": memory.get("profile"), "type": "crawler-company",
               "reads": len(reads), "last_read": f"{lr.get('form')} {lr.get('period') or lr.get('period_end') or ''}".strip() if lr else None,
               "last_period_end": lr.get("period_end"), "kpis": sorted(display_name(k, s["name"]) for k, s in kp.items()),
               "thresholds_watched": sorted({x["id"] for x in th}),
-              "industries": inds or None, "tags": [f"industry/{sector_slug(x)}" for x in inds] or None})
-    L = [fm, f"# {memory.get('name') or t} ({t})", "", BANNER, ""]
+              "sector": cl["sector"] if cl else None, "industry": cl["industry"] if cl else None, "index": cl["index"] if cl else None,
+              "read_status": "read", "profile_industries": inds or None, "tags": _tags(cl, inds)})
+    L = [fm, f"# {title} ({t})", "", BANNER, ""]
+    if cl:
+        L += [_where_line(cl), ""]
     profs = [r.get("profile") for r in reads if r.get("profile")]
     others = sorted({x for x in profs if x != memory.get("profile")})
     pnote = f" ({profs.count(memory.get('profile'))} of {len(profs)} reads; also read as {', '.join(others)})" if others else ""
     L += [f"Profile: {memory.get('profile') or 'not identified'}{pnote}. Reads in the brain: {len(reads)}. Last: {lr.get('form') or ''} {lr.get('period') or lr.get('period_end') or ''}.", ""]
     if inds:
-        L += ["Industry: " + ", ".join(ilink(x) for x in inds), ""]
+        L += [("Reader profile playbook: " if cl else "Industry: ") + ", ".join(ilink(x) for x in inds), ""]
+    if vault:
+        L += comp_block(t, vault, ctx)
     if th:
         L += ["## Watch list: pre-registered thresholds at the last read", "", "| Threshold | Reading | Trigger | Distance | Periods (legs) |", "|---|---|---|---|---|"]
         for x in th:
@@ -455,14 +489,17 @@ def inbox_note(memory: dict, out: dict, meta: dict) -> str:
 
 
 # ---------------------------------------------------------------------- catalog, log, sectors
-def index_page(vault: Path) -> str:
+def index_page(vault: Path, snap: Optional[list] = None) -> str:
     from .brain import root, latest, _fmt, display_name
+    if snap is None:
+        from .brain_peers import memories
+        snap = memories(vault)
+    mem = {m["ticker"]: m for m in snap}
+    u = U.universe(vault)
+    if u.get("companies"):
+        return _map_index(vault, u, mem)
     rows = []
-    for p in sorted((root(vault) / "companies").glob("*/memory.json")):
-        try:
-            m = json.loads(p.read_text(encoding="utf-8"))
-        except ValueError:
-            continue
+    for m in snap:
         reads = m.get("reads", [])
         lr = reads[-1] if reads else {}
         kp = [(k, s) for k, s in m.get("series", {}).items() if s["kind"] == "kpi"]
@@ -481,13 +518,62 @@ def index_page(vault: Path) -> str:
                       "| Company | Name | Profile | Reads | Last read | KPIs (latest) |", "|---|---|---|---|---|---|"] + rows + [""])
 
 
-def graph_ctx(snap: list) -> dict:
+def _kpi_bits(m: dict) -> str:
+    from .brain import latest, _fmt, display_name
+    bits = []
+    for k, s in sorted(((k, s) for k, s in (m.get("series") or {}).items() if s.get("kind") == "kpi"), key=lambda x: x[1]["name"])[:3]:
+        lt = latest(s)
+        if lt:
+            bits.append(f"{display_name(k, s['name'])} {lt[1].get('display') or _fmt(lt[1]['value'], s.get('unit'))} ({_pg(lt[1].get('src'))})")
+    return "; ".join(bits)
+
+
+def _map_index(vault: Path, u: dict, mem: dict) -> str:
+    """The index once the brain has its map: every company on it, by GICS sector and sub-industry, with what the brain
+    has read of it; then any other company the brain holds."""
+    cos = u.get("companies") or {}
+    nread = sum(1 for t in cos if (mem.get(t) or {}).get("reads"))
+    L = [_fm({"type": "crawler-index", "companies": len(cos), "read": nread}), "# Crawler brain: index", "", BANNER, "",
+         "What the Crawler has read and remembers, and every company on its map (brain/universe.json: the S&P 500 and the other "
+         f"companies the brain holds, as of {u.get('as_of')}). {len(cos)} companies; {nread} read. Rules: [[brain/README|README]]. History: [[brain/log|log]].", "",
+         "This is a listing, not a comparison. Each row's KPIs are that company's own, as its filings define them; a KPI with "
+         "the same name at another company is a different measure (M03; falsified.md FALS-02 and FALS-10 for GATX LPI against "
+         "Trinity FLRD), so values in this column are not read across rows.", ""]
+    for sec, sv in sorted((u.get("sectors") or {}).items()):
+        tick = sorted(t for v in (sv.get("sub_industries") or {}).values() for t in v.get("companies") or [])
+        L += [f"## {sec}", "", f"Sector page: {seclink(sec)}. {len(tick)} companies; {sum(1 for t in tick if (mem.get(t) or {}).get('reads'))} read.", "",
+              "| Company | Name | Industry | Reads | Last read | KPIs (latest) |", "|---|---|---|---|---|---|"]
+        for ind, v in sorted((sv.get("sub_industries") or {}).items()):
+            for t in sorted(v.get("companies") or []):
+                m = mem.get(t) or {}
+                reads = m.get("reads") or []
+                lr = reads[-1] if reads else {}
+                L.append(f"| {clink(t, True)} | {_md((cos.get(t) or {}).get('name'))} | {_md(ind)} | {len(reads)} | "
+                         f"{_md(((lr.get('form') or '') + ' ' + (lr.get('period') or lr.get('period_end') or '')).strip() if lr else 'not read yet')} | {_md(_kpi_bits(m))} |")
+        L.append("")
+    other = sorted(t for t in mem if t not in cos)
+    if other:
+        L += ["## Other companies the brain holds (not on its map)", "", "| Company | Name | Profile | Reads | Last read |", "|---|---|---|---|---|"]
+        for t in other:
+            m = mem[t]
+            reads = m.get("reads") or []
+            lr = reads[-1] if reads else {}
+            L.append(f"| {clink(t, True)} | {_md(m.get('name'))} | {_md(m.get('profile'))} | {len(reads)} | {_md(((lr.get('form') or '') + ' ' + (lr.get('period') or lr.get('period_end') or '')).strip())} |")
+        L.append("")
+    return "\n".join(L)
+
+
+def graph_ctx(snap: list, vault: Optional[Path] = None) -> dict:
     """What the pages that link companies need, read once per write: every company's name and profile, an index of
-    their names for matching a named competitor, and the KPI keys two or more companies print."""
+    their names for matching a named competitor (the brain's companies, then every company on its map, each of which
+    has a page), the KPI keys two or more companies print, and the vault (for the map)."""
     from .brain_peers import ticker_index
+    rows = [(m["ticker"], m.get("name") or "", m.get("cik")) for m in snap]
+    cos = (U.universe(vault).get("companies") or {}) if vault else {}
+    for t, c in sorted(cos.items()):
+        rows += [(t, c.get("name") or "", c.get("cik")), (t, c.get("sec_name") or "", c.get("cik"))]
     return {"companies": {m["ticker"]: {"name": m.get("name"), "profile": m.get("profile")} for m in snap},
-            "index": ticker_index([(m["ticker"], m.get("name") or "", m.get("cik")) for m in snap]),
-            "kpis": shared_kpis(snap)}
+            "index": ticker_index(rows), "kpis": shared_kpis(snap), "vault": vault, "mapped": set(cos)}
 
 
 def shared_kpis(snap: list) -> dict:
@@ -513,7 +599,10 @@ def competitors_block(memory: dict, ctx: Optional[dict]) -> list:
     from .brain_peers import match_in_brain
     t = memory["ticker"]
     inds = set(industries(memory.get("profile")))
-    peers = sorted(x for x, c in ctx["companies"].items() if x != t and inds & set(industries(c.get("profile"))))
+    vault = ctx.get("vault")
+    on_map = bool(vault and U.classification(vault, t))
+    in_set = {x["ticker"] for x in U.comps(vault, t)} if vault else set()
+    peers = [] if on_map else sorted(x for x, c in ctx["companies"].items() if x != t and inds & set(industries(c.get("profile"))))
     comp = memory.get("competitors") or {}
     if not comp and not peers:
         return []
@@ -541,9 +630,10 @@ def competitors_block(memory: dict, ctx: Optional[dict]) -> list:
             for n in g["names"]:
                 mt = match_in_brain(n.get("name") or "", ctx["index"])
                 if mt and mt["ticker"] != t:
-                    bits.append(f"{clink(mt['ticker'])} ({_md(n['name'])}{'; ' + _md(mt['match']) if mt['match'] != 'same name' else ''})")
+                    bits.append(f"{clink(mt['ticker'])} ({_md(n['name'])}{'; ' + _md(mt['match']) if mt['match'] != 'same name' else ''}"
+                                f"{'; also in the comp set' if mt['ticker'] in in_set else ''})")
                 else:
-                    bits.append(f"{_md(n.get('name'))} (no company in the brain matched by name)")
+                    bits.append(f"{_md(n.get('name'))} (no company {'on the brain' + chr(39) + 's map' if ctx.get('mapped') else 'in the brain'} matched by name)")
             L += [f"- p.{g['page'] or '?'}: " + "; ".join(bits), f"  > {_md(g['quote'])}"]
         if not groups:
             L.append("- No company is named in a sentence about competitors.")
@@ -589,7 +679,7 @@ def kpi_page(base: str, snap: list) -> str:
         inds = industries(m.get("profile"))
         own = f"as printed: {_md(w['row'])}" if w.get("row") else f"the Crawler's label: {_md(display_name(k, s.get('name') or k))}"
         L.append(f"- {clink(m['ticker'])}, {own}" + (f" ({_md(s['scope'])})" if s.get("scope") else "")
-                 + (f": {_md(at)}" if at else "") + (f". Industry: {', '.join(inds)}" if inds else ""))
+                 + (f": {_md(at)}" if at else "") + (f". Reader profile: {', '.join(inds)}" if inds else ""))
     L.append("")
     return "\n".join(L)
 
@@ -649,8 +739,10 @@ def sector_page(vault: Path, profile: str, snap: Optional[list] = None) -> str:
     comps = [m for m in snap if profile in industries(m.get("profile"))]
     kshared = shared_kpis(snap)
     L = [_fm({"type": "crawler-sector", "profile": profile, "companies": [m["ticker"] for m in comps],
-              "tags": [f"industry/{sector_slug(profile)}"] if industries(profile) else None}),
+              "tags": [f"profile/{sector_slug(profile)}"] if industries(profile) else None}),
          f"# {profile}: companies the Crawler has read", "", BANNER, "",
+         "The reader's profile: the kind of business it read these filings as, which sets what it looks for. The companies' "
+         "GICS sectors and industries are on the pages under brain/industries/.", "",
          "Each company's KPIs are listed under that company, as its own filings define them. They are not set side by side: a "
          "measure with the same name is defined differently by each filer, and no comparison is made here (M03; "
          "research/coverage/rail/falsified.md FALS-02, FALS-10).", ""]
@@ -663,18 +755,7 @@ def sector_page(vault: Path, profile: str, snap: Optional[list] = None) -> str:
               "Every KPI the Crawler has found in these companies' filings, and where each company prints it. A new "
               "company read under this profile is checked for these. Names only: a KPI is set beside another company's "
               "in the Crawler's Brain tab, ranked only when both definitions match (M03).", ""]
-        for g in pb["kpis"]:
-            who = []
-            for tk in g["companies"]:
-                ex = g["by"][tk][0]
-                w = ex.get("where") or {}
-                form, page = (w.get("form"), w.get("pdf_page")) if w.get("form") else (ex["src"].get("form"), ex["src"].get("pdf_page"))
-                at = ", ".join(x for x in (w.get("table") and f"table {w['table']}", w.get("row") and f"row {w['row']}",
-                                           form and f"{form} p.{page or '?'}") if x)
-                who.append(f"{clink(tk)} as {_md(ex['printed'])}" + (f" ({_md(at)})" if at else ""))
-            head = klink(g["key"], g["name"]) if g["key"] in kshared else _md(g["name"])
-            L.append(f"- **{head}**: {'; '.join(who)}")
-        L.append("")
+        L += _playbook_lines(pb, kshared)
     for m in comps:
         L += [f"## {m['ticker']}: {m.get('name') or ''}", "", f"Company page: {clink(m['ticker'])}", ""]
         kp = sorted(((k, s) for k, s in m.get("series", {}).items() if s["kind"] == "kpi"), key=lambda x: x[1]["name"])
@@ -688,6 +769,168 @@ def sector_page(vault: Path, profile: str, snap: Optional[list] = None) -> str:
                          f"({_md((lt[1].get('src') or {}).get('form') or '')} p.{(lt[1].get('src') or {}).get('pdf_page') or '?'})")
         L.append("")
     return "\n".join(L)
+
+
+def _playbook_lines(pb: dict, kshared: dict) -> list:
+    """One line per KPI key: each company that prints it, as it prints it, and where. Names and places only (M03)."""
+    L = []
+    for g in pb["kpis"]:
+        who = []
+        for tk in g["companies"]:
+            ex = g["by"][tk][0]
+            w = ex.get("where") or {}
+            form, page = (w.get("form"), w.get("pdf_page")) if w.get("form") else (ex["src"].get("form"), ex["src"].get("pdf_page"))
+            at = ", ".join(x for x in (w.get("table") and f"table {w['table']}", w.get("row") and f"row {w['row']}",
+                                       form and f"{form} p.{page or '?'}") if x)
+            who.append(f"{clink(tk)} as {_md(ex['printed'])}" + (f" ({_md(at)})" if at else ""))
+        head = klink(g["key"], g["name"]) if g["key"] in kshared else _md(g["name"])
+        L.append(f"- **{head}**: {'; '.join(who)}")
+    L.append("")
+    return L
+
+
+# ---------------------------------------------------------------------- the map: comp sets, unread companies, GICS pages
+def comp_block(t: str, vault: Path, ctx: Optional[dict] = None) -> list:
+    """The company's comp set from brain/comp-sets.json: BMG's judgment of who an analyst compares it with, closest
+    first, each with the business they are compared on and why. Linked, so the graph draws the comp lines."""
+    cs = U.comps(vault, t)
+    if not cs:
+        return []
+    held = set((ctx or {}).get("companies") or {}) | set(U.universe(vault).get("companies") or {})
+    meta = U.comp_entry(vault, t)
+    asof = U.comp_sets(vault).get("as_of")
+    L = ["## Comp set (BMG judgment)", "",
+         f"The companies an equity analyst would compare {t} with, closest first: BMG's judgment from what each company does "
+         f"(brain/comp-sets.json{', as of ' + str(asof) if asof else ''}), not from a filing and not a source. It says who to "
+         "compare with; a figure is set beside another company's only where both definitions are on record (M03), in the "
+         "Crawler's Industry tab.", "", "| Comp | Compared on | Why |", "|---|---|---|"]
+    for x in cs:
+        who = clink(x["ticker"], True) if x["ticker"] in held else f"{_md(x['ticker'])} (outside the brain's map)"
+        L.append(f"| {who} | {_md(x['business'])} | {_md(x['why'])} |")
+    L.append("")
+    if meta.get("analyst_view"):
+        L += [f"How analysts look at it: {_md(meta['analyst_view'])}", ""]
+    if meta.get("confidence") == "check":
+        L += [f"To check: {_md(meta.get('note') or 'this comp set was marked for a second look')}", ""]
+    by = U.comped_by(vault, t)
+    if by:
+        L += ["Named as a comp by: " + ", ".join(clink(b) for b in by), ""]
+    return L
+
+
+def _notes(existing: str) -> str:
+    if existing and NOTES_HEAD in existing:
+        return existing[existing.index(NOTES_HEAD):].rstrip() + "\n"
+    return f"{NOTES_HEAD}\n\nAnything below this heading is yours: the Crawler never changes it. Thesis notes, questions for the next read, corrections.\n"
+
+
+def stub_page(t: str, vault: Path, existing: str = "", ctx: Optional[dict] = None) -> str:
+    """The page of a company on the brain's map that the brain has not read yet: where it sits, its SEC identity and
+    its comp set, so it is in the graph from the start. Its first read replaces this page (Brock's notes are kept)."""
+    c = U.company(vault, t) or {"ticker": t}
+    cl = U.classification(vault, t)
+    asof = U.universe(vault).get("as_of")
+    fm = _fm({"ticker": t, "company": c.get("name"), "cik": c.get("cik"), "type": "crawler-company", "read_status": "not read yet",
+              "sector": cl["sector"] if cl else None, "industry": cl["industry"] if cl else None, "index": c.get("index"),
+              "tickers": c.get("tickers") if len(c.get("tickers") or []) > 1 else None, "tags": _tags(cl, [])})
+    fye = c.get("fiscal_year_end") or ""
+    L = [fm, f"# {c.get('name') or t} ({t})", "", MAP_BANNER, ""]
+    if cl:
+        L += [_where_line(cl), ""]
+    L += [f"Not read yet. The brain holds no filing of {t}; this page is here because {t} is on the brain's map. Its first read "
+          f"(load {t} in the Crawler, or scripts/local/brain_sp500_learn.py) files its figures, KPIs and the competitors its "
+          "10-K names here.", ""]
+    if c.get("cik"):
+        L += [f"SEC: CIK {c['cik']}" + (f", industry code {c['sic']} ({_md(c.get('sic_description'))})" if c.get("sic") else "")
+              + (f", fiscal year ends {fye[:2]}-{fye[2:]}" if len(fye) == 4 else "")
+              + (f", share classes {', '.join(c['tickers'])}" if len(c.get("tickers") or []) > 1 else "")
+              + (f" (SEC EDGAR, PRIMARY, read {asof})." if asof else " (SEC EDGAR, PRIMARY)."), ""]
+    L += comp_block(t, vault, ctx)
+    L.append(_notes(existing))
+    return "\n".join(L)
+
+
+def off_map_page(t: str, existing: str = "") -> str:
+    """An unread company's page after it left the brain's map (dropped from the index, say): kept, never deleted."""
+    fm = _fm({"ticker": t, "type": "crawler-company", "read_status": "not read yet", "map_status": "no longer on the brain's map"})
+    return "\n".join([fm, f"# {t}", "", MAP_BANNER, "", f"{t} is no longer on the brain's map (brain/universe.json), and the brain has "
+                       "not read a filing of it. The page stays: the brain deletes nothing.", "", _notes(existing)])
+
+
+def gics_industry_page(vault: Path, sector: str, industry: str, snap: list) -> str:
+    """One GICS sub-industry: its companies on the brain's map, what the brain has read of each, their comp sets, and
+    the playbook of what their filings print (names and places only, M03)."""
+    from .brain import latest
+    from .brain_peers import playbook
+    mem = {m["ticker"]: m for m in snap}
+    tick = U.members(vault, sector, industry)
+    cos = U.universe(vault).get("companies") or {}
+    read = [t for t in tick if (mem.get(t) or {}).get("reads")]
+    fm = _fm({"type": "crawler-gics-industry", "sector": sector, "industry": industry, "companies": tick, "read": read,
+              "tags": [f"sector/{U.slug(sector)}"]})
+    L = [fm, f"# {industry}", "", MAP_BANNER, "",
+         f"A GICS sub-industry of {seclink(sector)}. {len(tick)} compan{'y' if len(tick) == 1 else 'ies'} on the brain's map; "
+         f"{len(read)} read by the brain. Each company's comp set (BMG judgment) is on its page and may reach outside this industry.", "",
+         "| Company | Name | Index | Reads | Last read | Comp set |", "|---|---|---|---|---|---|"]
+    for t in tick:
+        m = mem.get(t) or {}
+        reads = m.get("reads") or []
+        lr = reads[-1] if reads else {}
+        last = f"{lr.get('form') or ''} {lr.get('period') or lr.get('period_end') or ''}".strip() if lr else "not read yet"
+        cs = ", ".join(x["ticker"] for x in U.comps(vault, t))
+        L.append(f"| {clink(t, True)} | {_md((cos.get(t) or {}).get('name'))} | {_md((cos.get(t) or {}).get('index'))} | {len(reads)} | {_md(last)} | {_md(cs)} |")
+    L.append("")
+    if read:
+        pb = playbook(vault, None, snap=snap, members=set(read))
+        if pb["kpis"]:
+            L += ["## Playbook: what these companies' filings print", "",
+                  "Every KPI the Crawler has found in the filings of this industry's companies it has read, and where each "
+                  "prints it. A company of this industry is checked for these when it is read. Names and places only: a KPI "
+                  "with the same name is defined by each filer in its own words (M03).", ""]
+            L += _playbook_lines(pb, shared_kpis(snap))
+    return "\n".join(L)
+
+
+def gics_sector_page(vault: Path, sector: str, snap: list) -> str:
+    """One GICS sector: its sub-industries, how many companies each has on the map, and how many the brain has read."""
+    mem = {m["ticker"]: m for m in snap}
+    subs = (U.universe(vault).get("sectors") or {}).get(sector, {}).get("sub_industries") or {}
+    tick = U.members(vault, sector)
+    read = [t for t in tick if (mem.get(t) or {}).get("reads")]
+    fm = _fm({"type": "crawler-gics-sector", "sector": sector, "industries": sorted(subs), "companies": len(tick), "read": len(read),
+              "tags": [f"sector/{U.slug(sector)}"]})
+    L = [fm, f"# {sector}", "", MAP_BANNER, "",
+         f"A GICS sector: {len(subs)} sub-industr{'y' if len(subs) == 1 else 'ies'}, {len(tick)} companies on the brain's map, {len(read)} read by the brain.", "",
+         "| Industry | Companies | Read |", "|---|---|---|"]
+    for ind in sorted(subs):
+        mm = subs[ind].get("companies") or []
+        L.append(f"| {glink(sector, ind, True)} | {len(mm)} | {sum(1 for t in mm if (mem.get(t) or {}).get('reads'))} |")
+    L.append("")
+    return "\n".join(L)
+
+
+def gics_pages(vault: Path, snap: list, only: Optional[dict] = None) -> list:
+    """(path, writer) for the map's GICS pages: every sector and sub-industry, or (only=a classification) the two pages
+    of one company."""
+    d = U.universe(vault).get("sectors") or {}
+    out = []
+    for sec in sorted(d):
+        if only and sec != only["sector"]:
+            continue
+        out.append((Path(vault) / f"{U.sector_path(sec)}.md", (lambda sec=sec: gics_sector_page(vault, sec, snap))))
+        for ind in sorted((d[sec].get("sub_industries") or {})):
+            if only and ind != only["industry"]:
+                continue
+            out.append((Path(vault) / f"{U.industry_path(sec, ind)}.md", (lambda sec=sec, ind=ind: gics_industry_page(vault, sec, ind, snap))))
+    return out
+
+
+def gics_gone_page(fm: dict) -> str:
+    """A GICS page whose sector or sub-industry is no longer on the map (GICS renamed it): kept, pointing at the map."""
+    name = fm.get("industry") or fm.get("sector") or "This industry"
+    return "\n".join([_fm({"type": fm.get("type"), "sector": fm.get("sector"), "industry": fm.get("industry"), "map_status": "no longer on the brain's map"}),
+                       f"# {name}", "", MAP_BANNER, "", f"{name} is no longer on the brain's map (brain/universe.json). The page "
+                       "stays: the brain deletes nothing. The companies are on the pages of their current industries.", ""])
 
 
 def append_log(vault: Path, memory: dict, out: dict, meta: dict) -> str:
@@ -732,10 +975,10 @@ def write_all(vault: Path, memory: dict, out: dict, meta: dict, inbox: bool = Tr
     if not only_read_note:
         from .brain_peers import memories
         snap = memories(vault)              # every company once per write (memory.json is saved before the pages)
-        ctx = graph_ctx(snap)
+        ctx = graph_ctx(snap, vault)
     own = [(cd / "reads" / f"{note_name(t, rec)}.md", lambda: read_note(memory, out, meta)),
            (cd / f"{t}.md", lambda: company_page(memory, out, (cd / f"{t}.md").read_text(encoding="utf-8") if (cd / f"{t}.md").exists() else "", ctx))]
-    shared = [(root(vault) / "index.md", lambda: index_page(vault))]
+    shared = []
     if out.get("status") == "seen before" and own[0][0].exists():
         own = own[1:]               # a filing read again keeps the note of its first read (what was expected then, Claude's reading)
     if only_read_note:
@@ -756,7 +999,9 @@ def write_all(vault: Path, memory: dict, out: dict, meta: dict, inbox: bool = Tr
         with _lock("__shared__"):
             from .brain_peers import memories
             snap2 = memories(vault)          # read again here: the last writer of a shared page sees every company saved
-            shared += industry_pages(vault, memory.get("profile"), snap2) + kpi_pages(vault, memory, snap2, graph_ctx(snap2))
+            cl = U.classification(vault, t)
+            shared += [(root(vault) / "index.md", lambda: index_page(vault, snap2))] + industry_pages(vault, memory.get("profile"), snap2) \
+                + kpi_pages(vault, memory, snap2, graph_ctx(snap2, vault)) + (gics_pages(vault, snap2, only=cl) if cl else [])
             for path, make in shared:
                 try:
                     files.append(put(path, make()))
@@ -789,10 +1034,15 @@ def _front(path: Path) -> dict:
 
 
 def _rewrites(vault: Path, snap: list, seen: set) -> list:
-    """(path, writer) for every other page the brain wrote under sectors/ and kpis/, from its own frontmatter: an industry
-    no company holds now, a KPI fewer than two print. Pages that point at others (superseded_by) keep their own text."""
+    """(path, writer) for every other page the brain wrote under sectors/, kpis/ and industries/, from its own frontmatter:
+    an industry no company holds now, a KPI fewer than two print, a GICS page no longer on the map. Pages that point at
+    others (superseded_by) keep their own text."""
     from .brain import root
     out = []
+    for path in sorted((root(vault) / "industries").glob("**/*.md")):
+        fm = _front(path) if path not in seen and _owned(path) else {}
+        if str(fm.get("type") or "").startswith("crawler-gics") and fm.get("map_status") != "no longer on the brain's map":
+            out.append((path, (lambda fm=fm: gics_gone_page(fm))))
     for path in sorted((root(vault) / "kpis").glob("*.md")):
         fm = _front(path) if path not in seen and _owned(path) else {}
         if fm.get("key"):
@@ -818,7 +1068,7 @@ def rebuild_all(vault: Path) -> dict:
     if why:
         return {"status": "off", "reason": why, "written": [], "refused": []}
     snap = memories(vault)
-    ctx = graph_ctx(snap)
+    ctx = graph_ctx(snap, vault)
     files, errors = [], []
     for m0 in snap:
         t = m0["ticker"]
@@ -840,10 +1090,41 @@ def rebuild_all(vault: Path) -> dict:
         if p.parent.name not in have:
             errors.append(f"{p.relative_to(Path(vault))} is not a company book the brain can use (it does not parse, or "
                           "it was not written by the brain): left as it is, and its company is not on the rebuilt pages")
+    # every company on the map the brain has not read gets its page, so the whole map is in the graph from the start; a
+    # company's lock is taken and its book looked for again, so a first read finishing now is never overwritten by a stub
+    mapped = U.universe(vault).get("companies") or {}
+    stubs = 0
+    for t in sorted(mapped):
+        if t in have:
+            continue
+        with _lock(t):
+            d = company_dir(vault, t)
+            if (d / "memory.json").exists():
+                continue
+            p = d / f"{t}.md"
+            try:
+                files.append(put(p, stub_page(t, vault, p.read_text(encoding="utf-8") if p.exists() else "", ctx)))
+                stubs += 1
+            except NotOurs as e:
+                errors.append(str(e))
+    for p in sorted((root(vault) / "companies").glob("*/*.md")):
+        t = p.parent.name
+        if p.name != f"{t}.md" or t in mapped or t in have or (p.parent / "memory.json").exists() or not _owned(p):
+            continue
+        fm = _front(p)
+        if fm.get("read_status") == "not read yet" and not fm.get("map_status"):      # an unread company that left the map: kept, and says so
+            with _lock(t):
+                try:
+                    files.append(put(p, off_map_page(t, p.read_text(encoding="utf-8"))))
+                except NotOurs as e:
+                    errors.append(str(e))
     with _lock("__shared__"):
         snap = memories(vault)
-        ctx = graph_ctx(snap)
-        shared, seen = [(root(vault) / "index.md", lambda: index_page(vault))], set()
+        ctx = graph_ctx(snap, vault)
+        shared, seen = [(root(vault) / "index.md", lambda: index_page(vault, snap))], set()
+        for path, make in gics_pages(vault, snap):
+            seen.add(path)
+            shared.append((path, make))
         for prof in sorted({m.get("profile") for m in snap if m.get("profile")}):
             for path, make in industry_pages(vault, prof, snap):
                 if path not in seen:
@@ -861,5 +1142,6 @@ def rebuild_all(vault: Path) -> dict:
             except NotOurs as e:
                 errors.append(str(e))
     base = str(Path(vault))
-    return {"status": "rebuilt", "companies": len(snap), "kpi_notes": len(ctx["kpis"]),
+    return {"status": "rebuilt", "companies": len(snap), "kpi_notes": len(ctx["kpis"]), "not_read_pages": stubs,
+            "on_map": len(mapped),
             "written": [f[len(base) + 1:] if f.startswith(base) else f for f in files], "refused": errors}

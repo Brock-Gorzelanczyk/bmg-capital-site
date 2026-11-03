@@ -71,8 +71,16 @@ def run(data: bytes, kind: str, title: str, ticker: Optional[str] = None,
     # before any figure is extracted.
     t = stage("Identify")
     co = report._company(doc)
+    if brain_vault and (co.get("ticker") or ticker):
+        # the company's GICS industry from the brain's map, so a profile that does not fit it is set aside (a railroad is
+        # not read as a railcar lessor); the scorer and a file with no ticker read as before
+        try:
+            from . import brain_universe
+            doc.gics = brain_universe.classification(brain_vault, co.get("ticker") or ticker)
+        except Exception:
+            doc.gics = None
     prof, scores = profiles.profile_for(doc)
-    br = signals.brief(co, prof, scores)
+    br = signals.brief(co, prof, scores, doc.profile_set_aside, doc.gics)
     mem = None
     if brain_vault and (co.get("ticker") or ticker):
         # what the Crawler already knows about this company, sent with the brief before any figure is read (in the stage

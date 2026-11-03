@@ -3557,7 +3557,7 @@ async def _posting_ideas() -> tuple[list, list]:
         seen = set()
         # the newest read of each company that gives a post idea (insider trades and fund holdings give none), for 12
         # companies at most and 40 reads opened at most: a day's ideas span companies, not one company's 10-K, 10-Q and release
-        for e in _READS_LIBRARY.entries()[:40]:
+        for e in [x for x in _READS_LIBRARY.entries() if not x.get("batch")][:40]:      # Brock's own reads; a background batch gives no post ideas
             if len(seen) >= 12:
                 break
             who = (e.get("job_ticker") or e.get("company") or e["sha256"]).upper()
@@ -4297,6 +4297,41 @@ async def brain_index() -> JSONResponse:
                                  "filing_reads": bool(_reader_jobs.MANAGER.brain_vault)})
 
 
+@app.get("/api/brain/universe")
+async def brain_universe() -> JSONResponse:
+    """The brain's map for other tools: every company on it (the S&P 500 and the other companies the brain holds) by GICS
+    sector and sub-industry, each with its comp set (BMG judgment) and what the brain has read of it, and where the map
+    and the comp sets come from. Owner's Mac only, like the brain."""
+    v, _t, err = _brain_guard()
+    if err:
+        return err
+    from reader import brain as _brain, brain_universe as _bu
+    if not _bu.on(v):
+        return JSONResponse(status_code=404, content={"error": "The brain has no map yet (brain/universe.json is not in the vault)."})
+    read = {c["ticker"]: {"reads": c["reads"], "last": c.get("last"), "kpis": c.get("kpis")} for c in await asyncio.to_thread(_brain.companies, v) if c.get("ticker")}
+    return JSONResponse(content=await asyncio.to_thread(_bu.listing, v, read))
+
+
+@app.get("/api/brain/{ticker}/comps")
+async def brain_comps(ticker: str) -> JSONResponse:
+    """Where one company sits on the brain's map and who it is compared with: its GICS sector and sub-industry, its comp
+    set (BMG judgment, closest first, each with what the brain has read of it), the companies whose comp set names it,
+    and the other companies of its sub-industry. A comp set says who to compare with, never that two figures are
+    comparable (M03)."""
+    v, t, err = _brain_guard(ticker)
+    if err:
+        return err
+    from reader import brain as _brain
+    mp = await asyncio.to_thread(_brain.map_info, v, t)
+    if not mp:
+        return JSONResponse(status_code=404, content={"error": f"{t} is not on the brain's map (brain/universe.json)."})
+    from reader import brain_universe as _bu
+    cl = mp["classification"]
+    have = {c["ticker"]: c["reads"] for c in await asyncio.to_thread(_brain.companies, v) if c.get("ticker")}
+    same = [{"ticker": x, "name": (_bu.company(v, x) or {}).get("name"), "reads": have.get(x, 0)} for x in _bu.members(v, cl["sector"], cl["industry"]) if x != cl["ticker"]]
+    return JSONResponse(content={"ticker": cl["ticker"], **mp, "same_industry": same, "about": _bu.about(v)})
+
+
 @app.get("/api/brain/{ticker}")
 async def brain_company(ticker: str) -> JSONResponse:
     """What the brain knows about one company before a read (the same data the analyst brief shows). Owner's Mac only."""
@@ -4341,6 +4376,13 @@ async def brain_playbook(ticker: str, profile: str = Query("", max_length=120)) 
     if err:
         return err
     from reader import brain_peers as _bp
+    label, group = await asyncio.to_thread(_bp.map_group, v, t)
+    if group:
+        pb = await asyncio.to_thread(_bp.playbook, v, label, t, None, group)
+        if pb["kpis"]:
+            pb["brief"] = await asyncio.to_thread(_bp.brief_lines, v, label, t, 8, group)
+            pb["from"] = "map"
+            return JSONResponse(content=pb)
     prof = profile.strip()
     if not prof:
         have = await asyncio.to_thread(_bp.in_brain, v)
@@ -4412,8 +4454,20 @@ async def brain_competitors(ticker: str) -> JSONResponse:
         out["errors"].append(f"Same industry code: SEC EDGAR did not answer ({type(e).__name__})")
     prof = (have.get(t) or (None, None, 0))[1]
     out["profile"] = prof
-    out["brain"] = [mark({"ticker": k, "company": n}) for k, (n, p, _r) in sorted(have.items())
-                    if k != t and prof and _bp.same_profile({"profile": p}, prof)]
+    from reader import brain as _brain, brain_universe as _bu
+    mp = await asyncio.to_thread(_brain.map_info, v, t)
+    if mp:
+        cl = mp["classification"]
+        out["classification"] = cl
+        out["comp_set"] = [mark({**c, "company": c.get("name")}) for c in mp["comps"]]
+        out["comp_notes"] = mp.get("comp_notes")
+        out["comped_by"] = mp.get("comped_by")
+        out["same_industry"] = [mark({"ticker": x, "company": (_bu.company(v, x) or {}).get("name")})
+                                for x in _bu.members(v, cl["sector"], cl["industry"]) if x != cl["ticker"]]
+        out["brain"] = [x for x in out["same_industry"] if x.get("in_brain")]
+    else:
+        out["brain"] = [mark({"ticker": k, "company": n}) for k, (n, p, _r) in sorted(have.items())
+                        if k != t and prof and _bp.same_profile({"profile": p}, prof)]
     return JSONResponse(content=out)
 
 
@@ -4439,7 +4493,9 @@ async def brain_valuation(ticker: str, peers: str = Query("", max_length=200)) -
     from reader import brain_peers as _bp
     have = await asyncio.to_thread(_bp.in_brain, v)
     prof = (have.get(t) or (None, None, 0))[1]
-    chosen = [p for p in _tickers_param(peers, 6) if p != t] or \
+    from reader import brain_universe as _bu
+    comp = [c["ticker"] for c in _bu.comps(v, t)]
+    chosen = [p for p in _tickers_param(peers, 6) if p != t] or comp[:6] or \
         [k for k, (_n, p, _r) in sorted(have.items()) if k != t and prof and _bp.same_profile({"profile": p}, prof)][:6]
     rows = []
     for x in [t] + chosen:
@@ -4468,7 +4524,7 @@ async def brain_valuation(ticker: str, peers: str = Query("", max_length=200)) -
 _BRAIN_LEARN: dict = {"running": False, "items": [], "started": None, "finished": None}
 
 
-async def _brain_learn_run(tickers: list[str], forms: str, per: int) -> None:
+async def _brain_learn_run(tickers: list[str], forms: str, per: int, think: bool = True, batch: Optional[str] = None) -> None:
     owner = "brain-learn-" + secrets.token_hex(12)
     try:
         for t in tickers:
@@ -4489,13 +4545,14 @@ async def _brain_learn_run(tickers: list[str], forms: str, per: int) -> None:
                     ext = f["document"].split("+")[0].rsplit(".", 1)[-1] if "." in f["document"] else "htm"
                     kind = "pdf" if ext.lower() == "pdf" else "text" if ext.lower() == "txt" else "html"
                     name = f"{t} {f['form'].replace('/', '-')} {f.get('period') or f['filed']} filed {f['filed']} {f['accession']}.{ext}"
-                    job, _reused = _reader_jobs.MANAGER.submit(owner, d.body, kind, name, t, (fl.get("company") or None))
+                    job, _reused = _reader_jobs.MANAGER.submit(owner, d.body, kind, name, t, (fl.get("company") or None), think=think, batch=batch)
                     end = time.time() + 600
                     while job.state in ("queued", "running") and time.time() < end:
                         await asyncio.sleep(1.0)
                     b = ((job.result or {}).get("brain") or {}) if job.state == "done" else {}
                     item["reads"].append({"form": f["form"], "period": f.get("period"), "filed": f["filed"],
-                                          "status": b.get("status") or job.state, "reason": b.get("reason")})
+                                          "status": b.get("status") or job.state, "reason": b.get("reason") or (job.error if job.state != "done" else None),
+                                          "seconds": round(time.time() - (job.started or time.time()), 1) if job.started else None})
                 item["state"] = "done"
             except (httpx.HTTPError, ValueError, _ReaderError) as e:
                 item["state"], item["error"] = "failed", str(getattr(e, "msg", None) or e)[:200]
@@ -4506,7 +4563,10 @@ async def _brain_learn_run(tickers: list[str], forms: str, per: int) -> None:
 @app.post("/api/brain-learn")
 async def brain_learn_start(request: Request) -> JSONResponse:
     """Read the latest filings of the companies named (default: the latest 10-K of each) into the brain, one after
-    another, in the background. Body: {"tickers": ["TRN", "GBX"], "forms": "10-K", "per": 1}."""
+    another, in the background. Body: {"tickers": ["TRN", "GBX"], "forms": "10-K", "per": 1}. Optional: "think": false
+    skips Claude's written reading for these reads (the fixed-rule reading is written instead; for a long batch, such as
+    scripts/local/brain_sp500_learn.py), and "batch": a short name that tags the reads in My reads, which shows them
+    apart from Brock's own."""
     v, _t, err = _brain_guard()
     if err:
         return err
@@ -4518,14 +4578,17 @@ async def brain_learn_start(request: Request) -> JSONResponse:
         body = await request.json()
     except ValueError:
         return JSONResponse(status_code=400, content={"error": "Send JSON."})
-    tickers = _tickers_param(",".join(body.get("tickers") or []), 8)
+    from reader import brain_universe as _bu
+    tickers = list(dict.fromkeys(_bu.canonical(v, x) for x in _tickers_param(",".join(body.get("tickers") or []), 8)))
     forms = ",".join(f for f in re.sub(r"[^A-Z0-9\-,]", "", str(body.get("forms") or "10-K").upper()).split(",") if f in ("10-K", "10-Q")) or "10-K"
     per = max(1, min(4, int(body.get("per") or 1)))
+    think = body.get("think") is not False
+    batch = re.sub(r"[^a-z0-9\-]", "", str(body.get("batch") or "").lower())[:40] or None
     if not tickers:
         return JSONResponse(status_code=400, content={"error": "Name at least one ticker."})
     _BRAIN_LEARN.update({"running": True, "started": time.strftime("%Y-%m-%d %H:%M:%S"), "finished": None, "forms": forms, "per": per,
-                         "items": [{"ticker": t, "state": "waiting", "reads": []} for t in tickers]})
-    asyncio.create_task(_brain_learn_run(tickers, forms, per))
+                         "think": think, "batch": batch, "items": [{"ticker": t, "state": "waiting", "reads": []} for t in tickers]})
+    asyncio.create_task(_brain_learn_run(tickers, forms, per, think, batch))
     return JSONResponse(status_code=202, content=_BRAIN_LEARN)
 
 

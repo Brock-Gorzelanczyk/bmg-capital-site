@@ -1374,13 +1374,14 @@ def recall(vault: Path, ticker: str, form: Optional[str] = None) -> dict:
     if not_set_up(vault):
         return {}
     try:
-        t = _safe_ticker(ticker)
+        t = _safe_ticker(_universe.canonical(vault, ticker))
     except ValueError:
         return {"known": False, "reason": "no ticker"}
     p = company_dir(vault, t) / "memory.json"
     rows = thresholds(vault, t)
+    sits = map_info(vault, t)
     if not p.exists():
-        return {"known": False, "ticker": t, "forecasts": preregistered(vault, t),
+        return {"known": False, "ticker": t, "forecasts": preregistered(vault, t), **({"map": sits} if sits else {}),
                 "thresholds": [{"id": r.get("id"), "item": r.get("item_name"), "threshold": r.get("threshold_value"),
                                 "operator": r.get("operator"), "class": r.get("class")} for r in rows if not r.get("_unparsed")]}
     m = load(vault, t)
@@ -1406,13 +1407,35 @@ def recall(vault: Path, ticker: str, form: Optional[str] = None) -> dict:
         lt = latest(s) if s else None
         th.append({"id": r.get("id"), "item": r.get("item_name"), "class": r.get("class"), "operator": r.get("operator"), "threshold": r.get("threshold_value"),
                    "watched_by_crawler": bool(spec), "brain_last": ({"end": lt[0], "display": lt[1].get("display")} if lt else None)})
-    return {"known": True, "ticker": t, "name": m.get("name"), "profile": m.get("profile"), "reads": len(reads),
+    return {"known": True, "ticker": t, "name": m.get("name"), "profile": m.get("profile"), "reads": len(reads), **({"map": sits} if sits else {}),
             "your_questions": brock_questions(vault, t), "forecasts": preregistered(vault, t),
             "last_read": ({k: last.get(k) for k in ("form", "period", "file", "at")} if last else None),
             "kpis": sorted(kpis, key=lambda k: k["name"]), "thresholds": th,
             "open_questions": [q["q"] for q in m.get("questions", []) if q.get("status") == "open"][:8],
             "guidance_open": [{"text": g["text"][:220], "covers": g.get("covers"), "src": g.get("src")} for g in m.get("guidance", []) if not g.get("outcome")][-6:],
             "track_record": track_record(m)}
+
+
+def map_info(vault: Path, ticker: str) -> Optional[dict]:
+    """Where the company sits on the brain's map and who it is compared with, for the brief: its GICS sector and
+    sub-industry, its comp set (BMG judgment) with what the brain has read of each, the companies whose comp set names
+    it, and how many of its industry the brain has read. None when the map does not hold the company."""
+    cl = _universe.classification(vault, ticker)
+    if not cl:
+        return None
+    def reads(x: str) -> int:
+        p = company_dir(vault, x) / "memory.json"
+        if not p.exists():
+            return 0
+        try:
+            return len(json.loads(p.read_text(encoding="utf-8")).get("reads") or [])
+        except (OSError, ValueError):
+            return 0
+    comps = [{**c, "reads": reads(c["ticker"])} for c in _universe.comps(vault, cl["ticker"])]
+    peers = [x for x in _universe.members(vault, cl["sector"], cl["industry"]) if x != cl["ticker"]]
+    return {"classification": cl, "comps": comps, "comp_notes": _universe.comp_entry(vault, cl["ticker"]),
+            "comped_by": _universe.comped_by(vault, cl["ticker"]), "industry_companies": len(peers),
+            "industry_read": [x for x in peers if reads(x)]}
 
 
 def expected(vault: Path, memory: dict, meta: dict) -> dict:
@@ -1452,7 +1475,7 @@ def learn(vault: Path, result: dict, extra: Optional[dict] = None, think: bool =
         # a span of Form 4 trades or a fund's 13F is not a company's report for a period: filed, it became an undated
         # read with no figures (Oracle's "Form 4 insider trades 2025-10-27 to 2026-10-19", 2026-10-27)
         return {"status": "skipped", "reason": f"{_NOT_FILED[meta['kind']]} are not filed in the brain: they report no period of the company's own figures."}
-    t = _safe_ticker(meta["ticker"])
+    t = _safe_ticker(_universe.canonical(vault, meta["ticker"]))         # a second share class files under the company (GOOG -> GOOGL)
     meta["ticker"] = t
     with _lock(t):
         mem = load(vault, t)
@@ -1797,6 +1820,7 @@ def companies(vault: Path) -> list:
 
 # ---------------------------------------------------------------------- the pages Brock reads in Obsidian
 from . import brain_pages as _pages        # noqa: E402  (markdown writers live beside this module)
+from . import brain_universe as _universe  # noqa: E402  (the map: GICS industries and comp sets, kept by hand)
 
 
 def write_pages(vault: Path, memory: dict, out: dict, meta: dict, inbox: bool = True) -> dict:

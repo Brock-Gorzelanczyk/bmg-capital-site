@@ -75,6 +75,32 @@ _OPERATING = re.compile(r"\b(units|customers|subscribers|stores|employees|backlo
 ANCHORS = {"Railcar leasing": r"railcar|rail car|tank car", "Railcar manufacturing": r"railcar|rail car|tank car",
            "Banking": r"net interest income|bank holding company|tier 1"}
 
+# Where each profile can apply, by GICS sector or sub-industry (brain/universe.json, the brain's map). When the map knows
+# the company (doc.gics, set by the pipeline on the owner's Mac), a profile whose words score but whose industry does not
+# fit is set aside: every 10-K's revenue note says "remaining performance obligation", so Tesla, Visa and Verizon read as
+# "Software and subscriptions"; a railroad says "railcar" often enough to read as a railcar lessor (Union Pacific's FY2025
+# 10-K, 48 mentions, 2026-11-03). Without the map (a file with no ticker, the scorer) nothing changes.
+FIT = {
+    "Railcar leasing": {"subs": {"Construction Machinery & Heavy Transportation Equipment", "Trading Companies & Distributors",
+                                 "Diversified Support Services"}},
+    "Railcar manufacturing": {"subs": {"Construction Machinery & Heavy Transportation Equipment", "Industrial Machinery & Supplies & Components"}},
+    "Banking": {"sectors": {"Financials"}},
+    "Software and subscriptions": {"sectors": {"Information Technology"},
+                                   "subs": {"Interactive Media & Services", "Interactive Home Entertainment", "Movies & Entertainment",
+                                            "Health Care Technology", "Human Resource & Employment Services", "Research & Consulting Services",
+                                            "Data Processing & Outsourced Services", "Financial Exchanges & Data"}},
+    "Consumer products": {"sectors": {"Consumer Discretionary", "Consumer Staples"},
+                          "subs": {"Technology Hardware, Storage & Peripherals", "Movies & Entertainment", "Interactive Home Entertainment"}},
+}
+
+
+def fits(name: str, gics: Optional[dict]) -> bool:
+    """True when the profile can apply to a company of this GICS sector or sub-industry (or nothing is known of it)."""
+    f = FIT.get(name)
+    if not f or not gics:
+        return True
+    return gics.get("sector") in f.get("sectors", ()) or gics.get("industry") in f.get("subs", ())
+
 
 def profile_for(doc) -> tuple[str, dict]:
     """The industry profile; two joined by " + " when the business clearly
@@ -86,6 +112,14 @@ def profile_for(doc) -> tuple[str, dict]:
     for name, anchor in ANCHORS.items():
         if len(re.findall(anchor, low)) < 10:
             scores[name] = 0
+    gics = getattr(doc, "gics", None)
+    aside = []
+    for name in list(scores):
+        if scores[name] and not fits(name, gics):
+            aside.append((name, scores[name]))
+            scores[name] = 0
+    if hasattr(doc, "profile_set_aside"):
+        doc.profile_set_aside = aside
     ranked = sorted(scores, key=scores.get, reverse=True)
     best = ranked[0]
     if scores[best] < 3:

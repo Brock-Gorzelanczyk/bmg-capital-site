@@ -61,6 +61,8 @@ class Library:
                  "checks_failed": cov.get("checks_failed"), "coverage": cov.get("status"),
                  "second_check": sc.get("status"), "flagged": len(sc.get("flagged") or []) if sc.get("status") == "done" else None,
                  "saved_at": time.strftime("%Y-%m-%d %H:%M"), "bytes": len(data)}
+        if getattr(job, "batch", None):
+            entry["batch"] = job.batch        # read by a background batch (the brain's S&P 500 run): shown apart in My reads
         with self.lock:
             idx = [e for e in self._index() if e.get("key") != key]
             idx.insert(0, entry)

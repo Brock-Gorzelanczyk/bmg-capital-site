@@ -41,8 +41,11 @@ def _owner_key(token: str) -> str:
 
 
 class Job:
-    def __init__(self, owner: str, sha: str, title: str, kind: str, ticker: Optional[str], company: Optional[str] = None):
+    def __init__(self, owner: str, sha: str, title: str, kind: str, ticker: Optional[str], company: Optional[str] = None,
+                 think: bool = True, batch: Optional[str] = None):
         self.id = secrets.token_urlsafe(16)
+        self.think = think                # False: the brain writes its fixed-rule reading, not Claude's (a long background batch)
+        self.batch = batch                # a background batch's name (brain-learn): My reads shows its reads apart
         self.owner = owner
         self.sha256 = sha
         self.title = title
@@ -104,7 +107,7 @@ class JobManager:
         return sum(1 for j in self.jobs.values() if j.state in ("queued", "running"))
 
     def submit(self, owner_token: str, data: bytes, kind: str, title: str, ticker: Optional[str],
-               company: Optional[str] = None) -> tuple[Job, bool]:
+               company: Optional[str] = None, think: bool = True, batch: Optional[str] = None) -> tuple[Job, bool]:
         self._sweep()
         owner = _owner_key(owner_token)
         sha = hashlib.sha256(data).hexdigest()
@@ -114,7 +117,7 @@ class JobManager:
                     return j, True
             if self.busy() >= MAX_RUNNING * 4:
                 raise ReadError(503, "The reader is busy. Try again in a minute.")
-            job = Job(owner, sha, title, kind, ticker, company)
+            job = Job(owner, sha, title, kind, ticker, company, think=think, batch=batch)
             self.jobs[job.id] = job
         saved = None
         if self.library:
@@ -226,7 +229,7 @@ class JobManager:
             extra = brain.meta_from_title(job.title, job.ticker, job.company, src)
             out = brain.learn(self.brain_vault, res, extra, think=False)
             res["brain"] = brain.compact(out)
-            if out.get("status") == "learned" and brain.model_on():
+            if out.get("status") == "learned" and brain.model_on() and getattr(job, "think", True):
                 res["brain"]["reading"] = {**(res["brain"].get("reading") or {}), "pending": True}
                 threading.Thread(target=self._think, args=(job, out, extra, res["brain"]), daemon=True, name="brain-think").start()
         except Exception as e:                 # the brain never costs a read its report

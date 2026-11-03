@@ -3846,19 +3846,23 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (!box) return;
     let j;
     try { const r = await fetch("/api/reads", {cache: "no-store"}); if (!r.ok) return; j = await r.json(); } catch (e){ return; }
-    const reads = j.reads || [];
-    box.hidden = !reads.length;
-    document.getElementById("lib-count").textContent = reads.length ? `${reads.length} saved` : "";
+    // reads from a background batch (the brain's S&P 500 run) sit behind a button, so Brock's own reads stay on top
+    const all = j.reads || [], own = all.filter(e => !e.batch), bg = all.filter(e => e.batch);
+    const reads = state.libShowBg ? all : own;
+    box.hidden = !all.length;
+    document.getElementById("lib-count").textContent = all.length ? `${own.length} saved${bg.length ? ` · ${bg.length} from the brain's background run` : ""}` : "";
     const checks = e => e.second_check === "done" ? (e.flagged ? `<span class="warn">${e.flagged} to look at</span>` : `<span class="ok">verified</span>`)
       : e.checks_run != null ? (e.checks_failed ? `<span class="warn">${e.checks_failed} of ${e.checks_run} failed</span>` : `<span class="ok">${e.checks_run} of ${e.checks_run} passed</span>`) : "";
-    rows.innerHTML = reads.map((e, i) => `<tr${i >= 8 ? " hidden" : ""}><td><b>${esc(e.company || e.title)}</b>${e.ticker ? " · " + esc(e.ticker) : ""}<small>${esc([e.form, e.period].filter(Boolean).join(" · ") || e.title)}</small></td>
+    rows.innerHTML = reads.map((e, i) => `<tr${i >= 8 ? " hidden" : ""}><td><b>${esc(e.company || e.title)}</b>${e.ticker ? " · " + esc(e.ticker) : ""}<small>${esc([e.form, e.period, e.batch ? "background run" : ""].filter(Boolean).join(" · ") || e.title)}</small></td>
       <td class="num">${e.findings} found<small>${e.signals} signals</small></td><td>${checks(e)}</td><td class="num">${esc(e.saved_at || "")}</td>
       <td><button type="button" data-sha="${esc(e.sha256)}" data-ticker="${esc(e.job_ticker || "")}">Open</button></td></tr>`).join("")
-      + (reads.length > 8 ? `<tr><td colspan="5"><button type="button" data-more="1">Show ${reads.length - 8} older</button></td></tr>` : "");
+      + (reads.length > 8 ? `<tr><td colspan="5"><button type="button" data-more="1">Show ${reads.length - 8} older</button></td></tr>` : "")
+      + (bg.length ? `<tr><td colspan="5"><button type="button" data-bg="1">${state.libShowBg ? "Hide" : "Show"} the ${bg.length} read${bg.length === 1 ? "" : "s"} from the brain's background run</button></td></tr>` : "");
   }
   document.getElementById("lib-rows")?.addEventListener("click", async e => {
     const st = document.getElementById("lib-status");
     if (e.target.closest("button[data-more]")){ document.querySelectorAll("#lib-rows tr[hidden]").forEach(tr => { tr.hidden = false; }); e.target.closest("tr").remove(); return; }
+    if (e.target.closest("button[data-bg]")){ state.libShowBg = !state.libShowBg; loadLibrary(); return; }
     const b = e.target.closest("button[data-sha]"); if (!b) return;
     b.disabled = true; st.classList.remove("err"); st.textContent = "Opening the saved read...";
     try {
@@ -4465,12 +4469,22 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const thHTML = th.length ? `<h4>Pre-registered thresholds</h4><ul class="bf-mem">${th.map(x => `<li><b>${esc(x.id)}</b> ${esc(x.operator || "")} ${esc(String(x.threshold))}${x.brain_last ? `<small>last read ${esc(x.brain_last.display || "")} (${esc(x.brain_last.end)})</small>` : ""}</li>`).join("")}</ul>` : "";
     const fc = (m.forecasts || []).slice(0, 8);
     const fcHTML = fc.length ? `<h4>Your pre-registered forecasts</h4><ul class="bf-mem">${fc.map(x => `<li><b>${esc(x.period || "")} ${esc(String(x.metric || "").replace(/_/g, " "))}</b> ${esc(String(x.forecast))}${x.units === "percent" ? "%" : ""}<small>${x.ci_80_lower != null ? `80% range ${esc(String(x.ci_80_lower))} to ${esc(String(x.ci_80_upper))} · ` : ""}calibration/forecasts.yaml; scored in the postmortem, not here</small></li>`).join("")}</ul>` : "";
-    if (!m.known) return `<h4>What I already know</h4><p class="bf-mem-note">First read of ${esc(m.ticker)}: the brain starts its book on this company with this filing.</p>${thHTML}${fcHTML}`;
+    const mapHTML = m.map && !document.body.classList.contains("rec") && !document.body.classList.contains("recmode") ? brainMapHTML(m.map) : "";
+    if (!m.known) return `<h4>What I already know</h4><p class="bf-mem-note">First read of ${esc(m.ticker)}: the brain starts its book on this company with this filing.</p>${mapHTML}${thHTML}${fcHTML}`;
     const k = (m.kpis || []).slice(0, 8).map(x => `<li><b>${esc(x.name)}</b> ${esc(x.display || "")}<small>${esc(x.end)}${x.where && x.where.pdf_page ? ` · last printed p.${esc(String(x.where.pdf_page))}${x.where.table ? ", " + esc(x.where.table) : ""}` : ""}</small></li>`).join("");
     const q = (m.your_questions || []).map(x => `<li><b>You asked:</b> ${esc(x)}</li>`).join("") + (m.open_questions || []).slice(0, 3).map(x => `<li>${esc(x)}</li>`).join("");
     const lr = m.last_read ? `${m.reads} earlier read${m.reads === 1 ? "" : "s"}; last: ${esc([m.last_read.form, m.last_read.period].filter(Boolean).join(" "))}.` : "";
     return `<h4>What I already know</h4><p class="bf-mem-note">${lr} Checked against this filing as it is read; what changed is in the report's Brain tab.</p>
-      ${k ? `<ul class="bf-mem">${k}</ul>` : ""}${thHTML}${fcHTML}${q ? `<h4>Open questions</h4><ul class="bf-mem">${q}</ul>` : ""}`;
+      ${mapHTML}${k ? `<ul class="bf-mem">${k}</ul>` : ""}${thHTML}${fcHTML}${q ? `<h4>Open questions</h4><ul class="bf-mem">${q}</ul>` : ""}`;
+  }
+  // Where the company sits on the brain's map (GICS, brain/universe.json) and its comp set (BMG judgment, brain/comp-sets.json).
+  // Local Crawler only (the brain's memory is), and never in a record window, so a video shows the brief as before.
+  function brainMapHTML(mp){
+    const cl = mp.classification || {}, cs = mp.comps || [];
+    const comps = cs.map(c => `<b title="${esc((c.business || "") + ": " + (c.why || ""))}">${esc(c.ticker)}</b>${c.reads ? "" : "<sup>*</sup>"}`).join(", ");
+    const nr = (mp.industry_read || []).length;
+    return `<h4>Where it sits</h4><ul class="bf-mem"><li><b>${esc(cl.industry || "")}</b> ${esc(cl.sector || "")}<small>GICS${cl.index ? " · " + esc(cl.index) : ""}; the brain has read ${nr} of the ${esc(String(mp.industry_companies || 0))} other companies of this industry</small></li>`
+      + (comps ? `<li><b>Comp set</b> ${comps}<small>BMG judgment, closest first${cs.some(c => !c.reads) ? "; * not read yet" : ""}${mp.comp_notes && mp.comp_notes.analyst_view ? " · " + esc(mp.comp_notes.analyst_view) : ""}</small></li>` : "") + `</ul>`;
   }
   // The industry playbook in the brief: the KPIs other companies of this industry print and where (reader/brain_peers.py).
   // Local Crawler only, and never in a record window, so a video shows the brief as before.
@@ -10412,12 +10426,21 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const sic = (j.sic || []).slice(0, 8).map(x => `<li><b>${esc(x.ticker)}</b> ${esc(x.company || "")}${x.revenue ? ` <small class="muted">revenue ${esc(fmtUSD(x.revenue))} in ${esc(String(x.revenue_year))}</small>` : ""} ${inb(x)}</li>`).join("");
       const br = (j.brain || []).map(x => `<li><b>${esc(x.ticker)}</b> ${esc(x.company || "")} ${inb(x)}</li>`).join("");
       const todo = [...new Set((j.named || []).filter(x => x.ticker && !x.in_brain).map(x => x.ticker))].slice(0, 6);     // the named ones only
-      el.innerHTML = `<p class="rp-note">Three ways, each with its source. Reading a competitor's 10-K files it in the brain; its KPIs then join the playbook and its figures the table below.</p>
+      const cl = j.classification;
+      const cset = (j.comp_set || []).map(x => `<li><b>${esc(x.ticker)}</b> ${esc(x.company || "")}<small>${esc(x.business || "")}: ${esc(x.why || "")}</small> ${inb(x)}</li>`).join("");
+      const todoSet = [...new Set((j.comp_set || []).filter(x => x.ticker && !x.in_brain).map(x => x.ticker))].slice(0, 8);
+      const same = (j.same_industry || []).map(x => `<li><b>${esc(x.ticker)}</b> ${esc(x.company || "")} ${inb(x)}</li>`).join("");
+      el.innerHTML = `<p class="rp-note">${cl ? "Four" : "Three"} ways, each with its source. Reading a competitor's 10-K files it in the brain; its KPIs then join the playbook and its figures the table below.</p>
+        ${cl ? `<p class="rp-note">${esc(cl.sector)} · <b>${esc(cl.industry)}</b> (GICS${cl.index ? ", " + esc(cl.index) : ""}; brain/universe.json).</p>` : ""}
+        ${cset ? `<h3>Comp set <small class="muted">BMG judgment, closest first: who an analyst compares ${esc(t)} with; not from a filing, not a source</small></h3><ul class="rt-sents">${cset}</ul>
+          ${(j.comp_notes || {}).analyst_view ? `<p class="rp-note">${esc(j.comp_notes.analyst_view)}</p>` : ""}
+          ${todoSet.length ? `<p><button type="button" class="rt-learn rt-learn-all" data-learn="${esc(todoSet.join(","))}">Read the latest 10-K of ${esc(todoSet.join(", "))} into the brain</button></p>` : ""}` : ""}
         <h3>Named in ${esc(t)}'s latest 10-K${nf ? ` <small class="muted">(${nf.url ? `<a href="${esc(nf.url)}" target="_blank" rel="noopener">filed ${esc(nf.filed)}</a>` : "filed " + esc(nf.filed)})</small>` : ""}</h3>
         ${named ? `<ul class="rt-sents">${named}</ul>` : `<p class="rp-note">The 10-K names no competitor in a sentence about competition${(j.errors || []).length ? " (" + esc(j.errors.join("; ")) + ")" : ""}.</p>`}
         <h3>Same SEC industry code${j.sic_code ? ` <small class="muted">${esc(j.sic_code)}${j.sic_name ? " · " + esc(j.sic_name) : ""}, nearest in revenue first</small>` : ""}</h3>
         ${sic ? `<p class="rp-note">An industry code is a wide bucket: check that a company is a real competitor before reading it (M01 found landscape-supply and waterworks distributors among GATX's "asset-leasing peers").</p><ul class="rt-sents">${sic}</ul>` : `<p class="rp-note">No other filer of this code was found.</p>`}
-        ${br ? `<h3>Already in the brain under ${esc(j.profile || "this industry")}</h3><ul class="rt-sents">${br}</ul>` : ""}
+        ${same ? `<h3>Same GICS industry <small class="muted">${esc(cl.industry)}</small></h3><ul class="rt-sents">${same}</ul>`
+          : br ? `<h3>Already in the brain under ${esc(j.profile || "this industry")}</h3><ul class="rt-sents">${br}</ul>` : ""}
         ${todo.length ? `<p><button type="button" class="rt-learn rt-learn-all" data-learn="${esc(todo.join(","))}">Read the latest 10-K of ${esc(todo.join(", "))} into the brain</button></p>` : ""}
         <p class="rt-learnst" role="status"></p>`;
       el.querySelectorAll("[data-learn]").forEach(b => b.addEventListener("click", () => indLearn(box, b)));

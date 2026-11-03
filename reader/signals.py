@@ -64,12 +64,17 @@ FOCUS = {
         ("kpi:Allowance for credit losses", "Allowance for credit losses", "Reserves set aside for loans that may not be repaid."),
     ],
 }
-def brief(company: dict, profile: str, scores: dict) -> dict:
-    """The plan of what to look for, available right after parsing."""
+def brief(company: dict, profile: str, scores: dict, set_aside: Optional[list] = None, gics: Optional[dict] = None) -> dict:
+    """The plan of what to look for, available right after parsing. set_aside: profiles whose words scored but that
+    do not fit the company's GICS industry (the brain's map), said in the "why" line."""
     terms = sorted(((k, v) for k, v in (scores or {}).items() if v), key=lambda x: -x[1])
     why = (f"Read as {profile.lower()} because its industry vocabulary appears most often in the filing "
            f"({', '.join(f'{k.lower()} {v}' for k, v in terms[:3])} mentions)." if profile != "General"
-           else "No industry vocabulary stood out, so the general checks apply.")
+           else "No industry vocabulary stood out, so the general checks apply." if not set_aside
+           else "No industry vocabulary that fits its industry stood out, so the general checks apply.")
+    if set_aside and gics:
+        why += (f" Set aside as not its industry ({gics.get('industry')}, GICS on the brain's map): "
+                + ", ".join(f"{k.lower()} ({v} mention{'s' if v != 1 else ''})" for k, v in set_aside) + ".")
     items, seen = [], set()
     ind = [x for part in profile.split(" + ") for x in FOCUS.get(part, [])]
     for key, title, why_it in ind + ([] if profile == "Banking" else GENERAL):

@@ -55,6 +55,8 @@ class Document:
     removed_boilerplate: int = 0
     xbrl: list[dict] = field(default_factory=list)                     # inline XBRL facts (HTML filings)
     dei: dict = field(default_factory=dict)                            # cover facts tagged in iXBRL (dei:)
+    gics: Optional[dict] = None             # the company's GICS sector and sub-industry from the brain's map, when the reader knows it
+    profile_set_aside: list = field(default_factory=list)              # (profile, mentions) set aside as not the company's industry
 
     def page_at(self, offset: int) -> Optional[int]:
         pg = None
