@@ -234,7 +234,7 @@ class JobManager:
                 threading.Thread(target=self._think, args=(job, out, extra, res["brain"]), daemon=True, name="brain-think").start()
         except Exception as e:                 # the brain never costs a read its report
             log.exception("brain learn failed for job %s", job.id[:8])
-            res["brain"] = {"status": "error", "reason": f"The brain could not file this read ({e.__class__.__name__})."}
+            res["brain"] = {"status": "error", "reason": f"The brain could not file this read ({e.__class__.__name__}: {str(e)[:240]})."}
 
     def _think(self, job: Job, out: dict, extra: dict, b: dict):
         """b is the job result's brain entry (the result may not be set yet when this thread starts)."""

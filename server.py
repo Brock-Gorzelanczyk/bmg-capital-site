@@ -4293,8 +4293,9 @@ async def brain_index() -> JSONResponse:
     v = _vault_repo()
     if not v:
         return JSONResponse(status_code=404, content={"error": "The vault folder was not found. Set BMG_VAULT_REPO to the vault's folder."})
+    bv = _reader_jobs.MANAGER.brain_vault
     return JSONResponse(content={"companies": await asyncio.to_thread(_brain.companies, v), "not_set_up": _brain.not_set_up(v),
-                                 "filing_reads": bool(_reader_jobs.MANAGER.brain_vault)})
+                                 "filing_reads": bool(bv), "vault": str(v), "brain_vault": str(bv) if bv else None})
 
 
 @app.get("/api/brain/universe")
