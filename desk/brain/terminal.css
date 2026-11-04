@@ -1,0 +1,78 @@
+/* BMG terminal look, shared by the brain's pages (3D map, company report, Mastermind): black screen, amber headers,
+   monospace figures, green and red only for up and down. */
+:root {
+  --bg: #020304; --panel: #07090c; --panel2: #0b0e13; --line: #1c2430; --line2: #2a3442;
+  --ink: #e6e9ee; --mute: #8a94a6; --dim: #5b6576;
+  --amber: #ffb000; --amber2: #ffcf5a; --green: #2fd36b; --red: #ff5a52; --cyan: #5cc8ff; --blue: #4b8dff;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --top: 40px; --tape: 30px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+a { color: var(--cyan); }
+.mono, .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.up { color: var(--green); } .down { color: var(--red); } .amber { color: var(--amber); } .mute { color: var(--mute); }
+
+/* top bar */
+#bmg-top { position: fixed; top: 0; left: 0; right: 0; height: var(--top); z-index: 50; display: flex; align-items: center; gap: 2px;
+  background: #000; border-bottom: 1px solid var(--amber); font-family: var(--mono); font-size: 12px; padding-right: 10px; }
+#bmg-top .logo { height: 100%; display: flex; align-items: center; padding: 0 12px; background: var(--amber); color: #000; font-weight: 700; letter-spacing: 0.12em; }
+#bmg-top a, #bmg-top button.t { color: var(--mute); text-decoration: none; padding: 0 11px; height: 100%; display: flex; align-items: center;
+  border: 0; background: none; font: inherit; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; }
+#bmg-top a:hover, #bmg-top a:focus-visible { color: #000; background: var(--amber2); outline: none; }
+#bmg-top a.on { color: var(--amber); box-shadow: inset 0 -2px 0 var(--amber); }
+#bmg-top #bmg-back { color: var(--ink); font-weight: 600; border-right: 1px solid var(--line2); margin-right: 4px; }
+#bmg-top .sp { flex: 1; }
+#bmg-top .clock { color: var(--amber2); }
+#bmg-top .feed { color: var(--dim); margin-left: 12px; white-space: nowrap; }
+#bmg-top .feed b { color: var(--green); font-weight: 600; }
+#bmg-top .feed b.delayed { color: var(--amber); }
+
+/* ticker tape */
+#bmg-tape { position: fixed; left: 0; right: 0; bottom: 0; height: var(--tape); z-index: 50; background: #000; border-top: 1px solid var(--line2);
+  overflow: hidden; font-family: var(--mono); font-size: 12.5px; display: flex; align-items: center; }
+#bmg-tape .lbl { flex: none; height: 100%; display: flex; align-items: center; padding: 0 10px; background: var(--amber); color: #000; font-weight: 700; letter-spacing: 0.1em; z-index: 2; }
+#bmg-tape .rail { flex: 1; overflow: hidden; position: relative; height: 100%; }
+#bmg-tape .run { position: absolute; top: 0; left: 0; height: 100%; display: flex; align-items: center; white-space: nowrap; will-change: transform;
+  animation: bmg-tape var(--dur, 90s) linear infinite; }
+#bmg-tape:hover .run { animation-play-state: paused; }
+#bmg-tape .it { padding: 0 18px; border-right: 1px solid var(--line); color: var(--ink); text-decoration: none; }
+#bmg-tape .it .k { color: var(--amber); margin-right: 6px; }
+#bmg-tape .it .tag { color: #000; background: var(--cyan); padding: 0 4px; margin-right: 6px; font-size: 11px; }
+#bmg-tape .it .tag.er { background: var(--amber); }
+@keyframes bmg-tape { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { #bmg-tape .run { animation: none; position: static; overflow-x: auto; } }
+
+/* panels */
+.panel { background: var(--panel); border: 1px solid var(--line); }
+.panel > h2, .ph { margin: 0; padding: 5px 10px; font: 600 11.5px var(--mono); letter-spacing: 0.1em; text-transform: uppercase;
+  color: #000; background: var(--amber); display: flex; align-items: center; gap: 8px; }
+.ph .r { margin-left: auto; font-weight: 500; }
+.pb { padding: 10px 12px; overflow-x: auto; }
+.btn { background: var(--panel2); border: 1px solid var(--line2); color: var(--ink); padding: 5px 10px; font: 12px var(--mono); cursor: pointer;
+  text-transform: uppercase; letter-spacing: 0.05em; text-decoration: none; display: inline-block; }
+.btn:hover, .btn:focus-visible { border-color: var(--amber); color: var(--amber); outline: none; }
+.btn[aria-pressed="true"] { background: var(--amber); color: #000; border-color: var(--amber); }
+.chip { font: 600 12px var(--mono); padding: 2px 6px; border: 1px solid var(--line2); color: var(--ink); background: var(--panel2); cursor: pointer; text-decoration: none; display: inline-block; }
+.chip:hover { border-color: var(--amber); color: var(--amber); }
+.chip.off { border-style: dashed; color: var(--dim); cursor: default; }
+.badge { font: 600 10.5px var(--mono); padding: 1px 5px; background: var(--amber); color: #000; white-space: nowrap; }
+.badge.cy { background: var(--cyan); } .badge.rd { background: var(--red); color: #fff; } .badge.gr { background: var(--green); }
+table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.t th { text-align: left; font: 600 11px var(--mono); color: var(--amber); text-transform: uppercase; letter-spacing: 0.06em; padding: 5px 8px; border-bottom: 1px solid var(--line2); }
+table.t td { padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.t td.n, table.t th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+table.t tr.click { cursor: pointer; }
+table.t tr.click:hover td { background: #101620; }
+.pg { font: 11px var(--mono); color: var(--dim); text-decoration: none; }
+a.pg:hover { color: var(--cyan); }
+.src-note { font-size: 11.5px; color: var(--dim); line-height: 1.5; }
+input.q { width: 100%; padding: 9px 11px; background: #000; color: var(--amber2); border: 1px solid var(--line2); font: 14px var(--mono); }
+input.q:focus { outline: 1px solid var(--amber); border-color: var(--amber); }
+input.q::placeholder { color: var(--dim); }
+@media (max-width: 760px) {
+  #bmg-top { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  #bmg-top .feed, #bmg-top .clock { display: none; }
+  #bmg-top a, #bmg-top button.t { padding: 0 7px; font-size: 11px; }
+}

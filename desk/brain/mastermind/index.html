@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mastermind | BMG Capital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../terminal.css">
+<style>
+/* Mastermind: ask a question across every filing saved in My reads. The passages come from a local full-text index
+   (free); the written answer is optional and keeps only sentences whose quotes are found in the filing. */
+body { padding: calc(var(--top) + 16px) 16px calc(var(--tape) + 24px); }
+main { max-width: 1180px; margin: 0 auto; }
+.hero { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+.hero h1 { margin: 0; font: 700 24px var(--mono); letter-spacing: 0.14em; color: var(--amber); }
+.hero .st { font: 12px var(--mono); color: var(--mute); }
+.ask { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; }
+.scope { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 10px 0 14px; font: 12px var(--mono); color: var(--mute); }
+.scope select { background: #000; color: var(--ink); border: 1px solid var(--line2); font: 12px var(--mono); padding: 4px 6px; }
+.scope input { background: #000; color: var(--amber2); border: 1px solid var(--line2); font: 12px var(--mono); padding: 4px 6px; width: 170px; }
+.ex { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.ex button { background: none; border: 1px dashed var(--line2); color: var(--mute); font: 12px var(--sans); padding: 4px 8px; cursor: pointer; }
+.ex button:hover { color: var(--amber); border-color: var(--amber); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.grid > * { min-width: 0; } #ans-panel[hidden] + #hits-panel { grid-column: 1 / -1; } main { overflow-wrap: anywhere; } .hit .h { min-width: 0; }
+#answer .s { margin: 0 0 12px; line-height: 1.55; font-size: 15px; }
+#answer .qs { margin: 4px 0 0 0; padding: 0; list-style: none; }
+#answer .qs li { font-size: 12.5px; color: var(--mute); border-left: 2px solid var(--amber); padding: 2px 0 2px 8px; margin: 4px 0; }
+#answer .qs li b { font-family: var(--mono); color: var(--amber); font-weight: 600; margin-right: 4px; }
+#answer details { margin-top: 10px; font-size: 12px; color: var(--mute); }
+.hit { border-bottom: 1px solid var(--line); padding: 10px 0; }
+.hit:last-child { border-bottom: 0; }
+.hit .h { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font: 12px var(--mono); }
+.hit .h a.tk { color: var(--amber); font-weight: 700; text-decoration: none; font-size: 13px; }
+.hit .h .sec { color: var(--dim); }
+.hit p { margin: 6px 0 0; font-size: 13.5px; line-height: 1.5; color: #cfd5de; }
+.hit mark { background: rgba(255, 176, 0, 0.22); color: var(--amber2); padding: 0 1px; }
+.empty { color: var(--mute); font-size: 13px; padding: 6px 0; }
+.cost { font: 11px var(--mono); color: var(--dim); margin-top: 8px; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } .ask { grid-template-columns: 1fr 1fr; } .ask input { grid-column: 1 / -1; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="hero"><h1>MASTERMIND</h1><span class="st" id="st">Checking the index...</span></div>
+  <form class="ask" id="f">
+    <input class="q" id="q" type="search" autocomplete="off" placeholder="Ask about any company the Crawler has read, e.g. How does American Express describe credit losses?" aria-label="Question">
+    <button class="btn" type="submit" id="go-search">Search filings</button>
+    <button class="btn" type="button" id="go-answer" title="A short answer written from the passages; every quote is checked against the filing. Uses your API key.">Search + answer</button>
+  </form>
+  <div class="scope">
+    <span>LOOK IN</span>
+    <select id="sector" aria-label="Sector"><option value="">All sectors</option></select>
+    <select id="industry" aria-label="Sub-industry" hidden><option value="">All of the sector</option></select>
+    <span>OR TICKERS</span><input id="tickers" placeholder="AXP, COF, SYF" aria-label="Tickers">
+    <span id="named"></span>
+  </div>
+  <div class="ex" id="ex">
+    <button type="button">Which companies describe customer concentration?</button>
+    <button type="button">How does GATX describe railcar utilization?</button>
+    <button type="button">What do banks say about commercial real estate?</button>
+    <button type="button">Who mentions tariffs as a risk?</button>
+    <button type="button">Debt maturities due in 2027</button>
+  </div>
+  <div class="grid">
+    <section class="panel" id="ans-panel" hidden><h2>Answer <span class="r" id="ans-r"></span></h2><div class="pb" id="answer"></div></section>
+    <section class="panel" id="hits-panel"><h2>From the filings <span class="r" id="hits-r"></span></h2><div class="pb" id="hits"><div class="empty">Ask a question. Mastermind searches the full text of every filing saved in My reads and shows the passages that answer it, with the company, the filing and the page.</div></div></section>
+  </div>
+  <p class="src-note">Mastermind answers only from filings the Crawler has read and saved on this Mac. A written answer keeps a sentence only when each quote is found in that filing's text and every number in it is inside its quotes; the rest are listed as dropped. It is not a source (M39): cite the filing page it shows. No ratings, no price views.</p>
+</main>
+<script src="../shell.js"></script>
+<script>
+(() => {
+"use strict";
+const {esc, getJSON, nav, tape} = window.BMG;
+nav("mastermind");
+tape();
+const $ = id => document.getElementById(id);
+let UNI = null, LAST = [];
+
+async function status() {
+  try {
+    const s = await getJSON("/api/mastermind/status");
+    const idx = s.status === "building" ? `INDEXING ${s.done}/${s.total} new filings` : `${s.filings || 0} filings, ${s.companies || 0} companies, ${(s.passages || 0).toLocaleString()} passages`;
+    $("st").textContent = `${idx}. Answers: ${s.answers ? "on (" + s.model + ")" : "off (no API key)"}`;
+    $("go-answer").disabled = !s.answers;
+    if (s.status === "building") setTimeout(status, 2500);
+  } catch (e) { $("st").textContent = e.message; }
+}
+async function sectors() {
+  try { UNI = await getJSON("/api/brain/universe"); } catch (e) { return; }
+  for (const s of UNI.sectors || []) $("sector").insertAdjacentHTML("beforeend", `<option value="${esc(s.slug)}">${esc(s.sector)}</option>`);
+}
+$("sector").onchange = () => {
+  const s = (UNI && UNI.sectors || []).find(x => x.slug === $("sector").value), ind = $("industry");
+  ind.innerHTML = `<option value="">All of the sector</option>` + (s ? s.sub_industries.map(x => `<option value="${esc(x.slug)}">${esc(x.industry)}</option>`).join("") : "");
+  ind.hidden = !s;
+};
+
+function marks(text, terms) {
+  let h = esc(text);
+  const ws = [...new Set(terms)].filter(t => t.length > 2).sort((a, b) => b.length - a.length);
+  if (!ws.length) return h;
+  const re = new RegExp("\\b(" + ws.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")\\w*", "gi");
+  return h.replace(re, m => `<mark>${m}</mark>`);
+}
+function hitHTML(h, terms, n) {
+  return `<div class="hit"><div class="h">${n ? `<span class="badge">S${n}</span>` : ""}<a class="tk" href="../company/?t=${encodeURIComponent(h.ticker)}">${esc(h.ticker)}</a>
+    <span>${esc(h.company || "")}</span><span class="badge cy">${esc(h.form || "filing")}</span><span class="mute">${esc((h.period || "").replace(/^(Fiscal year|Quarter) ended /, ""))}</span>
+    <span class="pg">p.${esc(h.page)}</span><span class="sec">${esc(h.section || "")}</span></div><p>${marks(h.text.length > 900 ? h.text.slice(0, 900) + "..." : h.text, terms)}</p></div>`;
+}
+function params(q) {
+  const p = new URLSearchParams({q});
+  if ($("tickers").value.trim()) p.set("tickers", $("tickers").value.trim());
+  else if ($("sector").value) { p.set("sector", $("sector").value); if ($("industry").value) p.set("industry", $("industry").value); }
+  return p;
+}
+function showHits(d) {
+  LAST = d.hits || [];
+  $("named").innerHTML = (d.named || []).length ? `NAMED: ${d.named.map(t => `<span class="chip">${esc(t)}</span>`).join(" ")}` : "";
+  $("hits-r").textContent = `${LAST.length} passage${LAST.length === 1 ? "" : "s"}`;
+  $("hits").innerHTML = LAST.length ? LAST.map((h, i) => hitHTML(h, d.terms || [], i + 1)).join("")
+    : `<div class="empty">${esc(d.note || "No passage matched. Try other words, or widen the scope.")}</div>`;
+}
+async function run(withAnswer) {
+  const q = $("q").value.trim();
+  if (q.length < 2) { $("q").focus(); return; }
+  history.replaceState(null, "", "?q=" + encodeURIComponent(q));
+  $("hits").innerHTML = `<div class="empty">Searching every saved filing...</div>`;
+  $("ans-panel").hidden = !withAnswer;
+  if (withAnswer) { $("answer").innerHTML = `<div class="empty">Reading the best passages and writing an answer (checked quote by quote)...</div>`; $("ans-r").textContent = ""; }
+  try {
+    if (!withAnswer) { showHits(await getJSON("/api/mastermind/search?" + params(q))); return; }
+    const p = params(q), body = {q};
+    for (const k of ["tickers", "sector", "industry"]) if (p.get(k)) body[k] = p.get(k);
+    const d = await getJSON("/api/mastermind/answer", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+    showHits(d);
+    const a = d.answer || {};
+    if (a.status !== "done") { $("answer").innerHTML = `<div class="empty">${esc(a.reason || "No answer.")}</div>`; return; }
+    $("ans-r").textContent = `${(a.sentences || []).length} of ${a.asked || 0} sentences kept`;
+    $("answer").innerHTML = (a.sentences || []).length ? a.sentences.map(s => `<div class="s">${esc(s.text)}<ul class="qs">${s.quotes.map(x =>
+        `<li><b>${esc(x.ticker)}</b>"${esc(x.quote)}" <span class="pg">${esc(x.form || "")} p.${esc(x.page)}</span></li>`).join("")}</ul></div>`).join("")
+      : `<div class="empty">The filings searched do not answer this${a.not_found ? "" : " (no sentence passed the quote check)"}. The passages are on the right.</div>`;
+    if ((a.dropped || []).length) $("answer").insertAdjacentHTML("beforeend", `<details><summary>${a.dropped.length} sentence(s) dropped by the check</summary>${a.dropped.map(x => `<p>${esc(x.text)} <span class="pg">(${esc(x.reason)})</span></p>`).join("")}</details>`);
+    $("answer").insertAdjacentHTML("beforeend", `<div class="cost">${esc(a.model || "")}, ${a.tokens ? a.tokens.in + " in / " + a.tokens.out + " out tokens" : ""}${typeof a.cost_usd === "number" ? ", about $" + a.cost_usd.toFixed(4) : ""}</div>`);
+  } catch (e) { $("hits").innerHTML = `<div class="empty">${esc(e.message)}</div>`; if (withAnswer) $("answer").innerHTML = ""; }
+}
+$("f").onsubmit = e => { e.preventDefault(); run(false); };
+$("go-answer").onclick = () => run(true);
+$("ex").onclick = e => { if (e.target.tagName === "BUTTON") { $("q").value = e.target.textContent; run(false); } };
+const qs = new URLSearchParams(location.search);
+if (qs.get("t")) $("tickers").value = qs.get("t").toUpperCase();
+status(); sectors();
+if (qs.get("q")) { $("q").value = qs.get("q"); run(false); } else $("q").focus();
+})();
+</script>
+</body>
+</html>

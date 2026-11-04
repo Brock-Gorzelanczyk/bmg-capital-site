@@ -4310,6 +4310,10 @@ async def brain_universe() -> JSONResponse:
     if not _bu.on(v):
         return JSONResponse(status_code=404, content={"error": "The brain has no map yet (brain/universe.json is not in the vault)."})
     read = {c["ticker"]: {"reads": c["reads"], "last": c.get("last"), "kpis": c.get("kpis")} for c in await asyncio.to_thread(_brain.companies, v) if c.get("ticker")}
+    from reader import brain_market as _bm, brain_peers as _bp
+    for t, r in (await asyncio.to_thread(lambda: _bm.revenue(_bp.memories(v)))).items():
+        if t in read:
+            read[t]["revenue"] = r
     return JSONResponse(content=await asyncio.to_thread(_bu.listing, v, read))
 
 
@@ -4559,6 +4563,134 @@ async def _brain_learn_run(tickers: list[str], forms: str, per: int, think: bool
                 item["state"], item["error"] = "failed", str(getattr(e, "msg", None) or e)[:200]
     finally:
         _BRAIN_LEARN["running"], _BRAIN_LEARN["finished"] = False, time.strftime("%Y-%m-%d %H:%M:%S")
+
+
+@app.get("/api/brain/{ticker}/report")
+async def brain_report(ticker: str) -> JSONResponse:
+    """One company's page in the brain: its map entry and comp set, the figures the brain holds across reads (each with
+    its page), and what the latest annual read found (headline, takeaways, business, red flags, risks, maturities)."""
+    v, t, err = _brain_guard(ticker)
+    if err:
+        return err
+    from reader import brain_company as _bc
+    out = await asyncio.to_thread(_bc.report, v, _READS_LIBRARY, t)
+    if not out:
+        return JSONResponse(status_code=404, content={"error": f"{t} is not on the brain's map (brain/universe.json)."})
+    return JSONResponse(content=out)
+
+
+def _market_guard():
+    if os.environ.get("BMG_LOCAL") != "1":
+        return JSONResponse(status_code=403, content={"error": "Market data is on the local Crawler only."})
+    return None
+
+
+@app.get("/api/market/status")
+async def market_status() -> JSONResponse:
+    """Where quotes and earnings dates come from right now (Finnhub with a free key, else the public fallbacks)."""
+    err = _market_guard()
+    if err:
+        return err
+    from reader import brain_market as _bm
+    return JSONResponse(content=_bm.status())
+
+
+@app.get("/api/market/quotes")
+async def market_quotes(tickers: str = Query("", max_length=600)) -> JSONResponse:
+    """Last price and the day's change for up to 60 tickers (SECONDARY; context only, never a source for a figure)."""
+    err = _market_guard()
+    if err:
+        return err
+    from reader import brain_market as _bm
+    want = [x for x in re.split(r"[,\s]+", tickers.upper()) if re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,9}", x)]
+    if not want:
+        return JSONResponse(status_code=400, content={"error": "Give tickers=AAPL,MSFT (up to 60)."})
+    return JSONResponse(content={"quotes": await _bm.quotes(want), **_bm.status()})
+
+
+@app.get("/api/market/earnings")
+async def market_earnings(days: int = Query(14, ge=1, le=31)) -> JSONResponse:
+    """The brain's companies reporting in the next `days` days, with the hour when the calendar gives it."""
+    err = _market_guard()
+    if err:
+        return err
+    from reader import brain_market as _bm, brain_universe as _bu
+    v = _vault_repo()
+    uni = set(((_bu.universe(v) or {}).get("companies") or {}).keys()) if v else set()
+    return JSONResponse(content=await _bm.earnings(uni, days, cache_dir=Path(CACHE_DIR) / "market"))
+
+
+def _mastermind():
+    """(Mastermind, error response): the full-text index over My reads, local only."""
+    if os.environ.get("BMG_LOCAL") != "1":
+        return None, JSONResponse(status_code=403, content={"error": "Mastermind is on the local Crawler only."})
+    if _READS_LIBRARY is None:
+        return None, JSONResponse(status_code=404, content={"error": "No reads library on this machine."})
+    from reader import brain_mastermind as _mm
+    return _mm.get(_READS_LIBRARY), None
+
+
+def _mastermind_scope(q: str, tickers: str, sector: str, industry: str) -> tuple[list, list, set]:
+    """(tickers to search, tickers the question names, words that only name them): an explicit list, else a sector or
+    sub-industry of the map, else the companies the question names, else everything."""
+    from reader import brain_universe as _bu, brain_mastermind as _mm
+    v = _vault_repo()
+    names = {t: c.get("name") or "" for t, c in (((_bu.universe(v) or {}).get("companies") or {}) if v else {}).items()}
+    named = _mm.named(q, names)
+    pick = [x for x in re.split(r"[,\s]+", (tickers or "").upper()) if x]
+    if not pick and sector and v:
+        sec = next((s for s in ((_bu.universe(v) or {}).get("sectors") or {}) if _bu.slug(s) == sector or s == sector), None)
+        if sec:
+            ind = next((i for i in (((_bu.universe(v) or {}).get("sectors") or {}).get(sec, {}).get("sub_industries") or {})
+                        if industry and (_bu.slug(i) == industry or i == industry)), None)
+            pick = _bu.members(v, sec, ind)
+    scope = pick or named
+    return scope, named, (_mm.name_words(scope, names) if scope and len(scope) <= 3 else set())
+
+
+@app.get("/api/mastermind/status")
+async def mastermind_status() -> JSONResponse:
+    """How much of My reads is indexed; starts indexing what is new."""
+    mm, err = _mastermind()
+    if err:
+        return err
+    from reader import summary as _sum
+    st = await asyncio.to_thread(mm.sync)
+    return JSONResponse(content={**st, "answers": _sum.enabled(), "model": _sum.MODEL})
+
+
+@app.get("/api/mastermind/search")
+async def mastermind_search(q: str = Query(..., min_length=2, max_length=400), tickers: str = Query("", max_length=600),
+                            sector: str = Query("", max_length=80), industry: str = Query("", max_length=120),
+                            n: int = Query(12, ge=1, le=40)) -> JSONResponse:
+    """The passages of the saved filings that best answer the question, each with company, filing and page. Free."""
+    mm, err = _mastermind()
+    if err:
+        return err
+    await asyncio.to_thread(mm.sync)
+    scope, named, ign = _mastermind_scope(q, tickers, sector, industry)
+    out = await asyncio.to_thread(mm.search, q, scope or None, n, 3, None, ign)
+    return JSONResponse(content={**out, "named": named, "index": mm.status()})
+
+
+@app.post("/api/mastermind/answer")
+async def mastermind_answer(request: Request) -> JSONResponse:
+    """A short answer written only from the best passages, each sentence with quotes checked against its filing's text.
+    Uses the owner's API key (a few cents a question); refuses when no key is set."""
+    mm, err = _mastermind()
+    if err:
+        return err
+    try:
+        body = await request.json()
+    except ValueError:
+        body = {}
+    q = str(body.get("q") or "").strip()[:400]
+    if len(q) < 2:
+        return JSONResponse(status_code=400, content={"error": "Ask a question."})
+    scope, named, ign = _mastermind_scope(q, str(body.get("tickers") or ""), str(body.get("sector") or ""), str(body.get("industry") or ""))
+    found = await asyncio.to_thread(mm.search, q, scope or None, 14, 3, None, ign)
+    ans = await asyncio.to_thread(mm.answer, q, found["hits"])
+    return JSONResponse(content={**found, "named": named, "answer": ans})
 
 
 @app.post("/api/brain-learn")
