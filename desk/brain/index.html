@@ -20,6 +20,8 @@ html, body { height: 100%; overflow: hidden; }
 #scan { position: fixed; top: var(--top); bottom: var(--tape); left: 0; right: 0; pointer-events: none; z-index: 1; opacity: 0.18;
   background: repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 3px); }
 #labels { position: fixed; top: var(--top); bottom: var(--tape); left: 0; right: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+/* on a wide screen the 3D view starts where the panel ends, so the map is centered in the open space, not under the table */
+@media (min-width: 761px) { #graph, #vignette, #scan, #labels { left: 380px; } #help { left: calc(50% + 190px); } }
 .sec-label { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; white-space: nowrap; text-align: center;
   transform-origin: 50% 100%; will-change: transform; user-select: none; }
 .sec-label .nm { display: inline-flex; align-items: center; gap: 8px; font: 700 21px var(--mono); letter-spacing: 0.1em; text-transform: uppercase;
@@ -139,6 +141,7 @@ const $ = id => document.getElementById(id);
 const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
 const hash = s => { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return ((h >>> 0) % 10000) / 10000; };
 const say = html => { const m = $("msg"); m.firstElementChild.innerHTML = html; m.hidden = !html; };
+const SIDE = () => innerWidth > 760 ? 380 : 0;     // the panel's width plus its margin (the CSS above)
 const H = () => innerHeight - parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--top")) - parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tape"));
 
 nav("brain");
@@ -220,7 +223,7 @@ function build(u) {
 
   const el = $("graph");
   const G = ForceGraph3D({controlType: "orbit"})(el)
-    .width(innerWidth).height(H())
+    .width(innerWidth - SIDE()).height(H())
     .backgroundColor("#020304")
     .showNavInfo(false)
     .nodeId("id")
@@ -252,8 +255,7 @@ function build(u) {
   G.d3Force("cluster", alpha => { const k = 0.3 * alpha; for (const n of nodes) { n.vx += (n.ax - n.x) * k; n.vy += (n.ay - n.y) * k; n.vz += (n.az - n.z) * k; } });
   const restyle = () => G.nodeVal(G.nodeVal()).nodeColor(G.nodeColor()).nodeVisibility(G.nodeVisibility()).linkVisibility(G.linkVisibility())
     .linkColor(G.linkColor()).linkWidth(G.linkWidth()).linkDirectionalParticles(G.linkDirectionalParticles());
-  const wide = () => innerWidth > 900;
-  const homeLook = () => ({x: wide() ? -R * 0.3 : 0, y: 0, z: 0});
+  const homeLook = () => ({x: 0, y: 0, z: 0});
   const home = {x: 0, y: R * 0.35, z: R * 2.9};
   G.cameraPosition(home, homeLook(), 0);
   const ctl = G.controls();
@@ -460,7 +462,7 @@ function build(u) {
     if (erOn && !(ER.events || []).length) { $("b-er").textContent = "Earnings..."; ER = await earnings(14); $("b-er").textContent = "Earnings"; }
     restyle(); panel();
   };
-  window.addEventListener("resize", () => G.width(innerWidth).height(H()));
+  window.addEventListener("resize", () => G.width(innerWidth - SIDE()).height(H()));
   earnings(14).then(e => { ER = e; panel(); });
 
   // ?sector=financials&sub=consumer-finance opens a level; ?t=AXP a company (links from the report page and for videos)
