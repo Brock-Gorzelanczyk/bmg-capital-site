@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brain 3D | BMG Capital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+/* The Crawler brain in 3D: every company on the brain's map (brain/universe.json) as a dot, grouped by GICS sector and
+   sub-industry, with comp-set lines (brain/comp-sets.json, BMG judgment). It reads /api/brain/universe each time the
+   page loads, so a refresh shows what the Crawler has read since. Read only: it never writes the brain. */
+:root {
+  --bg: #04060c; --panel: rgba(10, 14, 24, 0.82); --line: rgba(140, 160, 200, 0.22); --ink: #e8ecf4; --mute: #8d97ab;
+  --accent: #7fb2ff; --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif; --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); overflow: hidden; }
+#graph { position: fixed; inset: 0; }
+#vignette { position: fixed; inset: 0; pointer-events: none; z-index: 1;
+  background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55) 100%); }
+#labels { position: fixed; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+.sec-label { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer; white-space: nowrap; text-align: center;
+  transform-origin: 50% 100%; will-change: transform; user-select: none; }
+.sec-label .nm { display: inline-block; font-weight: 700; font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 4px 12px 5px; border-radius: 6px; background: rgba(4, 6, 12, 0.62); border: 1px solid var(--c);
+  color: #fff; text-shadow: 0 0 12px var(--c), 0 0 2px #000; box-shadow: 0 0 18px -4px var(--c); }
+.sec-label .ct { display: block; margin-top: 3px; font: 600 12px var(--mono); color: var(--c); text-shadow: 0 0 6px #000; }
+.sec-label::after { content: ""; display: block; width: 2px; height: 26px; margin: 2px auto 0; background: linear-gradient(var(--c), transparent); }
+.sec-label:hover .nm, .sec-label.on .nm { background: var(--c); color: #04060c; text-shadow: none; }
+.sub-label { position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap; font: 600 12px var(--font);
+  color: #fff; padding: 2px 7px; border-radius: 4px; background: rgba(4, 6, 12, 0.7); border-left: 3px solid var(--c); }
+#hud { position: fixed; top: 14px; left: 14px; z-index: 5; width: 300px; max-height: calc(100% - 28px); overflow: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; backdrop-filter: blur(6px); }
+#hud h1 { margin: 0; font-size: 20px; letter-spacing: 0.02em; }
+#hud h1 a { color: var(--mute); font-size: 12px; font-weight: 500; text-decoration: none; margin-left: 8px; letter-spacing: 0; }
+#hud h1 a:hover { color: var(--ink); }
+#stats { margin: 4px 0 10px; color: var(--mute); font-size: 13px; }
+#search { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line); background: #0b1020; color: var(--ink); font: 14px var(--font); }
+#search:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+#hits { list-style: none; margin: 4px 0 0; padding: 0; }
+#hits li button { width: 100%; text-align: left; background: none; border: 0; color: var(--ink); padding: 5px 6px; border-radius: 4px; cursor: pointer; font: 13px var(--font); }
+#hits li button:hover, #hits li button:focus { background: rgba(127, 178, 255, 0.14); outline: none; }
+#hits b { font-family: var(--mono); margin-right: 6px; }
+#legend { list-style: none; margin: 12px 0 0; padding: 0; }
+#legend button { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 0; color: var(--ink); padding: 4px 6px;
+  border-radius: 4px; cursor: pointer; font: 13px var(--font); text-align: left; }
+#legend button:hover, #legend button:focus-visible, #legend button.on { background: rgba(255, 255, 255, 0.07); outline: none; }
+#legend i { width: 10px; height: 10px; border-radius: 50%; flex: none; box-shadow: 0 0 8px currentColor; }
+#legend span { flex: 1; }
+#legend small { color: var(--mute); font-family: var(--mono); }
+.row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.btn { background: #0b1020; border: 1px solid var(--line); color: var(--ink); border-radius: 6px; padding: 5px 10px; font: 12px var(--font); cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+#b-more { display: none; }
+#key { margin-top: 10px; font-size: 12px; color: var(--mute); line-height: 1.5; }
+#key .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #9fb4d8; vertical-align: -1px; margin-right: 4px; }
+#key .dot.dim { opacity: 0.4; width: 6px; height: 6px; vertical-align: 0; }
+#src { margin-top: 8px; font-size: 11px; color: var(--mute); line-height: 1.45; }
+#card { position: fixed; top: 14px; right: 14px; z-index: 5; width: 340px; max-height: calc(100% - 28px); overflow: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; backdrop-filter: blur(6px); }
+#card[hidden] { display: none; }
+#card .x { float: right; background: none; border: 0; color: var(--mute); font-size: 20px; cursor: pointer; line-height: 1; }
+#card .tk { font: 600 26px var(--mono); }
+#card .nm { font-size: 15px; margin-top: 2px; }
+#card .where { margin: 8px 0; font-size: 13px; color: var(--mute); }
+#card .where i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+#card h3 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--mute); }
+#card .read { font-size: 13px; padding: 8px 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.05); }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { font: 600 12px var(--mono); padding: 3px 7px; border-radius: 5px; border: 1px solid var(--c, var(--line)); background: rgba(255, 255, 255, 0.04); color: var(--ink); cursor: pointer; }
+.chip:hover { background: rgba(255, 255, 255, 0.12); }
+.chip.off { cursor: default; color: var(--mute); border-style: dashed; }
+.chip.unread { opacity: 0.6; }
+#card .links { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+#card .links a { color: var(--accent); font-size: 13px; }
+#card .note { font-size: 11px; color: var(--mute); margin-top: 10px; line-height: 1.45; }
+#help { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 4; font-size: 12px; color: var(--mute);
+  background: rgba(4, 6, 12, 0.6); padding: 5px 12px; border-radius: 20px; white-space: nowrap; }
+#msg { position: fixed; inset: 0; z-index: 9; display: grid; place-items: center; pointer-events: none; }
+#msg div { max-width: 460px; padding: 18px 22px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); font-size: 15px; line-height: 1.5; pointer-events: auto; }
+#msg[hidden] { display: none; }
+.tip { font: 13px var(--font); background: rgba(4, 6, 12, 0.9); padding: 6px 9px; border-radius: 6px; border: 1px solid var(--line); }
+.tip b { font-family: var(--mono); }
+@media (max-width: 760px) {
+  #hud { width: calc(100% - 28px); max-height: 60%; padding: 10px 12px; }
+  #hud:not(.open) #legend, #hud:not(.open) #key, #hud:not(.open) #src { display: none; }
+  #b-more { display: inline-block; }
+  #card { top: auto; bottom: 44px; left: 14px; right: 14px; width: auto; max-height: 45%; }
+  .sec-label .nm { font-size: 15px; }
+  #help { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="graph" aria-label="The Crawler brain in 3D: companies grouped by sector, lines between comp-set peers"></div>
+<div id="vignette"></div>
+<div id="labels"></div>
+
+<section id="hud" aria-label="Brain controls">
+  <h1>BMG Brain <a href="/desk/read/">Back to the Crawler</a></h1>
+  <div id="stats">Loading the brain...</div>
+  <input id="search" type="search" placeholder="Find a company (ticker or name)" autocomplete="off" aria-label="Find a company">
+  <ul id="hits"></ul>
+  <ul id="legend" aria-label="Sectors"></ul>
+  <div class="row">
+    <button class="btn" id="b-all" type="button">Whole map</button>
+    <button class="btn" id="b-spin" type="button" aria-pressed="true">Spin</button>
+    <button class="btn" id="b-lines" type="button" aria-pressed="true">Comp lines</button>
+    <button class="btn" id="b-read" type="button" aria-pressed="false">Read only</button>
+    <button class="btn" id="b-more" type="button" aria-expanded="false">Sectors</button>
+  </div>
+  <div id="key"><span class="dot"></span>read by the Crawler &nbsp; <span class="dot dim"></span>not read yet<br>Lines join comp-set peers (BMG judgment).</div>
+  <div id="src"></div>
+</section>
+
+<aside id="card" hidden aria-live="polite"></aside>
+<div id="help">Drag to turn. Scroll to zoom. Right-drag to move. Click a dot or a sector name. Refresh to see new reads.</div>
+<div id="msg" hidden><div></div></div>
+
+<script src="vendor/3d-force-graph-1.77.0.min.js"></script>
+<script>
+(() => {
+"use strict";
+// One color per GICS sector, the same as the Obsidian graph (scripts/local/brain_obsidian_graph.py SECTOR_COLORS).
+const COLORS = {
+  "Information Technology": "#4E79A7", "Health Care": "#59A14F", "Financials": "#F28E2B", "Consumer Discretionary": "#E15759",
+  "Communication Services": "#B07AA1", "Industrials": "#76B7B2", "Consumer Staples": "#FF9DA7", "Energy": "#9C755F",
+  "Utilities": "#BAB0AC", "Real Estate": "#8CD17D", "Materials": "#D37295",
+};
+const R = 560;                       // radius of the sphere the sector clusters sit on
+const REDUCE = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+const hash = s => { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return ((h >>> 0) % 10000) / 10000; };
+
+function say(html) { const m = $("msg"); m.firstElementChild.innerHTML = html; m.hidden = !html; }
+
+// Points spread evenly over a sphere (a Fibonacci lattice), so the clusters never pile up.
+function sphere(n, r, c) {
+  const out = [], g = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < n; i++) {
+    const y = n === 1 ? 0 : 1 - (i / (n - 1)) * 2, rad = Math.sqrt(Math.max(0, 1 - y * y)), th = g * i;
+    out.push({x: (c ? c.x : 0) + Math.cos(th) * rad * r, y: (c ? c.y : 0) + y * r, z: (c ? c.z : 0) + Math.sin(th) * rad * r});
+  }
+  return out;
+}
+
+async function getJSON(url) {
+  const r = await fetch(url, {cache: "no-store"});
+  let d = null; try { d = await r.json(); } catch (e) { d = null; }
+  if (!r.ok) throw new Error((d && d.error) || `${url} answered ${r.status}`);
+  return d;
+}
+
+async function main() {
+  if (typeof ForceGraph3D !== "function") { say("The 3D library did not load (desk/brain/vendor/). Refresh the page."); return; }
+  let u, b = {};
+  try { u = await getJSON("/api/brain/universe"); }
+  catch (e) { $("stats").textContent = "No brain to show."; say(`<b>The brain did not load.</b><br>${esc(e.message)}<br><br>This page works on the Crawler on your Mac (localhost), where the vault is.`); return; }
+  try { b = await getJSON("/api/brain"); } catch (e) { b = {}; }
+  build(u, b);
+}
+
+function build(u, b) {
+  const sectors = (u.sectors || []).filter(s => (s.sub_industries || []).some(x => (x.companies || []).length));
+  const anchors = sphere(sectors.length, R);
+  const nodes = [], byId = new Map(), secs = [], subs = [];
+  sectors.forEach((s, i) => {
+    const A = anchors[i], color = COLORS[s.sector] || "#9D9D9D";
+    const subList = s.sub_industries.filter(x => (x.companies || []).length);
+    const rs = 34 + 13 * Math.sqrt(subList.length);
+    const subPts = sphere(subList.length, subList.length === 1 ? 0 : rs, A);
+    const sec = {name: s.sector, slug: s.slug, color, A, rs, count: 0, read: 0, subs: []};
+    subList.forEach((x, j) => {
+      const P = subPts[j];
+      const sub = {name: x.industry, sector: sec, P, count: x.companies.length};
+      sec.subs.push(sub); subs.push(sub);
+      x.companies.forEach(c => {
+        if (byId.has(c.ticker)) return;
+        const reads = (c.brain && c.brain.reads) || 0;
+        const n = {id: c.ticker, name: c.name || c.ticker, spx: c.index, sector: sec, sub, color, reads, last: c.brain && c.brain.last,
+                   kpis: (c.brain && c.brain.kpis) || 0, comps: c.comps || [], by: [],
+                   ax: P.x, ay: P.y, az: P.z,
+                   x: P.x + (hash(c.ticker) - 0.5) * 30, y: P.y + (hash(c.ticker + "y") - 0.5) * 30, z: P.z + (hash(c.ticker + "z") - 0.5) * 30};
+        nodes.push(n); byId.set(n.id, n); sec.count++; if (reads) sec.read++;
+      });
+    });
+    secs.push(sec);
+  });
+  const links = [], seen = new Set();
+  for (const n of nodes) for (const t of n.comps) {
+    const m = byId.get(t); if (!m || m === n) continue;
+    m.by.push(n.id);
+    const k = n.id < m.id ? n.id + "|" + m.id : m.id + "|" + n.id;
+    if (seen.has(k)) continue; seen.add(k);
+    links.push({source: n.id, target: m.id, cross: n.sector !== m.sector});
+  }
+  const nRead = nodes.filter(n => n.reads).length;
+  $("stats").innerHTML = `${secs.length} sectors, ${nodes.length} companies, <b style="color:var(--ink)">${nRead} read</b> by the Crawler, ${links.length} comp lines`;
+  const ab = u.about || {}, ua = ab.universe || {}, ca = ab.comp_sets || {};
+  $("src").textContent = `Map as of ${ua.as_of || "?"}: GICS sectors and sub-industries (SECONDARY, S&P via Wikipedia). Comp sets as of ${ca.as_of || "?"}: BMG judgment. Neither is a source for a figure (M39).`;
+  const vaultName = (b.brain_vault || b.vault || "").split(/[\\/]/).filter(Boolean).pop() || "";
+
+  // ------------------------------------------------------------------ view state
+  let focus = null;          // {nodes: Set, links: Set} of what is lit; null lights everything
+  let selected = null, secOn = null, showLines = true, onlyRead = false;
+  const lit = n => !focus || focus.nodes.has(n.id);
+  const shown = n => !onlyRead || n.reads > 0 || (selected && focus && focus.nodes.has(n.id));
+  const lidOf = l => (typeof l.source === "object" ? l.source.id : l.source) + "|" + (typeof l.target === "object" ? l.target.id : l.target);
+
+  const el = $("graph");
+  const G = ForceGraph3D({controlType: "orbit"})(el)
+    .backgroundColor("#04060c")
+    .showNavInfo(false)
+    .nodeId("id")
+    .nodeRelSize(3.4)
+    .nodeResolution(14)
+    .nodeOpacity(1)
+    .nodeVal(n => n.reads ? 3 + Math.min(n.reads, 6) : 1.2)
+    .nodeColor(n => n === selected ? "#ffffff" : !lit(n) ? hexA(n.color, 0.08) : hexA(n.color, n.reads || focus ? 0.96 : 0.42))
+    .nodeVisibility(shown)
+    .nodeLabel(n => `<div class="tip"><b>${esc(n.id)}</b> ${esc(n.name)}<br>${esc(n.sub.name)}<br>${n.reads ? `Read ${n.reads} time${n.reads > 1 ? "s" : ""}` : "Not read yet"}</div>`)
+    .linkVisibility(l => showLines && (!focus || focus.links.has(lidOf(l))) && shown(typeof l.source === "object" ? l.source : byId.get(l.source)) && shown(typeof l.target === "object" ? l.target : byId.get(l.target)))
+    .linkColor(l => {
+      const s = typeof l.source === "object" ? l.source : byId.get(l.source);
+      if (focus) return hexA(s.color, 0.85);
+      return l.cross ? "rgba(170,185,215,0.07)" : hexA(s.color, 0.16);
+    })
+    .linkOpacity(1)
+    .linkWidth(l => (focus && selected) ? 0.9 : 0)
+    .linkDirectionalParticles(l => (focus && selected) ? 3 : 0)
+    .linkDirectionalParticleWidth(1.8)
+    .linkDirectionalParticleSpeed(0.007)
+    .onNodeClick(n => select(n))
+    .onBackgroundClick(() => { select(null); sectorFocus(null); })
+    .onNodeHover(n => { el.style.cursor = n ? "pointer" : ""; })
+    .warmupTicks(140)
+    .cooldownTicks(300)
+    .d3AlphaDecay(0.028)
+    .graphData({nodes, links});
+
+  // Sectors on their sphere, sub-industries around each sector, companies around their sub-industry; comp lines are
+  // weak so a cross-sector comp set does not pull clusters together.
+  G.d3Force("center", null);
+  G.d3Force("charge").strength(-10).distanceMax(160);
+  G.d3Force("link").distance(l => l.cross ? 200 : 30).strength(l => l.cross ? 0.002 : 0.02);
+  const cluster = alpha => { const k = 0.3 * alpha; for (const n of nodes) { n.vx += (n.ax - n.x) * k; n.vy += (n.ay - n.y) * k; n.vz += (n.az - n.z) * k; } };
+  G.d3Force("cluster", cluster);
+
+  const restyle = () => G.nodeColor(G.nodeColor()).nodeVisibility(G.nodeVisibility()).linkVisibility(G.linkVisibility())
+    .linkColor(G.linkColor()).linkWidth(G.linkWidth()).linkDirectionalParticles(G.linkDirectionalParticles());
+  const wide = () => innerWidth > 900;
+  const homeLook = () => ({x: wide() ? -R * 0.32 : 0, y: 0, z: 0});
+  const home = {x: 0, y: R * 0.35, z: R * 2.9};
+  G.cameraPosition(home, homeLook(), 0);
+
+  const ctl = G.controls();
+  let spin = !REDUCE;
+  ctl.autoRotate = spin; ctl.autoRotateSpeed = 0.55; ctl.enableDamping = true; ctl.dampingFactor = 0.08;
+  const setSpin = v => { spin = v; ctl.autoRotate = v; $("b-spin").setAttribute("aria-pressed", String(v)); };
+  setSpin(spin);
+  el.addEventListener("pointerdown", () => { if (spin) setSpin(false); });
+  el.addEventListener("wheel", () => { if (spin) setSpin(false); }, {passive: true});
+
+  // ------------------------------------------------------------------ labels that float over the clusters
+  const lab = $("labels");
+  for (const s of secs) {
+    s.el = document.createElement("div");
+    s.el.className = "sec-label"; s.el.style.setProperty("--c", s.color);
+    s.el.innerHTML = `<span class="nm">${esc(s.name)}</span><span class="ct">${s.count} companies, ${s.read} read</span>`;
+    s.el.title = `Fly to ${s.name}`;
+    s.el.addEventListener("click", e => { e.stopPropagation(); sectorFocus(secOn === s ? null : s, true); });
+    s.L = {x: s.A.x, y: s.A.y + s.rs + 70, z: s.A.z};
+    lab.appendChild(s.el);
+  }
+  for (const x of subs) {
+    x.el = document.createElement("div");
+    x.el.className = "sub-label"; x.el.style.setProperty("--c", x.sector.color);
+    x.el.textContent = `${x.name} (${x.count})`; x.el.style.display = "none";
+    x.L = {x: x.P.x, y: x.P.y + 26, z: x.P.z};
+    lab.appendChild(x.el);
+  }
+  // Each frame: project the anchor to the screen, hide it when it is behind the camera, scale it with distance.
+  function put(item, minS, maxS, k) {
+    const cam = G.camera(), e = cam.matrixWorldInverse.elements, p0 = item.L;
+    const zc = e[2] * p0.x + e[6] * p0.y + e[10] * p0.z + e[14];
+    if (zc > -20) { item.el.style.visibility = "hidden"; return; }
+    const d = -zc, p = G.graph2ScreenCoords(p0.x, p0.y, p0.z), sc = Math.max(minS, Math.min(maxS, k / d));
+    item.el.style.visibility = "visible";
+    item.el.style.transform = `translate(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px) translate(-50%,-100%) scale(${sc.toFixed(3)})`;
+    item.el.style.zIndex = String(100000 - Math.round(d));
+    return d;
+  }
+  // Labels follow where each cluster really is: the middle of its dots, lifted above the highest one.
+  let tick = 0;
+  function centers() {
+    for (const g of [...secs, ...subs]) { g._n = 0; g._x = g._y = g._z = g._yy = 0; }
+    for (const n of nodes) for (const g of [n.sector, n.sub]) { g._n++; g._x += n.x; g._y += n.y; g._z += n.z; g._yy += n.y * n.y; }
+    const at = (g, lift) => { const my = g._y / g._n, sd = Math.sqrt(Math.max(0, g._yy / g._n - my * my));
+      return {x: g._x / g._n, y: my + 1.3 * sd + lift, z: g._z / g._n}; };   // above the bulk of the dots, not the farthest one
+    for (const s of secs) if (s._n) s.L = at(s, 30);
+    for (const x of subs) if (x._n) x.L = at(x, 10);
+  }
+  (function frame() {
+    if (tick++ % 8 === 0) centers();
+    for (const s of secs) {
+      const d = put(s, 0.5, 1.5, 1300);
+      if (d) s.el.style.opacity = selected ? (selected.sector === s ? "1" : "0.12") : (secOn && secOn !== s ? "0.3" : "1");
+    }
+    for (const x of subs) if (x.el.style.display !== "none") put(x, 0.7, 1.25, 700);
+    requestAnimationFrame(frame);
+  })();
+
+  // ------------------------------------------------------------------ legend, search, buttons
+  const leg = $("legend");
+  for (const s of [...secs].sort((a, c) => c.count - a.count)) {
+    const li = document.createElement("li");
+    li.innerHTML = `<button type="button"><i style="color:${s.color};background:${s.color}"></i><span>${esc(s.name)}</span><small>${s.read}/${s.count}</small></button>`;
+    s.btn = li.firstElementChild;
+    s.btn.addEventListener("click", () => sectorFocus(secOn === s ? null : s, true));
+    leg.appendChild(li);
+  }
+  function fly(to, look, ms) { G.cameraPosition(to, look, REDUCE ? 0 : ms); }
+  function sectorFocus(s, move) {
+    secOn = s;
+    for (const x of secs) { x.el.classList.toggle("on", x === s); x.btn.classList.toggle("on", x === s); }
+    for (const x of subs) x.el.style.display = s && x.sector === s ? "" : "none";
+    if (!selected) {
+      focus = s ? {nodes: new Set(nodes.filter(n => n.sector === s).map(n => n.id)), links: new Set(links.filter(l => {
+        const a = typeof l.source === "object" ? l.source : byId.get(l.source), c = typeof l.target === "object" ? l.target : byId.get(l.target);
+        return a.sector === s && c.sector === s; }).map(lidOf))} : null;
+      restyle();
+    }
+    if (move) {
+      if (s) { setSpin(false); const f = 1 + (s.rs + 260) / R; fly({x: s.A.x * f, y: s.A.y * f + 40, z: s.A.z * f}, s.A, 1100); }
+      else fly(home, homeLook(), 1100);
+    }
+  }
+  function select(n, fromSearch) {
+    selected = n || null;
+    if (!n) { $("card").hidden = true; focus = null; if (secOn) { const s = secOn; secOn = null; sectorFocus(s, false); } else { for (const x of subs) x.el.style.display = "none"; restyle(); } return; }
+    setSpin(false);
+    const near = new Set([n.id, ...n.comps.filter(t => byId.has(t)), ...n.by]);
+    focus = {nodes: near, links: new Set(links.filter(l => { const k = lidOf(l); const [a, c] = k.split("|"); return (a === n.id || c === n.id); }).map(lidOf))};
+    restyle();
+    for (const x of subs) x.el.style.display = x === n.sub ? "" : "none";
+    const d = Math.hypot(n.x, n.y, n.z) || 1, f = 1 + 330 / d;
+    fly({x: n.x * f, y: n.y * f, z: n.z * f}, {x: n.x, y: n.y, z: n.z}, fromSearch ? 1300 : 900);
+    card(n);
+  }
+  function chip(t) {
+    const m = byId.get(t);
+    if (!m) return `<span class="chip off" title="Not on the brain's map">${esc(t)}</span>`;
+    return `<button type="button" class="chip${m.reads ? "" : " unread"}" style="--c:${m.color}" data-t="${esc(t)}" title="${esc(m.name)}${m.reads ? "" : " (not read yet)"}">${esc(t)}</button>`;
+  }
+  function card(n) {
+    const c = $("card"), same = nodes.filter(m => m.sub === n.sub && m !== n).map(m => m.id);
+    const last = n.last ? `Last read: ${esc(n.last.form || "")} for the period ${esc(n.last.period || "?")}${n.last.at ? ` (read ${esc(String(n.last.at).slice(0, 10))})` : ""}.` : "";
+    const obs = vaultName ? `obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(`brain/companies/${n.id}/${n.id}`)}` : "";
+    c.innerHTML = `<button class="x" type="button" aria-label="Close">&times;</button>
+      <div class="tk" style="color:${n.color}">${esc(n.id)}</div><div class="nm">${esc(n.name)}</div>
+      <div class="where"><i style="background:${n.color}"></i>${esc(n.sector.name)} &rsaquo; ${esc(n.sub.name)}${n.spx ? ` <span style="opacity:.7">(${esc(n.spx)})</span>` : ""}</div>
+      <div class="read">${n.reads ? `Read by the Crawler ${n.reads} time${n.reads > 1 ? "s" : ""}. ${last}${n.kpis ? ` ${n.kpis} KPI series on file.` : ""}` : "Not read yet. The brain has its map entry and comp set only."}</div>
+      <h3>Comp set (BMG judgment)</h3><div class="chips">${n.comps.length ? n.comps.map(chip).join("") : '<span style="color:var(--mute);font-size:13px">None on file.</span>'}</div>
+      ${n.by.length ? `<h3>In the comp set of</h3><div class="chips">${n.by.map(chip).join("")}</div>` : ""}
+      ${same.length ? `<h3>Same sub-industry</h3><div class="chips">${same.map(chip).join("")}</div>` : ""}
+      <div class="links">${obs ? `<a href="${obs}">Open its brain page in Obsidian</a>` : ""}<a href="/desk/read/">Read a filing in the Crawler</a></div>
+      <div class="note">A comp set says who an analyst would compare ${esc(n.id)} with. It does not say two figures are comparable (M03).</div>`;
+    c.hidden = false;
+    c.querySelector(".x").onclick = () => select(null);
+    c.querySelectorAll("button.chip").forEach(btn => btn.onclick = () => select(byId.get(btn.dataset.t)));
+  }
+
+  const q = $("search"), hits = $("hits");
+  function find(s) {
+    s = s.trim().toLowerCase(); if (!s) return [];
+    const ex = nodes.filter(n => n.id.toLowerCase() === s);
+    const rest = nodes.filter(n => !ex.includes(n) && (n.id.toLowerCase().startsWith(s) || n.name.toLowerCase().includes(s)));
+    return ex.concat(rest).slice(0, 7);
+  }
+  q.addEventListener("input", () => {
+    hits.innerHTML = find(q.value).map(n => `<li><button type="button" data-t="${esc(n.id)}"><b style="color:${n.color}">${esc(n.id)}</b>${esc(n.name)}</button></li>`).join("");
+    hits.querySelectorAll("button").forEach(btn => btn.onclick = () => { select(byId.get(btn.dataset.t), true); hits.innerHTML = ""; q.value = btn.dataset.t; });
+  });
+  q.addEventListener("keydown", e => {
+    if (e.key === "Enter") { const f = find(q.value)[0]; if (f) { select(f, true); hits.innerHTML = ""; q.value = f.id; } }
+    if (e.key === "ArrowDown") { const f = hits.querySelector("button"); if (f) { e.preventDefault(); f.focus(); } }
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") { select(null); sectorFocus(null, false); hits.innerHTML = ""; }
+    if (e.key === "/" && document.activeElement !== q) { e.preventDefault(); q.focus(); q.select(); }
+  });
+  $("b-more").onclick = () => { const o = $("hud").classList.toggle("open"); $("b-more").setAttribute("aria-expanded", String(o)); };
+  $("b-all").onclick = () => { select(null); sectorFocus(null, true); };
+  $("b-spin").onclick = () => setSpin(!spin);
+  $("b-lines").onclick = () => { showLines = !showLines; $("b-lines").setAttribute("aria-pressed", String(showLines)); restyle(); };
+  $("b-read").onclick = () => { onlyRead = !onlyRead; $("b-read").setAttribute("aria-pressed", String(onlyRead)); restyle(); };
+  window.addEventListener("resize", () => G.width(innerWidth).height(innerHeight));
+
+  // ?t=GATX opens on a company, ?sector=energy on a sector (links from other pages and for videos).
+  const qs = new URLSearchParams(location.search), t0 = (qs.get("t") || "").toUpperCase(), s0 = (qs.get("sector") || "").toLowerCase();
+  setTimeout(() => {
+    if (t0 && byId.has(t0)) select(byId.get(t0), true);
+    else if (s0) { const s = secs.find(x => x.slug === s0); if (s) sectorFocus(s, true); }
+  }, 1600);
+  window.__brain3d = {nodes: nodes.length, read: nRead, links: links.length, sectors: secs.map(s => ({name: s.name, count: s.count, read: s.read})), select: t => select(byId.get(t), true), graph: G};
+}
+
+main();
+})();
+</script>
+</body>
+</html>
