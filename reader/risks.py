@@ -214,11 +214,13 @@ def watch_items(doc, rows: list) -> tuple[list[dict], list[str]]:
             if not re.search(r"principal|debt|borrowings|maturit", ctx) or re.search(r"affiliat|joint venture|unconsolidated|lease (liabilities|payments)", ctx[-300:]):
                 continue
             years = re.findall(r"20\d\d", m.group(1)) + ["Thereafter"]
-            cells = lambda ln: [("0" if t == "\u2014" else t) for t in re.findall(r"\(?[\d,]+(?:\.\d+)?\)?|\u2014", ln.split("  ", 1)[-1])]
+            is_row = lambda ln: "  " in ln.strip() and len(ln.strip().split("  ", 1)[0]) <= 80 \
+                and re.fullmatch(r"[\s$\d,.()%\u2014-]+", ln.strip().split("  ", 1)[1]) is not None
+            cells = lambda ln: [("0" if t == "\u2014" else t) for t in re.findall(r"\(?\d[\d,]*(?:\.\d+)?\)?|\u2014", ln.split("  ", 1)[-1])]
             lines = body[m.end():m.end() + 6000].split("\n")[:80]
             for ln in lines:
                 # a total of all commitments (Amazon: debt with interest, leases, purchase obligations) is not debt
-                if re.match(r"(?i)total\b", ln) and not re.search(r"(?i)commitments|obligations|contractual", ln.split("  ", 1)[0]):
+                if re.match(r"(?i)total\b", ln) and is_row(ln) and not re.search(r"(?i)commitments|obligations|contractual", ln.split("  ", 1)[0]):
                     nums = cells(ln)
                     if len(nums) >= len(years):
                         horiz = (m, years, nums[:len(years)], ln, body.find(ln, m.end()))
@@ -226,7 +228,7 @@ def watch_items(doc, rows: list) -> tuple[list[dict], list[str]]:
             if not horiz:
                 # one row for the whole schedule: "Term Debt (Principal only)  $ 875  $ —  $ 625 ..."
                 for ln in lines[:6]:
-                    if re.match(r"(?i)[a-z][^\d]*(debt|principal|notes|borrowings)", ln) and not re.search(r"(?i)interest|lease", ln.split("  ", 1)[0]):
+                    if re.match(r"(?i)(?:[a-z][^\d]*?)?(debt|principal|notes|borrowings)", ln) and is_row(ln) and not re.search(r"(?i)interest|lease", ln.split("  ", 1)[0]):
                         nums = cells(ln)
                         if len(nums) >= len(years):
                             horiz = (m, years, nums[:len(years)], ln, body.find(ln, m.end()))
@@ -238,7 +240,11 @@ def watch_items(doc, rows: list) -> tuple[list[dict], list[str]]:
             from .facts import SCALE, fmt_value
             m, years, nums, ln, off = horiz
             mult = SCALE.get(_caption(body, off)["scale"], 1.0)
-            sched_vals = [(y, float(v.strip('()').replace(',', '')) * mult) for y, v in zip(years, nums)]
+            try:
+                sched_vals = [(y, float(v.strip('()').replace(',', '')) * mult) for y, v in zip(years, nums)]
+            except ValueError:   # a cell that is not a number: skip the schedule rather than fail the read
+                sched_vals = []
+        if horiz and sched_vals:
             lines = [f"{y}: {fmt_value(v, 'USD')}" for y, v in sched_vals]
             items.append({"category": "Liquidity and refinancing", "title": "Scheduled debt maturities", "text": "; ".join(lines) + ".", "schedule": sched_vals,
                           "why_it_may_matter": "Large near-term maturities must be repaid or refinanced.", "kind": "reported",
