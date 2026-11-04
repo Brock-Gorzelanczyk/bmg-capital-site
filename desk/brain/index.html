@@ -34,8 +34,11 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); 
 #hud { position: fixed; top: 14px; left: 14px; z-index: 5; width: 300px; max-height: calc(100% - 28px); overflow: auto;
   background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; backdrop-filter: blur(6px); }
 #hud h1 { margin: 0; font-size: 20px; letter-spacing: 0.02em; }
-#hud h1 a { color: var(--mute); font-size: 12px; font-weight: 500; text-decoration: none; margin-left: 8px; letter-spacing: 0; }
-#hud h1 a:hover { color: var(--ink); }
+#nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: -2px 0 10px; }
+#nav a { color: var(--mute); font-size: 13px; text-decoration: none; padding: 4px 8px; border-radius: 6px; border: 1px solid transparent; }
+#nav a:hover, #nav a:focus-visible { color: var(--ink); border-color: var(--line); outline: none; }
+#nav #back { color: var(--ink); background: #0b1020; border-color: var(--line); font-weight: 600; }
+#nav #back:hover { border-color: var(--accent); }
 #stats { margin: 4px 0 10px; color: var(--mute); font-size: 13px; }
 #search { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line); background: #0b1020; color: var(--ink); font: 14px var(--font); }
 #search:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -100,7 +103,13 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); 
 <div id="labels"></div>
 
 <section id="hud" aria-label="Brain controls">
-  <h1>BMG Brain <a href="/desk/read/">Back to the Crawler</a></h1>
+  <nav id="nav" aria-label="Main">
+    <a id="back" href="/desk/read/">&larr; Back</a>
+    <a href="/desk/read/">Crawler</a>
+    <a href="/desk/">Desk</a>
+    <a href="/">Home</a>
+  </nav>
+  <h1>BMG Brain</h1>
   <div id="stats">Loading the brain...</div>
   <input id="search" type="search" placeholder="Find a company (ticker or name)" autocomplete="off" aria-label="Find a company">
   <ul id="hits"></ul>
@@ -393,6 +402,10 @@ function build(u, b) {
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") { select(null); sectorFocus(null, false); hits.innerHTML = ""; }
     if (e.key === "/" && document.activeElement !== q) { e.preventDefault(); q.focus(); q.select(); }
+  });
+  $("back").addEventListener("click", e => {
+    let same = false; try { same = !!document.referrer && new URL(document.referrer).origin === location.origin && !/\/desk\/brain\//.test(new URL(document.referrer).pathname); } catch (_) {}
+    if (same && history.length > 1) { e.preventDefault(); history.back(); }
   });
   $("b-more").onclick = () => { const o = $("hud").classList.toggle("open"); $("b-more").setAttribute("aria-expanded", String(o)); };
   $("b-all").onclick = () => { select(null); sectorFocus(null, true); };
