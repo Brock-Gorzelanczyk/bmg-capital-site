@@ -4669,8 +4669,10 @@ async def mastermind_search(q: str = Query(..., min_length=2, max_length=400), t
         return err
     await asyncio.to_thread(mm.sync)
     scope, named, ign = _mastermind_scope(q, tickers, sector, industry)
+    if scope and len(scope) <= 40:
+        await asyncio.to_thread(mm.ensure, scope)        # the companies asked about first, before the background build reaches them
     out = await asyncio.to_thread(mm.search, q, scope or None, n, 3, None, ign)
-    return JSONResponse(content={**out, "named": named, "index": mm.status()})
+    return JSONResponse(content={**out, "named": named, "index": mm.status(), "coverage": await asyncio.to_thread(mm.coverage, scope or None)})
 
 
 @app.post("/api/mastermind/answer")
@@ -4688,7 +4690,10 @@ async def mastermind_answer(request: Request) -> JSONResponse:
     if len(q) < 2:
         return JSONResponse(status_code=400, content={"error": "Ask a question."})
     scope, named, ign = _mastermind_scope(q, str(body.get("tickers") or ""), str(body.get("sector") or ""), str(body.get("industry") or ""))
+    if scope and len(scope) <= 40:
+        await asyncio.to_thread(mm.ensure, scope)
     found = await asyncio.to_thread(mm.search, q, scope or None, 14, 3, None, ign)
+    found["coverage"] = await asyncio.to_thread(mm.coverage, scope or None)
     ans = await asyncio.to_thread(mm.answer, q, found["hits"])
     return JSONResponse(content={**found, "named": named, "answer": ans})
 

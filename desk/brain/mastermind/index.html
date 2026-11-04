@@ -120,9 +120,11 @@ function params(q) {
 function showHits(d) {
   LAST = d.hits || [];
   $("named").innerHTML = (d.named || []).length ? `NAMED: ${d.named.map(t => `<span class="chip">${esc(t)}</span>`).join(" ")}` : "";
-  $("hits-r").textContent = `${LAST.length} passage${LAST.length === 1 ? "" : "s"}`;
+  const cov = d.coverage || {}, partial = cov.saved && cov.indexed < cov.saved;
+  $("hits-r").textContent = `${LAST.length} passage${LAST.length === 1 ? "" : "s"}` + (partial ? ` (searched ${cov.indexed} of ${cov.saved} filings, still indexing)` : "");
   $("hits").innerHTML = LAST.length ? LAST.map((h, i) => hitHTML(h, d.terms || [], i + 1)).join("")
-    : `<div class="empty">${esc(d.note || "No passage matched. Try other words, or widen the scope.")}</div>`;
+    : `<div class="empty">${partial ? `Still indexing your saved filings: ${cov.indexed} of ${cov.saved} searchable so far. Name the company (or fill in its ticker) to search it right away, or try again in a minute.`
+        : cov.saved === 0 ? "No saved filing of this company yet. Read its 10-K in the Crawler first." : esc(d.note || "No passage matched. Try other words, or widen the scope.")}</div>`;
 }
 async function run(withAnswer) {
   const q = $("q").value.trim();

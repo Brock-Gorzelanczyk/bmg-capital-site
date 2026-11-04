@@ -33,7 +33,9 @@ MAX_SOURCE_CHARS = 42_000
 STOP = set("""a an and are as at be been by can could did do does for from had has have how i if in into is it its may might
 more most of on or our should than that the their them then there these they this those to was we were what when where which
 who whom why will with would you your about over under any all each per vs versus company companies firm firms tell me show
-list give find say says said describe described compare 10-k 10k annual report filing filings""".split())
+list give find say says said describe described compare 10-k 10k annual report filing filings many much""".split())
+# a reported figure (36,484 / 94.7% / $653.3), not a year or an item number: "how many / how much" questions favor passages with them
+FIGURE = re.compile(r"\$\s?\d[\d,]*(?:\.\d+)?|\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d+%?|\d+%")
 
 # a few words analysts use for the same thing a 10-K says another way
 SYN = {
@@ -125,6 +127,7 @@ class Mastermind:
         self.lib = library
         self.path = Path(library.root) / DB_NAME
         self.lock = threading.Lock()
+        self.wlock = threading.Lock()          # one writer: the background build or an on-demand index of named companies
         self.state = {"status": "idle", "done": 0, "total": 0, "started": None, "finished": None, "error": None}
         self._thread: Optional[threading.Thread] = None
 
@@ -168,26 +171,67 @@ class Mastermind:
             todo = [e for k, e in want.items() if k not in have or have[k] != (e.get("saved_at") or "")]
             st["total"] = len(todo)
             for e in todo:
-                got = self.lib.load_any(e["sha256"], e.get("job_ticker") or None)
-                res = (got or {}).get("result") or {}
-                text = res.get("text") or ""
-                if text:
-                    co = (res.get("report") or {}).get("company") or {}
-                    tk = (e.get("ticker") or co.get("ticker") or "").upper()
-                    form = e.get("form") or co.get("form") or ""
-                    period = e.get("period") or co.get("period") or ""
-                    rows = chunks(text, res.get("page_starts") or [], res.get("sections") or [])
-                    con.executemany("INSERT INTO passages (text, key, ticker, form, period, start, page, section) VALUES (?,?,?,?,?,?,?,?)",
-                                    [(t, e["key"], tk, form, period, a, p, s) for a, p, s, t in rows])
-                    con.execute("INSERT OR REPLACE INTO docs VALUES (?,?,?,?,?,?,?,?,?,?)",
-                                (e["key"], e["sha256"], e.get("job_ticker") or "", tk, e.get("company") or co.get("name") or "",
-                                 form, period, e.get("kind") or "", e.get("saved_at") or "", len(rows)))
-                    con.commit()
+                with self.wlock:
+                    self._index_one(con, e)
                 st["done"] += 1
             con.close()
             st.update(status="ready", finished=time.strftime("%Y-%m-%d %H:%M:%S"))
         except Exception as ex:          # the search keeps working on what was indexed; the status says what went wrong
             st.update(status="error", error=f"{ex.__class__.__name__}: {str(ex)[:200]}")
+
+    def _index_one(self, con, e: dict) -> bool:
+        """Index one library entry unless an up-to-date copy is already in (call with wlock held). True when indexed now."""
+        row = con.execute("SELECT saved_at FROM docs WHERE key=?", (e["key"],)).fetchone()
+        if row and row[0] == (e.get("saved_at") or ""):
+            return False
+        con.execute("DELETE FROM passages WHERE key=?", (e["key"],))
+        con.execute("DELETE FROM docs WHERE key=?", (e["key"],))
+        got = self.lib.load_any(e["sha256"], e.get("job_ticker") or None)
+        res = (got or {}).get("result") or {}
+        text = res.get("text") or ""
+        if not text:
+            con.commit()
+            return False
+        co = (res.get("report") or {}).get("company") or {}
+        tk = (e.get("ticker") or co.get("ticker") or "").upper()
+        form = e.get("form") or co.get("form") or ""
+        period = e.get("period") or co.get("period") or ""
+        rows = chunks(text, res.get("page_starts") or [], res.get("sections") or [])
+        con.executemany("INSERT INTO passages (text, key, ticker, form, period, start, page, section) VALUES (?,?,?,?,?,?,?,?)",
+                        [(t, e["key"], tk, form, period, a, p, s) for a, p, s, t in rows])
+        con.execute("INSERT OR REPLACE INTO docs VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    (e["key"], e["sha256"], e.get("job_ticker") or "", tk, e.get("company") or co.get("name") or "",
+                     form, period, e.get("kind") or "", e.get("saved_at") or "", len(rows)))
+        con.commit()
+        return True
+
+    def ensure(self, tickers: list) -> int:
+        """Index now the saved filings of these companies that are not indexed yet, so a question about a company never
+        waits for the background build to reach it. Returns how many were indexed."""
+        want = {t.upper() for t in tickers or []}
+        es = [e for e in self._wanted().values() if (e.get("ticker") or e.get("job_ticker") or "").upper() in want]
+        if not es:
+            return 0
+        n = 0
+        con = _connect(self.path)
+        try:
+            for e in es:
+                with self.wlock:
+                    n += self._index_one(con, e)
+        finally:
+            con.close()
+        return n
+
+    def coverage(self, tickers: Optional[list] = None) -> dict:
+        """How many of the library's filings (in this scope) the index holds right now."""
+        want = {t.upper() for t in tickers or []}
+        lib = [e for e in self._wanted().values() if not want or (e.get("ticker") or e.get("job_ticker") or "").upper() in want]
+        con = _connect(self.path)
+        try:
+            have = {k for (k,) in con.execute("SELECT key FROM docs")}
+        finally:
+            con.close()
+        return {"indexed": sum(1 for e in lib if e["key"] in have), "saved": len(lib)}
 
     def status(self) -> dict:
         out = dict(self.state)
@@ -229,11 +273,15 @@ class Mastermind:
         finally:
             con.close()
         core = [t for t in terms if t in set(question_words(question)) and t not in ign]
+        quant = bool(re.search(r"(?i)\bhow (many|much)\b|\bwhat (is|was|were) the (number|amount|total)\b", question or ""))
         hits, per = [], {}
         for rid, text, key, tk, form, period, start, page, section, score, company in rows:
             low = text.lower()
             covered = sum(1 for t in core if t in low)
-            s = -score * (1 + 0.6 * covered / max(1, len(core)))          # passages with more of the question's own words first
+            # bm25 is negative, better is lower; a word in every passage scores 0, so a small floor keeps the boosts below working
+            s = (max(-score, 0.0) + 0.001) * (1 + 0.6 * covered / max(1, len(core)))   # more of the question's own words first
+            if quant and len(FIGURE.findall(text)) >= 2:
+                s *= 1.6                                                  # "how many / how much": a passage with figures
             if re.match(r"Item (15|16)\b", section or ""):
                 s *= 0.5                                                   # exhibit lists and signatures name everything, say little
             hits.append({"id": rid, "text": text, "key": key, "ticker": tk, "company": company, "form": form, "period": period,
