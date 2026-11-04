@@ -23,8 +23,8 @@ const cls = v => (typeof v === "number" && v !== 0) ? (v > 0 ? "up" : "down") : 
 const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const erLabel = e => { if (!e) return ""; const d = new Date(e.date + "T12:00:00"); return `${DAYS[d.getDay()]} ${e.date.slice(5).replace("-", "/")}${e.hour ? (e.hour === "before open" ? " BMO" : e.hour === "after close" ? " AMC" : "") : ""}`; };
 
-const PAGES = [["brain", "/desk/brain/", "Brain 3D"], ["mastermind", "/desk/brain/mastermind/", "Mastermind"],
-               ["crawler", "/desk/read/", "Crawler"], ["desk", "/desk/", "Desk"], ["home", "/", "Home"]];
+const PAGES = [["home", "/", "Home"], ["crawler", "/desk/read/", "Crawler"], ["brain", "/desk/brain/", "Brain"],
+               ["mastermind", "/desk/brain/mastermind/", "Mastermind"], ["desk", "/desk/", "Desk"]];
 
 function nav(active) {
   const top = document.createElement("header");
