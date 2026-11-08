@@ -72,7 +72,7 @@ log = logging.getLogger("bmg-snapshot")
 # ----------------------------------------------------------------------
 
 class SECRateLimiter:
-    """Token bucket: 10 tokens max, refills at 10/sec. Combined with an
+    """Token bucket: `burst` tokens max, refills at `rate_per_sec`. Combined with an
     asyncio semaphore (concurrency bound) and a global asyncio lock so
     multiple coroutines serialise their token consumption.
     """
@@ -94,18 +94,49 @@ class SECRateLimiter:
                 self.tokens = min(self.capacity,
                                    self.tokens + elapsed * self.rate)
                 self.updated = now
-                if self.tokens < 1.0:
-                    sleep_for = (1.0 - self.tokens) / self.rate
-                else:
-                    sleep_for = 0.0
-                self.tokens = max(0.0, self.tokens - 1.0)
+                # the request takes its token now; one it has to wait for is owed (the count goes below zero), so the
+                # refill while it waits pays that debt and is not counted again for the next request (it was set to
+                # zero, which let two requests through every 1/rate seconds: twice the rate, 2026-11-08)
+                self.tokens -= 1.0
+                sleep_for = -self.tokens / self.rate if self.tokens < 0 else 0.0
             if sleep_for > 0:
                 await asyncio.sleep(sleep_for)
         finally:
             self.sem.release()
 
 
-SEC_LIMITER = SECRateLimiter(rate_per_sec=10.0, burst=10)
+# SEC's fair-access limit is 10 requests a second for everything from one computer
+# (https://www.sec.gov/os/accessing-edgar-data); past it SEC answers HTTP 403 for some minutes. A bucket of 10 that
+# refills at 10 a second let up to 20 through in the second after a quiet spell; 2 at once and 8 a second keeps any one
+# second at 10 or fewer (2026-11-08: Brock's Netflix 8-K came back "SEC EDGAR did not return the filing").
+SEC_LIMITER = SECRateLimiter(rate_per_sec=8.0, burst=2)
+SEC_BUSY, SEC_RETRY_S = (429, 500, 502, 503, 504), 2.0
+
+
+async def _sec_get(client, url: str, **kw) -> httpx.Response:
+    """A GET to SEC EDGAR at the shared rate; once more, 2 s later, when SEC answers that it is busy (429 or 5xx)."""
+    for attempt in (0, 1):
+        await SEC_LIMITER.acquire()
+        r = await client.get(url, **kw)
+        if r.status_code >= 400 and r.status_code != 404:
+            log.warning("SEC EDGAR answered HTTP %s for %s", r.status_code, url)
+        if attempt or r.status_code not in SEC_BUSY:
+            return r
+        await asyncio.sleep(SEC_RETRY_S)
+
+
+def _sec_why(e: Exception) -> str:
+    """What went wrong asking SEC EDGAR, for an error message: the answer it gave (HTTP 403 or 429: SEC is limiting
+    this computer's requests, for some minutes; 5xx: SEC is busy), else the error's kind (no answer at all)."""
+    if isinstance(e, httpx.HTTPStatusError):
+        code = e.response.status_code
+        sec = "sec.gov" in (e.request.url.host if e.request else "")
+        if sec and code in (403, 429):
+            return f"HTTP {code}: SEC is limiting requests from this computer for a few minutes"
+        if sec and code >= 500:
+            return f"HTTP {code}: SEC EDGAR is busy"
+        return f"HTTP {code}" + (": not found" if code == 404 else "")
+    return type(e).__name__
 
 
 # ----------------------------------------------------------------------
@@ -172,9 +203,8 @@ async def _sec_fetch_json(url: str, ttl: int,
         log.info("CACHE HIT %s", url)
         return cached
     log.info("CACHE MISS %s", url)
-    await SEC_LIMITER.acquire()
-    r = await client.get(url, headers={"User-Agent": SEC_USER_AGENT,
-                                        "Accept": "application/json"})
+    r = await _sec_get(client, url, headers={"User-Agent": SEC_USER_AGENT,
+                                             "Accept": "application/json"})
     if r.status_code == 404:
         return None
     r.raise_for_status()
@@ -1170,10 +1200,9 @@ async def _filing_text(acc: str, cik_padded: str, primary: str,
         log.info("CACHE HIT filing-text %s", url)
         return cached
     log.info("CACHE MISS filing-text %s", url)
-    await SEC_LIMITER.acquire()
     try:
-        r = await client.get(url, headers={"User-Agent": SEC_USER_AGENT},
-                              timeout=30.0)
+        r = await _sec_get(client, url, headers={"User-Agent": SEC_USER_AGENT},
+                           timeout=30.0)
         if r.status_code != 200:
             return ""
         html_text = r.text
@@ -2096,8 +2125,7 @@ async def _sec_fetch_text(url: str, ttl: int, client: httpx.AsyncClient) -> Opti
     cached = _cache_read(url, ttl)
     if cached is not None:
         return cached
-    await SEC_LIMITER.acquire()
-    r = await client.get(url, headers={"User-Agent": SEC_USER_AGENT})
+    r = await _sec_get(client, url, headers={"User-Agent": SEC_USER_AGENT})
     if r.status_code == 404:
         return None
     r.raise_for_status()
@@ -2271,7 +2299,7 @@ async def edgar_filings(ticker: str = Query(..., max_length=12), fresh: bool = F
                     break
         out.sort(key=lambda o: o["filed"], reverse=True)
     except httpx.HTTPError as e:
-        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not answer ({type(e).__name__}). Try again in a minute."})
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not answer ({_sec_why(e)}). Try again in a minute."})
     return {"ticker": t, "cik": cik, "company": (sub or {}).get("name") or row.get("title"), "filings": out,
             "checked": time.strftime("%Y-%m-%d %H:%M:%S")}
 
@@ -2412,13 +2440,12 @@ async def edgar_document(cik: int, accession: str, document: str):
         for k in ciks:
             url = f"https://www.sec.gov/Archives/edgar/data/{k}/{accession.replace('-', '')}/{part}"
             try:
-                await SEC_LIMITER.acquire()
-                r = await client.get(url, headers={"User-Agent": SEC_USER_AGENT}, timeout=60.0)
+                r = await _sec_get(client, url, headers={"User-Agent": SEC_USER_AGENT}, timeout=60.0)
                 if r.status_code == 404 and k != ciks[-1]:
                     continue
                 r.raise_for_status()
             except httpx.HTTPError as e:
-                return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return the filing ({type(e).__name__})."})
+                return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return the filing ({_sec_why(e)})."})
             filer = k
             break
         data = r.content
@@ -2501,8 +2528,7 @@ async def _edgar_bytes(client, cik: int, accession: str, document: str):
     if path.exists():
         return path.read_bytes()
     url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession.replace('-', '')}/{document}"
-    await SEC_LIMITER.acquire()
-    r = await client.get(url, headers={"User-Agent": SEC_USER_AGENT}, timeout=90.0)
+    r = await _sec_get(client, url, headers={"User-Agent": SEC_USER_AGENT}, timeout=90.0)
     r.raise_for_status()
     data = r.content
     if len(data) > OWNERSHIP_MAX_BYTES:
@@ -2553,7 +2579,7 @@ async def edgar_insiders(ticker: str = Query(..., max_length=12), months: int = 
                     "url": f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/{doc}"}
         filings = [x for x in await asyncio.gather(*(one(i) for i in picks)) if x]
     except httpx.HTTPError as e:
-        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not answer ({type(e).__name__}). Try again in a minute."})
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not answer ({_sec_why(e)}). Try again in a minute."})
     if not filings:
         return JSONResponse(status_code=404, content={"error": f"{sub.get('name') or t} has no Form 4 filings in the last {months} months."})
     company = sub.get("name") or row.get("title") or t
@@ -2590,12 +2616,11 @@ async def edgar_funds(q: str = Query("", max_length=60)):
         return {"funds": [{"name": n, "cik": c, "edgar_name": e} for n, c, e in FUND_PRESETS]}
     client = HTTP_CLIENT or httpx.AsyncClient(timeout=20.0, follow_redirects=True)
     try:
-        await SEC_LIMITER.acquire()
-        r = await client.get("https://efts.sec.gov/LATEST/search-index", params={"keysTyped": q.strip()}, headers={"User-Agent": SEC_USER_AGENT})
+        r = await _sec_get(client, "https://efts.sec.gov/LATEST/search-index", params={"keysTyped": q.strip()}, headers={"User-Agent": SEC_USER_AGENT})
         r.raise_for_status()
         hits = (r.json().get("hits") or {}).get("hits") or []
     except (httpx.HTTPError, ValueError) as e:
-        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR search did not answer ({type(e).__name__})."})
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR search did not answer ({_sec_why(e)})."})
     return {"funds": [{"name": (h.get("_source") or {}).get("entity", ""), "cik": int(h["_id"]), "edgar_name": (h.get("_source") or {}).get("entity", "")}
                       for h in hits[:12] if str(h.get("_id", "")).isdigit()]}
 
@@ -2639,7 +2664,7 @@ async def edgar_fund_reports(cik: int = Query(..., ge=1, le=9999999999)):
     try:
         name, reports = await _fund_reports(client, cik)
     except (httpx.HTTPError, ValueError) as e:
-        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return the manager's quarters ({type(e).__name__})."})
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return the manager's quarters ({_sec_why(e)})."})
     return {"manager": name, "cik": cik, "reports": reports,
             "coverage_note": "Original 13F-HR reports in this manager's recent SEC submissions. An amendment is flagged; it is not combined with the original. 13F-NT notices do not contain a holdings table."}
 
@@ -2715,7 +2740,7 @@ async def edgar_fund(cik: int = Query(..., ge=1, le=9999999999), ticker: str = Q
         if cur["amendments"] or previous and previous["amendments"]:
             cur["comparison_note"] = "An amendment is listed for this or the preceding quarter. The selected original is shown, and quarter comparisons are not made."
     except (httpx.HTTPError, ValueError) as e:
-        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return the 13F ({type(e).__name__}: {e})."})
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return the 13F ({_sec_why(e)})."})
     return _html_doc(_own.holdings_document(name, cik, cur, cur["rows"], prior, highlight), f"{name} 13F holdings {cur['period']}.htm")
 
 
@@ -2833,7 +2858,7 @@ async def _prior_filing(j):
     try:
         data = await _edgar_bytes(client, listing["cik"], prior["accession"], prior["document"])
     except (httpx.HTTPError, ValueError) as e:
-        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return last year's {form} ({type(e).__name__})."})
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return last year's {form} ({_sec_why(e)})."})
     kind = "pdf" if prior["document"].lower().endswith(".pdf") else "html"
     try:
         pdoc = await asyncio.to_thread(_doc.load, data, kind, prior["document"])
@@ -2949,7 +2974,7 @@ async def reader_history(ticker: str = Query(..., max_length=12), years: int = Q
             return JSONResponse(status_code=404, content={"error": f"No SEC filer has the ticker {t or ticker}."})
         cf = await _companyfacts(client, cik)
     except httpx.HTTPError as e:
-        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not answer ({type(e).__name__}). Try again in a minute."})
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not answer ({_sec_why(e)}). Try again in a minute."})
     if not cf:
         return JSONResponse(status_code=404, content={"error": f"SEC EDGAR has no XBRL company facts for {t}."})
     h = await asyncio.to_thread(_hist.build, cf, cik, years)
@@ -3029,7 +3054,7 @@ async def reader_peers(ticker: str = Query(..., max_length=12), peers: str = Que
                 rows.append(await asyncio.to_thread(_hist.peer_row, cf or {}, p_cik, p_t2) if cf else {"ticker": p_t2, "cik": p_cik, "metrics": {}, "note": "No XBRL company facts."})
             _hist.rank(rows)
     except httpx.HTTPError as e:
-        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not answer ({type(e).__name__}). Try again in a minute."})
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not answer ({_sec_why(e)}). Try again in a minute."})
     return JSONResponse(content={"ticker": t, "cik": cik, "company": sub.get("name"), "sic": sic, "sic_name": sic_name, "suggestions": suggestions,
                                  "metrics": [{"key": k, "label": l, "unit": u} for k, l, u in _hist.PEER_METRICS], "rows": rows,
                                  "note": "Each company's latest fiscal year in its own 10-K XBRL (fiscal years can end on different dates; each row shows its own). "
@@ -3053,7 +3078,7 @@ async def edgar_search(q: str = Query(..., min_length=2, max_length=200), forms:
     try:
         d = await _sec_fetch_json(_fts.url(q.strip(), forms, start, end, offset=offset), 3600, client)
     except httpx.HTTPError as e:
-        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR full-text search did not answer ({type(e).__name__})."})
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR full-text search did not answer ({_sec_why(e)})."})
     res = _fts.parse(d or {})
     res.update({"q": q, "forms": forms, "start": start, "end": end, "offset": offset,
                 "note": "SEC EDGAR full-text search covers documents filed since 2001. A hit is one document of one filing; open it to see the phrase in place."})
@@ -3100,7 +3125,7 @@ async def reader_guidance_history(ticker: str = Query(..., max_length=12), n: in
             d = await _release_doc(client, listing["cik"], f)
             item["items"] = await asyncio.to_thread(_ins.guidance, d, "release", 20)
         except (httpx.HTTPError, ValueError, _ReaderError) as e:
-            item["error"] = f"Not read ({type(e).__name__})."
+            item["error"] = f"Not read ({_sec_why(e)})."
         out.append(item)
     res = {"ticker": listing["ticker"], "cik": listing["cik"], "company": listing.get("company"), "releases": out, "rows": _gh.align(out),
            "note": "Guidance lines as each release printed them, grouped by measure and the period they name (fixed rules). Direction words "
@@ -3160,7 +3185,7 @@ async def reader_job_tone(request: Request, job_id: str, prior_sha: str = Query(
                     out["prior"] = {"title": f"{t} earnings release filed {pf['filed']}", "source": "SEC EDGAR", "url": pf["url"], "accession": pf["accession"],
                                     "tone": await asyncio.to_thread(_tone.score, d.body, d.page_starts, "release", None)}
     except (httpx.HTTPError, ValueError, _ReaderError) as e:
-        out["prior_error"] = f"The prior document could not be read ({type(e).__name__})."
+        out["prior_error"] = f"The prior document could not be read ({_sec_why(e)})."
     if out["prior"]:
         out["compare"] = _tone.compare(cur, out["prior"]["tone"])
     return JSONResponse(content=out)
@@ -3469,7 +3494,7 @@ async def _news_build(client) -> dict:
         rev = await _frame_revenue(client, year)
         filers = nd.rank_filers(hits, {c: (v[0], year) for c, v in rev.items()})
     except (httpx.HTTPError, ValueError, KeyError) as e:
-        errors.append(f"SEC EDGAR earnings releases: {type(e).__name__}")
+        errors.append(f"SEC EDGAR earnings releases: {_sec_why(e)}")
     top = {k: [s for s in stories if s["subject"] == k][:30] for k in nd.QUERIES}
     return {"fetched_at": time.strftime("%Y-%m-%d %H:%M"), "fetched_ts": time.time(), "subjects": [{"key": k, "label": nd.SUBJECT_LABEL[k]} for k in nd.QUERIES],
             "stories": top, "all": stories[:40], "filers": filers, "counts": {"headlines": len(items), "stories": len(stories)}, "errors": errors,
@@ -4417,7 +4442,7 @@ async def brain_competitors(ticker: str) -> JSONResponse:
     try:
         tmap = await _ticker_map(client)
     except httpx.HTTPError as e:
-        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not answer ({type(e).__name__}). Try again in a minute."})
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not answer ({_sec_why(e)}). Try again in a minute."})
     row = tmap.get(t) or tmap.get(t.replace(".", "-"))
     if not row:
         return JSONResponse(status_code=404, content={"error": f"No SEC filer has the ticker {t}."})
@@ -4456,7 +4481,7 @@ async def brain_competitors(ticker: str) -> JSONResponse:
         if out["sic_code"]:
             out["sic"] = [mark(x) for x in await _sic_suggestions(client, cik, out["sic_code"])]
     except httpx.HTTPError as e:
-        out["errors"].append(f"Same industry code: SEC EDGAR did not answer ({type(e).__name__})")
+        out["errors"].append(f"Same industry code: SEC EDGAR did not answer ({_sec_why(e)})")
     prof = (have.get(t) or (None, None, 0))[1]
     out["profile"] = prof
     from reader import brain as _brain, brain_universe as _bu
@@ -4511,7 +4536,7 @@ async def brain_valuation(ticker: str, peers: str = Query("", max_length=200)) -
                 rows.append({"ticker": x, "error": d.get("message") or d.get("error") or f"no snapshot ({r.status_code})"})
                 continue
         except (httpx.HTTPError, ValueError) as e:
-            rows.append({"ticker": x, "error": f"SEC EDGAR or the price source did not answer ({type(e).__name__})"})
+            rows.append({"ticker": x, "error": f"SEC EDGAR or the price source did not answer ({_sec_why(e)})"})
             continue
         val, inp = d.get("valuation") or {}, d.get("inputs") or {}
         rows.append({"ticker": x, "name": d.get("name"), "price": d.get("price"), "price_error": d.get("price_error"),

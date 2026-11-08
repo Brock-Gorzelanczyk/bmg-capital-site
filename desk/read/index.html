@@ -1989,11 +1989,97 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       state.legLast[i] = now;
     }
   }
+  // V8 takes a page that allocates little for a few seconds as idle, and then runs its "memory reducer": a full
+  // collection that also compacts the heap of the laid-out filing, in one pause that grows with the filing. Goldman
+  // Sachs' 10-Q (194,000 elements): 0.56 to 0.85 s, 15 to 30 s into every walk traced and again later in a long walk;
+  // its ordinary collections take about 10 ms. Amazon's 10-K allocates enough while walking that the reducer never ran.
+  // While the spider walks, and for the minute after (a take's ending), the page allocates young arrays that are
+  // garbage at once, 8 MB a second by the clock (not per frame: a 120 Hz screen would double it and slow frames would
+  // starve it). V8 calls an allocation rate low below 0.7% of the speed of its young collections: 1 MB a second (16 KB a
+  // frame) was not always enough here (one Goldman walk had the reducer at 18.5 s, 883 ms, and 20.3 s, 607 ms), 7.7 MB
+  // a second was (four traced Goldman starts, and JPMorgan's, Goldman's and Taiwan Semiconductor's whole walks).
+  // None for a second once V8 is seen marking (these allocations took over 4 ms: a step of V8's marking ran inside
+  // them). While V8 marks, each allocation of the page's own is a 5 ms step of marking on the page's thread, two or
+  // three a frame, and what the young generation holds counts toward the limit past which V8 finishes the marking at
+  // once (V8's heap.cc): JPMorgan's 10-K, collections with the allocation going on paused 61 and 102 ms, without it
+  // 12 to 20 ms (25 collections in one walk, traced). (keepBusy)
+  let busySink = null;
+  const BUSY_BYTES_S = 8 * 1048576;
+  function keepBusy(now, dt){
+    if (now < gcPace.calmUntil) return;
+    const sink = busySink || (busySink = []), t0 = performance.now();
+    for (let n = Math.ceil(dt * BUSY_BYTES_S / 16384); n > 0; n--) sink[n & 7] = new Array(4096);
+    if (performance.now() - t0 > 4) gcPace.calmUntil = now + 1000;
+  }
+  // V8 also runs that clean-up when it has gone 100 s without a full collection (its watchdog), however much the page
+  // allocates: Taiwan Semiconductor's 20-F 102 s into a walk (838 ms), JPMorgan's 10-K 94 s and 428 s in (1.27 s and
+  // 1.23 s). The full collections V8 starts itself as a walk goes mark while the page runs and pause 6 to 20 ms
+  // (Amazon's, Palantir's, Goldman's and JPMorgan's 10-Ks and Goldman's 10-Q, traced: one every 10 to 70 s). V8 sets
+  // the size it waits for after each full collection from how fast the page allocated just before: after the one the
+  // walk starts with (the filing just drawn and measured) up to four times the heap, so V8's own first one came late,
+  // 80 to 100 s into a long walk or not at all. The page notices each full collection (a probe object, old once held
+  // 10 s, can only go in one) and, after 85 s with none while busy, asks for one by external memory, once (preWalkGC).
+  // Not by adding memory and not sooner, both tried here (traced): arrays held until a young collection moved them to
+  // the old generation (256 KB, 2 to 4 MB a second from 60 s) made V8 rate the page's allocation high and wait longer
+  // still, and its collections then started at its limit and were finished at once (Amazon's 10-K 64 to 87 ms,
+  // Palantir's 95 to 110 ms); copies of detached elements did the same to Blink's heap (JPMorgan's 10-K: no collection
+  // of V8's own in 443 s, only the ones asked for); external memory asked for at 60 s came as V8 was about to start one
+  // itself, past its limit, and was finished at once (JPMorgan 254 and 285 ms, Taiwan Semiconductor 210 ms). (paceGC)
+  const gcPace = {last: performance.now(), probe: null, at: 0, out: false, asked: false, calmUntil: 0};
+  const gcSeen = typeof FinalizationRegistry === "function" ? new FinalizationRegistry(() => {
+    gcPace.last = performance.now(); gcPace.out = false; gcPace.asked = false;
+  }) : null;
+  function paceGC(now, busy){
+    if (!gcSeen) return;
+    if (!gcPace.probe && !gcPace.out){ gcPace.probe = {}; gcSeen.register(gcPace.probe, 0); gcPace.at = now; }
+    else if (gcPace.probe && now - gcPace.at > 10000){ gcPace.probe = null; gcPace.out = true; }
+    if (!busy || !gcPace.out || gcPace.asked || now - gcPace.last < 85000) return;
+    gcPace.asked = true; preWalkGC();
+  }
+  // The first full collection after a big filing is drawn costs the most: 88.6 ms on JPMorgan's 10-K 26 s into its walk,
+  // with frames of 91 and 217 ms as it marked, and 83.5 to 98.2 ms on Goldman's and JPMorgan's when it came 15 s in (all
+  // traced). One is asked for before the spider moves, where a pause is not seen: external memory past V8's 64 MB
+  // soft limit starts one, inside the call that makes it (V8's api.cc and heap.cc), so a 72 MB buffer is made and
+  // freed in the next line (transfer(0) gives its memory back there and then). Not left for the collection to free:
+  // until then V8 counts it with the heap, and a small heap (Amazon's 10-K) was past the size at which V8 finishes
+  // the marking at once (77 and 86 ms, traced); freed at once, Amazon's 10-K and 10-Q asks paused 9.5 and 10.1 ms.
+  // (preWalkGC)
+  function preWalkGC(){
+    try {
+      const b = new ArrayBuffer(72 * 1048576);
+      if (typeof b.transfer === "function") b.transfer(0);
+    } catch (e) { /* no room for it: no collection asked for */ }
+  }
+  // ... asked for once the walk has measured the filing (its rows and word boxes are made then: the first full
+  // collection after it marked 220 ms, most of it on the page's thread, then paused 86.5 ms, JPMorgan, 13.6 s into the
+  // walk; later ones pause 16 to 30 ms), and a second one as soon as the first is done, from a quiet page: the size V8
+  // waits for next is set from it (JPMorgan's 10-K, external memory asked for 85 s into the walk: 15 ms after the
+  // second, 102 and 208 ms without it). The walk's first step waits for both, 2.5 s at most. In Record mode the take
+  // starts recording later still (after the plan's targets are found), so none of it is recorded. The end of each is
+  // seen by an object held since the page loaded (old by then), let go as it is asked for: only a full collection
+  // takes it.
+  let gcSpares = [{}, {}];
+  const gcFirst = typeof FinalizationRegistry === "function" ? new FinalizationRegistry(fn => fn()) : null;
+  function afterFirstGC(go){
+    if (!gcFirst || gcSpares.length < 2){ go(); return; }
+    let done = false;
+    const once = () => { if (!done){ done = true; go(); } };
+    const [a, b] = gcSpares; gcSpares = [{}, {}];          // (new ones, old by the next walk)
+    gcFirst.register(a, () => { if (done) return; gcFirst.register(b, once); preWalkGC(); });
+    preWalkGC();
+    setTimeout(once, 2500);
+  }
+  // (declared before the crawl loop below: its first frame runs as the page's script runs, and a const or let it
+  // reads further down the script is not there yet, which stops the whole script)
   (function crawl(now){
     requestAnimationFrame(crawl);
     profileFrame(now);
     const dt = Math.min(0.05, (now - (state.lastCrawl || now)) / 1000);
     state.lastCrawl = now;
+    if (walking() && !state.paused) state.busyUntil = now + 60000;
+    const busy = now < (state.busyUntil || 0);
+    if (busy) keepBusy(now, dt);   // ordinary garbage collections while the spider walks, and a minute after (keepBusy)
+    paceGC(now, busy);        // and a full one before V8's watchdog would run its compacting one (paceGC)
     if (state.paused || !state.feet || !state.feet.length || !walking()) return;
     const t = state.crawlTarget;
     if (t && walking()){
@@ -2859,6 +2945,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // A PDF or HTML filing shows its own cover; the title line would sit over it.
     h1.textContent = state.renderDoc ? "" : headlineForDoc(ev);
     docBody.classList.add("w-box");      // words are built as inline boxes (CSS :where(#docbody.w-box) .w)
+    // the walk's "no hit-testing over the word spans" (startWalk), set before the filing is drawn: set on a drawn
+    // filing it restyled every word (Goldman Sachs' 10-Q: 0.58 s more of the freeze before the walk)
+    doc.style.pointerEvents = "none";
     if (state.renderDoc){
       // Original-format rendering (PDF pages, HTML with its own styling);
       // every word still becomes a .w foothold for the spider.
@@ -2899,7 +2988,21 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     state.docQueue.push(ev);
     if (state.docQueue.length > 6) state.docQueue.shift();
   }
+  // After a read's walk the filing takes the pointer again when someone points at it, clicks or scrolls over it (its
+  // pane gets those while the filing does not): set back at once, the inherited change restyled every word span in
+  // the frame that showed the finish card (JPMorgan's 10-K: 123 ms, Goldman's 10-Q: 93 ms).
+  let pointerBack = null;
+  function pointerOnUse(){
+    if (pointerBack) return;
+    pointerBack = () => {
+      for (const t of ["pointermove", "pointerdown", "wheel"]) docScroll.removeEventListener(t, pointerBack);
+      pointerBack = null;
+      if (!walking()) doc.style.pointerEvents = "";
+    };
+    for (const t of ["pointermove", "pointerdown", "wheel"]) docScroll.addEventListener(t, pointerBack, {passive: true});
+  }
   function walkFinished(){
+    if (state.mode === "read" && docScroll){ pointerOnUse(); if (state.doneHook){ const h = state.doneHook; state.doneHook = null; h(); } return; }
     doc.style.pointerEvents = "";
     if (state.mode === "read"){ if (state.doneHook){ const h = state.doneHook; state.doneHook = null; h(); } return; }
     doc.style.pointerEvents = "";
@@ -2960,7 +3063,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
 
   function startWalk(doc_id, duration_s){
     tlReset();                                   // a new document: nothing to go back to yet
-    if (state.walkSkipped){ docBody.classList.remove("w-box"); state.walkState = {done:true, docId:doc_id, lineIdx:0}; return; }
+    if (state.walkSkipped){ docBody.classList.remove("w-box"); doc.style.pointerEvents = ""; state.walkState = {done:true, docId:doc_id, lineIdx:0}; return; }
     state.walkState = {done:false, docId:doc_id, lineIdx:0};
     // no mouse hit-testing over tens of thousands of word spans while the
     // page scrolls itself (restored when the walk ends)
@@ -2977,6 +3080,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const rows = fresh ? pre.rows : visualRows();
     state.rows = rows;
     cvBandBuild(); if (cvBand.list) cvBandAt(state.sy);
+    findScanStart(rows);                         // where the findings can be shown: the walk keeps to them
     if (!rows.length){ state.walkState.done = true; walkFinished(); return; }
     const perRow = Math.max(120, Math.min(900, (duration_s * 1000) / rows.length));
     let i = 0;
@@ -3045,6 +3149,18 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       // text near the reading line: back to reading speed.
       const gap = rowY(readIdx) - ry;
       state.boostTarget = gap > 90 ? Math.min(4, 1 + (gap - 90) / 110) : 1;
+      // The findings: hurry through a long stretch with nothing to show; end a moment after the last one is shown.
+      if (findPacing()){
+        const nx = nextFindRow(readIdx);
+        if (nx === null){
+          if (!state.findTailUntil) state.findTailUntil = performance.now() + FIND_TAIL;
+          else if (performance.now() >= state.findTailUntil){ state.walkState.done = true; state.eyeFocus = null; state.boostTarget = 1; walkFinished(); return; }
+        } else {
+          state.findTailUntil = 0;
+          const vh = V.h() * (window.READER_VIEW_FRAC || 1), far = nx === undefined ? 0 : rowY(nx) - ry - FIND_FAR * vh;
+          if (far > 0) state.boostTarget = Math.max(state.boostTarget, Math.min(FIND_FF, 1 + far / (FIND_RAMP * vh)));
+        }
+      }
       const ct = state.crawlTarget;
       const boosting = (state.boost || 1) > 1.2;
       if (!ct || Math.hypot(ct.x - state.body.x, ct.y - state.body.y) < 45 || ct.y < ry - (boosting ? 10 : 90)){
@@ -3063,7 +3179,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       }
       state.walkTimer = setTimeout(step, 40);
     }
-    step();
+    afterFirstGC(step);                          // the first step once the full collections it asks for are done (afterFirstGC)
   }
 
   // A word holds a figure only when its number IS the figure: "$2.4" or
@@ -3074,6 +3190,91 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (v !== null && n !== null) return n === v && w.textContent.replace(/[\d,.$()%\-\s]/g, "").length <= 3;
     return w.textContent.includes(value);
   }
+  // A word's page in a PDF (0 in an HTML filing, which has no page boxes), cached on the word.
+  function wordPage(w){
+    if (w._pg !== undefined) return w._pg;
+    const pg = w.closest(".pdfpage");
+    if (pg && pg._idx === undefined) docBody.querySelectorAll(".pdfpage").forEach((x, i) => { x._idx = i + 1; });
+    return (w._pg = pg ? pg._idx : 0);
+  }
+  // state.onRow's test: how near a word is to where a finding is cited, 1e9 when the word cannot show it. The word
+  // holds the figure (holds(), each number parsed once) on the page the server cited, one page either side, or, in a
+  // document without pages, within 15% of the filing of the finding's place in the text; -1 for the word a clip of
+  // findings placed it on.
+  function findDist(f, w, wt, wn, wp, wy, total){
+    if (f._at) return f._at === w ? -1 : 1e9;
+    const fv = f._num !== undefined ? f._num : (f._num = numOf(f.value));
+    if (!(fv !== null && wn !== null ? wn === fv && wt.replace(/[\d,.$()%\-\s]/g, "").length <= 3 : wt.includes(f.value))) return 1e9;
+    if (wp && f.page) return Math.abs(f.page - wp) <= 1 ? Math.abs(f.page - wp) : 1e9;
+    const fy = total && f.char_offset >= 0 ? f.char_offset / total : wy;
+    return Math.abs(fy - wy) < 0.15 ? Math.abs(fy - wy) : 1e9;
+  }
+
+  // ---- the walk keeps to the findings ----
+  // Brock, 2026-11-08: "I hate when all of the figures are found right away and then the crawler is just running on
+  // the rest of the form finding nothing ... the crawl should end shortly after it found everything". Goldman Sachs'
+  // Q3 2026 10-Q: 51 of its 118 findings in the first tenth of the filing, 2 between 10% and 40%, 64 between 40% and
+  // 70%, then one at 99%; at reading speed its 154,000 px took about 20 minutes. While the walk runs, the rows where
+  // each finding still waiting can be shown are found by onRow's own test (findDist), a few hundred rows at a time in
+  // idle time. The camera then hurries through a long stretch with nothing to show, as it already does through blank
+  // space, slowing to reading speed two and a half screens before the next finding, and the walk ends a moment after
+  // the last finding is shown. A set-length take (its own timed camera), a Find tour and a replay keep their pace; a
+  // read with no findings reads to the end as before.
+  // The fast-forward's ceiling is a fixed 8x. Goldman's frames over 50 ms while hurrying come where big held blocks
+  // of table are painted as they come into view, so their number follows the distance covered, not the speed: 25 at
+  // 8x and 20 under a ceiling that dropped to 2x to 4x with each such frame, over the same 143,000 px, while that
+  // walk took 664 s instead of 365 s.
+  const FIND_FAR = 2.5, FIND_RAMP = 0.9, FIND_FF = 8, FIND_TAIL = 2500;
+  function findScanStart(rows){
+    const pend = state.pendingFindings || [];
+    state.findTailUntil = 0;
+    state.findScan = state.mode === "read" && pend.length ? {rows, i: 0, done: false, last: 0, token: state.loadToken} : null;
+    if (!state.findScan) return;
+    pend.forEach(f => { f._rows = []; f._ri = 0; f._dig = /\d/.test(f.value); });
+    findScanSlice(null);
+  }
+  function findScanSlice(deadline){
+    const sc = state.findScan;
+    if (!sc || sc.done || sc.token !== state.loadToken) return;
+    const pend = state.pendingFindings || [], total = (state.readRes && state.readRes.text || "").length || 0, H = docGeo().height || 1;
+    const t0 = performance.now(), budget = deadline ? Math.max(1, deadline.timeRemaining() - 1) : 4;
+    while (sc.i < sc.rows.length && performance.now() - t0 < budget){
+      for (const w of sc.rows[sc.i].els){
+        const wt = w.textContent, dig = /\d/.test(wt);
+        let wn, wp, wy;
+        for (const f of pend){
+          if (f._dig && !dig && !f._at) continue;          // a figure with a digit is never in a word without one
+          if (wp === undefined){ wn = w._num !== undefined ? w._num : (w._num = numOf(wt)); wp = wordPage(w); wy = docSpaceCenter(w).y / H; }
+          const rs = f._rows;
+          if (rs[rs.length - 1] !== sc.i && findDist(f, w, wt, wn, wp, wy, total) < 1e9) rs.push(sc.i);
+        }
+      }
+      sc.i++;
+    }
+    if (sc.i >= sc.rows.length){ sc.done = true; return; }
+    if (window.requestIdleCallback) requestIdleCallback(findScanSlice, {timeout: 250}); else setTimeout(() => findScanSlice(null), 30);
+  }
+  // The next row where a finding still waiting can be shown: its index, null when none can be shown any more (the
+  // whole filing scanned), undefined while the scan has not found one yet.
+  function nextFindRow(readIdx){
+    const sc = state.findScan;
+    if (!sc || sc.token !== state.loadToken) return undefined;
+    const pend = state.pendingFindings || [];
+    if (readIdx < sc.last) pend.forEach(f => { f._ri = 0; });       // sent back up the filing: look from there again
+    sc.last = readIdx;
+    let best = Infinity;
+    for (const f of pend){
+      const rs = f._rows || [];
+      while (f._ri < rs.length && rs[f._ri] < readIdx) f._ri++;
+      if (f._ri < rs.length && rs[f._ri] < best) best = rs[f._ri];
+    }
+    if (best < Infinity) return best;
+    return sc.done ? null : undefined;
+  }
+  // the walks that keep to the findings: a read's own walk, not a set-length take, a Find tour or a replay; a
+  // whole-filing take once its opening (the slow start) has reached its speed (state.planRamped, planCrawl)
+  const findPacing = () => !!state.findScan && state.mode === "read" && !state.recordCamera && !state.findTourOn && !state.findOnRow && !TL.replay &&
+    state.planRamped !== false;
 
   function phraseFrom(el, n){
     const out = [el]; let x = el.nextElementSibling;
@@ -3336,7 +3537,11 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   }
 
   let pdfjsP = null;
+  // The library's canvas drawing slice, one a frame (its own is 15 ms, more than the frame has beside the spider's own
+  // work; read by the self-hosted copy, see /assets/pdfjs/README.txt).
+  const PDF_SLICE_MS = 4;
   function loadPdfjs(){
+    globalThis.pdfjsSliceMs = PDF_SLICE_MS;
     if (!pdfjsP) pdfjsP = import("/assets/pdfjs/pdf.min.js").then(m => {
       m.GlobalWorkerOptions.workerSrc = "/assets/pdfjs/pdf.worker.min.js";
       return m;
@@ -3345,9 +3550,15 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   }
 
   let pdfOpen = null;   // the filing on screen: released when the next one opens
+  // The open filing's PDF page boxes, from its own list, and a box's page number: a class search of the filing went
+  // through every word span (no match in an HTML filing: all of its 60,000 to 200,000 elements, 5 to 15 ms, as a walk
+  // ended and for each Record mode card of a PDF).
+  function pdfBoxes(){ return pdfOpen && pdfOpen.pages.length && pdfOpen.pages[0].box.isConnected ? pdfOpen.pages.map(p => p.box) : []; }
+  function pdfPageNo(box){ return pdfBoxes().indexOf(box) + 1; }
   function closePdf(){
     if (!pdfOpen) return;
     const o = pdfOpen; pdfOpen = null;
+    if (o.stop) o.stop();                    // no page waiting to be drawn is started after this
     o.io.disconnect();
     removeEventListener("scroll", o.onScroll, true);
     o.pages.forEach(pg => { if (pg.canvas){ pg.canvas.width = pg.canvas.height = 0; pg.canvas = null; } });
@@ -3410,40 +3621,69 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     }
     const sourceTop = doc.getBoundingClientRect().top;
     for (const pg of pages) pg.docY = pg.box.getBoundingClientRect().top - sourceTop;
-    const draw = async (pg) => {
-      if (pg.drawn) return; pg.drawn = true;
+    // A page's canvas is drawn by the library on the page's own thread, one slice a frame (PDF_SLICE_MS; 15 ms in the
+    // library as it comes). Two or three pages coming into the band together (the walk hurrying between findings) drew
+    // a slice each in the same frame, with the library's messages from its worker, and a canvas on the page is shown
+    // again every frame it changes (Apple's 10-K, this container: frames of 54 to 64 ms while pages were drawn). One
+    // page is drawn at a time, the one nearest the screen first, into a canvas that joins the page when it is done.
+    const waiting = [];
+    let drawing = null;
+    const offBy = pg => { const top = docTop() + pg.docY, vh = V.h(); return top > vh ? top - vh : top + pg.vp.height < 0 ? -(top + pg.vp.height) : 0; };
+    const next = () => {
+      if (drawing || !waiting.length) return;
+      let k = 0;
+      for (let i = 1; i < waiting.length; i++) if (offBy(waiting[i]) < offBy(waiting[k])) k = i;
+      const pg = drawing = waiting.splice(k, 1)[0], job = pg.job;
+      paint(pg).catch(() => {}).then(() => { if (drawing === pg) drawing = null; job.end(); next(); });
+    };
+    const draw = pg => {
+      if (pg.drawn) return pg.job ? pg.job.ended : Promise.resolve();
+      pg.drawn = true;
+      let end; const ended = new Promise(r => { end = r; });
+      pg.job = {ended, end};
+      waiting.push(pg); next();
+      return ended;
+    };
+    const paint = async (pg) => {
       // Match native/capture pixels without moving the invisible word layer.
       const captureWidth = document.body.classList.contains("recmode")
         ? (state.captureQuality?.width || state.recordRenderWidth || 0) : 0;
       const dpr = pdfPixelRatio(window.devicePixelRatio, captureWidth, innerWidth);
       const c = document.createElement("canvas");
       c.width = Math.floor(pg.vp.width * dpr); c.height = Math.floor(pg.vp.height * dpr);
-      pg.box.insertBefore(c, pg.box.firstChild);
       pg.canvas = c;
       // Dark page: the page is inverted once, in its own pixels, when it is drawn. A CSS filter on
       // the canvas was redrawn on every repaint near it and cost about 7 fps while the spider walked.
       const dark = document.body.classList.contains("rec-dark") && document.body.matches(".recmode,.readerfx");
-      if (dark) c.style.visibility = "hidden";                 // no white flash before the inversion
-      pg.task = pg.page.render({canvasContext: c.getContext("2d"), viewport: pg.vp,
+      const task = pg.task = pg.page.render({canvasContext: c.getContext("2d"), viewport: pg.vp,
         transform: dpr === 1 ? null : [dpr, 0, 0, dpr, 0, 0]});
       let done = false;
-      try { await pg.task.promise; done = true; } catch (e) { /* cancelled: the page scrolled away first */ }
-      pg.task = null;
-      if (dark && done && pg.canvas === c){ bakeDark(c); c.style.visibility = ""; }
+      try { await task.promise; done = true; } catch (e) { /* cancelled: the page scrolled away first */ }
+      if (pg.task === task) pg.task = null;
+      if (!done || pg.canvas !== c) return;
+      if (dark) await bakeDark(c, () => pg.canvas === c);
+      if (pg.canvas === c) pg.box.insertBefore(c, pg.box.firstChild);
     };
-    const bakeDark = c => {
+    // (in bands of rows, one a frame: the whole page in one filter pass was one long frame)
+    const bakeDark = async (c, still) => {
       const copy = document.createElement("canvas"); copy.width = c.width; copy.height = c.height;
       copy.getContext("2d").drawImage(c, 0, 0);
-      const x = c.getContext("2d");
-      x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = "copy";
-      x.filter = "invert(1) hue-rotate(180deg) contrast(1.1)";          // the same look the CSS filter gave
-      x.drawImage(copy, 0, 0); x.restore();
+      const x = c.getContext("2d"), band = 400;
+      for (let y = 0; y < c.height && still(); y += band){
+        const h = Math.min(band, c.height - y);
+        x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = "copy";
+        x.filter = "invert(1) hue-rotate(180deg) contrast(1.1)";          // the same look the CSS filter gave
+        x.drawImage(copy, 0, y, c.width, h, 0, y, c.width, h); x.restore();
+        if (y + band < c.height) await new Promise(r => requestAnimationFrame(r));
+      }
       copy.width = copy.height = 0;
       c.classList.add("dark-baked");
     };
     const drop = (pg) => {
       if (!pg.drawn) return;
-      if (pg.task){ pg.task.cancel(); pg.task = null; }
+      const i = waiting.indexOf(pg);
+      if (i >= 0){ waiting.splice(i, 1); pg.job.end(); }             // not started: nothing to stop
+      if (pg.task){ pg.task.cancel(); pg.task = null; }               // being drawn: its paint ends, the next one starts
       if (pg.canvas){ pg.canvas.width = pg.canvas.height = 0; pg.canvas.remove(); pg.canvas = null; }
       pg.page.cleanup();
       pg.drawn = false;
@@ -3467,7 +3707,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const observe = () => {
       const o = new IntersectionObserver(es => es.forEach(e => {
         if (e.isIntersecting){ const pg = byBox.get(e.target); if (pg){ draw(pg); onScroll(); } }
-      }), {root: paneOn() ? docScroll : null, rootMargin: "1200px 0px"});
+      }), {root: paneOn() ? docScroll : null, rootMargin: "2400px 0px"});     // (one page at a time: asked for sooner)
       pages.forEach(pg => o.observe(pg.box));
       return o;
     };
@@ -3478,7 +3718,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       for (const pg of pages) drop(pg);
       for (const pg of pages){ const top = docTop() + pg.docY; if (top + pg.vp.height > -1200 && top < V.h() + 1200) draw(pg); }
     };
-    pdfOpen = {pdf, pages, io, onScroll, redraw, reobserve};
+    pdfOpen = {pdf, pages, io, onScroll, redraw, reobserve, stop: () => { waiting.length = 0; }};
     if (pages[0]) await draw(pages[0]);
   }
 
@@ -3545,7 +3785,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   function holdHtmlBlocks(wrap){
     if (!wrap || !wrap.isConnected || wrap.dataset.held) return;
     wrap.dataset.held = "1";
-    const z = parseFloat(wrap.style.zoom) || 1, MAXH = 1500, GROUP_H = 2000;
+    const z = parseFloat(wrap.style.zoom) || 1, MAXH = 1500, GROUP_H = 2000, GROUP_W = 1500;
     const isBlock = (k, cs, h) => k.tagName === "DIV" && cs.display === "block" && cs.position === "static" && cs.float === "none" && h > 0 && h <= MAXH;
     // single blocks under an element (the boxes used before grouping, and the fallback for a group that fails)
     const blocksIn = el => {
@@ -3581,9 +3821,13 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           }
           continue;
         }
-        if (run && run.h + h > GROUP_H) flush();
-        if (!run) run = {els: [], h: 0, block: false};
-        run.els.push(k); run.h += h;
+        // and at most GROUP_W words: a group is styled, laid out and painted in the one frame it comes near the screen
+        // (JPMorgan's 10-K, groups of 2,490 to 3,659 words: frames of 50 to 65 ms; capped at 1,500, none over 50 ms in
+        // the whole walk, 59.2 fps against 57.3)
+        const kw = k.getElementsByClassName("w").length;
+        if (run && (run.h + h > GROUP_H || run.w + kw > GROUP_W)) flush();
+        if (!run) run = {els: [], h: 0, w: 0, block: false};
+        run.els.push(k); run.h += h; run.w += kw;
         run.block = run.els.length === 1 && isBlock(k, cs, h);
       }
       flush();
@@ -3762,7 +4006,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       || !!(window.bmgVisuals && window.bmgVisuals.busy && window.bmgVisuals.busy())
       || typing() || Date.now() - lastInput < 10000 || Date.now() < holdUntil || (chooser && Date.now() - chooser < 300000)
       || (state.mkBusy && state.mkBusy()) || (state.crawlFormBusy && state.crawlFormBusy());
-    const readOnScreen = () => !document.body.classList.contains("av-open") && !!document.querySelector("svg.spider rect.body");
+    const readOnScreen = () => !document.body.classList.contains("av-open") && !!spiderSvg.querySelector("rect.body");
     // the theme files are kept by the browser for a long time: fetched fresh first, so the reload uses the new ones
     const reload = async () => {
       try { sessionStorage.setItem("bmg-updated", String(Date.now())); } catch (e) {}
@@ -4329,6 +4573,11 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   const cancelBtn = document.getElementById("read-cancel");
   const skipBtn = document.getElementById("read-skip");
   const REDUCED = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  // A Posting take's company logo opening (Make a clip, company branding): the logo holds in the middle for LOGO_OPEN_S
+  // of recording, then moves to its small spot in LOGO_MOVE_S (or fades). Brock, 2026-11-08: "the company logo sits in
+  // the middle for like 5 seconds I want it to be closer to 2 seconds. the first couple seconds is what gets people
+  // hooked" (it held 4 s, then moved for 0.9 s). A hook with no logo keeps its 4 s over the moving crawl.
+  const LOGO_OPEN_S = 2, LOGO_MOVE_S = 0.6;
   let catFilter = "";
   function esc(s){ return escapeHTML(String(s == null ? "" : s)); }
   function pageTxt(p, printed){ return p ? `p. ${p}${printed && String(printed) !== String(p) ? ` (printed ${printed})` : ""}` : ""; }
@@ -4417,27 +4666,16 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (!pend.length) return;
     const total = (state.readRes && state.readRes.text || "").length || 0;
     const H = docGeo().height || 1;
-    const pageOf = (w) => {
-      if (w._pg !== undefined) return w._pg;
-      const pg = w.closest(".pdfpage");
-      if (pg && pg._idx === undefined) docBody.querySelectorAll(".pdfpage").forEach((x, i) => { x._idx = i + 1; });
-      return (w._pg = pg ? pg._idx : 0);
-    };
     for (const w of els){
       if (w.classList.contains("found") && !(state.askLit && state.askLit.has(w))) continue;   // lit by a Find request: still free
-      const wp = pageOf(w);
+      const wp = wordPage(w);
       const wy = docSpaceCenter(w).y / H;
       let k = -1, best = 1e9;
       // holds(w, f.value), with each word's and each figure's number parsed once instead of on every comparison
       const wt = w.textContent;      // read once per word, not once per pending figure (nothing in the loop below changes it)
       const wn = w._num !== undefined ? w._num : (w._num = numOf(wt));
       pend.forEach((f, j) => {
-        if (f._at){ if (f._at === w && best > -1){ best = -1; k = j; } return; }     // a clip of findings placed it on this word
-        const fv = f._num !== undefined ? f._num : (f._num = numOf(f.value));
-        if (!(fv !== null && wn !== null ? wn === fv && wt.replace(/[\d,.$()%\-\s]/g, "").length <= 3 : wt.includes(f.value))) return;
-        let d;
-        if (wp && f.page) d = Math.abs(f.page - wp) <= 1 ? Math.abs(f.page - wp) : 1e9;
-        else { const fy = total && f.char_offset >= 0 ? f.char_offset / total : wy; d = Math.abs(fy - wy) < 0.15 ? Math.abs(fy - wy) : 1e9; }
+        const d = findDist(f, w, wt, wn, wp, wy, total);
         if (d < best){ best = d; k = j; }
       });
       if (k >= 0){ const f = pend.splice(k, 1)[0]; markFactInDoc({doc_id: state.currentDocId, label: f._f.label, value: f.value, char_offset: f.char_offset, _el: w, _f: f._f}); }
@@ -5248,7 +5486,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         const dd = card.querySelector("#pl-brand"); if (!dd || !bp) return;
         if (brand.ready){ dd.textContent = "Loading the company logo..."; return; }
         const lg = brand.logo, hook = String(plan.hook || "").trim(), parts = [];
-        if (bp.intro) parts.push(lg ? (hook ? "The logo above the hook for the first 4 seconds" : "The logo for the first 4 seconds (no hook written)") : hook ? "The hook for the first 4 seconds (no logo)" : "No opening: no logo and no hook");
+        if (bp.intro) parts.push(lg ? (hook ? `The logo above the hook for the first ${LOGO_OPEN_S} seconds` : `The logo for the first ${LOGO_OPEN_S} seconds (no hook written)`) : hook ? "The hook for the first 4 seconds (no logo)" : "No opening: no logo and no hook");
         if (bp.mini) parts.push(lg ? "a small logo at the top center during the crawl" : "no small logo (no logo)");
         if (bp.report) parts.push(!plan.ending ? "no report logo (the clip does not end on the report)" : lg ? "the logo beside BMG Capital on the final report" : "no report logo (no logo)");
         dd.innerHTML = (lg ? `<img class="pl-logo${logoChip(lg, false)}" src="${lg.url}" alt="">` : "") + esc(parts.join("; ") + ".")
@@ -5317,7 +5555,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (head && !head.querySelector(".lr-logos")) head.querySelector(".lr-brand").insertAdjacentHTML("afterend", state.recLogos);
     }
     // ---- Company branding (Make a clip, optional: three settings of the plan). The company's logo above the hook for
-    // the first 4 seconds of the take while the crawl runs under them; then the hook fades and the logo shrinks to a
+    // the first LOGO_OPEN_S seconds of the take while the crawl runs under them; then the hook fades and the logo shrinks to a
     // small spot at the top center for the rest of the crawl; when the final report appears, the floating logo goes
     // and the same logo sits beside "BMG Capital" in the report's header. Timed on the recording itself (a pause, a
     // rewind or a skip holds it with the recording); drawn once and moved only by transform and opacity, so nothing is
@@ -5339,7 +5577,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (!b || !(b.intro || b.mini || b.report)) return;
       brand.on = true; brand.t0 = performance.now();
       const lg = brand.logo, hook = b.intro ? String(plan.hook || "").trim() : "";
-      state.brandMeta = {intro: !!(b.intro && (lg || hook)), introTitle: !!hook, mini: !!(b.mini && lg), report: !!(b.report && lg && plan.ending), logo: lg ? lg.from : ""};
+      state.brandMeta = {intro: !!(b.intro && (lg || hook)), introTitle: !!hook, mini: !!(b.mini && lg), report: !!(b.report && lg && plan.ending), logo: lg ? lg.from : "",
+        ...(b.intro && lg ? {introSecs: LOGO_OPEN_S} : {})};      // the logo opening's length: the Studio ends the hook title there
       if (!lg || !(b.intro || b.mini)) return;          // nothing floats (the title is the Studio's; the report logo comes at the end)
       const el = brand.el = document.createElement("div"); el.id = "rec-brand"; el.setAttribute("aria-hidden", "true");
       if (lg){
@@ -5351,7 +5590,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       brandLayout();
       B.appendChild(el);
       addEventListener("resize", brandLayout);
-      if (brand.step === "intro"){ brand.left = 4000; brand.at = performance.now(); brand.timer = setTimeout(brandAfterIntro, brand.left); B.classList.add("rec-brand-intro"); }
+      if (brand.step === "intro"){ brand.left = LOGO_OPEN_S * 1000; brand.at = performance.now(); brand.timer = setTimeout(brandAfterIntro, brand.left); B.classList.add("rec-brand-intro"); }
       else B.classList.add("rec-brand-mini");
       if (holds.size || settling){ brand.held = false; brandHold(true); }      // the recording is held as the take starts: so is the opening
     }
@@ -5372,15 +5611,15 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       }
     }
     function brandAfterIntro(){
-      // 4 seconds of recording: the title ends (the Studio's text item); the logo shrinks to its small spot (or fades,
+      // LOGO_OPEN_S of recording: the title ends (the Studio's text item); the logo shrinks to its small spot (or fades,
       // without the small logo)
       brand.timer = 0;
-      if (state.ae) state.ae.log("intro", brand.img ? (plan.brand.mini ? "logo-small" : "logo-fade") : "", brand.img ? (plan.brand.mini ? 0.9 : 0.5) : 0);   // (Auto-edit) the opening ends; the logo moves for this long
+      if (state.ae) state.ae.log("intro", brand.img ? (plan.brand.mini ? "logo-small" : "logo-fade") : "", brand.img ? (plan.brand.mini ? LOGO_MOVE_S : 0.5) : 0);   // (Auto-edit) the opening ends; the logo moves for this long
       const ease = "cubic-bezier(.4,0,.2,1)", out = el => el.animate([{opacity: 1}, {opacity: 0}], {duration: 500, easing: "ease", fill: "forwards"});
       B.classList.remove("rec-brand-intro");
       if (brand.img && plan.brand.mini){
         brand.step = "moving"; B.classList.add("rec-brand-mini");
-        const a = brand.img.animate([{transform: "none"}, {transform: brand.small}], {duration: 900, easing: ease, fill: "forwards"});
+        const a = brand.img.animate([{transform: "none"}, {transform: brand.small}], {duration: LOGO_MOVE_S * 1000, easing: ease, fill: "forwards"});
         a.onfinish = () => { if (brand.step === "moving"){ brand.step = "mini"; brand.img.style.transform = brand.small; } };
         brand.anims.push(a);
       } else if (brand.img){
@@ -5650,6 +5889,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         const ease = u => u * u * (3 - 2 * u);
         let read = 0, last = performance.now();
         state.speedMul = from * .3;
+        state.planRamped = false;           // the walk's fast-forward between findings waits for the opening to reach its speed
         const id = setInterval(() => {
           const now = performance.now(); if (walking() && !state.paused) read += (now - last) / 1000; last = now;
           const u = Math.min(1, read / PLAN_SLOW), v = r ? Math.min(1, Math.max(0, (read - PLAN_SLOW - hold) / PLAN_RAMP)) : 1;
@@ -5657,6 +5897,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           if (window.bmgRec) window.bmgRec.speed = +state.speedMul.toFixed(2);       // for checks
           if (u >= 1 && v >= 1){
             clearInterval(id);
+            state.planRamped = true;
             if (r && from < target){ if (state.ae) state.ae.log("fast"); }    // (Auto-edit) the slow start is over: the opening runs to here
           }
         }, 50);
@@ -5835,7 +6076,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           if (/\d/.test(t) && !/[A-Za-z]/.test(t)) break;
           if (/[A-Za-z]/.test(t)){ for (let j = k; j >= 0 && before.length < 4; j--){ const u = L.els[j].textContent.trim(); if (/\d/.test(u) && !/[A-Za-z]/.test(u)) break; if (/[A-Za-z]/.test(u)) before.unshift(u); } break; }
         }
-        const pg = el.closest(".pdfpage"), page = pg ? [...docBody.querySelectorAll(".pdfpage")].indexOf(pg) + 1 : htmlPageOf(el);
+        const pg = el.closest(".pdfpage"), page = pg ? pdfPageNo(pg) : htmlPageOf(el);
         numberCard({label: before.join(" ") || "From the filing", value: el.textContent.trim(), page,
           sub: line.els[1] ? "vs " + line.els[1].textContent.trim() : "as printed", clip: true});
       }
@@ -5943,7 +6184,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     previewEl.innerHTML = `<div class="cp-swatches"><i class="cp-m"></i><i class="cp-a"></i><i class="cp-t"></i><span>Body + legs · joints · trails</span></div>${crawlerPreviewSvg()}`;
     // Animate only while the preview is on screen and the spider is not crawling.
     let cpVisible = true;
-    const cpLive = () => previewEl.classList.toggle("cp-live", cpVisible && !document.querySelector("svg.spider rect.body"));
+    // (the spider's own box is searched: a search of the whole page went through every word span of the filing each second)
+    const cpLive = () => previewEl.classList.toggle("cp-live", cpVisible && !spiderSvg.querySelector("rect.body"));
     if ("IntersectionObserver" in window) new IntersectionObserver(es => { cpVisible = es[es.length - 1].isIntersecting; cpLive(); }).observe(previewEl);
     setInterval(cpLive, 1000);
     const applyPalette = () => {
@@ -5973,7 +6215,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (e.key === "Escape") leave();
       if (e.key === " " && !setup.isConnected){ e.preventDefault(); const p = document.getElementById("ctl-pause"); if (p) p.click(); }
       // back and forward 10 seconds, and back to the live point, once the clip is running (not over its opening)
-      if (setup.isConnected || e.metaKey || e.ctrlKey || e.altKey || document.querySelector("#rec-curtain,#clip-intro,#rec-end")) return;
+      if (setup.isConnected || e.metaKey || e.ctrlKey || e.altKey || ["rec-curtain", "clip-intro", "rec-end"].some(id => document.getElementById(id))) return;
       if (e.key === "ArrowLeft" || e.key === "ArrowRight"){
         e.preventDefault();
         if (e.repeat && performance.now() - (state.tlKeyAt || 0) < 150) return;
@@ -6092,18 +6334,24 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // One that waits too long fills its place without a chip.
     let lastFlight = 0;
     const flightQ = [];
+    // (the side panel kept from the start: a class lookup from the document searched every word span of the filing,
+    // 180,000 in JPMorgan's 10-K, 5 to 15 ms, on every try of every number waiting to fly)
     function inPanelView(dest){
-      const sc = document.body.classList.contains("rec") ? liveEl : (document.querySelector(".read-side") || liveEl);
+      const sc = document.body.classList.contains("rec") ? liveEl : (reportSide || liveEl);
       if (!sc || !dest.isConnected) return false;
       const b = sc.getBoundingClientRect(), r = dest.getBoundingClientRect(), head = (liveEl.querySelector(".lr-top") || {}).offsetHeight || 0;
       return r.top >= b.top + head && r.bottom <= Math.min(innerHeight, b.bottom);
     }
     function fly(el, dest, text, obs, land){ flightQ.push({el, dest, text, obs, land, at: performance.now()}); pumpFlights(); }
+    // One wait at a time: every call (a new number, a landing, a wait ending) clears the wait before it, so numbers
+    // queued behind a flight are tried once every 60 ms, not once per number that joined the queue.
+    let pumpWait = 0;
     function pumpFlights(){
+      if (pumpWait){ clearTimeout(pumpWait); pumpWait = 0; }
       while (flightQ.length){
         const q = flightQ[0], now = performance.now(), busy = state.flightLock && now < state.flightLock.until;
         if (now - q.at > 1800 || !q.el.isConnected){ flightQ.shift(); q.land(); continue; }
-        if (busy && (!inPanelView(q.dest) || now < followBusyUntil)){ setTimeout(pumpFlights, 60); return; }
+        if (busy && (!inPanelView(q.dest) || now < followBusyUntil)){ pumpWait = setTimeout(pumpFlights, 60); return; }
         flightQ.shift();
         lastFlight = now;
         if (!busy){                                   // a chip launched mid-flight leaves the panel where it is
@@ -6195,7 +6443,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       }
       if (sectionsSeen.has(key)) return;
       sectionsSeen.add(key);
-      const pg = els[0].closest(".pdfpage"), page = pg ? [...docBody.querySelectorAll(".pdfpage")].indexOf(pg) + 1 : 0;
+      const pg = els[0].closest(".pdfpage"), page = pg ? pdfPageNo(pg) : 0;
       const tb = document.getElementById("lr-read");
       if (!tb) return;
       const tr = document.createElement("tr"); tr.className = "lr-found-row pending";
@@ -8033,22 +8281,29 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         }
         startOverlays();
         // count only time that is not paused
-        let left = finishAt * 1000, last = Date.now(), tail = 1200, counted = 0, walked = false;
+        let left = finishAt * 1000, last = Date.now(), tail = 1200, counted = 0, walked = false, before = 30000;
         // (nor time the recording holds for a rewind: the clip's length is what is recorded). The clip also ends once
         // the spider has read the filing's last line: at once when nothing is still on its way into the report, at most
         // 1.2 s later when something is (the last page used to stand still for 1.2 s before the ending; before that it
         // waited out the rest of its time). Only once this take's walk has run (a PDF can still be drawing as the take
         // starts), and not in a clip of findings, which keeps its moment on the report. No time limit here: a whole 10-K
         // at reading speed takes many minutes.
+        // The 1.2 s also counts only once the take's walk has run, or the reading was skipped: counted before it, a PDF
+        // still drawing its first page used it up, and a whole-filing take went to its ending before the spider took a
+        // step (Apple's FY2025 10-K: the walk started 1.7 s into the take, 13 s of video, on main too). A walk that has
+        // not started after 30 s of the take ends it.
         await wait(() => {
           const now = Date.now(), paused = (document.getElementById("ctl-pause") || {}).textContent === "Resume";
           const live = !paused && !holds.size && !settling;
           if (walking()) walked = true;
-          if (live){ left -= now - last; counted += now - last; if (!walking()) tail -= now - last; }
+          if (live){
+            left -= now - last; counted += now - last;
+            if (!walking()){ if (walked || state.walkSkipped) tail -= now - last; else before -= now - last; }
+          }
           if (scopeRun && scopeDone()) left = Math.min(left, PLAN_HOLD * 1000);     // a clip of findings: 2 s on the report, then it ends
           last = now;
           const read = walked && !scopeRun && live && !walking();
-          return left <= 0 || tail <= 0 || (read && !reportMoving());
+          return left <= 0 || tail <= 0 || before <= 0 || (read && !reportMoving());
         }, 40, Infinity);
         if (state.ae) state.ae.log("crawled");                    // (Auto-edit) the crawl is over: the ending, or the end, comes next
         state.recordCamera = null;
@@ -8397,6 +8652,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     skipBtn.hidden = true;
     if (jumpBtn) jumpBtn.hidden = true;
     if (state.walkState) stopWalk();
+    if (docScroll) pointerOnUse();                 // a skipped walk is over too: the filing takes the pointer on use
     if (state.doneHook){ const h = state.doneHook; state.doneHook = null; h(); }
   }
   function done(res){
@@ -8405,7 +8661,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // what the walk did not reach comes from the completed analysis, and says so
     if (state.live) applyLive(state.live.finish());
     // Whatever the walk did not reach is still listed, linked to its page.
-    const pages = [...docBody.querySelectorAll(".pdfpage")], pageWords = new Map(), used = new Set();
+    const pages = pdfBoxes(), pageWords = new Map(), used = new Set();
     (state.pendingFindings || []).splice(0).forEach(p => {
       let el = null;
       const pg = p.page ? pages[p.page - 1] : null;
@@ -9935,7 +10191,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const rec = document.body.classList.contains("recmode");
     if (!(rec ? state.recCards !== false : numCardsOn) || REDUCED) return;
     // nothing under the opening curtain or the clip's hook, and an idea clip's cards are its own numbers
-    if (rec && (document.querySelector("#rec-curtain:not(.out),#clip-intro:not(.out)") || (document.body.classList.contains("clip-zoom") && !c.clip))) return;
+    // (looked up by id: a list of selectors is matched against every element of the page, the filing's word spans too)
+    const on = id => { const e = document.getElementById(id); return !!e && !e.classList.contains("out"); };
+    if (rec && (on("rec-curtain") || on("clip-intro") || (document.body.classList.contains("clip-zoom") && !c.clip))) return;
     cardQ.push(c); if (cardQ.length > (c.clip ? 6 : 3)) cardQ.shift();
     tlFx("card", {c});
     if (!cardBusy) nextCard();
@@ -11757,7 +12015,7 @@ Who is the auditor?</textarea>
           notes.push(`Without one, ${B.intro ? (hook ? "the opening shows the hook alone, " : "there is no opening, ") : ""}${B.mini || B.report ? "the small and report logos are left out, " : ""}and the clip records normally.`);
         }
       }
-      if (B.intro && lg) notes.push(hook ? "Opening: the logo above your hook for the first 4 seconds; then the hook fades (the Studio adds no second hook)." : "No hook in step 3: the opening shows the logo alone.");
+      if (B.intro && lg) notes.push(hook ? `Opening: the logo above your hook for the first ${LOGO_OPEN_S} seconds; then the hook fades (the Studio adds no second hook).` : "No hook in step 3: the opening shows the logo alone.");
       if (B.mini && lg && !B.intro && hook) notes.push("The hook sits under the small logo and leaves with it when the report appears.");
       if (B.report && !mk.ending) notes.push("The report logo needs the clip to end on the report (step 4).");
       $b("mk-b-note").textContent = notes.join(" ");
@@ -11786,7 +12044,7 @@ Who is the auditor?</textarea>
       const logo = role => { const q = logoFor(role); return `<span class="pv-logo"><small>${role === "built" ? "Built with" : "Scanning"}</small>${q ? `<img src="${esc(q.url)}" alt="">` : `<i>${esc(logoText(role))}</i>`}</span>`; };
       const tot = sc ? sc.total : F && F.state === "done" && mk.scope !== "specific" ? F.total : 0;
       const count = tot ? `0 of ${tot} ${tot === 1 ? F.noun[0] : F.noun[1]} shown` : "";
-      // company branding: the moment shown (the opening's 4 seconds, the crawl, the final report), placed as recorded
+      // company branding: the moment shown (the opening's LOGO_OPEN_S seconds, the crawl, the final report), placed as recorded
       const BR = mk.brand, lg = coReady(), hook = String(mk.hook || "").trim(), dark = L.dark !== false;
       const opening = !!(BR.intro && (lg || hook));
       const phases = !brandOn() ? [] : [...(opening ? ["open"] : []), "crawl", ...(BR.report && mk.ending ? ["end"] : [])];
@@ -11794,7 +12052,7 @@ Who is the auditor?</textarea>
       const ph = phases.length ? pvPhase : "crawl", pp = body.querySelector("#mk-pvph");
       if (pp){
         pp.hidden = !phases.length;
-        pp.innerHTML = phases.map(k => `<button type="button" role="radio" class="av-seg" data-ph="${k}" aria-checked="${k === ph}">${{open: "Opening, first 4 s", crawl: "During the crawl", end: "Final report"}[k]}</button>`).join("");
+        pp.innerHTML = phases.map(k => `<button type="button" role="radio" class="av-seg" data-ph="${k}" aria-checked="${k === ph}">${{open: `Opening, first ${LOGO_OPEN_S} s`, crawl: "During the crawl", end: "Final report"}[k]}</button>`).join("");
       }
       const g = brandGeom(lg, 100, 177.78, BR.intro && hook), cq = v => (+v).toFixed(2) + "cqw";
       const logoAt = (r, cls) => `<img class="pv-blogo${logoChip(lg, cls === "end" || dark)}" src="${esc(lg.url)}" alt="" style="left:${cq(r.cx - r.w / 2)};top:${cq(r.cy - r.h / 2)};width:${cq(r.w)};height:${cq(r.h)};padding:${cq(Math.min(r.w, r.h) * 0.08)}">`;
@@ -11881,7 +12139,7 @@ Who is the auditor?</textarea>
           <p class="mk-lbl" style="margin-top:14px">Company branding <small>optional, with the logo shown in step 1</small></p>
           <div class="mk-brand">
             <div class="av-chips" role="radiogroup" aria-label="Branding preset"><button type="button" role="radio" class="av-seg" id="mk-b-all">Company-branded posting</button><button type="button" role="radio" class="av-seg" id="mk-b-off">Normal</button></div>
-            <label><input type="checkbox" id="mk-b-intro"> Show logo and hook intro, 4 seconds</label>
+            <label><input type="checkbox" id="mk-b-intro"> Show logo and hook intro, ${LOGO_OPEN_S} seconds</label>
             <label><input type="checkbox" id="mk-b-mini"> Keep a small company logo during the crawl</label>
             <label><input type="checkbox" id="mk-b-report"> Show company logo beside BMG Capital on the final report</label>
             <p class="mk-note" id="mk-b-note" role="status"></p></div>

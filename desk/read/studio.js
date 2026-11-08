@@ -540,6 +540,191 @@ function aiffDecode(ab){
   }
   return {rate, data};
 }
+// Whether a take's file has a sound track, read from its own index: an MP4's moov names each track's kind in its hdlr
+// box ("soun" for sound). Record mode's takes have none. Until this was known the export treated a take as one with sound
+// and read the whole file into memory to decode it (decodeAudio): seconds for a 45-second take, minutes for a whole
+// filing at High Quality (about 4 MB a second, 1 to 5 GB), which a take with Auto-edit is since 2026-11-03.
+// null: not an MP4 with an index it can read (a WebM): the video element says (makeStrip).
+async function mp4HasSound(file){
+  try {
+    if (!file || !file.size) return null;
+    const rd = async (o, n) => new Uint8Array(await file.slice(o, Math.min(file.size, o + n)).arrayBuffer());
+    for (let o = 0, i = 0; i < 64 && o + 8 <= file.size; i++){
+      const h = await rd(o, 16), dv = new DataView(h.buffer, h.byteOffset, h.byteLength);
+      let sz = dv.getUint32(0); const t = String.fromCharCode(h[4], h[5], h[6], h[7]);
+      if (sz === 1){ if (h.length < 16) return null; sz = Number(dv.getBigUint64(8)); } else if (sz === 0) sz = file.size - o;
+      if (sz < 8) return null;
+      if (t === "moov"){
+        if (sz > 64 * 1024 * 1024) return null;
+        const b = await rd(o, sz); let any = false;
+        for (let k = 0; k + 16 <= b.length; k++){
+          if (b[k] !== 0x68 || b[k + 1] !== 0x64 || b[k + 2] !== 0x6c || b[k + 3] !== 0x72) continue;     // "hdlr"
+          any = true;
+          if (String.fromCharCode(b[k + 12], b[k + 13], b[k + 14], b[k + 15]) === "soun") return true;
+        }
+        return any ? false : null;
+      }
+      o += sz;
+    }
+    return null;
+  } catch (e) { return null; }
+}
+// The video track of a Record mode take, read from its file without playing it. Chrome's recorder writes a fragmented
+// MP4: a header (moov) with no sample table, then a fragment (moof + mdat) a second, each listing its frames' places,
+// sizes, durations and key frames. null for anything else (a WebM, an MP4 with a sample table, a codec other than
+// H.264 or VP9, a header that does not read): the Studio plays that take, as before.
+async function takeTrack(file){
+  try {
+    if (!file || !file.size || !window.VideoDecoder || !window.EncodedVideoChunk) return null;
+    const rd = async (o, n) => new Uint8Array(await file.slice(o, Math.min(file.size, o + n)).arrayBuffer());
+    const u32 = (b, o) => b[o] * 16777216 + (b[o + 1] << 16) + (b[o + 2] << 8) + b[o + 3];
+    const s32 = (b, o) => (b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3];
+    const u64 = (b, o) => u32(b, o) * 4294967296 + u32(b, o + 4);
+    const cc = (b, o) => String.fromCharCode(b[o], b[o + 1], b[o + 2], b[o + 3]);
+    const kids = (b, o, end) => {
+      const out = [];
+      while (o + 8 <= end){
+        let sz = u32(b, o), h = 8;
+        if (sz === 1){ sz = u64(b, o + 8); h = 16; } else if (sz === 0) sz = end - o;
+        if (sz < h || o + sz > end) break;
+        out.push({t: cc(b, o + 4), o, b: o + h, e: o + sz}); o += sz;
+      }
+      return out;
+    };
+    const kid = (b, x, t) => x ? kids(b, x.b, x.e).find(k => k.t === t) || null : null;
+    // the header comes first (ftyp, then moov)
+    let o = 0, buf = null;
+    for (let i = 0; i < 8 && o + 8 <= file.size && !buf; i++){
+      const h = await rd(o, 16); let sz = u32(h, 0); const t = cc(h, 4);
+      if (sz === 1) sz = u64(h, 8); else if (sz === 0) sz = file.size - o;
+      if (sz < 8 || t === "moof" || t === "mdat") return null;
+      if (t === "moov"){ if (sz > 16 * 1024 * 1024) return null; buf = await rd(o, sz); }
+      o += sz;
+    }
+    if (!buf) return null;
+    const moov = {b: u32(buf, 0) === 1 ? 16 : 8, e: buf.length};
+    const trak = kids(buf, moov.b, moov.e).filter(x => x.t === "trak")
+      .find(t => { const h = kid(buf, kid(buf, t, "mdia"), "hdlr"); return !!h && cc(buf, h.b + 8) === "vide"; });
+    const tkhd = kid(buf, trak, "tkhd"), mdia = kid(buf, trak, "mdia"), mdhd = kid(buf, mdia, "mdhd");
+    // an edit list that moves the track's timeline (a player's times would not be the frames' own): played, as before
+    const elst = kid(buf, kid(buf, trak, "edts"), "elst");
+    if (elst){
+      const v1 = buf[elst.b] === 1, n = u32(buf, elst.b + 4), mt = v1 ? u64(buf, elst.b + 16) : s32(buf, elst.b + 12);
+      if (n !== 1 || mt !== 0) return null;
+    }
+    const stbl = kid(buf, kid(buf, mdia, "minf"), "stbl"), stsd = kid(buf, stbl, "stsd"), stsz = kid(buf, stbl, "stsz");
+    if (!tkhd || !mdhd || !stsd) return null;
+    if (stsz && u32(buf, stsz.b + 8)) return null;            // its frames are listed in the header: not a fragmented take
+    const id = u32(buf, tkhd.b + (buf[tkhd.b] === 1 ? 20 : 12)), scale = u32(buf, mdhd.b + (buf[mdhd.b] === 1 ? 20 : 12));
+    const ent = kids(buf, stsd.b + 8, stsd.e)[0];
+    if (!ent || !scale) return null;
+    const w = (buf[ent.b + 24] << 8) | buf[ent.b + 25], h = (buf[ent.b + 26] << 8) | buf[ent.b + 27];
+    const ex = kids(buf, ent.b + 78, ent.e), hex = n => n.toString(16).padStart(2, "0"), dd = n => String(n).padStart(2, "0");
+    let config = null;
+    if (ent.t === "avc1" || ent.t === "avc3"){
+      const c = ex.find(x => x.t === "avcC"); if (!c) return null;
+      config = {codec: "avc1." + hex(buf[c.b + 1]) + hex(buf[c.b + 2]) + hex(buf[c.b + 3]), description: buf.slice(c.b, c.e)};
+    } else if (ent.t === "vp09"){
+      const c = ex.find(x => x.t === "vpcC"); if (!c) return null;
+      // Chrome's recorder writes level 0, which a codec string cannot carry ("vp09.00.00.08" is refused): 4.1 then
+      const lv = [10, 11, 20, 21, 30, 31, 40, 41, 50, 51, 52, 60, 61, 62].includes(buf[c.b + 5]) ? buf[c.b + 5] : 41;
+      config = {codec: `vp09.${dd(buf[c.b + 4])}.${dd(lv)}.${dd(buf[c.b + 6] >> 4)}`};
+    } else return null;
+    if (!w || !h) return null;
+    Object.assign(config, {codedWidth: w, codedHeight: h});
+    // the track's defaults (trex), for fragments that leave a value out
+    let dflt = {dur: 0, size: 0, flags: 0};
+    for (const mv of kids(buf, moov.b, moov.e).filter(x => x.t === "mvex"))
+      for (const x of kids(buf, mv.b, mv.e)) if (x.t === "trex" && u32(buf, x.b + 4) === id) dflt = {dur: u32(buf, x.b + 12), size: u32(buf, x.b + 16), flags: u32(buf, x.b + 20)};
+    // every fragment: one read of its moof; each frame's place in the file, size, time and whether it is a key frame
+    const samples = []; let next = 0, reorder = false;
+    while (o + 8 <= file.size){
+      const hd = await rd(o, 4096); let sz = u32(hd, 0); const t = cc(hd, 4), hl = sz === 1 ? 16 : 8;
+      if (sz === 1) sz = u64(hd, 8); else if (sz === 0) sz = file.size - o;
+      if (sz < hl) break;
+      if (t === "moof"){
+        const m = sz <= hd.length ? hd : await rd(o, sz);
+        for (const tf of kids(m, hl, Math.min(sz, m.length)).filter(x => x.t === "traf")){
+          const tfhd = kid(m, tf, "tfhd"); if (!tfhd || u32(m, tfhd.b + 4) !== id) continue;
+          const ff = u32(m, tfhd.b) & 0xffffff; let p = tfhd.b + 8, base = o;
+          if (ff & 1){ base = u64(m, p); p += 8; }
+          if (ff & 2) p += 4;
+          const dDur = ff & 8 ? u32(m, (p += 4) - 4) : dflt.dur, dSize = ff & 0x10 ? u32(m, (p += 4) - 4) : dflt.size, dFlags = ff & 0x20 ? u32(m, (p += 4) - 4) : dflt.flags;
+          const tfdt = kid(m, tf, "tfdt");
+          let dt = tfdt ? (m[tfdt.b] === 1 ? u64(m, tfdt.b + 4) : u32(m, tfdt.b + 4)) : next, pos = base;
+          for (const tr of kids(m, tf.b, tf.e).filter(x => x.t === "trun")){
+            const v1 = m[tr.b] === 1, f = u32(m, tr.b) & 0xffffff, n = u32(m, tr.b + 4); let q = tr.b + 8;
+            if (f & 1){ pos = base + s32(m, q); q += 4; }
+            const first = f & 4 ? u32(m, (q += 4) - 4) : null;
+            for (let i = 0; i < n; i++){
+              const dur = f & 0x100 ? u32(m, (q += 4) - 4) : dDur, size = f & 0x200 ? u32(m, (q += 4) - 4) : dSize;
+              let fl = f & 0x400 ? u32(m, (q += 4) - 4) : dFlags;
+              if (i === 0 && first !== null) fl = first;
+              const cts = f & 0x800 ? (v1 ? s32(m, (q += 4) - 4) : u32(m, (q += 4) - 4)) : 0;
+              if (q > tr.e) break;                                              // a table cut short
+              if (cts) reorder = true;
+              if (size && pos + size <= file.size) samples.push({pos, size, t: (dt + cts) / scale, dur: dur / scale, key: !(fl & 0x10000) && ((fl >>> 24) & 3) !== 1});
+              pos += size; dt += dur;
+            }
+          }
+          next = dt;
+        }
+      }
+      o += sz;
+    }
+    if (!samples.length || !samples[0].key || reorder) return null;      // (frames out of order: played, as before)
+    return {file, config, w, h, samples};
+  } catch (e) { return null; }
+}
+// The take's frames from the key frame at or before t0 to the last one that starts before t1 (its own times, s), decoded
+// in order; each {vf, mt} is the caller's to close. One read per fragment, and only a few frames decoded ahead, so the
+// memory it holds stays small however long the take. A decoder that fails, or gives nothing for 8 s, ends the export
+// with .decode set: the Studio exports again by playing the take.
+async function* takeFrames(tk, t0, t1, job){
+  const S = tk.samples;
+  let i = -1;
+  for (let j = 0; j < S.length && S[j].t <= t0 + 1e-6; j++) if (S[j].key) i = j;
+  if (i < 0) i = S.findIndex(x => x.key);
+  if (i < 0) return;
+  let stop = i;
+  while (stop < S.length && S[stop].t < t1) stop++;
+  const out = [];
+  let err = null, wake = null, beat = performance.now(), cache = null, flushing = false, done = false;
+  const ping = () => { beat = performance.now(); if (wake){ const w = wake; wake = null; w(); } };
+  const dec = new VideoDecoder({output: f => { out.push(f); ping(); }, error: e => { err = err || e; ping(); }});
+  dec.addEventListener("dequeue", ping);
+  const fail = why => Object.assign(new Error(`The take's frames could not be read from its file (${why}).`), {decode: true});
+  try {
+    dec.configure(tk.config);
+    for (let fed = i;;){
+      while (out.length){ const f = out.shift(); yield {vf: f, mt: f.timestamp / 1e6}; beat = performance.now(); }
+      if (err) throw fail((err && err.message) || String(err));
+      if (done || (job && job.cancel)) return;
+      if (fed < stop && dec.decodeQueueSize < 3){
+        const s = S[fed];
+        if (!cache || s.pos < cache.a || s.pos + s.size > cache.a + cache.b.length){
+          // the frames from here that sit one after another in the file (a fragment's), up to 32 MB, in one read
+          let j = fed + 1;
+          while (j < stop && S[j].pos === S[j - 1].pos + S[j - 1].size && S[j].pos + S[j].size - s.pos < 32e6) j++;
+          cache = {a: s.pos, b: new Uint8Array(await tk.file.slice(s.pos, S[j - 1].pos + S[j - 1].size).arrayBuffer())};
+          beat = performance.now();
+        }
+        dec.decode(new EncodedVideoChunk({type: s.key ? "key" : "delta", timestamp: Math.round(s.t * 1e6), duration: Math.round(s.dur * 1e6),
+          data: cache.b.subarray(s.pos - cache.a, s.pos - cache.a + s.size)}));
+        fed++;
+        continue;
+      }
+      if (fed >= stop && !flushing){ flushing = true; dec.flush().then(() => { done = true; ping(); }, e => { err = err || e; ping(); }); continue; }
+      if (performance.now() - beat > 8000) throw fail("the decoder stopped answering");
+      await new Promise(r => { wake = r; setTimeout(() => { if (wake === r){ wake = null; r(); } }, 1000); });
+    }
+  } finally {
+    for (const f of out.splice(0)) f.close();
+    if (dec.state !== "closed") try { dec.close(); } catch (e) { /* closed already */ }
+  }
+}
+// a turn of the event loop that a background tab does not slow down (its timers wait up to a second)
+const turn = () => new Promise(r => { const ch = new MessageChannel(); ch.port1.onmessage = () => { ch.port1.close(); r(); }; ch.port2.postMessage(0); });
 function decodeAudio(blob){
   return blob.arrayBuffer().then(ab => {
     const a = aiffDecode(ab);
@@ -1623,6 +1808,7 @@ function mount(root, opts){
     throw new Error("This take's video is no longer here.");
   }
   let showSeq = 0;
+  let soundKnown = null;                  // the open take's sound check (mp4HasSound): the export waits for it
   async function showTake(id, fresh){
     pause();
     const seq = ++showSeq, gone = () => seq !== showSeq;       // a newer open started: this one stops, the newer is in charge
@@ -1678,6 +1864,7 @@ function mount(root, opts){
     P.take.probe = q && q.w ? q : {w: video.videoWidth, h: video.videoHeight, frames: 0, secs: 0, fps: 0, basis: "browser"};
     if (isNew && fpsFor(P.take.probe)) P.fps = fpsFor(P.take.probe);
     video.volume = clamp(P.origVol, 0, 1); video.muted = P.origVol <= 0;
+    soundKnown = {id, check: mp4HasSound(file).then(h => { if (h !== null && P.take && P.take.id === id) P.take.hasAudio = h; return h; })};
     makeStrip(file, rec);
     return true;
   }
@@ -1701,9 +1888,10 @@ function mount(root, opts){
   // a Make a clip take carries the hook written there: it goes on as the clip's title, a text item at the top in the
   // default title look (Classic, white with a black outline, 7.2% of the width: Brock's Microsoft clip), its top just
   // under TikTok's top bar (12.5% of the frame), and stays editable like any text. With the company branding's
-  // opening it is the opening's title for its 4 seconds, over the logo (the record window placed the logo under it,
-  // measured the same way). Under the small company logo alone it sits a little lower, clear of it, and ends when the
-  // final report appears, as the logo does. A take whose video already shows the hook (hookShown) gets none.
+  // opening it is the opening's title for its length (brand.introSecs: 2 s since 2026-11-08; a take without it, 4 s),
+  // over the logo (the record window placed the logo under it, measured the same way). Under the small company logo
+  // alone it sits a little lower, clear of it, and ends when the final report appears, as the logo does. A take whose
+  // video already shows the hook (hookShown) gets none.
   const TITLE = {style: "classic", color: "#ffffff", bg: "outline", size: 0.072, wrap: 0.76, top: 0.125};
   // "Edit it like my TikToks" (Make a clip, opt-in: the take's meta.selfEdit): the one edit Brock still made by hand
   // after the export, measured from his posts (social/edit-style.md): the hook in TikTok's Classic text (TikTok Sans
@@ -1741,7 +1929,7 @@ function mount(root, opts){
       return;
     }
     const rep = brand.reportAt > 0 ? toEdit(brand.reportAt) : 0;
-    const intro = !!brand.introTitle, until = intro ? Math.min(toEdit(4), editDur()) : brand.mini && rep > 0 && rep < editDur() ? rep : null;
+    const intro = !!brand.introTitle, until = intro ? Math.min(toEdit(+brand.introSecs || 4), editDur()) : brand.mini && rep > 0 && rep < editDur() ? rep : null;
     const it = Object.assign({id: "i-" + uid(), kind: "text", text: h, hook: P.take.id, wrap: TITLE.wrap, x: 0.5, rot: 0, t0: 0, t1: until == null ? editDur() : until, whole: until == null},
       textDefaults, {style: TITLE.style, color: TITLE.color, bg: TITLE.bg, size: TITLE.size});
     it.y = ((intro || !brand.mini ? TITLE.top : 0.145) * H + textLayout(it).h / 2) / H;
@@ -2633,6 +2821,8 @@ function mount(root, opts){
     pause();
     const fps = P.fps || 30;
     const mm = P.music && media.get(P.music.media), song = mm && mm.buf ? P.music : null;
+    // a take whose sound is not known yet (opened a moment ago): its own index says, before anything is decoded
+    if (P.take && P.take.hasAudio == null && soundKnown && soundKnown.id === P.take.id){ msg("Getting ready..."); await soundKnown.check; }
     const orig = !!(P.take && P.take.hasAudio !== false && P.origVol > 0);
     const audio = !!song || orig;
     msg("Getting ready...");
@@ -2667,27 +2857,38 @@ function mount(root, opts){
     const bar = $(".st-prog i"), res = $(".st-result");
     ui(true); bar.style.width = "0%"; res.innerHTML = ""; unsavedResult = false;    // the last result (if any) is gone from the page
     let doing = "Exporting";
-    const progress = e => { bar.style.width = (clamp(e / d, 0, 1) * 100).toFixed(1) + "%"; msg(`${doing}: ${fmt(e)} of ${fmt(d)}${job.away ? " (paused while this tab is in the background)" : ""}`); };
-    // in the background the browser stops drawing frames: the export waits, and goes on when the tab is back
+    const progress = e => { bar.style.width = (clamp(e / d, 0, 1) * 100).toFixed(1) + "%"; msg(`${doing}: ${fmt(e)} of ${fmt(d)}${job.away && !job.decoding ? " (paused while this tab is in the background)" : ""}`); };
+    // in the background the browser stops drawing frames: an export that plays the take waits, and goes on when the tab
+    // is back (one that decodes it goes on)
     const onVis = () => {
       if (exportJob !== job) return;
       const away = document.hidden;
       if (away === job.away) return;
       job.away = away;
       if (job.onAway) job.onAway(away);
-      if (away) msg("Paused while this tab is in the background. Come back to it to go on.");
+      if (away && !job.decoding) msg("Paused while this tab is in the background. Come back to it to go on.");     // (decoding goes on)
     };
     document.addEventListener("visibilitychange", onVis);
     const ctx = {d, fps, song, mm, orig, audio, job, progress, msg};
     try {
       let out;
-      try { out = plan ? await exportWC(plan, ctx) : await exportMR(type, ctx, writable); }
+      const wc = async (pl, cx) => {
+        try { return await exportWC(pl, cx); }
+        catch (e){
+          // the take's frames could not be decoded from its file: once more, playing the take (as before)
+          if (!(e && e.decode) || job.cancel) throw e;
+          doing = "Exporting again by playing the take (its frames could not be read from the file)";
+          job.decoding = false;
+          return exportWC(pl, Object.assign({}, cx, {noDecode: true}));
+        }
+      };
+      try { out = plan ? await wc(plan, ctx) : await exportMR(type, ctx, writable); }
       catch (e){
         // the computer's own encoder stopped answering: once more with the browser's own H.264 encoder
         const soft = e && e.stall && !job.cancel && plan && !plan.video.hardwareAcceleration ? await wcPlan(audio, fps, true) : null;
         if (!soft){ if (e && e.stall) e.message += " Export again."; throw e; }
         doing = "Exporting again with the browser's own encoder (the computer's stopped answering)";
-        out = await exportWC(soft, ctx);
+        out = await wc(soft, ctx);
       }
       if (job.cancel || out.cancelled){
         if (writable){ try { await writable.abort(); } catch (x) {} }
@@ -2879,7 +3080,7 @@ function mount(root, opts){
         if (!venc.encodeQueueSize) beat = performance.now();    // an idle encoder is not late: its clock starts now
         venc.encode(vf, {keyFrame: k % (fps * 2) === 0}); vf.close(); k++;
         if (venc.encodeQueueSize > 3) await drain();
-        if (k % 30 === 0){ c.progress(Math.min(d, k / fps)); await new Promise(r => setTimeout(r, 0)); }
+        if (k % 30 === 0){ c.progress(Math.min(d, k / fps)); await (job.decoding && document.hidden ? turn() : new Promise(r => setTimeout(r, 0))); }
       }
       c.progress(Math.min(d, k / fps));
     };
@@ -2890,7 +3091,42 @@ function mount(root, opts){
         if (!job.away && performance.now() - beat > STALL_MS){ verr = stopped(); try { venc.close(); } catch (e) {} }
       }
     };
-    if (P.take){
+    // The take's own frames, decoded from its file: faster than playing the take, and the export goes on with the tab in
+    // the background (Brock, 2026-11-08: the posts took minutes to reach Downloads; playing, the export paused whenever
+    // another window covered Chrome, Finder included). A take that does not read that way, and the export again after
+    // its decoder failed (c.noDecode), is played as before.
+    const tk = P.take && !c.noDecode ? await takeTrack(take.file) : null;
+    const decodes = !!tk && await VideoDecoder.isConfigSupported(tk.config).then(r => !!r.supported, () => false);
+    if (P.take && decodes){
+      c.msg("Exporting...");
+      job.decoding = true;
+      ec.fit({videoWidth: tk.w, videoHeight: tk.h});
+      let e0 = 0;
+      try {
+        for (let si = 0; si < P.segs.length && !job.cancel && !verr; si++){
+          const s = P.segs[si], end = e0 + (s.out - s.in);
+          let last = null, lastMt = -1;
+          try {
+            for await (const {vf, mt} of takeFrames(tk, s.in, s.out - 0.5 / fps, job)){
+              if (job.cancel || verr){ vf.close(); break; }
+              // the frame showing at the part's start: the last one that starts at or before it
+              if (mt <= s.in + 1e-4){ if (last) last.close(); last = vf; lastMt = mt; continue; }
+              // as a player shows it: each frame of the export shows the source frame that started last before its time
+              await emit(last || vf, Math.min(e0 + (mt - s.in) - 0.002, end));
+              if (last) last.close();
+              last = vf; lastMt = mt;
+              if (venc.encodeQueueSize > 3) await drain();
+            }
+            if (!job.cancel && !verr){
+              if (lastMt < s.out - 1) short.push(e0 + Math.max(0, lastMt - s.in));      // the take ends before the part does
+              await emit(last, end);                                                  // the part's last frames, up to its end
+            }
+          } finally { if (last){ last.close(); last = null; } }
+          e0 = end;
+        }
+      } catch (e){ try { venc.close(); } catch (x) { /* closed */ } throw e; }      // (the export again starts its own encoder)
+      job.decoding = false;
+    } else if (P.take){
       c.msg("Exporting...");
       const v = await exportVideo(false);                // the sound is mixed separately: the video plays muted
       ec.fit(v);
