@@ -707,6 +707,30 @@ def _participants(body: str) -> dict:
     return people
 
 
+def _bold_label(name: str = _NAME, role_group: bool = False):
+    """A speaker label set in bold on a line of its own, the role in brackets: a Benzinga transcript saved as markdown
+    ("**Ben Moore (Analyst at Citi)**"; the vault's copies number the turns, "**[T4] Ben Moore (Analyst at Citi)**",
+    research/coverage/rail/gatx-filings/GATX-Q3-2026-earnings-call-transcript-2026-10-29.md)."""
+    role = r"\(([^)\n]{2,90})\)" if role_group else r"\([^)\n]{2,90}\)"
+    return re.compile(rf"(?m)^[ \t]*\*\*(?:\[[A-Za-z]{{0,2}}\d+\][ \t]*)?(Operator|OPERATOR|{name})(?:[ \t]*{role})?[ \t]*:?[ \t]*\*\*[ \t]*:?[ \t]*$")
+
+
+def _label_roles(body: str) -> dict:
+    """Who is who from the roles the bold labels carry: "Analyst at Citi" asks the questions (firm Citi); a title
+    ("Executive Vice President and Chief Financial Officer") speaks for the company."""
+    out = {}
+    for m in _bold_label(_NAME.replace(r"\s+", r"[ \t]+"), role_group=True).finditer(body):
+        name, role = " ".join(m.group(1).split()).rstrip(","), " ".join((m.group(2) or "").split())
+        if name.lower() == "operator" or name in out or not role or not _name_ok(name):
+            continue
+        a = re.match(r"(?i)^analyst(?:(?:\s+(?:at|with|from)\s+|,\s*)(.+))?$", role)
+        if a:
+            out[name] = {"name": name, "side": "analyst", "role": "Analyst", "firm": (a.group(1) or "").strip()[:80]}
+        elif _ROLE.search(role):
+            out[name] = {"name": name, "side": "company", "role": role[:90], "firm": ""}
+    return out
+
+
 def _speaker_lines(body: str, known: dict):
     """(offset, label, text_start) for each speaker turn: "Name: text", "Name^ text", "Name -- text", a name alone
     on its line (optionally followed by a role line), or "Name:" alone on its line with the words below it (GATX's
@@ -718,8 +742,9 @@ def _speaker_lines(body: str, known: dict):
     name = _NAME.replace(r"\s+", r"[ \t]+")
     rx_inline = re.compile(rf"(?m)^[ \t]*(Operator|OPERATOR|{name})[ \t]*(?:[:^]|--|\u2014|\u2013)[ \t]*(?=\S)")
     rx_alone = re.compile(rf"(?m)^[ \t]*(Operator|OPERATOR|{name})[ \t]*(:?)[ \t]*$")
+    rx_bold = _bold_label(name)
     cands = []
-    for rx in (rx_inline, rx_alone):
+    for rx in (rx_inline, rx_alone, rx_bold):
         for m in rx.finditer(body):
             name = m.group(1).strip().rstrip(",")
             if name.lower() == "operator":
@@ -727,7 +752,12 @@ def _speaker_lines(body: str, known: dict):
             elif not _name_ok(name):
                 continue
             ts = m.end()
-            if rx is rx_alone and m.group(2):
+            if rx is rx_bold:
+                while ts < len(body) and body[ts] in "\n \t":
+                    ts += 1                     # the words start on the next line that has any
+                if ts >= len(body):
+                    continue
+            elif rx is rx_alone and m.group(2):
                 while ts < len(body) and body[ts] in "\n \t":
                     ts += 1                     # "Name:" alone: the words start on the next line that has any
                 if ts >= len(body):
@@ -798,6 +828,12 @@ def _call_company(doc, known: dict, view: str) -> Optional[dict]:
     m = _HOST_NAMES.search(view[:6000])
     if m:
         return at(m.group(1), m.start(1), "opening remarks")
+    # the host's welcome names it without a corporate suffix: "thank you for joining GATX's 2026 third quarter earnings
+    # call" (the vault's GATX Q3 2026 transcript); without it a call read with no ticker was titled by its file name
+    m = re.search(r"(?:joining|[Ww]elcome to|participating in)\s+((?:[A-Z][A-Za-z&.\-]*\s+){0,3}[A-Z][A-Za-z&.\-]*)['’]s\s[^.]{0,80}?"
+                  r"\b(?:[Ee]arnings|[Cc]onference)\s+(?:[Cc]onference\s+)?[Cc]all", view[:6000])
+    if m and m.group(1).lower() not in ("our", "the", "this", "today"):
+        return at(m.group(1), m.start(1), "opening remarks")
     return None
 
 
@@ -812,6 +848,8 @@ def transcript(doc) -> dict:
     # of its own; the view has the body's length, so every offset still points into the body.
     view = body.replace("  ", "\n ")
     known = _participants(view)
+    for k, v in _label_roles(view).items():
+        known.setdefault(k, v)
     turns_raw = _speaker_lines(view, known)
     turns = []
     for k, (off, name, ts) in enumerate(turns_raw):

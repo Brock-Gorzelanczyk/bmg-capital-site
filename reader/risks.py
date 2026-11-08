@@ -253,6 +253,13 @@ def watch_items(doc, rows: list) -> tuple[list[dict], list[str]]:
         # caption: "2026 $ 653.3  2027 854.5 ... Thereafter 5,605.2"
         sched = None
         for m in re.finditer(r"\b(20\d\d)\s+\$?\s?([\d,]+(?:\.\d+)?)(?:\s+(20\d\d)\s+\$?\s?[\d,]+(?:\.\d+)?){3,}(?:\s+Thereafter\s+\$?\s?[\d,]+(?:\.\d+)?)?", body):
+            # a maturity ladder runs forward a year at a time and its amounts are not years: a header row of years
+            # ("2025 2024 2023 2025 2024 ..." over a comparative table, Prologis FY2025) read as pairs gave "$2.0M
+            # due in 2023" in a 2025 filing
+            run = re.findall(r"(20\d\d|Thereafter)\s+\$?\s?([\d,]+(?:\.\d+)?)", m.group(0))
+            yrs = [int(y) for y, _ in run if y != "Thereafter"]
+            if any(b != a + 1 for a, b in zip(yrs, yrs[1:])) or all(re.fullmatch(r"(?:19|20)\d\d", v) for _, v in run):
+                continue
             ctx = body[max(0, m.start() - 1500):m.start()].lower()
             # the schedule's own caption ("... debt are as follows:") decides; a wider window only when there is none
             cap_lines = [ln for ln in ctx[-500:].split("\n") if ln.strip().endswith(":") and len(ln) > 30]

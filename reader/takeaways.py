@@ -31,6 +31,20 @@ ORDER = {"flag_severe": 0, "growth": 1, "segments": 2, "below": 3, "per_share": 
 
 SEVERE_FLAGS = {"going_concern", "material_weakness", "restatement", "auditor_change", "covenant", "delisting", "late_filing"}
 
+# The report at the end of a crawl (the video's two closing screens, reader page ending()) opens on the takeaway: room
+# for four points, each under a short tag. A severe disclosure and management's outlook are never the one left off
+# (research-earnings-workflow.md, step 1: "the guide moves the stock more than the quarter"); the strongest of the
+# rest fill the other places, still in reading order.
+ENDING_POINTS = 4
+ENDING_KEEP = ("flag_severe", "guide", "call_guide", "ins_notable")
+TAGS = {"flag_severe": "Disclosed", "growth": "Results", "segments": "Segments", "below": "Net income", "per_share": "Per share",
+        "guide": "Outlook", "cash": "Cash", "invest": "Free cash flow", "balance": "Debt", "roe": "Returns", "gains": "Asset sales",
+        "maturity": "Debt due", "flag": "Disclosed",
+        "ins_notable": "Not a trade", "ins_direction": "Buying vs selling", "ins_plans": "Planned sales", "ins_stake": "Stakes sold",
+        "ins_day": "Same day", "ins_largest": "Largest trade", "ins_who": "Who sold",
+        "fund_concentration": "Concentration", "fund_added": "Added", "fund_cut": "Reduced", "fund_new": "New position",
+        "call_guide": "Outlook", "call_focus": "Analysts asked", "call_claim": "To check", "call_cast": "On the call"}
+
 _SUFFIX = re.compile(r"(?i)(?:[,\s]+(?:inc\.?|incorporated|corp\.?|corporation|co\.?|company|ltd\.?|limited|plc|n\.v\.|s\.a\.|"
                      r"holdings?|group|l\.p\.|lp)|\s*/[a-z]{2,3}/?|\s*&\s*co\.?)\s*$")
 
@@ -93,13 +107,32 @@ def person(name: str) -> str:
 _SMALL = {"of", "and", "the", "for", "in", "on", "at", "to", "a", "an", "&"}
 
 
+# the abbreviations a 13F information table uses for issuer names (they come from the CUSIP issuer list, cut to a short
+# field): "BANK OF AMER CORP", "OCCIDENTAL PETE CORP", "ALLY FINL INC", "LOUISIANA PAC CORP"
+_ABBR = {"amer": "america", "finl": "financial", "pete": "petroleum", "pac": "pacific", "hldgs": "holdings", "hldg": "holding",
+         "intl": "international", "svcs": "services", "sys": "systems", "mtrs": "motors", "grp": "group", "mgmt": "management",
+         "entmt": "entertainment", "inds": "industries", "pptys": "properties", "natl": "national", "commun": "communications",
+         "tech": "technologies", "pharma": "pharmaceuticals", "bancorporation": "bancorporation"}
+_UPPER = {"us", "usa", "ibm", "hca", "amd", "ge", "hp", "ups", "aig", "eog", "aes", "apa", "nrg", "pnc", "cme", "ice", "bp", "jpmorgan"}
+
+
 def issuer(name: str) -> str:
-    """A 13F issuer as written in prose: "BANK OF AMER CORP" as Bank of Amer, "APPLE INC" as Apple."""
-    n = (name or "").strip()
+    """A 13F issuer as written in prose: "BANK OF AMER CORP" as Bank of America, "APPLE INC" as Apple, "NVR INC" as NVR.
+    The name as filed stays on the cited row of the document."""
+    n = re.sub(r"\s+(?:NEW|DEL|COM|IN)$", "", (name or "").strip(), flags=re.I)      # "...GROUP IN": INC cut by the field
     for _ in range(3):
         n = _SUFFIX.sub("", n).strip(" ,.")
     if n.isupper() or n.islower():
-        n = " ".join(w if (k and w in _SMALL) else w.capitalize() for k, w in enumerate(n.lower().split()))
+        n = re.sub(r"(?i)^bank amer\b", "bank of amer", n)
+
+        def word(k, w):
+            w = _ABBR.get(w, w)
+            if k and w in _SMALL:
+                return w
+            if w in _UPPER or (len(w) <= 4 and w.isalpha() and not re.search(r"[aeiouy]", w)) or re.fullmatch(r"\w+&\w+", w):
+                return w.upper()                     # NVR, D R Horton's initials, AT&T
+            return "-".join(p.capitalize() for p in w.split("-"))      # T-Mobile
+        n = " ".join(word(k, w) for k, w in enumerate(n.lower().split()))
     return n or name or ""
 
 
@@ -562,8 +595,10 @@ def _maturity(b: Book) -> Optional[dict]:
     s = b.sig.get("maturity_wall")
     if not s or s.get("severity") not in ("flag", "watch"):
         return None
+    # cited to the maturity table itself (the signal's inputs are empty: the schedule is read from the debt note)
     return _item("maturity", s["headline"], s["text"], "That debt has to be repaid or refinanced at whatever rates apply then.",
-                 "How the company plans to repay or refinance it.", s.get("inputs"), tone="-", short=_low(s["headline"]), score=70)
+                 "How the company plans to repay or refinance it.", s.get("inputs"), [_quote({"source": s.get("source") or {}})],
+                 tone="-", short=_low(s["headline"]), score=70)
 
 
 # ---------------------------------------------------------------------- segments: where growth and profit come from
@@ -731,6 +766,32 @@ def _guide(gs: list, b: Optional[Book], kind: str, prefix: str = "guide") -> Opt
     elif d in ("narrowed", "updated"):
         title, short = f"Outlook {d}", f"outlook {d}"
         means = "Management changed its outlook; the quote shows in which direction and by how much."
+    # where the company now expects to land against an earnings range, as it says it ("expect our 2026 full-year
+    # earnings to modestly exceed the high end of our previously provided guidance range of $9.90 to $10.30", GATX's
+    # Q3 2026 release): above the top of a range it gave before is a raise in all but name, and the title says which
+    m_pos = re.search(r"(?i)\b(?:(modestly|slightly|meaningfully|significantly|well)\s+)?(exceed|surpass|be above|come in above|be at or above|"
+                      r"be at|be in|be near|be toward|be towards|be below|fall short of|fall below)\s+the\s+(high|upper|top|low|lower|bottom)[- ]end\b", t)
+    if m_eps and d not in ("raised", "lowered"):
+        rng = f"${m_eps.group(1)} to ${m_eps.group(2)}"
+        if m_pos and m_pos.end() <= m_eps.start(1):          # said of this range: the qualifier comes before its numbers
+            adv, verb, end = (m_pos.group(1) or "").lower(), m_pos.group(2).lower(), m_pos.group(3).lower()
+            rel = "above" if verb in ("exceed", "surpass", "be above", "come in above") else "below" if verb in ("be below", "fall short of", "fall below") \
+                else "at or above" if verb == "be at or above" else "near" if verb in ("be near", "be toward", "be towards") else "at"
+            top = end in ("high", "upper", "top")
+            where = f"{(adv + ' ') if adv else ''}{rel} the {'top' if top else 'bottom'} of {rng}"
+            title, short = f"Earnings outlook: {where} a share", f"earnings expected {where}"
+            if rel == "above" and top:
+                d, means = "raised", ("Management now expects to beat the top of its own range: the year is running ahead of the plan "
+                                      "it gave before.")
+            elif rel == "below" and not top:
+                d, means = "lowered", ("Management now expects to miss the bottom of its own range: the year is running behind the plan "
+                                       "it gave before.")
+            else:
+                means = f"Management places itself {where.split(' of ')[0]} of its own range."
+        elif title:
+            title += f": earnings of {rng} a share"
+        else:
+            title, short = f"Earnings outlook: {rng} a share", f"earnings guided to {rng} a share"
     if m_rng:
         lo = _num(m_rng.group(1), m_rng.group(2))
         hi = _num(m_rng.group(3), m_rng.group(4) or m_rng.group(2)) if m_rng.group(3) else lo
@@ -1079,7 +1140,16 @@ def call(ins: dict, rep: dict) -> list:
     cl = c.get("claims") or []
     if cl:
         x = cl[0]
-        out.append(_item("call_claim", f"A claim to check, by {x.get('speaker')}", f"\"{_cut(x.get('text') or '', 300)}\"",
+        # the claim itself in the title, from the clause that carries its number ("A claim to check, by Bob Lyons" said who,
+        # not what): the end-of-crawl card shows the title alone
+        t = " ".join((x.get("text") or "").split())
+        shown = t
+        if len(t) > 180:              # a long one from the clause its number sits in, the clause kept whole enough to say what
+            m = re.search(r"\d", t)
+            comma = t.rfind(", ", 0, m.start()) if m else -1
+            start = comma + 2 if m and comma >= 0 and comma > m.start() - 90 and len(t) - comma > 60 else 0
+            shown = _cut(t[start:], 150)
+        out.append(_item("call_claim", f"{x.get('speaker')}: \"{shown}\"", f"\"{_cut(t, 300)}\"",
                          "A claim made on the call, not a checked figure: compare it with the filed statements before relying on it.",
                          "", [], [_quote(x)], tone="=", short="", score=40))
     sp = c.get("speakers") or []
@@ -1142,5 +1212,9 @@ def build(rep: dict, ins: dict) -> Optional[dict]:
     chosen = _pick(items)
     out = {"version": VERSION, "kind": kind, "headline": headline(lead, chosen), "items": [], "basis": BASIS}
     for x in chosen:
-        out["items"].append({k: v for k, v in x.items() if not k.startswith("_")})
+        out["items"].append({**{k: v for k, v in x.items() if not k.startswith("_")}, "tag": TAGS.get(x["id"], "Finding")})
+    keep = [x for x in chosen if x["id"] in ENDING_KEEP][:ENDING_POINTS]
+    rest = sorted((x for x in chosen if not any(x is k for k in keep)), key=lambda x: -x["_score"])
+    shown = keep + rest[:ENDING_POINTS - len(keep)]
+    out["ending"] = [i for i, x in enumerate(chosen) if any(x is s for s in shown)]      # indexes into items, reading order
     return out

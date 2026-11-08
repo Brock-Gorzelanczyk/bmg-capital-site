@@ -435,6 +435,11 @@ def analyze(fb, profile: str, kpis: list, watch: Optional[list] = None) -> list[
             vals = [(y, float(v) * mult[u]) for y, v, u in pairs]
         tot = sum(v for _, v in vals)
         years = [(y, v) for y, v in vals if y != "Thereafter"]
+        # a schedule that covers a sliver of the debt on the balance sheet is another table (NextEra FY2025: a "Total"
+        # row of $1.3B against $95.6B of debt read as the ladder, "39% due in 2026"): one year's share of it says
+        # nothing about the company's refinancing, so it is not screened
+        if debt and (debt.get("value") or 0) > 0 and tot < 0.5 * debt["value"]:
+            years = []
         if tot > 0 and years:
             y, v = max(years, key=lambda x: x[1])
             sh = v / tot

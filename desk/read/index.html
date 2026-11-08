@@ -346,7 +346,7 @@ body.recmode[data-rec-palette] .w.sig-observation{--c:var(--crawler-main)}
 body.recmode[data-rec-palette] .rec-fly{background:var(--crawler-main);color:#05070c;box-shadow:0 0 16px var(--crawler-main)}
 body.recmode[data-rec-palette] .stage .fx-accent{background:var(--crawler-main)!important;color:#05070c!important;box-shadow:none!important}
 body.recmode[data-rec-palette] .stage .fx-accent:nth-child(2n){background:var(--crawler-accent)!important;color:#05070c!important}
-body.recmode[data-rec-palette] .sig-pop.s-observation,body.recmode[data-rec-palette] #rec-end .s-observation{--c:var(--crawler-main)}
+body.recmode[data-rec-palette] .sig-pop.s-observation,body.recmode[data-rec-palette] #rec-end .s-observation,body.recmode[data-rec-palette] #rec-end .t-eq{--c:var(--crawler-main)}
 body.recmode[data-rec-palette] .sig-pop .sev.s-observation{background:var(--crawler-main);color:#05070c}
 body.recmode[data-rec-palette] #rec-hud{color:var(--crawler-main);border-color:color-mix(in srgb,var(--crawler-main) 45%,transparent);box-shadow:0 0 14px color-mix(in srgb,var(--crawler-main) 25%,transparent)}
 body.recmode[data-rec-palette] #rec-end h3,body.recmode[data-rec-palette] .rk-one h2 span{color:var(--crawler-main)}
@@ -476,8 +476,8 @@ body.recmode .lr-c.flash{animation:reccell 1.3s ease}@keyframes reccell{0%{backg
 #rec-end h3{margin:0 0 14px;font:600 13px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#6ff4ff}
 #rec-end ol,#rec-end ul{list-style:none;margin:0;padding:0}
 .rk-keys li{border-left:4px solid var(--c,#6ff4ff);background:rgba(255,255,255,.05);border-radius:0 10px 10px 0;padding:10px 12px;margin:0 0 10px;opacity:0;transform:translateX(-30px);transition:opacity .45s,transform .55s cubic-bezier(.2,1.4,.4,1)}
-.rk-keys li.in{opacity:1;transform:none}.rk-keys li b small{font-size:13px;font-weight:400;color:#8fa0b3}.rk-keys li b.rk-amt{display:inline;font-size:inherit;color:var(--c)}.rk-keys li.s-buy>small,.rk-keys li.s-sell>small,.rk-keys li.s-observation>small{display:block;margin-top:2px}.rk-keys li b{display:block;font-size:18px;margin-top:3px}.rk-keys li small{color:#8fa0b3;font-family:'IBM Plex Mono',monospace}
-#rec-end .s-watch{--c:#ffb020}#rec-end .s-flag{--c:#ff4d6d}#rec-end .s-observation{--c:#6ff4ff}#rec-end .s-sell{--c:#ff4d6d}#rec-end .s-buy{--c:#2fdc74}
+.rk-keys li.in{opacity:1;transform:none}.rk-keys li b small{font-size:13px;font-weight:400;color:#8fa0b3}.rk-keys li b.rk-amt{display:inline;font-size:inherit;color:var(--c)}.rk-keys li.s-buy>small,.rk-keys li.s-sell>small,.rk-keys li.s-observation>small,.rk-keys li:is(.t-up,.t-down,.t-eq)>small{display:block;margin-top:2px}.rk-keys li b{display:block;font-size:18px;margin-top:3px}.rk-keys li small{color:#8fa0b3;font-family:'IBM Plex Mono',monospace}
+#rec-end .s-watch{--c:#ffb020}#rec-end .s-flag{--c:#ff4d6d}#rec-end .s-observation{--c:#6ff4ff}#rec-end .s-sell{--c:#ff4d6d}#rec-end .s-buy{--c:#2fdc74}#rec-end .t-up{--c:#2fdc74}#rec-end .t-down{--c:#ff4d6d}#rec-end .t-eq{--c:#6ff4ff}
 /* company branding (Make a clip, optional): the logo and the hook over the take's opening, then a small logo at the top
    center; on the final report, the logo beside "BMG Capital". Placed once in px from the window's size, moved only by
    transform and opacity. A see-through logo of the surface's own tone sits on a plain chip; the picture is untouched. */
@@ -493,7 +493,7 @@ body.recmode.rec-brand-mini #num-cards{top:15vh}body.recmode.rec-brand-intro #nu
 #rec-end .rk-brand em{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #rec-plan .pl-logo{height:22px;max-width:90px;object-fit:contain;vertical-align:middle;margin-right:6px;border-radius:4px}
 #rec-plan .pl-logo.chip{background:#fff;padding:2px 4px}#rec-plan .pl-logo.chip-dark{background:#05070c;padding:2px 4px}
-#rec-end .sev{font:700 10px 'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--c)}
+#rec-end .sev{font:700 10px 'IBM Plex Mono',monospace;text-transform:uppercase;color:var(--c)}#rec-end .rk-keys .sev{white-space:normal;max-width:100%}
 #rec-end .rk-document p{margin:4px 0;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
 #rec-end .rk-document small{display:block;font-size:10px;line-height:1.4;overflow-wrap:anywhere}
 #rec-end .rk-document .rk-tile b{font-size:21px;overflow-wrap:anywhere}
@@ -700,7 +700,7 @@ body.readerfx[data-rec-palette] .w.sig-observation{--c:var(--crawler-main)}
 body.readerfx[data-rec-palette] .rec-fly{background:var(--crawler-main);color:#05070c;box-shadow:0 0 16px var(--crawler-main)}
 body.readerfx[data-rec-palette] .stage .fx-accent{background:var(--crawler-main)!important;color:#05070c!important;box-shadow:none!important}
 body.readerfx[data-rec-palette] .stage .fx-accent:nth-child(2n){background:var(--crawler-accent)!important;color:#05070c!important}
-body.readerfx[data-rec-palette] .sig-pop.s-observation,body.readerfx[data-rec-palette] #rec-end .s-observation{--c:var(--crawler-main)}
+body.readerfx[data-rec-palette] .sig-pop.s-observation,body.readerfx[data-rec-palette] #rec-end .s-observation,body.readerfx[data-rec-palette] #rec-end .t-eq{--c:var(--crawler-main)}
 body.readerfx[data-rec-palette] .sig-pop .sev.s-observation{background:var(--crawler-main);color:#05070c}
 body.readerfx[data-rec-palette] #rec-hud{color:var(--crawler-main);border-color:color-mix(in srgb,var(--crawler-main) 45%,transparent);box-shadow:0 0 14px color-mix(in srgb,var(--crawler-main) 25%,transparent)}
 body.readerfx[data-rec-palette] #rec-end h3,body.readerfx[data-rec-palette] .rk-one h2 span{color:var(--crawler-main)}
@@ -6698,6 +6698,21 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const pageOf = ids => { const F = (state.readRes.report.evidence || {}).facts || {}, C = (state.readRes.report.evidence || {}).calcs || {};
       const pg = new Set(); const walk = (i, d = 0) => { if (d > 4) return; const f = F[i]; if (f){ const p = (f.source || {}).pdf_page; if (p) pg.add(p); return; } ((C[i] || {}).inputs || []).forEach(j => walk(j, d + 1)); };
       (ids || []).forEach(i => walk(i)); return [...pg].sort((a, b) => a - b).slice(0, 2).map(p => "p." + p).join(" "); };
+    // The report at the end of the crawl opens on the takeaway (reader/takeaways.py), the same reading the Summary tab
+    // leads with: the conclusion and the points that carry it, each with its pages. The read marks the points for the
+    // ending (at most four; a severe disclosure and management's outlook are always among them); a read saved before
+    // that takes the first four. Insider trades keep their own ending; a read with no takeaway keeps the one it had.
+    function takeawayEnding(){
+      const res = state.readRes || {}, tk = (res.insights || {}).takeaways || (res.report || {}).takeaways;
+      // a takeaway with no conclusion (only a minor disclosure: TSMC's 20-F) leaves the document's own findings in front
+      if (!tk || !tk.headline || !(tk.items || []).length || (res.insights || {}).kind === "insider") return null;
+      const marked = (tk.ending || []).map(i => tk.items[i]).filter(Boolean);
+      const points = marked.length ? marked : tk.items.slice(0, 4);
+      return {headline: tk.headline || "", points, rest: tk.items.filter(x => !points.includes(x))};
+    }
+    const tkPages = x => [...new Set([...pageOf(x.refs).split(" "), ...(x.quotes || []).map(q => q && q.page ? "p." + q.page : "")].filter(Boolean))].slice(0, 2).join(" ");
+    const tkTone = x => x.tone === "+" ? "t-up" : x.tone === "-" ? "t-down" : "t-eq";
+    const tkLi = x => `<li class="${tkTone(x)}"><span class="sev">${esc(x.tag || "Finding")}</span><b>${esc(x.title)}</b><small>${esc(tkPages(x))}</small></li>`;
     async function ending(keySecs, oneSecs, highlights = false){
       const rep = state.readRes.report, co = rep.company || {};
       const F = rep.evidence.facts, C = rep.evidence.calcs, ev = id => F[id] || C[id];
@@ -6713,11 +6728,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (highlights) end.classList.add("rec-highlight-ending");
       const ins = (state.readRes.insights || {}).kind === "insider" ? state.readRes.insights.summary : null;
       const specialized = (state.readRes.insights || {}).ending || rep.document_ending;
+      const tk = takeawayEnding();
       // Live crawl's ending takes one shape (keys, groups, notes); the 10-K and Form 4 endings are passed in it with
-      // their figures and pages as the usual ending shows them, nothing recomputed
+      // their figures and pages as the usual ending shows them, nothing recomputed. The takeaway's points are its keys.
       const visLiveModel = (spec, S, rp, findings, c) => {
-        if (spec) return spec;
         const pg = refs => { const m = pageOf(refs).match(/\d+/); return m ? {pdf_page: +m[0]} : null; };
+        const tkKeys = tk && tk.points.map((x, i) => { const q = (x.quotes || []).find(y => y && y.page);
+          return {key: "tk:" + i, kind: "observation", label: x.tag || "Finding", text: x.title, source: pg(x.refs) || (q ? {pdf_page: q.page} : null)}; });
+        if (spec) return tkKeys ? {...spec, keys: tkKeys, title: "The takeaway"} : spec;
         if (S){
           const b = S.buys || {}, sl = S.sells || {};
           const docSrc = {pdf_page: 1, location: `${S.filings || "the"} Form 4 filings in this document`};   // the totals line of the generated insider-trades document
@@ -6739,8 +6757,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
             basis: [calc ? "Calculated from cited figures" : "", ch.display ? "change " + ch.display : ""].filter(Boolean).join("; "),
             source: !calc && x.source && x.source.pdf_page ? x.source : pg([row.current])};
         };
-        return {kind: "report", name: c.name || "", form: c.form || "", subtitle: c.period || "", title: "Key findings", summary_title: "Company report",
-          keys: findings.map(x => ({key: x.id, kind: "observation", label: (SEV[x.severity] || {}).l || "Finding", text: x.headline, source: x.source && (x.source.pdf_page || x.source.printed_page) ? x.source : pg(x.refs)})),
+        return {kind: "report", name: c.name || "", form: c.form || "", subtitle: c.period || "", title: tkKeys ? "The takeaway" : "Key findings", summary_title: "Company report",
+          keys: tkKeys || findings.map(x => ({key: x.id, kind: "observation", label: (SEV[x.severity] || {}).l || "Finding", text: x.headline, source: x.source && (x.source.pdf_page || x.source.printed_page) ? x.source : pg(x.refs)})),
           groups: [{title: "Headline figures", items: [fig("revenue", "Revenue"), fig("net_income", "Net income"), fig("eps_diluted", "Diluted EPS"), fig("fcf", "Free cash flow")].filter(Boolean)}],
           notes: [(rp.coverage ? `${rp.coverage.facts_published} headline figures, ${rp.coverage.checks_run} checks. ` : "") + "Every figure cites its page in the filing."]};
       };
@@ -6752,15 +6770,19 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (visEnd && !(/\brk-keys\b/.test(visEnd) && /\brk-one\b/.test(visEnd))){ console.warn("Live crawl ending needs .rk-keys and .rk-one: the usual ending is shown"); visEnd = ""; }
       if (visEnd) end.innerHTML = visEnd;
       else if (ins) end.innerHTML = insiderEnding(ins, co);
-      else if (specialized) end.innerHTML = documentEnding(specialized, co);
+      else if (specialized) end.innerHTML = documentEnding(specialized, co, tk);
+      // a 10-K: the takeaway's points (sales and profit, what sits below operating income, cash, debt), then one page
+      // with its conclusion over the headline figures; the ratio screens stay in the report's Executive findings
       else end.innerHTML = `<div class="rk-phase rk-keys"><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span></div>
-          <h3>Key findings &middot; ${esc(co.name || "")}</h3>
-          <ol>${kf.map(x => `<li class="s-${x.severity}"><span class="sev s-${x.severity}">${SEV[x.severity].l}</span><b>${esc(x.headline)}</b><small>${esc(pageOf(x.refs))}</small></li>`).join("")}</ol></div>
+          <h3>${tk ? "The takeaway" : "Key findings"} &middot; ${esc(co.name || "")}</h3>
+          <ol>${tk ? tk.points.map(tkLi).join("") : kf.map(x => `<li class="s-${x.severity}"><span class="sev s-${x.severity}">${SEV[x.severity].l}</span><b>${esc(x.headline)}</b><small>${esc(pageOf(x.refs))}</small></li>`).join("")}</ol></div>
         <div class="rk-phase rk-one" hidden><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span><em>Company report</em></div>
           <h2>${esc(co.name || "")} <span>${esc(co.ticker || co.ticker_hint || "")}</span></h2>
           <p class="rk-sub">${esc([co.form, co.period].filter(Boolean).join(" · "))}</p>
+          ${tk && tk.headline ? `<p class="rk-lead">${esc(tk.headline)}</p>` : ""}
           <div class="rk-tiles">${tile("revenue", "Revenue")}${tile("net_income", "Net income")}${tile("eps_diluted", "Diluted EPS")}${tile("fcf", "Free cash flow")}</div>
-          <ul class="rk-mini">${kf.slice(0, 3).map(x => `<li class="s-${x.severity}"><b>${esc(x.headline)}</b> <small>${esc(pageOf(x.refs))}</small></li>`).join("")}</ul>
+          <ul class="rk-mini">${tk ? tk.rest.slice(0, 2).map(x => `<li class="${tkTone(x)}"><b>${esc(x.title)}</b> <small>${esc(tkPages(x))}</small></li>`).join("")
+            : kf.slice(0, 3).map(x => `<li class="s-${x.severity}"><b>${esc(x.headline)}</b> <small>${esc(pageOf(x.refs))}</small></li>`).join("")}</ul>
           <p class="rk-foot">${rep.coverage ? esc(rep.coverage.facts_published + " headline figures · " + rep.coverage.checks_run + " checks") + " &middot; " : ""}every figure cites its page in the filing</p></div>`;
       brandReport(end);                                       // the floating company logo goes; the same logo joins the header, same frame
       B.appendChild(end);
@@ -6792,7 +6814,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     }
     // Other document types use the same two report screens. Their content and source labels come from the
     // finished analysis, shared with the completed report and downloads; nothing is inferred by this renderer.
-    function documentEnding(model, co){
+    function documentEnding(model, co, tk){
       const citeOne = s => {
         const loc = [];
         if (s.printed_page != null) loc.push("p." + s.printed_page);
@@ -6818,12 +6840,15 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const li = x => `<li class="s-observation"><span class="sev s-observation">${esc(x.label || "Finding")}</span><b>${esc(x.value || x.text || "")}</b>${x.value && x.text ? `<p>${esc(x.text)}</p>` : ""}<small>${detail(x)}</small></li>`;
       const group = g => `<h3>${esc(g.title || "Reported findings")}</h3><div class="rk-tiles">${(g.items || []).map(x => `<div class="rk-tile${x.value ? "" : " rk-quote"}"><span>${esc(x.label || "Finding")}</span><b>${esc(x.value || "")}</b>${x.text ? `<p>${esc(x.text)}</p>` : ""}<small>${detail(x)}</small></div>`).join("")}</div>`;
       const note = (model.notes || []).map(esc).join(" ");
+      // with a takeaway, its points come first (what the figures mean, the outlook among them), and the figures and
+      // quotes below follow on the one-page screen under its conclusion
       return `<div class="rk-phase rk-keys rk-document"><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span></div>
-          <h3>${esc(model.title || "Document findings")} &middot; ${esc(name)}</h3>
-          <ol>${keys.map(li).join("") || `<li class="s-observation"><b>No sourced findings available for this document</b></li>`}</ol></div>
+          <h3>${esc(tk ? "The takeaway" : model.title || "Document findings")} &middot; ${esc(name)}</h3>
+          <ol>${tk ? tk.points.map(tkLi).join("") : keys.map(li).join("") || `<li class="s-observation"><b>No sourced findings available for this document</b></li>`}</ol></div>
         <div class="rk-phase rk-one rk-document" hidden><div class="rk-brand">${BMG_LINE}<span>BMG Capital</span><em>${esc(model.summary_title || model.title || "Document summary")}</em></div>
           <h2>${esc(name)} <span>${esc(model.ticker || co.ticker || co.ticker_hint || "")}</span></h2>
           <p class="rk-sub">${esc(model.subtitle || "")}</p>
+          ${tk && tk.headline ? `<p class="rk-lead">${esc(tk.headline)}</p>` : ""}
           ${shown.filter(g => g.items.length).map(group).join("") || `<ul class="rk-mini">${keys.map(li).join("")}</ul>`}
           ${note ? `<p class="rk-foot">${note}</p>` : ""}</div>`;
     }
@@ -8043,7 +8068,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           // the first comes in at once, each other one 0.55 s later
           const insE = state.readRes && state.readRes.insights && state.readRes.insights.kind === "insider" ? state.readRes.insights.summary : null;
           const docE = state.readRes && ((state.readRes.insights || {}).ending || (state.readRes.report || {}).document_ending);
-          const n = insE ? Math.min(4, Math.max(1, (insE.largest || []).length)) : docE ? Math.min(4, Math.max(1, (docE.keys || []).length)) : Math.min(4, ((state.readRes && state.readRes.report && state.readRes.report.exec_findings) || []).length);
+          const tkE = takeawayEnding();          // the takeaway's points lead the first screen when the read has them
+          const n = insE ? Math.min(4, Math.max(1, (insE.largest || []).length)) : tkE ? Math.min(4, tkE.points.length) : docE ? Math.min(4, Math.max(1, (docE.keys || []).length)) : Math.min(4, ((state.readRes && state.readRes.report && state.readRes.report.exec_findings) || []).length);
           const rest = planned.length - counted / 1000 - 0.15, one = Math.min(PLAN_ONE, Math.max(2, rest * 0.45));
           await finishRecording(Math.max(1.2, rest - one - Math.max(0, n - 1) * 0.55), one, false);      // the first card needs no wait
         } else await finishRecording(keySecs, oneSecs, highlights);
@@ -8142,10 +8168,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       fileName: `${j.manager || j.company} 13F-HR holdings ${f.period} filed ${f.filed} ${f.accession}.htm`}));
   }
   function endingWords(kind){
-    return ({insider: "The largest trades, then what insiders bought and sold", holdings: "The largest reported positions, then this manager's quarter-end holdings summary",
-      quarterly: "Quarterly findings, then a quarterly results summary with year-to-date periods labeled", release: "Earnings-release findings, then reported results and disclosed guidance",
-      transcript: "Attributed call findings, then management commentary and questions", current: "The disclosed event and findings, then a current-report summary",
-      annual: "Annual filing findings, then a one-page annual summary", other: "Sourced document findings, then a document summary"})[kind] || "Sourced document findings, then a document summary";
+    // the takeaway leads every ending that has one (reader/takeaways.py; ending() below), the figures follow
+    return ({insider: "The largest trades, then what insiders bought and sold",
+      holdings: "The takeaway (concentration, the biggest additions and cuts), then the largest positions and the holdings summary",
+      quarterly: "The takeaway (results, what drove them, cash and debt), then the quarter's figures with year-to-date periods labeled",
+      release: "The takeaway (results and management's outlook), then reported results and disclosed guidance",
+      transcript: "The takeaway (the outlook and what analysts asked), then management commentary and questions",
+      current: "The disclosed event and its terms, then a current-report summary",
+      annual: "The takeaway (sales and profit, cash and debt), then a one-page annual summary", other: "Sourced document findings, then a document summary"})[kind] || "Sourced document findings, then a document summary";
   }
   function holdingKey(x){
     return "holding|" + [x.rank, x.issuer, x.class, x.put_call || "", x.value, x.shares, x.weight].join("|");

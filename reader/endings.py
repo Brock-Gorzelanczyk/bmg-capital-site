@@ -8,6 +8,8 @@ from __future__ import annotations
 import re
 
 from . import insights
+from .facts import fmt_value
+from .takeaways import issuer
 
 
 _LABELS = {"quarterly": ("Quarterly results and liquidity", "Quarterly report"),
@@ -18,6 +20,79 @@ _LABELS = {"quarterly": ("Quarterly results and liquidity", "Quarterly report"),
            "annual": ("Findings in this annual filing", "Annual filing"),
            "other": ("Findings in this document", "Document summary")}
 _UNAVAILABLE = "No supported findings were located for this section in the reviewed document."
+
+# Form 8-K items in a few words (the form's own item titles run to a line and a half: "Departure of Directors or
+# Certain Officers; Election of Directors; Appointment of Certain Officers; Compensatory Arrangements ...")
+_ITEM = {"1.01": "Material agreement", "1.02": "Agreement ended", "1.03": "Bankruptcy or receivership", "1.05": "Cybersecurity incident",
+         "2.01": "Acquisition or sale completed", "2.02": "Results of operations", "2.03": "New debt obligation",
+         "2.04": "Debt accelerated", "2.05": "Exit or restructuring costs", "2.06": "Impairment", "3.01": "Listing notice",
+         "3.02": "Unregistered share sale", "3.03": "Change to shareholder rights", "4.01": "Auditor change",
+         "4.02": "Earlier financial statements not to be relied on", "5.01": "Change in control", "5.02": "Officers and directors",
+         "5.03": "Charter or bylaws change", "5.07": "Shareholder vote", "7.01": "Regulation FD disclosure", "8.01": "Other events"}
+# a sentence that is about the filing rather than the event: the safe harbor, its risk cross-reference
+_EVENT_BOILER = re.compile(r"(?i)forward[- ]looking|safe harbor|private securities litigation|risks and uncertainties|undertakes? no (?:obligation|duty)|"
+                           r"cautionary (?:statement|note)|incorporated by reference|does not purport to be complete|pursuant to the requirements|not applicable")
+
+
+# Item 5.07 proposals by their common names, the narrower first (a shareholder proposal about electing directors is a
+# shareholder proposal; the frequency of the pay vote is not the pay vote)
+_PROPOSALS = ((r"(?:shareholder|stockholder) proposal", "Shareholder proposal"), (r"frequency", "Say-on-pay frequency"),
+              (r"executive (?:officer )?compensation|say[- ]on[- ]pay", "Say on pay"),
+              (r"ratif|independent registered|accounting firm|auditor", "Auditor ratification"),
+              (r"\bplan\b", "Equity or incentive plan"), (r"charter|certificate of incorporation|bylaw", "Charter or bylaws"),
+              (r"\belect", "Election of directors"))
+
+
+def _item_label(num: str, printed: str) -> str:
+    return f"Item {num} · {_ITEM[num]}" if num in _ITEM else f"Item {num}. {printed.strip()[:70]}"
+
+
+def _votes(doc, a: int, b: int, label: str) -> list:
+    """Item 5.07: each proposal's outcome with its votes, the counts labeled by the vote table's own header
+    ("For  Against  Abstain  Broker Non-Votes"), and For as a share of For plus Against, calculated from them."""
+    body, out = doc.body, []
+    props = list(re.finditer(r"(?im)^[ \t]*(?:Proposal|Item)(?:\s+No\.)?\s+(\d{1,2})\s*[\u2013\u2014:.\-]+\s*([^\n]{3,160})$", body[a:b]))
+    for k, pm in enumerate(props):
+        ps, pe = a + pm.end(), (a + props[k + 1].start()) if k + 1 < len(props) else b
+        part = body[ps:pe]
+        hdr = re.search(r"(?im)^[ \t]*(?:Nominee|Director|Name)?[ \t]*For[ \t]+(Against|Withheld)(?:[ \t]+(Abstain\w*))?(?:[ \t]+(Broker[ \t]+Non-?\s?Votes?))?[ \t]*$", part)
+        if not hdr:
+            continue
+        cols = ["For", hdr.group(1).capitalize()] + (["Abstain"] if hdr.group(2) else []) + (["Broker non-votes"] if hdr.group(3) else [])
+        rows = []
+        for ln in part[hdr.end():].split("\n"):
+            nums = re.findall(r"\d{1,3}(?:,\d{3})+|\d+", ln)
+            if len(nums) < len(cols):
+                if rows and ln.strip():
+                    break
+                continue
+            who = re.sub(r"[\d,\s]+$", "", ln).strip()
+            rows.append((who, [int(x.replace(",", "")) for x in nums[-len(cols):]]))
+        if not rows:
+            continue
+        said = re.search(r"(?i)\b(elected|re-elected|approved|ratified|adopted|did not (?:approve|elect|ratify)|not approved|failed|rejected)\b", part[:hdr.start()])
+        word = (said.group(1).lower() if said else "")
+        outcome = ("Not approved" if word.startswith(("did not", "not", "failed", "rejected")) else
+                   "Elected" if "elect" in word else word.capitalize() if word else "Votes as reported")
+        share = lambda v: v[0] / (v[0] + v[1]) * 100 if v[0] + v[1] else None
+        title = re.sub(r"\s+", " ", pm.group(2)).strip()
+        # the card's tag is one line on a phone-width screen: the usual proposals by their common names, any other
+        # title cut at a word; the cited source keeps the proposal's own line
+        title = next((name for rx, name in _PROPOSALS if re.search(rx, title, re.I)), None) or \
+            (title if len(title) <= 44 else title[:44].rsplit(" ", 1)[0] + "...")
+        if len(rows) == 1:
+            v = rows[0][1]
+            text = " · ".join(f"{c} {n:,}" for c, n in zip(cols, v)) + (f"; For is {share(v):.1f}% of For plus {cols[1]}" if share(v) is not None else "")
+        else:
+            sh = [(share(v), w) for w, v in rows if share(v) is not None]
+            lo, hi = min(sh), max(sh)
+            text = f"{len(rows)} nominees; For as a share of For plus {cols[1]}: from {lo[0]:.1f}% ({lo[1]}) to {hi[0]:.1f}%"
+        line = re.sub(r"\s+", " ", pm.group(0)).strip()
+        item = _quoted(doc, {"text": line, "offset": a + pm.start() + len(pm.group(0)) - len(pm.group(0).lstrip())},
+                       f"Proposal {pm.group(1)} · {title}", "Vote counts as reported; the share is calculated from them")
+        item["value"], item["text"] = outcome, text       # the source keeps the proposal's own line as its excerpt
+        out.append(item)
+    return out
 
 
 def _source(doc, item):
@@ -93,10 +168,16 @@ def _prose(doc, event=False, limit=4):
     out, seen = [], set()
     starts = list(re.finditer(r"(?im)^\s*Item\s+(\d+\.\d+)\.?\s+([^\n]{4,160})", doc.body)) if event else []
     candidates = []
+    votes = []
     for n, m in enumerate(starts):
         if m[1] == "9.01":
             continue  # An exhibit index describes attachments, not the event's terms.
         end = starts[n + 1].start() if n + 1 < len(starts) else len(doc.body)
+        if m[1] == "5.07":
+            v = _votes(doc, m.end(), end, _item_label(m[1], m[2]))
+            votes += v
+            if v:
+                continue                 # the outcomes with their votes say it; the raw vote rows are not repeated
         pos = m.end()
         while pos < end:
             while pos < end and doc.body[pos].isspace():
@@ -107,15 +188,20 @@ def _prose(doc, event=False, limit=4):
                 break
             text = insights._ws(doc.body[a:b])
             pos = b + 1
-            if len(text) < 40 or re.search(r"(?i)incorporated by reference|does not purport to be complete|pursuant to the requirements|not applicable", text):
+            if len(text) < 40 or _EVENT_BOILER.search(text):
                 continue
             if not re.search(r"\d", text):
                 continue
             score = 4 * len(re.findall(r"\$\s?\d|\b\d[\d,.]*\s?(?:million|billion)\b", text)) + 2 * len(re.findall(r"\d(?:[\d.]*)%", text))
-            candidates.append((score, a, text, f"Item {m[1]}. {m[2].strip()}"))
+            candidates.append((score, a, text, _item_label(m[1], m[2])))
+    if votes:
+        out = votes[:limit]
+        seen.update(x["text"] for x in out)
     # A credit facility's amount and maturity often follow the opening agreement paragraph.
     # Numeric terms outrank introductory dates and cross references, regardless of the issuer.
     for _, off, text, label in sorted(candidates, key=lambda x: (-x[0], x[1])):
+        if len(out) >= limit:
+            break
         if text not in seen:
             out.append(_quoted(doc, {"text": text, "offset": off}, label))
             seen.add(text)
@@ -129,6 +215,17 @@ def _prose(doc, event=False, limit=4):
             continue
         if len(re.findall(r"[A-Za-z]{3,}", text)) < 10 or len(text.split("  ")) > 4:
             continue
+        # a footnote explains a figure elsewhere ("**Equity used in the calculation for 2016 was increased ...", GATX's
+        # investor presentation): the figure is the finding, the note is not
+        if re.match(r"(?:\*+|[†‡¹²³⁴-⁹]|\(\d{1,2}\)|\[\d{1,2}\])", text) or re.match(r"(?i)(?:notes?|sources?)\s*:", text):
+            continue
+        # a chart label or table row ends in bare figures ("... bentonite 18.1% 15.7%"): no sentence says what they are
+        if re.search(r"(?:\s\(?-?\$?\d[\d,.]*%?\)?){2,}\s*$", text):
+            continue
+        # a finding is a whole sentence or a bullet: a slide's text broken across columns ("... joint ventures with Rolls-",
+        # "GATX has over $5.3 billion in Our strong operating cash flow provides") stops mid-thought
+        if not re.search(r"[.!?:;)\"”’]$", text) and text[:1] not in "▪•●◦-":
+            continue
         if text not in seen:
             out.append(_quoted(doc, {"text": text, "offset": m.start()}, "As stated in the document"))
             seen.add(text)
@@ -137,7 +234,7 @@ def _prose(doc, event=False, limit=4):
     return out
 
 
-def _annual_findings(doc, limit=4):
+def _annual_findings(doc, limit=4, year=None):
     """Foreign annual disclosures stay in their printed currency, without USD inference.
 
     Prefer complete financial sentences from the operating review. Source tables in a
@@ -174,6 +271,11 @@ def _annual_findings(doc, limit=4):
                 continue
             if re.search(r"(?i)\b(?:could|may|might|risk|hypothetical|sensitivity|impairment|forecast|expect\w*|anticipat\w*|assumptions?|accounting policies|determination|not found)\b|par value|indicate by check|table sets forth|following table", text):
                 continue
+            # a sentence about an earlier year only ("capital expenditures of NT$956,007 million" for 2024 in TSMC's 2025
+            # annual report) is history the filing repeats, not this year's finding
+            yrs = [int(y) for y in re.findall(r"\b(20\d\d)\b", text)]
+            if year and yrs and max(yrs) < year:
+                continue
             if not re.search(r"(?i)(?:NT|US|HK|C|A)?\$|\b(?:EUR|GBP|JPY|CNY|RMB|USD|CAD|dollars?|euros?|yen|pounds?|million|billion)\b|[0-9.]%", text):
                 continue
             # A numeric multi-column row needs its own header to be interpretable; prefer prose here.
@@ -204,7 +306,8 @@ def build(doc, rep: dict, ins: dict, title: str = ""):
     def group(name, items):
         groups.append({"title": name, "items": items})
     if kind == "quarterly":
-        results = _financial(doc, rep, ("revenue", "operating_income", "net_income", "eps_diluted"), quarter=True)
+        # sales and earnings per share first: the one-page summary shows the first two of each group
+        results = _financial(doc, rep, ("revenue", "eps_diluted", "operating_income", "net_income"), quarter=True)
         liquidity = _financial(doc, rep, ("cash", "cfo", "capex", "total_debt"))
         group("Quarter results", results)
         group("Liquidity and cash flows", liquidity)
@@ -213,11 +316,15 @@ def build(doc, rep: dict, ins: dict, title: str = ""):
         if not results:
             out["notes"].append("Quarter-only statement figures were not located. No year-to-date figure is substituted for a quarter.")
     elif kind == "release":
-        results = _financial(doc, rep, ("revenue", "net_income", "eps_diluted", "cfo"), historical=True)
+        results = _financial(doc, rep, ("revenue", "eps_diluted", "net_income", "cfo"), historical=True)
         group("Reported statement results", results)
         adjusted = []
         for m in re.finditer(r"(?im)^([^\n]*(?:non-GAAP|adjusted)[^\n]*)$", doc.body):
             text = m[1].strip()
+            # a sentence about the adjusted figure, not a statement-table row ("... (non-GAAP)  $ 105.2  $ 76.9  $ 294.1",
+            # four numbers with no column heads) or a lead paragraph that mentions non-GAAP in passing
+            if re.search(r"\S {2,}\(?\$?\s?\(?\d", text) or not re.search(r"(?i)non-GAAP|adjusted", text[:160]) or len(text) > 420:
+                continue
             if len(text) >= 20 and insights._GNUM.search(text) and not insights._GUIDE.search(text) and not insights._BOILER.search(text):
                 adjusted.append(_quoted(doc, {"text": text, "offset": m.start()}, "Adjusted result as stated", "Company's stated non-GAAP measure; not a GAAP figure"))
             if len(adjusted) >= 4:
@@ -232,12 +339,19 @@ def build(doc, rep: dict, ins: dict, title: str = ""):
         out["notes"].append("GAAP statement results, company-defined adjusted measures and forward-looking guidance are kept separate. No consensus comparison is inferred.")
     elif kind == "holdings":
         summary = ins.get("holdings_summary") or {}
-        out.update(name=summary.get("manager") or out["name"], ticker="", form=summary.get("form") or "13F-HR")
+        # the manager in words, as the takeaway names it ("BERKSHIRE HATHAWAY INC" as Berkshire Hathaway)
+        out.update(name=issuer(summary["manager"]) if summary.get("manager") else out["name"], ticker="", form=summary.get("form") or "13F-HR")
         out["identity"] = {k: summary.get(k) or "" for k in ("form", "period", "filed", "accession")}
         out["subtitle"] = "Quarter ended " + summary["period"] if summary.get("period") else "Reporting quarter not identified"
         positions = []
         for row in ins.get("holdings") or []:
-            label = row["issuer"] + (" (" + ", ".join(x for x in (row.get("class"), row.get("put_call")) if x) + ")" if row.get("class") or row.get("put_call") else "")
+            # the name in words ("BANK OF AMER CORP" as Bank of America); a share class by its letter, which tells two lines
+            # of one company apart (Alphabet's Class A and Class C), plain common stock with none; the cited row keeps the name as filed
+            cls = row.get("class") or ""
+            cm = re.search(r"\b(CL|SER)\s+([A-Z])\b", cls)
+            cls = (("Class " if cm.group(1) == "CL" else "Series ") + cm.group(2)) if cm else "" if re.fullmatch(r"(?i)com(?:mon)?(?: stock| new| shs)?", cls) else cls
+            note = ", ".join(x for x in (cls, row.get("put_call")) if x)
+            label = issuer(row["issuer"]) + (f" ({note})" if note else "")
             amount = (row.get("shares") or "Not supplied") + (" principal amount" if row.get("kind") == "PRN" else " underlying shares" if row.get("put_call") else " shares")
             positions.append({"label": label, "value": row.get("value") or "Not supplied", "text": amount + ("; weight " + row["weight"] if row.get("weight") not in (None, "n/a") else ""),
                               "period": out["subtitle"], "currency": "USD", "unit": "USD", "basis": "Reported quarter-end position; weight calculated from reported values",
@@ -249,13 +363,14 @@ def build(doc, rep: dict, ins: dict, title: str = ""):
                                           ("Reported security positions", "positions", "totals_source", "Count of securities after preserving class, PUT/CALL and amount type"),
                                           ("Top ten concentration", "top10_weight", "concentration_source", "Calculated share of the reported 13F holdings value")):
             if summary.get(key) is not None:
-                metrics.append({"label": label, "value": str(summary[key]), "text": "", "period": out["subtitle"], "basis": basis,
+                value = fmt_value(summary["total_raw"], "USD") if key == "total" and summary.get("total_raw") else str(summary[key])
+                metrics.append({"label": label, "value": value, "text": "", "period": out["subtitle"], "basis": basis,
                                 "source": {**(summary.get(srckey) or summary.get("source") or {}), "accession": summary.get("accession") or ""}, "refs": []})
         group("Quarter-end reported holdings", metrics)
         group("Largest reported positions", positions[:4])
         if summary.get("prior"):
             prior = summary["prior"]
-            changes = [_quoted(doc, {"text": row["issuer"] + ": " + row["change"], **row}, "Quarter-end amount change", "Calculated comparison of reported quarter-end amounts, not trades")
+            changes = [_quoted(doc, {**row, "text": issuer(row["issuer"]) + ": " + row["change"]}, "Quarter-end amount change", "Calculated comparison of reported quarter-end amounts, not trades")
                        for row in ins.get("holdings") or [] if row.get("change") not in (None, "n/a", "Unchanged")][:4]
             for item in changes:
                 item["period"] = prior["period"] + " to " + summary.get("period", "")
@@ -283,7 +398,8 @@ def build(doc, rep: dict, ins: dict, title: str = ""):
         out["keys"] = (claims[:2] + guidance[:1] + questions[:1])[:4]
         out["notes"].append("These are attributed transcript statements and questions, kept apart from checked statement figures. No answer, motive or forecast is inferred.")
     else:
-        items = _annual_findings(doc) if kind == "annual" else _prose(doc, event=kind == "current")
+        fy = re.search(r"\b(20\d\d)\b", str(co.get("period") or co.get("fiscal_year") or ""))
+        items = _annual_findings(doc, year=int(fy.group(1)) if fy else None) if kind == "annual" else _prose(doc, event=kind == "current")
         out["keys"] = items
         group("Reported event and terms" if kind == "current" else "Sourced findings", items)
         if kind == "annual":
