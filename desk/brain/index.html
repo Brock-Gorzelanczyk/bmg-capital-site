@@ -45,7 +45,9 @@ html, body { height: 100%; overflow: hidden; }
 .find { padding: 8px 10px 0; position: relative; }
 #hits { position: absolute; left: 10px; right: 10px; z-index: 6; list-style: none; margin: 2px 0 0; padding: 0; background: #000; border: 1px solid var(--line2); }
 #hits:empty { display: none; }
-#hits button { width: 100%; text-align: left; background: none; border: 0; color: var(--ink); padding: 6px 8px; cursor: pointer; font: 13px var(--sans); }
+#hits li { display: flex; }
+#hits button { flex: 1; min-width: 0; text-align: left; background: none; border: 0; color: var(--ink); padding: 6px 8px; cursor: pointer; font: 13px var(--sans); }
+#hits button.loc { flex: none; color: var(--mute); font: 11px var(--mono); text-transform: uppercase; letter-spacing: 0.06em; border-left: 1px solid var(--line); }
 #hits button:hover, #hits button:focus { background: #131a24; outline: none; }
 #hits b { font-family: var(--mono); margin-right: 6px; }
 .crumb { display: flex; align-items: center; gap: 6px; padding: 8px 10px; font: 600 11.5px var(--mono); text-transform: uppercase; letter-spacing: 0.04em;
@@ -103,7 +105,7 @@ html, body { height: 100%; overflow: hidden; }
 <section id="panel" aria-label="Brain navigator">
   <div class="ph">BMG BRAIN <span class="r">S&amp;P 500 MAP</span></div>
   <div id="stats">Loading the brain...</div>
-  <div class="find"><input class="q" id="search" type="search" placeholder="Find a company (ticker or name)" autocomplete="off" aria-label="Find a company"><ul id="hits"></ul></div>
+  <div class="find"><input class="q" id="search" type="search" placeholder="Search a company: ticker or name" autocomplete="off" spellcheck="false" aria-label="Search a company. Enter opens its page."><ul id="hits"></ul></div>
   <div class="crumb" id="crumb"></div>
   <div id="list"></div>
   <div class="ctl">
@@ -117,7 +119,7 @@ html, body { height: 100%; overflow: hidden; }
 </section>
 
 <aside id="card" hidden aria-live="polite"></aside>
-<div id="help">DRAG TO TURN &middot; SCROLL TO ZOOM &middot; CLICK A SECTOR, A SUB-INDUSTRY OR A DOT &middot; REFRESH FOR NEW READS</div>
+<div id="help">TYPE A TICKER OR A NAME FOR A COMPANY'S PAGE &middot; DRAG TO TURN &middot; SCROLL TO ZOOM &middot; CLICK A SECTOR, A SUB-INDUSTRY OR A DOT</div>
 <div id="msg" hidden><div></div></div>
 
 <script src="vendor/3d-force-graph-1.77.0.min.js"></script>
@@ -423,7 +425,7 @@ function build(u) {
       ${e ? `<div class="row"><span>REPORTS</span><span class="amber">${esc(erLabel(e))}</span></div>` : ""}
       <h3>Comp set (BMG judgment)</h3><div class="chips">${n.comps.map(chip).join("") || '<span class="mute">None on file.</span>'}</div>
       ${n.by.length ? `<h3>In the comp set of</h3><div class="chips">${n.by.map(chip).join("")}</div>` : ""}
-      <div class="acts"><a class="btn main" href="company/?t=${encodeURIComponent(n.id)}">Open report &rsaquo;</a>
+      <div class="acts"><a class="btn main" href="company/?t=${encodeURIComponent(n.id)}">Open company page &rsaquo;</a>
         <a class="btn" href="mastermind/?t=${encodeURIComponent(n.id)}">Ask Mastermind about ${esc(n.id)}</a>
         <button class="btn" type="button" id="c-sub">Show ${esc(n.sub.name)}</button></div></div>`;
     c.hidden = false;
@@ -436,16 +438,24 @@ function build(u) {
 
   // ------------------------------------------------------------------ search, buttons, keys
   const q = $("search"), hits = $("hits");
+  const squash = x => String(x).toLowerCase().replace(/[^a-z0-9]/g, "");
   const find = s => { s = s.trim().toLowerCase(); if (!s) return [];
+    const q2 = squash(s);                           // "jp morgan" finds "JPMorgan Chase"
     const ex = nodes.filter(n => n.id.toLowerCase() === s);
-    return ex.concat(nodes.filter(n => !ex.includes(n) && (n.id.toLowerCase().startsWith(s) || n.name.toLowerCase().includes(s)))).slice(0, 7); };
+    return ex.concat(nodes.filter(n => !ex.includes(n) && (n.id.toLowerCase().startsWith(s) || n.name.toLowerCase().includes(s) || (q2.length >= 4 && squash(n.name).includes(q2))))).slice(0, 7); };
+  // A search opens the company's own page: price and chart, About, and everything the brain holds (Brock, 2026-11-10:
+  // "when I type in NVIDIA ... boom, we're getting everything about NVIDIA", not a cluster and a small card). "Map"
+  // beside a result, and a ?t= link, still fly to the company's dot and open its card. A ticker that is not on the
+  // map opens its page too (SEC and market data).
+  const open = t => { location.href = `company/?t=${encodeURIComponent(t)}`; };
   const pick = n => { hits.innerHTML = ""; q.value = n.id; go(n.sector, n.sub, false, true); select(n, true); };
   q.addEventListener("input", () => {
-    hits.innerHTML = find(q.value).map(n => `<li><button type="button" data-t="${esc(n.id)}"><b style="color:${n.color}">${esc(n.id)}</b>${esc(n.name)}</button></li>`).join("");
-    hits.querySelectorAll("button").forEach(b => b.onclick = () => pick(byId.get(b.dataset.t)));
+    hits.innerHTML = find(q.value).map(n => `<li><button type="button" data-t="${esc(n.id)}"><b style="color:${n.color}">${esc(n.id)}</b>${esc(n.name)}</button><button type="button" class="loc" data-loc="${esc(n.id)}" title="Show ${esc(n.id)} on the map">Map</button></li>`).join("");
+    hits.querySelectorAll("button[data-t]").forEach(b => b.onclick = () => open(b.dataset.t));
+    hits.querySelectorAll("button[data-loc]").forEach(b => b.onclick = () => pick(byId.get(b.dataset.loc)));
   });
   q.addEventListener("keydown", e => {
-    if (e.key === "Enter") { const f = find(q.value)[0]; if (f) pick(f); }
+    if (e.key === "Enter") { const f = find(q.value)[0], raw = q.value.trim().toUpperCase(); if (f) open(f.id); else if (/^[A-Z][A-Z0-9.\-]{0,9}$/.test(raw)) open(raw); }
     if (e.key === "ArrowDown") { const f = hits.querySelector("button"); if (f) { e.preventDefault(); f.focus(); } }
   });
   document.addEventListener("keydown", e => {
@@ -472,6 +482,7 @@ function build(u) {
   const t0 = byId.get((qs.get("t") || "").toUpperCase());
   panel();
   setTimeout(() => { if (t0) pick(t0); else if (s0) go(s0, x0 || null, true); }, 1200);
+  if (!location.search && innerWidth > 760) q.focus();      // straight to typing a ticker (a link to a level or a company keeps the view clean)
   window.__brain3d = {nodes: nodes.length, read: nRead, revenue: nRev, links: links.length,
     sectors: secs.map(s => ({name: s.name, count: s.count, read: s.read, subs: s.subs.length})),
     level: () => ({sector: level.sec && level.sec.name, sub: level.sub && level.sub.name}), go: (s, x) => go(secs.find(a => a.slug === s) || null, null, true), select: t => pick(byId.get(t)), graph: G};

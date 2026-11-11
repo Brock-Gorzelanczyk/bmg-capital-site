@@ -8,9 +8,14 @@ Built from three things the Mac already holds, never fetched:
   checks, the risk factors and the debt maturities, each with its page.
 Every figure keeps its filing page; nothing here is computed beyond what the reader already did. Named brain_* so a
 change here does not make My reads read every saved file again.
+
+For the company page's own sections the report also carries, straight from the brain's memory: the same figures by
+quarter, the latest balance-sheet lines, the guidance the company last gave, the filings read (each with the saved
+read it opens in the Crawler, when this computer has it) and the questions the reader left open.
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -29,21 +34,113 @@ def _memory(vault: Path, t: str) -> dict:
     return {}
 
 
-def history(mem: dict, n: int = 5) -> list[dict]:
-    """Each fiscal-year figure the brain holds, oldest to newest, last n years, with the page it came from."""
+BALANCE = [("cash", "Cash and equivalents"), ("total_assets", "Total assets"), ("total_liabilities", "Total liabilities"),
+           ("equity", "Shareholders' equity"), ("inventories", "Inventories")]
+
+
+def _point(end: str, p: dict, shas: Optional[dict] = None) -> dict:
+    """One figure of a series as the page shows it: its value as printed, the filing page, the SEC link, and (when
+    this computer has the saved read) the read and page that open it in the Crawler."""
+    src = p.get("src") or {}
+    return {"period": end, "value": p.get("value"), "display": p.get("display"), "label": p.get("label"), "form": src.get("form"),
+            "page": src.get("printed_page") or src.get("pdf_page"), "pdf_page": src.get("pdf_page"), "url": src.get("url"),
+            "read": _saved(shas, src.get("sha8") or p.get("read"), src.get("file"))}
+
+
+def _saved(shas: Optional[dict], sha8: Optional[str], file: Optional[str]) -> Optional[str]:
+    """The saved read on this computer that holds a figure's filing: the very read the brain took it from, else another
+    saved read of the same filing (same file name, which carries the SEC accession number)."""
+    shas = shas or {}
+    return shas.get(sha8 or "") or shas.get("file:" + (file or "")) or None
+
+
+def history(mem: dict, n: int = 5, span: str = "FY", shas: Optional[dict] = None) -> list[dict]:
+    """Each figure the brain holds by fiscal year (span "FY") or by quarter ("Q"), oldest to newest, last n periods,
+    with the page it came from."""
     out = []
     for metric, label in METRICS:
-        s = (mem.get("series") or {}).get(f"fact:{metric}:FY") or {}
+        s = (mem.get("series") or {}).get(f"fact:{metric}:{span}") or {}
         pts = s.get("points") or {}
         if not pts:
             continue
-        rows = []
-        for end in sorted(pts)[-n:]:
-            p = pts[end]
-            src = p.get("src") or {}
-            rows.append({"period": end, "value": p.get("value"), "display": p.get("display"), "form": src.get("form"),
-                         "page": src.get("printed_page") or src.get("pdf_page"), "url": src.get("url")})
-        out.append({"metric": metric, "label": label, "unit": s.get("unit"), "points": rows})
+        out.append({"metric": metric, "label": label, "unit": s.get("unit"), "points": [_point(end, pts[end], shas) for end in sorted(pts)[-n:]]})
+    return out
+
+
+def balance(mem: dict, shas: Optional[dict] = None) -> Optional[dict]:
+    """The latest balance-sheet lines the brain holds (cash, assets, liabilities, equity, inventories, and each debt
+    line as the filing names it), all as of the same date, each with its page; None when it holds none."""
+    series = mem.get("series") or {}
+    ends = [max(pts) for pts in ((series.get(f"fact:{m}:instant") or {}).get("points") or {} for m, _l in BALANCE) if pts]
+    if not ends:
+        return None
+    end = max(ends)
+    rows = []
+    for metric, label in BALANCE:
+        p = ((series.get(f"fact:{metric}:instant") or {}).get("points") or {}).get(end)
+        if p:
+            rows.append({**_point(end, p, shas), "metric": metric, "label": label})
+    for key in sorted(k for k in series if k.startswith("fact:debt_line:instant:")):
+        p = (series[key].get("points") or {}).get(end)
+        if p:
+            rows.append({**_point(end, p, shas), "metric": "debt_line", "label": series[key].get("name") or "Debt"})
+    return {"as_of": end, "rows": rows} if rows else None
+
+
+def guidance(mem: dict, n: int = 8) -> Optional[dict]:
+    """What the company last said it expects: the lines of the newest filing that gave guidance, each with its words
+    and where they are. Guidance is the company's own statement, a check and never a target."""
+    rows = [g for g in mem.get("guidance") or [] if g.get("text")]
+    if not rows:
+        return None
+    newest = max((g.get("given_in") or {}).get("period_end") or "" for g in rows)
+    out, seen = [], set()
+    for g in rows:
+        gi = g.get("given_in") or {}
+        if (gi.get("period_end") or "") != newest or g["text"] in seen:
+            continue
+        seen.add(g["text"])
+        src = g.get("src") or {}
+        out.append({"text": g["text"], "topic": g.get("topic_label") or g.get("topic"), "covers": g.get("covers"),
+                    "page": src.get("printed_page") or src.get("pdf_page"), "url": src.get("url"), "form": src.get("form") or gi.get("form")})
+    said = [x for x in out if re.search(r"[.!?]$", x["text"].strip())]
+    if len(said) >= 3:
+        out = said                                   # the sentences; a bare table line ("GAAP gross margin: 74.0%") repeats one of them
+    given = next((g.get("given_in") for g in rows if (g.get("given_in") or {}).get("period_end") == newest), None) or {}
+    return {"given_in": {"form": given.get("form"), "period": given.get("period"), "period_end": newest or None}, "lines": out[:n], "more": max(0, len(out) - n)}
+
+
+def reads(mem: dict, shas: Optional[dict] = None) -> list[dict]:
+    """The filings the brain has read of the company, newest period first, one line per filing (a filing read twice
+    is listed once, with its latest read)."""
+    by = {}
+    for r in mem.get("reads") or []:
+        key = r.get("accession") or r.get("file") or (r.get("form"), r.get("period"))
+        if key not in by or (r.get("at") or "") >= (by[key].get("at") or ""):
+            by[key] = {**by.get(key, {}), **{k: v for k, v in r.items() if v is not None}}
+    out = [{"form": r.get("form"), "period": r.get("period"), "period_end": r.get("period_end"), "kind": r.get("kind"), "pages": r.get("pages"),
+            "read_at": r.get("at"), "url": r.get("url"), "read": _saved(shas, r.get("sha8"), r.get("file"))} for r in by.values()]
+    out.sort(key=lambda r: (r.get("period_end") or "", r.get("read_at") or ""), reverse=True)
+    return out
+
+
+def questions(mem: dict) -> list[dict]:
+    """The questions the reader raised that no later read has answered."""
+    return [{"q": q.get("q"), "form": q.get("form"), "raised_in": q.get("raised_in")} for q in mem.get("questions") or []
+            if q.get("q") and q.get("status") == "open"]
+
+
+def _shas(library, t: str) -> dict:
+    """The company's saved reads on this computer, to open a figure's page in the Crawler: {first 8 characters of a
+    read's sha256: the whole sha256, "file:" + its file name: the whole sha256}."""
+    if library is None:
+        return {}
+    out = {}
+    for e in library.entries():
+        if e.get("sha256") and (e.get("ticker") or e.get("job_ticker") or "").upper() == t:
+            out[e["sha256"][:8]] = e["sha256"]
+            if e.get("title"):
+                out.setdefault("file:" + e["title"], e["sha256"])
     return out
 
 
@@ -122,14 +219,16 @@ def report(vault, library, ticker: str) -> Optional[dict]:
     mem = _memory(vault, t)
     sc = max(mem.get("scores") or [{}], key=lambda r: r.get("period_end") or "")
     found = latest_annual(library, t)
-    reads = mem.get("reads") or []
+    seen = mem.get("reads") or []
+    shas = _shas(library, t)
     return {"ticker": t, "name": co.get("name") or cl.get("name"), "classification": cl,
             "hq": co.get("hq"), "added_to_index": co.get("added_to_index"),
             "comps": _bu.comps(vault, t), "comp_notes": _bu.comp_entry(vault, t), "comped_by": _bu.comped_by(vault, t),
             "same_industry": [x for x in _bu.members(vault, cl["sector"], cl["industry"]) if x != t],
-            "brain": {"reads": len(reads), "last": {k: reads[-1].get(k) for k in ("form", "period", "at")} if reads else None,
+            "brain": {"reads": len(seen), "last": {k: seen[-1].get(k) for k in ("form", "period", "at")} if seen else None,
                       "scores": scores(sc)},
-            "history": history(mem),
+            "history": history(mem, shas=shas), "quarters": history(mem, 8, "Q", shas), "balance": balance(mem, shas),
+            "guidance": guidance(mem), "reads": reads(mem, shas), "questions": questions(mem),
             "filing": _filing(found) if found else None,
             "note": "Figures are the filings' own, each with its page. The comp set is BMG judgment; it says who to compare with, "
                     "never that two figures are comparable (M03). The brain is not a source (M39): cite the filing page."}

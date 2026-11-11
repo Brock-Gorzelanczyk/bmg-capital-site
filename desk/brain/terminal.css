@@ -19,7 +19,7 @@ a { color: var(--cyan); }
   background: #000; border-bottom: 1px solid var(--amber); font-family: var(--mono); font-size: 12px; padding-right: 10px; }
 #bmg-top .logo { height: 100%; display: flex; align-items: center; padding: 0 12px; background: var(--amber); color: #000; font-weight: 700; letter-spacing: 0.12em; }
 #bmg-top a, #bmg-top button.t { color: var(--mute); text-decoration: none; padding: 0 11px; height: 100%; display: flex; align-items: center;
-  border: 0; background: none; font: inherit; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; }
+  border: 0; background: none; font: inherit; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; flex: none; }
 #bmg-top a:hover, #bmg-top a:focus-visible { color: #000; background: var(--amber2); outline: none; }
 #bmg-top a.on { color: var(--amber); box-shadow: inset 0 -2px 0 var(--amber); }
 #bmg-top #bmg-back { color: var(--ink); font-weight: 600; border-right: 1px solid var(--line2); margin-right: 4px; }

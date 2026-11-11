@@ -1157,7 +1157,7 @@ html[data-theme="dark"] #mk-pv{filter:invert(1) hue-rotate(180deg)}   /* the vie
 .mk-cl-pic{flex:none;width:128px;height:76px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:repeating-conic-gradient(#80858e 0 25%,#9a9fa8 0 50%) 0 0/14px 14px}
 html[data-theme="dark"] .mk-cl-pic{filter:invert(1) hue-rotate(180deg)}
 .mk-cl-pic img{max-width:116px;max-height:66px;object-fit:contain}.mk-cl-pic i{font-style:normal;color:#fff;font-size:12px}
-.mk-cl-txt{min-width:0;flex:1}.mk-cl-txt .mk-note{margin:2px 0 8px}.mk-cl-co{margin:0}.mk-cl-co span{font:600 12px 'IBM Plex Mono',monospace;color:#6b6f76;margin-left:4px}
+.mk-cl-txt{min-width:0;flex:1}.mk-cl-txt .mk-note{margin:2px 0 8px}.mk-cl-drop{margin:0 0 8px;padding:10px 12px}.mk-cl-drop b{font-weight:600}.mk-cl-co{margin:0}.mk-cl-co span{font:600 12px 'IBM Plex Mono',monospace;color:#6b6f76;margin-left:4px}
 .mk-brand{display:flex;flex-direction:column;gap:6px;margin-top:4px}.mk-pvph{margin:0 0 10px}
 .mk-auto{margin-top:16px;padding:14px;border:1px solid #45b88a;border-radius:12px}.mk-auto .av-chips{margin:6px 0 0}.mk-auto-len[hidden],.mk-len[hidden],.mk-cl[hidden],#mk-hook-auto[hidden]{display:none}.mk-auto-len-l{font-weight:600;margin-right:8px;align-self:center}.mk-auto small{color:#6b6f76}.mk-auto-flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0;font-size:12px}.mk-auto-flow b{padding:5px 8px;border:1px solid currentColor;border-radius:6px;font-weight:500}
 .mk-pvf .pv-rep{position:absolute;left:0;right:0;bottom:0;top:72%;background:#fff;border-radius:4cqw 4cqw 0 0;padding:2.4cqw 11.2cqw 0 3.4cqw;box-sizing:border-box;overflow:hidden;color:#141414}
@@ -11964,6 +11964,16 @@ Who is the auditor?</textarea>
       } catch (e){ URL.revokeObjectURL(url); if (seq === coSeq) coLogo = {tk, state: "missing", why: "The picture found could not be read."}; }
       if (seq === coSeq){ drawCoLogo(); drawBrand(); drawPreview(); }
     }
+    // a logo dragged onto the logo box (Brock, 2026-11-10: "add a drag and drop section to upload the logo"): the first
+    // picture among the files dropped, else the first file (the upload says when it is not a picture). A picture dragged
+    // straight from a web page often arrives as a link, not a file: that is said, not guessed at.
+    function coLogoDrop(dt){
+      if (!logoTk()) return null;                     // no ticker yet: the box asks for one (step 1)
+      const fs = [...((dt && dt.files) || [])], f = fs.find(x => /^image\//.test(x.type || "")) || fs[0] || null;
+      if (!f){ mkSay("mk-cl-st", "Drop a picture file (PNG or JPG). From a web page, save the picture first, then drop it here.", true); return null; }
+      uploadCoLogo(f);
+      return f;
+    }
     // an upload goes through the Studio's own picture check (a picture the browser can read, at most 1600 px, kept as
     // a PNG when any part is see-through) into Quick add, and is kept as this ticker's logo
     async function uploadCoLogo(f){
@@ -11996,8 +12006,8 @@ Who is the auditor?</textarea>
           <p class="mk-note${coLogo.state === "missing" ? " err" : ""}">${coLogo.state === "loading" ? "Looking for the company's logo..."
             : lg ? `Logo for the recording: ${esc(from)}, ${lg.w} &times; ${lg.h}. This exact picture is the one recorded (the squares show where it is see-through).`
             : `No logo found. Upload a company logo.${coLogo.why ? " " + esc(coLogo.why) : ""} Without one, the clip records without a logo.`}</p>
-          <div class="mk-row"><label class="av-chip mk-cl-up">${lg ? "Replace logo" : "Upload a company logo"}<input type="file" id="mk-cl-file" accept="image/*" hidden></label>
-            ${coLogo.from === "upload" || coLogo.from === "quick" ? `<button type="button" class="av-chip" id="mk-cl-undo">Use the logo found for ${esc(tk)} instead</button>` : ""}
+          <label class="pics-drop mk-cl-drop" id="mk-cl-drop" tabindex="0"><input type="file" id="mk-cl-file" accept="image/*" hidden><b>${lg ? "Drop a new logo here, or click to choose" : "Drop the company's logo here, or click to choose"}</b><span>A PNG or JPG; a see-through background looks best.</span></label>
+          <div class="mk-row">${coLogo.from === "upload" || coLogo.from === "quick" ? `<button type="button" class="av-chip" id="mk-cl-undo">Use the logo found for ${esc(tk)} instead</button>` : ""}
             ${coLogo.state === "missing" && !/local crawler/.test(coLogo.why || "") ? `<button type="button" class="av-chip" id="mk-cl-again">Look again</button>` : ""}</div>
           <p class="mk-st" id="mk-cl-st" role="status"></p></div>`;
     }
@@ -12241,6 +12251,26 @@ Who is the auditor?</textarea>
       $m("mk-safe").addEventListener("change", e => { mk.safe = e.target.checked; saveMk(); drawPreview(); });
       // company branding: the logo (step 1), its three settings and the preset (step 5), the preview's moments (step 6)
       $m("mk-cologo").addEventListener("change", e => { if (e.target.id !== "mk-cl-file") return; const f = e.target.files[0]; e.target.value = ""; if (f) uploadCoLogo(f); });
+      // a logo file dragged onto the box: the drop zone lights up while one is over it; a file dropped anywhere on the
+      // box is taken (never opened by the browser in place of the page)
+      const clZone = () => $m("mk-cologo").querySelector("#mk-cl-drop");
+      for (const ev of ["dragenter", "dragover"]) $m("mk-cologo").addEventListener(ev, e => {
+        const z = clZone();                           // (no zone while the box still asks for the ticker: nothing is taken)
+        e.preventDefault(); e.stopPropagation(); if (e.dataTransfer) e.dataTransfer.dropEffect = z ? "copy" : "none";
+        if (z) z.classList.add("over");
+      });
+      $m("mk-cologo").addEventListener("dragleave", e => { const z = clZone(); if (z && !$m("mk-cologo").contains(e.relatedTarget)) z.classList.remove("over"); });
+      $m("mk-cologo").addEventListener("drop", e => { e.preventDefault(); e.stopPropagation(); const z = clZone(); if (z) z.classList.remove("over"); coLogoDrop(e.dataTransfer); });
+      $m("mk-cologo").addEventListener("keydown", e => {        // the drop zone opens the file chooser from the keyboard too
+        if ((e.key === "Enter" || e.key === " ") && e.target.id === "mk-cl-drop"){ e.preventDefault(); const i = e.target.querySelector("#mk-cl-file"); if (i) i.click(); }
+      });
+      // a file that misses the logo box is refused, not opened: Chrome opens a file dropped on a page that does not take
+      // it in place of the page, and the clip being set up would be gone (the logo box takes its own drops above)
+      const mkRoot = body.querySelector(".ps.mk");
+      for (const ev of ["dragover", "drop"]) mkRoot.addEventListener(ev, e => {
+        if (!e.dataTransfer || ![...(e.dataTransfer.types || [])].includes("Files")) return;
+        e.preventDefault(); if (ev === "dragover") e.dataTransfer.dropEffect = "none";
+      });
       $m("mk-cologo").addEventListener("click", e => {
         if (e.target.closest("#mk-cl-again")){ resolveCoLogo(); return; }
         if (!e.target.closest("#mk-cl-undo")) return;

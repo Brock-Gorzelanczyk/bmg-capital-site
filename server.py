@@ -2366,6 +2366,44 @@ def _logo_keep(t: str, data: bytes, source: str) -> None:
         log.warning("logo cache write failed for %s: %s", t, e)
 
 
+@app.get("/api/edgar/companies")
+async def edgar_companies(q: str = Query(..., min_length=1, max_length=60), limit: int = Query(8, ge=1, le=20)):
+    """Companies that file with the SEC whose ticker or name matches what was typed: {"companies": [{ticker, name}]},
+    the ticker itself first, then tickers and names that start with it, then names that hold it; within each, in SEC's
+    own order (largest first). For the company page's search: a name that is not on the brain's map still finds its ticker."""
+    denied = _edgar_denied()
+    if denied:
+        return denied
+    s = re.sub(r"\s+", " ", q).strip().lower()
+    if not s:
+        return JSONResponse(content={"companies": []})
+    client = HTTP_CLIENT or httpx.AsyncClient(timeout=20.0, follow_redirects=True)
+    try:
+        tmap = await _ticker_map(client)
+    except (httpx.HTTPError, ValueError) as e:
+        return JSONResponse(status_code=502, content={"error": f"SEC EDGAR did not return its list of companies ({_sec_why(e)})."})
+    ranks: list = [[], [], [], []]
+    sq = re.sub(r"[^a-z0-9]", "", s)                 # "jp morgan" finds "JPMORGAN CHASE & CO"
+    for t, row in tmap.items():
+        name = str(row.get("title") or "")
+        tl, nl = t.lower(), name.lower()
+        nq = re.sub(r"[^a-z0-9]", "", nl)
+        k = (0 if tl == s else 1 if tl.startswith(s) or nl.startswith(s) or (len(sq) >= 3 and nq.startswith(sq)) else 2 if re.search(r"\b" + re.escape(s), nl)
+             else 3 if (len(s) >= 3 and s in nl) or (len(sq) >= 4 and sq in nq) else None)
+        if k is not None:
+            ranks[k].append({"ticker": t, "name": name.title() if name == name.upper() else name})
+    seen, out = set(), []
+    for c in [c for r in ranks for c in r]:
+        key = c["name"].lower()
+        if key in seen:
+            continue                                 # a company's second share class is listed once
+        seen.add(key)
+        out.append(c)
+        if len(out) >= limit:
+            break
+    return JSONResponse(content={"companies": out})
+
+
 @app.get("/api/company-logo")
 async def company_logo(ticker: str = Query(..., max_length=12)):
     """The logo kept for a ticker, as the picture itself (X-Logo-Source says where it came from), or {"found": false}."""
@@ -4604,6 +4642,145 @@ async def brain_report(ticker: str) -> JSONResponse:
     return JSONResponse(content=out)
 
 
+# ---- the About box of a company's page (reader/brain_profile.py): the chief executive, head count, founding year and
+# description from the company's latest annual filing, where it is based from SEC's record, and Wikidata for what the
+# filing does not say. Reads only: nothing is saved to My reads or written to the brain.
+_PROFILE_KEEP = 12 * 3600          # a company's About box is put together again after half a day (or with fresh=1)
+_PROFILE_FILING_KEEP = 400 * 86400 # what a filing says does not change once it is filed
+
+
+def _period_end(text: Optional[str]) -> Optional[str]:
+    """ "Fiscal year ended January 25, 2026" -> "2026-01-25" (None when the words hold no such date)."""
+    m = re.search(r"(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),\s+(\d{4})", text or "")
+    if not m:
+        return None
+    mo = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].index(m.group(1)) + 1
+    return f"{int(m.group(3)):04d}-{mo:02d}-{int(m.group(2)):02d}"
+
+
+async def _profile_filing(t: str, names: list) -> dict:
+    """What the company's latest annual filing says for the About box: from the Crawler's saved read when that is the
+    latest one (its pages then open in the Crawler), else from the 10-K itself, fetched from SEC EDGAR and read for
+    its text only. {"facts": ..., "source": {form, period, period_end, filed, url, read}}, or {"error": why}."""
+    from reader import brain_company as _bc, brain_profile as _bp, document as _doc
+    latest, why = None, None
+    try:
+        # a company outside the United States files a 20-F (one in Canada a 40-F) as its annual report: looked for when no 10-K is listed
+        for want in ("10-K", "20-F", "40-F"):
+            fl = await edgar_filings(ticker=t, fresh=False, earnings=False, forms=want, limit=4)
+            if not isinstance(fl, dict):
+                why = json.loads(fl.body).get("error")
+                break
+            if fl.get("filings"):
+                # the annual report itself: an amendment filed after it (often Part III only) does not describe the business
+                first = next((f for f in fl["filings"] if f.get("form") == want), fl["filings"][0])
+                latest = {**first, "cik": first.get("cik") or fl.get("cik")}
+                break
+        if not latest and not why:
+            why = f"SEC EDGAR lists no annual report (10-K, 20-F or 40-F) for {t}."
+    except (httpx.HTTPError, ValueError) as e:
+        why = f"SEC EDGAR did not answer ({_sec_why(e)})."
+    found = await asyncio.to_thread(_bc.latest_annual, _READS_LIBRARY, t)
+    if found and str(found["entry"].get("form") or "").upper().endswith("/A"):
+        found = None                                 # a saved amendment is not the annual report
+    if found:
+        e, res = found["entry"], found["result"]
+        co = (res.get("report") or {}).get("company") or {}
+        pe = _period_end(co.get("period") or e.get("period"))
+        same = bool(latest and (latest["accession"] in (e.get("title") or "") or (pe and pe >= (latest.get("period") or "9999"))))
+        if same or not latest:
+            key = f"brain-profile-filing::{_bp.VERSION}::read::{e['sha256']}"
+            facts = _cache_read(key, _PROFILE_FILING_KEEP)
+            if facts is None:
+                kept = await asyncio.to_thread(_READS_LIBRARY.source, e["sha256"])
+
+                def read_saved() -> dict:
+                    # the saved file itself, read the way the Crawler read it, gives each page its printed number;
+                    # without the file, the saved text (then a page is the reader's own page count)
+                    if kept:
+                        try:
+                            doc = _doc.load(kept[0], e.get("kind") or "html", e.get("title") or t)
+                            secs = [{"item": x.item, "title": x.title, "offset": x.offset, "page": x.page} for x in doc.sections]
+                            return _bp.from_filing(doc.body, doc.page_starts, secs, doc.printed_page, names)
+                        except _ReaderError:
+                            pass
+                    return _bp.from_filing(res.get("text") or "", res.get("page_starts"), res.get("sections"), None, names)
+                facts = await asyncio.to_thread(read_saved)
+                _cache_write(key, facts)
+            src = {"form": co.get("form") or e.get("form") or "10-K", "period": co.get("period") or e.get("period"), "period_end": pe,
+                   "filed": (latest or {}).get("filed") if same else None, "url": (latest or {}).get("url") if same else None,
+                   "read": e["sha256"], "saved": True}
+            return {"facts": facts, "source": src}
+    if not latest:
+        return {"error": why or "No annual filing was found."}
+    key = f"brain-profile-filing::{_bp.VERSION}::edgar::{latest['accession']}"
+    facts = _cache_read(key, _PROFILE_FILING_KEEP)
+    if facts is None:
+        d = await edgar_document(cik=latest["cik"], accession=latest["accession"], document=latest["document"])
+        if d.status_code != 200:
+            return {"error": json.loads(d.body).get("error") or f"SEC EDGAR did not return the filing ({d.status_code})."}
+        ext = latest["document"].split("+")[0].rsplit(".", 1)[-1].lower() if "." in latest["document"] else "htm"
+        kind = "pdf" if ext == "pdf" else "text" if ext == "txt" else "html"
+
+        def read() -> dict:
+            doc = _doc.load(d.body, kind, f"{t} {latest['form']} {latest.get('period') or latest['filed']}")
+            secs = [{"item": x.item, "title": x.title, "offset": x.offset, "page": x.page} for x in doc.sections]
+            return _bp.from_filing(doc.body, doc.page_starts, secs, doc.printed_page, names)
+        try:
+            facts = await asyncio.to_thread(read)
+        except _ReaderError as e:
+            return {"error": str(getattr(e, "msg", None) or e)[:200]}
+        _cache_write(key, facts)
+    older = None
+    if found:
+        fe = found["entry"]
+        older = {"form": fe.get("form"), "period": fe.get("period"), "read": fe.get("sha256")}
+    return {"facts": facts, "source": {"form": latest["form"], "period": latest.get("period"), "period_end": latest.get("period"), "filed": latest["filed"],
+                                       "url": latest["url"], "read": None, "saved": False, "older_read": older}}
+
+
+@app.get("/api/brain/{ticker}/profile")
+async def brain_profile(ticker: str, fresh: bool = False) -> JSONResponse:
+    """About the company, for its page in the brain: chief executive, founded, employees, headquarters and what it does,
+    each with its source (the latest annual filing with its page, SEC EDGAR's record, or Wikidata and Wikipedia marked
+    SECONDARY). Works for any SEC filer, on the brain's map or not. A fact no source gives says NOT FOUND."""
+    v, t, err = _brain_guard(ticker)
+    if err:
+        return err
+    from reader import brain_profile as _bp, brain_universe as _bu
+    t = _bu.canonical(v, t)
+    key = f"brain-profile::{_bp.VERSION}::{t}"
+    kept = None if fresh else _cache_read(key, _PROFILE_KEEP)
+    if kept:
+        return JSONResponse(content=kept)
+    co = _bu.company(v, t) or {}
+    client = HTTP_CLIENT or httpx.AsyncClient(timeout=20.0, follow_redirects=True)
+    cik, sub = co.get("cik"), None
+    try:
+        if not cik:
+            tmap = await _ticker_map(client)
+            row = next((tmap[x] for x in _ticker_variants(t) if x in tmap), None)
+            cik = int(row["cik_str"]) if row else None
+        if cik:
+            sub = await _sec_fetch_json(f"https://data.sec.gov/submissions/CIK{int(cik):010d}.json", TTL_SUBMISSIONS, client)
+    except (httpx.HTTPError, ValueError) as e:
+        log.info("profile: SEC record for %s not read (%s)", t, _sec_why(e))
+    if not cik and not co:
+        return JSONResponse(status_code=404, content={"error": f"No SEC filer has the ticker {t}."})
+    rec = _bp.sec_record(sub or {})
+    if cik and not rec.get("cik"):
+        rec["cik"] = str(cik)
+    name = co.get("name") or rec.get("name") or t
+    names = [n for n in dict.fromkeys([t, co.get("name"), co.get("sec_name"), rec.get("name")]) if n]
+    filing, wd = await asyncio.gather(_profile_filing(t, names),
+                                      _bp.wikidata(t, str(cik) if cik else None, name, (sub or {}).get("exchanges"), cache_dir=CACHE_DIR / "profile", fresh=fresh))
+    out = _bp.build(t, name, co, rec, filing, wd)
+    out["on_map"] = bool(co)
+    if wd.get("found") is not None and not filing.get("error"):
+        _cache_write(key, out)                       # an answer missing a source that did not respond is put together again next time
+    return JSONResponse(content=out)
+
+
 def _market_guard():
     if os.environ.get("BMG_LOCAL") != "1":
         return JSONResponse(status_code=403, content={"error": "Market data is on the local Crawler only."})
@@ -4643,6 +4820,36 @@ async def market_earnings(days: int = Query(14, ge=1, le=31)) -> JSONResponse:
     v = _vault_repo()
     uni = set(((_bu.universe(v) or {}).get("companies") or {}).keys()) if v else set()
     return JSONResponse(content=await _bm.earnings(uni, days, cache_dir=Path(CACHE_DIR) / "market"))
+
+
+@app.get("/api/market/chart")
+async def market_chart(ticker: str = Query(..., max_length=12), rng: str = Query("1D", alias="range", max_length=4)) -> JSONResponse:
+    """A company's price chart for its page in the brain: range=1D, 1W, 1M, 3M, YTD, 1Y, 5Y or MAX. Each point is
+    [time in ms, price]; "base" is the close the range is measured from. SECONDARY, like every price here."""
+    err = _market_guard()
+    if err:
+        return err
+    from reader import brain_market as _bm
+    t = ticker.strip().upper().replace(".", "-")
+    if not re.fullmatch(r"[A-Z][A-Z0-9\-]{0,9}", t):
+        return JSONResponse(status_code=400, content={"error": "Give ticker=NVDA."})
+    if rng.strip().upper() not in _bm.RANGES:
+        return JSONResponse(status_code=400, content={"error": f"Ranges: {', '.join(_bm.RANGES)}."})
+    return JSONResponse(content=await _bm.chart(t, rng))
+
+
+@app.get("/api/market/stats")
+async def market_stats(ticker: str = Query(..., max_length=12)) -> JSONResponse:
+    """The day's figures for a company's page: open, high, low, volume, previous close, the 52-week range and the
+    average daily volume of the last three months. SECONDARY."""
+    err = _market_guard()
+    if err:
+        return err
+    from reader import brain_market as _bm
+    t = ticker.strip().upper().replace(".", "-")
+    if not re.fullmatch(r"[A-Z][A-Z0-9\-]{0,9}", t):
+        return JSONResponse(status_code=400, content={"error": "Give ticker=NVDA."})
+    return JSONResponse(content=await _bm.day_stats(t))
 
 
 def _mastermind():

@@ -3,172 +3,774 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Company Report | BMG Capital</title>
+<title>Company | BMG Capital</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../terminal.css">
 <style>
-/* One company's report from its annual filing, read by the Crawler: what it does, the takeaways, the figures across
-   years, red flags, risks, debt maturities, its comp set and a side-by-side with any comp. Every figure keeps its page. */
-body { padding: calc(var(--top) + 14px) 16px calc(var(--tape) + 24px); }
-main { max-width: 1280px; margin: 0 auto; min-width: 0; overflow-wrap: anywhere; }
-.cols > *, .stack > * { min-width: 0; }
-.crumbs { font: 12px var(--mono); color: var(--mute); margin-bottom: 8px; }
-.crumbs a { color: var(--mute); text-decoration: none; } .crumbs a:hover { color: var(--amber); }
-.head { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: end; border-bottom: 1px solid var(--amber); padding-bottom: 10px; margin-bottom: 14px; }
-.head .tk { font: 700 34px var(--mono); color: var(--amber); letter-spacing: 0.04em; }
-.head .tk small { font-size: 14px; color: var(--mute); letter-spacing: 0.1em; margin-left: 8px; }
-.head .nm { font-size: 18px; margin-top: 2px; }
-.head .cl { font: 12px var(--mono); color: var(--mute); margin-top: 6px; }
-.head .cl i { display: inline-block; width: 9px; height: 9px; margin-right: 6px; }
-.px { text-align: right; font-family: var(--mono); }
-.px .p { font-size: 28px; font-weight: 600; }
-.px .c { font-size: 14px; }
-.px .s { font-size: 11px; color: var(--dim); margin-top: 2px; }
-.acts { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 14px; }
-.cols { display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; align-items: start; }
-.stack { display: grid; gap: 14px; }
-.headline { font-size: 16px; line-height: 1.5; margin: 0 0 10px; color: var(--amber2); }
-.tw { border-left: 3px solid var(--line2); padding: 4px 0 4px 10px; margin: 0 0 10px; }
-.tw.pos { border-color: var(--green); } .tw.neg { border-color: var(--red); }
-.tw b { display: block; font-size: 14px; } .tw p { margin: 3px 0 0; font-size: 13px; color: #c9cfd8; line-height: 1.45; }
-.tw .w { color: var(--dim); font-size: 12px; }
-.bars { display: inline-flex; gap: 2px; align-items: flex-end; height: 22px; vertical-align: middle; margin-right: 8px; }
-.bars span { width: 6px; background: var(--amber); opacity: 0.85; } .bars span.neg { background: var(--red); }
-.flag { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+/* One company, everything about it on one page (Brock, 2026-11-10: "when I type in NVIDIA, boom, we're getting
+   everything about NVIDIA"). Top to bottom: the price and a simple chart; About (chief executive, founded, employees,
+   headquarters, what it does); the day's key statistics; then what the Crawler's brain holds: the takeaways of its
+   annual filing, the figures by year and by quarter, balance sheet, guidance, the quality scores and red-flag checks,
+   risks, the comp set, the filings read. Every figure from a filing keeps its page, and the page opens in the Crawler
+   when this computer has the saved read. Prices are SECONDARY context. The page reads; its one request that is not a
+   read asks the Crawler itself to read the company's 10-K (the brain's only writer). */
+:root { --card: #0a0d12; --card2: #10151c; --hair: #1b222d; --hair2: #263040; --text: #eef1f5; --soft: #aab3c2; --faint: #6f7a8c; --up: #2fd36b; --dn: #ff5a52; --rad: 14px; }
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--top) + 64px); }
+body { padding: var(--top) 0 calc(var(--tape) + 48px); font: 15px/1.5 var(--sans); color: var(--text); -webkit-font-smoothing: antialiased; }
+a { color: var(--amber2); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: 22px; padding-right: 22px; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* the bar under the top bar: who this is (once the price has scrolled away), the sections, the search */
+.bar { position: sticky; top: var(--top); z-index: 30; background: rgba(2, 3, 4, 0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--hair); }
+.bar .wrap { display: flex; align-items: center; gap: 14px; height: 54px; }
+.mini { display: none; align-items: center; gap: 8px; font-weight: 600; white-space: nowrap; }
+.bar.past .mini { display: flex; }
+.mini .mp { color: var(--soft); font-weight: 500; }
+.tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs.more { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 30px), transparent); }
+.tabs a { padding: 6px 11px; border-radius: 999px; color: var(--soft); text-decoration: none; font-size: 13.5px; white-space: nowrap; }
+.tabs a:hover { color: var(--text); background: var(--card2); }
+.tabs a.on { color: #000; background: var(--text); }
+.tabs a[hidden] { display: none; }
+.find { position: relative; flex: none; width: 250px; }
+.find input { width: 100%; height: 36px; padding: 0 12px 0 34px; border-radius: 999px; border: 1px solid var(--hair2); background: var(--card); color: var(--text); font: 14px var(--sans); outline: none; }
+.find input:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(255, 176, 0, 0.16); }
+.find input::placeholder { color: var(--faint); }
+.find svg { position: absolute; left: 12px; top: 10px; width: 16px; height: 16px; stroke: var(--faint); fill: none; stroke-width: 2; pointer-events: none; }
+.find ul { position: absolute; top: 42px; left: 0; right: 0; margin: 0; padding: 6px; list-style: none; background: var(--card2); border: 1px solid var(--hair2); border-radius: 12px; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6); max-height: 340px; overflow: auto; }
+.find ul:empty { display: none; }
+.find li a { display: flex; gap: 10px; align-items: baseline; padding: 7px 9px; border-radius: 8px; color: var(--text); text-decoration: none; }
+.find li a:hover, .find li a.sel { background: #1a2230; }
+.find li b { font-weight: 600; min-width: 52px; }
+.find li span { color: var(--soft); font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* the top of the page: name, price, chart */
+.hero { padding-top: 26px; }
+.who { display: flex; align-items: center; gap: 14px; }
+.clogo { width: 52px; height: 52px; border-radius: 12px; background: #fff; display: grid; place-items: center; overflow: hidden; flex: none; font: 700 20px var(--sans); color: #000; }
+.clogo img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+.clogo.none { background: var(--card2); color: var(--text); border: 1px solid var(--hair2); }
+h1 { margin: 0; font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em; }
+.sub { color: var(--soft); font-size: 14px; margin-top: 3px; }
+.sub a { color: var(--soft); text-decoration: none; border-bottom: 1px dotted var(--faint); } .sub a:hover { color: var(--text); }
+.sub .tag { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: rgba(255, 176, 0, 0.14); color: var(--amber2); font-size: 12px; font-weight: 600; }
+.px { margin-top: 18px; font-size: 46px; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; min-height: 49px; }
+.chg { margin-top: 6px; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; min-height: 22px; }
+.chg .when { color: var(--soft); font-weight: 500; margin-left: 6px; }
+.up { color: var(--up); } .down { color: var(--dn); }
+.chart { position: relative; height: 300px; margin-top: 10px; touch-action: pan-y; cursor: crosshair; user-select: none; }
+.chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.chart .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .base { stroke: var(--faint); stroke-width: 1; stroke-dasharray: 1 5; stroke-linecap: round; }
+.chart .cur { stroke: var(--soft); stroke-width: 1; }
+.chart .stamp { position: absolute; top: -4px; transform: translateX(-50%); color: var(--soft); font-size: 12.5px; white-space: nowrap; pointer-events: none; font-variant-numeric: tabular-nums; }
+.chart .note { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--soft); padding: 20px; cursor: default; }
+.chart.busy svg { opacity: 0.35; transition: opacity 0.15s; }
+.ranges { display: flex; gap: 4px; margin-top: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--hair); flex-wrap: wrap; align-items: center; }
+.ranges button { background: none; border: 0; color: var(--text); font: 600 13.5px var(--sans); padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+.ranges button:hover { color: var(--c, var(--up)); }
+.ranges button[aria-pressed="true"] { background: var(--c, var(--text)); color: #000; }
+.ranges .src { margin-left: auto; color: var(--faint); font-size: 12px; }
+
+/* sections */
+.sec { padding-top: 34px; }
+.sec > h2 { margin: 0 0 14px; font-size: 21px; font-weight: 600; letter-spacing: -0.01em; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.sec > h2 small { font-size: 13px; font-weight: 400; color: var(--soft); }
+.card { background: var(--card); border: 1px solid var(--hair); border-radius: var(--rad); padding: 18px 20px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; } .grid2 > * { min-width: 0; }
+.lead { font-size: 16px; line-height: 1.6; color: #dfe4eb; margin: 0; max-width: 78ch; }
+.lead.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.more { background: none; border: 0; padding: 0; margin-top: 6px; color: var(--amber2); font: 600 14px var(--sans); cursor: pointer; }
+.wiki { margin: 12px 0 0; color: var(--soft); font-size: 14.5px; line-height: 1.6; max-width: 78ch; }
+.facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-top: 18px; border-top: 1px solid var(--hair); }
+.fact { padding: 14px 16px 12px 0; border-bottom: 1px solid var(--hair); min-width: 0; }
+.fact .k { color: var(--soft); font-size: 13px; font-weight: 600; }
+.fact .v { margin-top: 3px; font-size: 16px; font-weight: 500; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.fact .v.na { color: var(--faint); font-weight: 400; }
+.fact .v a { color: var(--text); }
+.fact .s { margin-top: 3px; font-size: 12px; color: var(--faint); }
+.cite { color: var(--faint); font-size: 12px; text-decoration: none; white-space: nowrap; border-bottom: 1px dotted transparent; }
+a.cite:hover { color: var(--amber2); border-bottom-color: var(--amber2); }
+.sec2 { display: inline-block; margin-left: 5px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--hair2); color: var(--faint); font-size: 10.5px; letter-spacing: 0.04em; vertical-align: 1px; }
+.range52 { grid-column: 1 / -1; padding: 16px 0 14px; border-bottom: 1px solid var(--hair); }
+.range52 .rail { position: relative; height: 4px; border-radius: 2px; background: var(--hair2); margin: 10px 0 6px; }
+.range52 .rail i { position: absolute; top: -4px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 3px var(--bg); }
+.range52 .ends { display: flex; justify-content: space-between; font-size: 13px; color: var(--soft); font-variant-numeric: tabular-nums; }
+.note { color: var(--faint); font-size: 12.5px; line-height: 1.5; margin: 10px 0 0; }
+.skel { display: inline-block; height: 1em; width: 7em; border-radius: 6px; background: linear-gradient(90deg, #131922 0%, #1c2430 50%, #131922 100%); background-size: 200% 100%; animation: sk 1.2s linear infinite; vertical-align: middle; }
+@keyframes sk { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } html { scroll-behavior: auto; } }
+
+/* what the Crawler found */
+.headline { font-size: 19px; line-height: 1.45; font-weight: 500; margin: 0 0 14px; max-width: 70ch; }
+.takes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.take { background: var(--card); border: 1px solid var(--hair); border-left: 3px solid var(--hair2); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.take.pos { border-left-color: var(--up); } .take.neg { border-left-color: var(--dn); }
+.take b { display: block; font-size: 15.5px; font-weight: 600; }
+.take p { margin: 6px 0 0; color: #cfd5de; font-size: 14.5px; line-height: 1.5; }
+.take .w { color: var(--soft); font-size: 13.5px; }
+.empty { background: var(--card); border: 1px dashed var(--hair2); border-radius: var(--rad); padding: 22px; color: var(--soft); }
+.empty b { color: var(--text); font-size: 16px; display: block; margin-bottom: 4px; }
+.act { display: inline-flex; align-items: center; gap: 6px; margin: 12px 8px 0 0; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--hair2); background: var(--card2); color: var(--text); font: 600 13.5px var(--sans); text-decoration: none; cursor: pointer; }
+.act:hover { border-color: var(--amber); color: var(--amber2); }
+.act.main { background: var(--amber); border-color: var(--amber); color: #000; } .act.main:hover { background: var(--amber2); color: #000; }
+.act[disabled] { opacity: 0.6; cursor: default; }
+.acts { display: flex; flex-wrap: wrap; gap: 0; margin-top: 4px; }
+
+/* financials */
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pills button { background: var(--card2); border: 1px solid var(--hair2); color: var(--soft); font: 500 13.5px var(--sans); padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+.pills button:hover { color: var(--text); }
+.pills button[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: #000; font-weight: 600; }
+.seg { display: inline-flex; border: 1px solid var(--hair2); border-radius: 999px; padding: 2px; background: var(--card); }
+.seg button { background: none; border: 0; color: var(--soft); font: 500 13px var(--sans); padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--card2); color: var(--text); font-weight: 600; box-shadow: inset 0 0 0 1px var(--hair2); }
+.seg button[disabled] { opacity: 0.4; cursor: default; }
+.finhead { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.finhead .sp { flex: 1; }
+.bars { height: 250px; margin-top: 8px; }
+.bars svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.bars .v { fill: var(--text); font: 600 13px var(--sans); font-variant-numeric: tabular-nums; }
+.bars .p { fill: var(--soft); font: 12.5px var(--sans); }
+.bars .g { font: 600 12px var(--sans); }
+.bars a { cursor: pointer; } .bars a:hover rect { opacity: 1; }
+.bars rect { opacity: 0.88; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tbl th { text-align: left; font-weight: 600; font-size: 12.5px; color: var(--soft); padding: 8px 10px; border-bottom: 1px solid var(--hair2); white-space: nowrap; }
+.tbl td { padding: 9px 10px; border-bottom: 1px solid var(--hair); vertical-align: top; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl td.n .cite { display: block; }
+.tbl td.go { text-align: right; white-space: nowrap; } .tbl td.go .cite { margin-left: 14px; font-size: 13px; color: var(--soft); }
+.tbl td.co { min-width: 150px; }
+.tbl tr.click { cursor: pointer; } .tbl tr.click:hover td { background: #0f141b; }
+.scroll { overflow-x: auto; }
+details.fold > summary { cursor: pointer; color: var(--amber2); font-weight: 600; font-size: 14px; list-style: none; margin-top: 14px; }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold[open] > summary { margin-bottom: 10px; }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.tile { background: var(--card); border: 1px solid var(--hair); border-radius: 12px; padding: 13px 15px; min-width: 0; }
+.tile .k { color: var(--soft); font-size: 12.5px; font-weight: 600; }
+.tile .v { margin-top: 4px; font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile .s { margin-top: 2px; font-size: 12px; color: var(--faint); line-height: 1.45; }
+.guide { margin: 0; padding: 0; list-style: none; }
+.guide li { padding: 11px 0; border-bottom: 1px solid var(--hair); display: grid; grid-template-columns: 110px 1fr auto; gap: 12px; align-items: baseline; }
+.guide li:last-child { border-bottom: 0; }
+.guide .tp { color: var(--soft); font-size: 12.5px; font-weight: 600; }
+.chip2 { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--card2); border: 1px solid var(--hair2); color: var(--soft); white-space: nowrap; }
+.chip2.rd { background: rgba(255, 90, 82, 0.14); border-color: rgba(255, 90, 82, 0.4); color: #ff8a84; }
+.chip2.gr { background: rgba(47, 211, 107, 0.12); border-color: rgba(47, 211, 107, 0.35); color: #6fe39a; }
+.chip2.am { background: rgba(255, 176, 0, 0.12); border-color: rgba(255, 176, 0, 0.35); color: var(--amber2); }
+.flag { display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--hair); align-items: start; }
 .flag:last-child { border-bottom: 0; }
-.score { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
-.score div { background: var(--panel2); border: 1px solid var(--line); padding: 8px 4px; }
-.score b { display: block; font: 600 20px var(--mono); color: var(--amber2); } .score span { font: 11px var(--mono); color: var(--mute); }
-.cmp-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; font: 12px var(--mono); color: var(--mute); }
-.cmp-bar select { background: #000; color: var(--amber2); border: 1px solid var(--line2); font: 13px var(--mono); padding: 4px 6px; }
-.na { color: var(--dim); }
-.msg { padding: 24px; text-align: center; color: var(--mute); }
-@media (max-width: 980px) { .cols { grid-template-columns: 1fr; } .head { grid-template-columns: 1fr; } .px { text-align: left; } }
+.flag q { display: block; margin-top: 3px; color: var(--soft); font-size: 13.5px; quotes: none; }
+.tk { display: inline-block; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--hair2); background: var(--card2); color: var(--text); font: 600 13px var(--sans); text-decoration: none; margin: 0 6px 6px 0; }
+.tk:hover { border-color: var(--amber); color: var(--amber2); }
+.peer .t { font-weight: 600; } .peer .nm2 { color: var(--soft); font-size: 13px; }
+.cmpbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; color: var(--soft); font-size: 14px; }
+.cmpbar select { background: var(--card2); color: var(--text); border: 1px solid var(--hair2); border-radius: 999px; font: 14px var(--sans); padding: 6px 12px; }
+.foot { color: var(--faint); font-size: 12.5px; line-height: 1.6; margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--hair); }
+.landing { text-align: center; padding: 90px 0 40px; }
+.landing h1 { font-size: 34px; }
+.landing p { color: var(--soft); max-width: 46ch; margin: 10px auto 22px; }
+.landing .find { width: min(520px, 100%); margin: 0 auto; }
+.landing .find input { height: 50px; font-size: 17px; padding-left: 44px; }
+.landing .find svg { left: 16px; top: 16px; width: 18px; height: 18px; }
+.landing .find ul { top: 56px; text-align: left; }
+@media (max-width: 900px) {
+  .facts, .tiles { grid-template-columns: repeat(2, 1fr); }
+  .grid2, .takes { grid-template-columns: 1fr; }
+  .find { width: 170px; }
+  .px { font-size: 38px; }
+  .chart { height: 240px; }
+  .guide li { grid-template-columns: 1fr; gap: 2px; }
+  .ranges .src { width: 100%; margin: 6px 0 0; }
+}
+@media (max-width: 560px) { .wrap { padding-left: 14px; padding-right: 14px; } .bar .tabs { display: none; } .find { width: auto; flex: 1; } h1 { font-size: 24px; } .ranges button { padding: 6px 8px; } }
 </style>
 </head>
 <body>
-<main id="main"><div class="msg">Loading the report...</div></main>
+<div class="bar" id="bar"><div class="wrap">
+  <div class="mini" id="mini"></div>
+  <nav class="tabs" id="tabs" aria-label="Sections of this page">
+    <a href="#top" data-s="top">Overview</a><a href="#about" data-s="about">About</a><a href="#stats" data-s="stats">Statistics</a>
+    <a href="#found" data-s="found">Crawler's read</a><a href="#fin" data-s="fin">Financials</a><a href="#health" data-s="health">Health</a>
+    <a href="#risks" data-s="risks">Risks</a><a href="#peers" data-s="peers">Peers</a><a href="#filings" data-s="filings">Filings</a>
+  </nav>
+  <div class="find" id="find"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    <input id="q" type="search" placeholder="Search a company or ticker" autocomplete="off" spellcheck="false" aria-label="Search a company or ticker"><ul id="hits"></ul></div>
+</div></div>
+<main id="main"></main>
 <script src="../shell.js"></script>
 <script>
 (() => {
 "use strict";
 const {esc, getJSON, money, pct, cls, nav, tape, quotes, earnings, erLabel} = window.BMG;
-const COLORS = {"Information Technology": "#4E79A7", "Health Care": "#59A14F", "Financials": "#F28E2B", "Consumer Discretionary": "#E15759",
-  "Communication Services": "#B07AA1", "Industrials": "#76B7B2", "Consumer Staples": "#FF9DA7", "Energy": "#9C755F",
-  "Utilities": "#BAB0AC", "Real Estate": "#8CD17D", "Materials": "#D37295"};
 nav("brain");
-const T = (new URLSearchParams(location.search).get("t") || "").toUpperCase();
+const T = (new URLSearchParams(location.search).get("t") || "").trim().toUpperCase().replace(/[^A-Z0-9.\-]/g, "").slice(0, 10);
 tape({tickers: () => T ? [T] : []});
-const main = document.getElementById("main");
-const pg = (p, url) => p ? (url ? `<a class="pg" href="${esc(url)}" target="_blank" rel="noopener">p.${esc(p)}</a>` : `<span class="pg">p.${esc(p)}</span>`) : "";
-const short = s => String(s || "").replace(/^(Fiscal year|Quarter) ended /, "");
-const fye = s => { const m = /^(\d\d)(\d\d)$/.exec(String(s || "")); return m ? ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m[1] - 1] + " " + (+m[2]) : s; };
+const $ = id => document.getElementById(id);
+const main = $("main");
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const RANGES = [["1D", "Today"], ["1W", "Past week"], ["1M", "Past month"], ["3M", "Past 3 months"], ["YTD", "Year to date"], ["1Y", "Past year"], ["5Y", "Past 5 years"], ["MAX", "All time"]];
+const S = {report: null, profile: null, snap: null, stats: null, edgar: null, hist: null, quote: null, charts: {}, range: "1D", hover: null, metric: "revenue", span: "FY", src: "brain", srcPick: null, name: T, gone: {}};
 
-async function load() {
-  if (!T) { main.innerHTML = `<div class="msg">No company given. Open one from the <a href="/desk/brain/">brain</a>.</div>`; return; }
-  document.title = `${T} Report | BMG Capital`;
-  let r, vault = "";
-  try { r = await getJSON(`/api/brain/${encodeURIComponent(T)}/report`); }
-  catch (e) { main.innerHTML = `<div class="msg">${esc(e.message)}<br><br>This page works on the Crawler on your Mac (localhost), where the vault is.</div>`; return; }
-  try { const b = await getJSON("/api/brain"); vault = (b.brain_vault || b.vault || "").split(/[\\/]/).filter(Boolean).pop() || ""; } catch (e) {}
-  const cl = r.classification, f = r.filing, color = COLORS[cl.sector] || "#999";
-  const back = `/desk/brain/?sector=${encodeURIComponent(cl.sector_slug)}&sub=${encodeURIComponent(cl.industry_slug)}`;
-  const obs = vault ? `obsidian://open?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(`brain/companies/${r.ticker}/${r.ticker}`)}` : "";
-  const er = await earnings(30), nextEr = er.by && er.by[r.ticker];
-  main.innerHTML = `
-    <div class="crumbs"><a href="/desk/brain/">ALL SECTORS</a> &rsaquo; <a href="/desk/brain/?sector=${encodeURIComponent(cl.sector_slug)}">${esc(cl.sector.toUpperCase())}</a> &rsaquo; <a href="${back}">${esc(cl.industry.toUpperCase())}</a> &rsaquo; ${esc(r.ticker)}</div>
-    <div class="head"><div>
-        <div class="tk">${esc(r.ticker)}<small>US EQUITY</small></div>
-        <div class="nm">${esc(r.name)}</div>
-        <div class="cl"><i style="background:${color}"></i>${esc(cl.sector)} &rsaquo; ${esc(cl.industry)}${cl.index ? ` &middot; ${esc(cl.index)}` : ""}${cl.fiscal_year_end ? ` &middot; FY ends ${esc(fye(cl.fiscal_year_end))}` : ""}${r.hq ? ` &middot; ${esc(r.hq)}` : ""}</div>
-      </div>
-      <div class="px" id="px"><div class="p">&nbsp;</div></div></div>
-    <div class="acts">
-      <a class="btn" href="#cmp">Compare with a comp</a>
-      <a class="btn" href="/desk/brain/mastermind/?t=${encodeURIComponent(r.ticker)}">Ask Mastermind about ${esc(r.ticker)}</a>
-      <a class="btn" href="${back}">Show in the 3D brain</a>
-      ${obs ? `<a class="btn" href="${obs}">Open in Obsidian</a>` : ""}
-      <a class="btn" href="/desk/read/">Read a new filing in the Crawler</a>
-      ${nextEr ? `<span class="badge" style="align-self:center">REPORTS ${esc(erLabel(nextEr))}</span>` : ""}
-    </div>
-    ${f ? "" : `<section class="panel" style="margin-bottom:14px"><h2>Not read yet</h2><div class="pb">The Crawler has not saved a read of ${esc(r.ticker)}'s annual filing on this Mac, so this page shows its map entry, comp set and any figures the brain holds. Read its 10-K in the Crawler to fill it in.</div></section>`}
-    <div class="cols">
-      <div class="stack">
-        ${f ? `<section class="panel"><h2>From the ${esc(f.form || "annual filing")} <span class="r">${esc(short(f.period))}</span></h2><div class="pb">
-          ${f.headline ? `<p class="headline">${esc(f.headline)}</p>` : ""}
-          ${(f.takeaways || []).map(x => `<div class="tw ${x.tone === "+" ? "pos" : x.tone === "-" ? "neg" : ""}"><b>${esc(x.title)}</b><p>${esc(x.detail || "")}</p>${x.means ? `<p>${esc(x.means)}</p>` : ""}${x.watch ? `<p class="w">Watch: ${esc(x.watch)}</p>` : ""}</div>`).join("")}
-        </div></section>` : ""}
-        ${f && f.business ? `<section class="panel"><h2>What the company does <span class="r">Item 1 ${pg(f.business.page)}</span></h2><div class="pb" style="font-size:14px;line-height:1.55">${esc(f.business.text)}</div></section>` : ""}
-        <section class="panel"><h2>Figures by fiscal year <span class="r">the brain's series, each with its page</span></h2><div class="pb" id="hist"></div></section>
-        <section class="panel" id="cmp"><h2>Compare</h2><div class="pb">
-          <div class="cmp-bar">COMPARE ${esc(r.ticker)} WITH <select id="cmp-with"><option value="">Pick a comp</option>${r.comps.filter(c => !c.outside).map(c => `<option value="${esc(c.ticker)}">${esc(c.ticker)} ${esc(c.name)}</option>`).join("")}${r.same_industry.filter(t => !r.comps.some(c => c.ticker === t)).map(t => `<option value="${esc(t)}">${esc(t)} (same sub-industry)</option>`).join("")}</select>
-          <span class="mute">or all comps</span> <button class="btn" type="button" id="cmp-all">Whole comp set</button></div>
-          <div id="cmp-out" class="mute" style="font-size:13px">Pick a comp to see the latest figures side by side. A rank shows only where both definitions match (M03).</div>
-        </div></section>
-      </div>
-      <div class="stack">
-        ${f ? `<section class="panel"><h2>Key figures <span class="r">${esc(f.form || "")}</span></h2><div class="pb"><table class="t"><tbody>
-          ${(f.figures || []).map(x => `<tr><td>${esc(x.label)}</td><td class="n">${esc(x.display || "")}</td><td class="mute">${esc(x.period || "")}</td><td>${pg(x.page)}</td></tr>`).join("") || `<tr><td class="na">No figures were read.</td></tr>`}
-        </tbody></table></div></section>` : ""}
-        ${r.brain && r.brain.scores ? `<section class="panel"><h2>Scores <span class="r">FY ending ${esc(r.brain.scores.period_end)}</span></h2><div class="pb"><div class="score">
-          <div><b>${r.brain.scores.altman ?? "n/a"}</b><span>ALTMAN Z</span></div><div><b>${esc(r.brain.scores.piotroski ?? "n/a")}</b><span>PIOTROSKI F</span></div><div><b>${r.brain.scores.beneish ?? "n/a"}</b><span>BENEISH M</span></div></div>
-          <p class="src-note">Computed by the Crawler from the filing's own figures, each input with its page in the Crawler's Scores tab.</p></div></section>` : ""}
-        ${f ? `<section class="panel"><h2>Red-flag checks <span class="r">${(f.red_flags || []).filter(x => x.status === "none").length} of ${(f.red_flags || []).length} not found</span></h2><div class="pb">
-          ${(f.red_flags || []).filter(x => x.status !== "none").map(x => `<div class="flag"><span class="badge ${x.status === "reported" ? "rd" : x.status === "clear" ? "gr" : ""}">${esc((x.status || "").toUpperCase())}</span><div><b>${esc(x.title)}</b>${(x.quotes || [])[0] ? `<div class="mute" style="font-size:12px">"${esc((x.quotes[0].text || x.quotes[0].quote || "").slice(0, 220))}" ${pg(x.quotes[0].page || x.quotes[0].printed_page)}</div>` : ""}</div></div>`).join("") || `<div class="mute">None of the checks found anything.</div>`}
-        </div></section>` : ""}
-        ${f && f.maturities ? `<section class="panel"><h2>Debt maturities <span class="r">${pg(f.maturities.page)}</span></h2><div class="pb num" style="font-size:13px;line-height:1.7">${esc(f.maturities.text).replace(/; /g, "<br>")}</div></section>` : ""}
-        ${f && (f.risks || []).length ? `<section class="panel"><h2>Risk factors <span class="r">Item 1A, first ${f.risks.length}</span></h2><div class="pb"><table class="t"><tbody>
-          ${f.risks.map(x => `<tr><td style="font-size:12.5px">${esc(x.title)}</td><td class="mute" style="font-size:11px;white-space:nowrap">${esc(x.category || "")}</td><td>${pg(x.page)}</td></tr>`).join("")}</tbody></table></div></section>` : ""}
-        <section class="panel"><h2>Comp set <span class="r">BMG judgment</span></h2><div class="pb"><table class="t" id="comps"><thead><tr><th>Ticker</th><th>Why</th><th class="n">Last</th><th class="n">Day</th></tr></thead><tbody>
-          ${r.comps.map(c => `<tr class="${c.outside ? "" : "click"}" data-t="${esc(c.ticker)}"><td class="num"><b class="amber">${esc(c.ticker)}</b><div class="mute" style="font-size:11px">${esc(c.name)}${c.outside ? " (not on the map)" : ""}</div></td><td style="font-size:12.5px">${esc(c.why || c.business || "")}</td><td class="n" data-px="${esc(c.ticker)}"></td><td class="n" data-ch="${esc(c.ticker)}"></td></tr>`).join("")}
-          </tbody></table>
-          ${r.comped_by.length ? `<p class="mute" style="font-size:12px;margin:10px 0 4px">IN THE COMP SET OF</p>${r.comped_by.map(t => `<a class="chip" href="?t=${encodeURIComponent(t)}">${esc(t)}</a>`).join(" ")}` : ""}
-          ${r.same_industry.length ? `<p class="mute" style="font-size:12px;margin:10px 0 4px">SAME SUB-INDUSTRY</p>${r.same_industry.map(t => `<a class="chip" href="?t=${encodeURIComponent(t)}">${esc(t)}</a>`).join(" ")}` : ""}
-          <p class="src-note">${esc(r.note)}</p></div></section>
-      </div>
-    </div>`;
-  history_(r.history || []);
-  main.querySelectorAll("#comps tr.click").forEach(tr => tr.onclick = () => { location.href = "?t=" + encodeURIComponent(tr.dataset.t); });
-  document.getElementById("cmp-with").onchange = e => compare(e.target.value ? [e.target.value] : []);
-  document.getElementById("cmp-all").onclick = () => compare(r.comps.filter(c => !c.outside).map(c => c.ticker));
-  const q = await quotes([r.ticker, ...r.comps.map(c => c.ticker)]);
-  const me = q[r.ticker];
-  document.getElementById("px").innerHTML = me ? `<div class="p">${me.price.toFixed(2)}</div><div class="c ${cls(me.change_pct)}">${me.change != null ? (me.change >= 0 ? "+" : "") + me.change.toFixed(2) : ""} ${pct(me.change_pct)}</div><div class="s">${esc(me.source)} ${me.source === "Yahoo" ? "(may be delayed)" : ""}. Not a source for a figure.</div>` : `<div class="s">No price (market data off or not reachable).</div>`;
-  for (const c of r.comps) { const x = q[c.ticker]; if (!x) continue;
-    const a = main.querySelector(`[data-px="${CSS.escape(c.ticker)}"]`), b = main.querySelector(`[data-ch="${CSS.escape(c.ticker)}"]`);
-    if (a) a.textContent = x.price.toFixed(2); if (b) { b.textContent = pct(x.change_pct); b.className = "n " + cls(x.change_pct); } }
+// ------------------------------------------------------------------ small helpers
+const num = v => typeof v === "number" && isFinite(v);
+const usd = (v, d) => num(v) ? "$" + v.toLocaleString("en-US", {minimumFractionDigits: d == null ? 2 : d, maximumFractionDigits: d == null ? 2 : d}) : "";
+const signed = v => num(v) ? (v < 0 ? "-" : "+") + usd(Math.abs(v)) : "";
+const compact = v => { if (!num(v)) return ""; const a = Math.abs(v);
+  return a >= 1e12 ? (v / 1e12).toFixed(2) + "T" : a >= 1e9 ? (v / 1e9).toFixed(2) + "B" : a >= 1e6 ? (v / 1e6).toFixed(2) + "M" : a >= 1e3 ? (v / 1e3).toFixed(1) + "K" : String(Math.round(v)); };
+const when = (ms, tz, o) => { try { return new Intl.DateTimeFormat("en-US", Object.assign({timeZone: tz || "America/New_York"}, o)).format(new Date(ms)); } catch (e) { return new Date(ms).toLocaleString("en-US", o); } };
+const day = iso => { const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(String(iso || "")); return m ? `${MON[+m[2] - 1]} ${+m[3]}, ${m[1]}` : String(iso || ""); };
+const shortPeriod = s => String(s || "").replace(/^(Fiscal year|Quarter) ended /, "");
+const periodWords = (p, end) => /^\d{4}-\d\d-\d\d$/.test(String(p || "")) ? `fiscal year ended ${day(p)}` : (p ? p.charAt(0).toLowerCase() + p.slice(1) : end ? `period ended ${day(end)}` : "");
+const go = t => { location.href = "?t=" + encodeURIComponent(t); };
+// where a figure was read: the page opens in the Crawler when this computer has the saved read, else the filing on SEC EDGAR
+function cite(o, label) {
+  if (!o) return "";
+  const txt = esc(label || (o.page ? `p.${o.page}` : "source"));
+  if (o.read) return `<a class="cite" href="/desk/read/#src=${encodeURIComponent(o.read)}&p=${encodeURIComponent(o.pdf_page || o.page || "")}&t=${encodeURIComponent(T)}" target="_blank" rel="noopener" title="Open this page in the Crawler">${txt}</a>`;
+  if (o.url) return `<a class="cite" href="${esc(o.url)}" target="_blank" rel="noopener" title="Open the filing on SEC EDGAR">${txt}</a>`;
+  return (o.page || label) ? `<span class="cite">${txt}</span>` : "";
+}
+const sec = (id, title, small, body) => `<section class="sec wrap" id="${id}"><h2>${title}${small ? ` <small>${small}</small>` : ""}</h2>${body}</section>`;
+
+// ------------------------------------------------------------------ search (this page's own: any company on the map, or any ticker)
+let UNI = null;                       // one request, shared by everyone who asks while it is under way
+function universe() {
+  if (!UNI) UNI = (async () => { const list = [];
+    try { const u = await getJSON("/api/brain/universe");
+      for (const s of u.sectors || []) for (const x of s.sub_industries || []) for (const c of x.companies || []) list.push({t: c.ticker, name: c.name || "", also: c.tickers || []});
+    } catch (e) { UNI = null; }
+    return list; })();
+  return UNI;
+}
+const squash = x => String(x).toLowerCase().replace(/[^a-z0-9]/g, "");
+function matches(list, s) {
+  s = s.trim().toLowerCase(); if (!s) return [];
+  const q2 = squash(s);                             // "jp morgan" finds "JPMorgan Chase"
+  const ex = list.filter(c => c.t.toLowerCase() === s || c.also.some(a => a.toLowerCase() === s));
+  const st = list.filter(c => !ex.includes(c) && (c.t.toLowerCase().startsWith(s) || c.name.toLowerCase().startsWith(s) || (q2.length >= 3 && squash(c.name).startsWith(q2))));
+  const inn = list.filter(c => !ex.includes(c) && !st.includes(c) && (c.name.toLowerCase().includes(s) || (q2.length >= 4 && squash(c.name).includes(q2))));
+  return ex.concat(st, inn).slice(0, 8);
+}
+// every company that files with the SEC, by ticker or name (for one that is not on the brain's map)
+async function others(s) {
+  if (s.trim().length < 2) return [];
+  try { return ((await getJSON(`/api/edgar/companies?q=${encodeURIComponent(s.trim())}`)).companies || []).map(c => ({t: c.ticker, name: c.name, also: [], off: true})); }
+  catch (e) { return []; }
+}
+const merge = (a, b) => a.concat(b.filter(x => !a.some(y => y.t === x.t || y.also.includes(x.t)))).slice(0, 8);
+function wireSearch(q, hits) {
+  let sel = -1, found = [], wait = 0;
+  const draw = () => { hits.innerHTML = found.map((c, i) => `<li><a href="?t=${encodeURIComponent(c.t)}" class="${i === sel ? "sel" : ""}"><b>${esc(c.t)}</b><span>${esc(c.name)}</span></a></li>`).join(""); };
+  q.addEventListener("focus", universe);
+  q.addEventListener("input", async () => { const typed = q.value, list = await universe(); if (q.value !== typed) return;
+    found = matches(list, typed); sel = found.length ? 0 : -1; draw();
+    clearTimeout(wait);
+    if (found.length < 8) wait = setTimeout(async () => { const more = await others(typed); if (q.value !== typed) return; found = merge(found, more); if (sel < 0 && found.length) sel = 0; draw(); }, 180);
+  });
+  q.addEventListener("keydown", e => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); if (found.length) { sel = (sel + (e.key === "ArrowDown" ? 1 : found.length - 1)) % found.length; draw(); } }
+    else if (e.key === "Enter") { e.preventDefault();
+      const raw = q.value.trim();
+      universe().then(async list => { let pick = (found.length && q.value.trim() === raw ? found[sel] || found[0] : null) || matches(list, raw)[0];   // Enter before the list has drawn still finds the company
+        if (!pick) pick = (await others(raw))[0];
+        if (pick) go(pick.t); else if (/^[A-Za-z][A-Za-z0-9.\-]{0,9}$/.test(raw)) go(raw.toUpperCase()); }); }
+    else if (e.key === "Escape") { found = []; draw(); q.blur(); }
+  });
+  q.addEventListener("blur", () => setTimeout(() => { found = []; draw(); }, 180));
+}
+wireSearch($("q"), $("hits"));
+document.addEventListener("keydown", e => { if (e.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) { e.preventDefault(); const q = document.querySelector(".landing #q2") || $("q"); q.focus(); q.select(); } });
+
+// ------------------------------------------------------------------ no ticker: just the search
+if (!T) {
+  $("bar").hidden = true;
+  main.innerHTML = `<div class="wrap landing"><h1>Look up a company</h1><p>Type a ticker or a name. You get its price and chart, what the company is, and everything the Crawler's brain holds about it.</p>
+    <div class="find"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="q2" type="search" placeholder="NVIDIA, AAPL, JPMorgan..." autocomplete="off" spellcheck="false" aria-label="Search a company or ticker" autofocus><ul id="hits2"></ul></div></div>`;
+  wireSearch($("q2"), $("hits2"));
+  return;
+}
+document.title = `${T} | BMG Capital`;
+
+// ------------------------------------------------------------------ the page's frame; each part fills in as its data arrives
+main.innerHTML = `
+  <section class="hero wrap" id="top">
+    <div class="who"><div class="clogo none" id="logo">${esc(T.slice(0, 1))}</div><div style="min-width:0"><h1 id="nm">${esc(T)}</h1><div class="sub" id="sub"><span class="skel"></span></div></div></div>
+    <div class="px" id="px"><span class="skel" style="width:4.5em"></span></div>
+    <div class="chg" id="chg"></div>
+    <div class="chart" id="chart" aria-label="Price chart"></div>
+    <div class="ranges" id="ranges">${RANGES.map(([r]) => `<button type="button" data-r="${r}" aria-pressed="${r === "1D"}">${r}</button>`).join("")}<span class="src" id="pxsrc"></span></div>
+  </section>
+  <div id="about-box"></div><div id="stats-box"></div><div id="brain-box"></div>
+  <div class="wrap"><p class="foot" id="foot"></p></div>`;
+
+// ------------------------------------------------------------------ price and chart
+const rangeWords = r => (RANGES.find(x => x[0] === r) || [])[1] || "";
+function stamp(ms, d) {
+  const tz = d.timezone, r = d.range;
+  if (r === "1D") return when(ms, tz, {hour: "numeric", minute: "2-digit"});
+  if (r === "1W" || r === "1M") return when(ms, tz, {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"});
+  if (r === "MAX") return when(ms, tz, {month: "short", year: "numeric"});
+  return when(ms, tz, {month: "short", day: "numeric", year: "numeric"});
+}
+function paintPrice() {
+  const d = S.charts[S.range], q = S.quote, px = $("px"), chg = $("chg");
+  if (!px) return;
+  let price = null, base = null, label = rangeWords(S.range);
+  if (d && d.points && d.points.length) {
+    base = d.base;
+    if (S.hover != null && d.points[S.hover]) { price = d.points[S.hover][1]; label = stamp(d.points[S.hover][0], d); }
+    else { price = d.last;
+      if (S.range === "1D" && d.as_of) { const a = when(Date.parse(d.as_of), d.timezone, {month: "short", day: "numeric"}), b = when(Date.now(), d.timezone, {month: "short", day: "numeric"}); if (a !== b) label = a; } }
+  }
+  if (S.hover == null && q && num(q.price)) {             // the latest quote leads when nothing is under the pointer
+    price = q.price;
+    if (S.range === "1D" && num(q.prev_close) && !(d && d.points && d.points.length)) base = q.prev_close;
+  }
+  if (!num(price)) { px.innerHTML = S.gone.price ? `<span style="font-size:20px;color:var(--soft);font-weight:500">No price right now</span>` : px.innerHTML; chg.textContent = ""; return; }
+  px.textContent = usd(price);
+  if (num(base) && base) { const c = price - base, p = c / base * 100;
+    chg.innerHTML = `<span class="${cls(c) || ""}">${signed(c)} (${pct(p)})</span><span class="when">${esc(label)}</span>`; }
+  else chg.innerHTML = `<span class="when" style="margin:0">${esc(label)}</span>`;
+  $("mini").innerHTML = `<span>${esc(T)}</span><span class="mp tnum">${usd(price)}</span>`;
+}
+function drawChart() {
+  const box = $("chart"), d = S.charts[S.range];
+  if (!box) return;
+  box.classList.remove("busy");
+  if (!d) { box.innerHTML = `<div class="note"><span class="skel" style="width:60%;height:3px"></span></div>`; return; }
+  if (!d.points || d.points.length < 2) {
+    box.innerHTML = `<div class="note"><div>${esc(d.error || "No prices for this range.")}<br><button type="button" class="act" id="retry">Try again</button></div></div>`;
+    const b = $("retry"); if (b) b.onclick = () => { delete S.charts[S.range]; drawChart(); loadRange(S.range, true); };
+    paintPrice(); return; }
+  const W = Math.max(280, box.clientWidth), H = box.clientHeight || 300, top = 22, bot = 10, pts = d.points, n = pts.length;
+  const up = d.last >= d.base, color = up ? "var(--up)" : "var(--dn)";
+  const lo = Math.min(d.low, d.base), hi = Math.max(d.high, d.base), span = (hi - lo) || 1;
+  const ses = d.session && d.session.end > d.session.start ? d.session : null;
+  const X = i => ses ? Math.max(0, Math.min(1, (pts[i][0] - ses.start) / (ses.end - ses.start))) * W : (n > 1 ? i / (n - 1) : 0.5) * W;
+  const Y = v => top + (1 - (v - lo) / span) * (H - top - bot);
+  let path = "";
+  for (let i = 0; i < n; i++) path += (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(pts[i][1]).toFixed(1);
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(T)} price, ${esc(rangeWords(S.range).toLowerCase())}">
+      <line class="base" x1="0" x2="${W}" y1="${Y(d.base).toFixed(1)}" y2="${Y(d.base).toFixed(1)}"/>
+      <path class="line" d="${path}" stroke="${color}" vector-effect="non-scaling-stroke"/>
+      <line class="cur" id="cur" x1="0" x2="0" y1="${top - 4}" y2="${H}" visibility="hidden"/>
+      <circle id="dot" r="5" fill="${color}" stroke="var(--bg)" stroke-width="2" visibility="hidden"/>
+      <circle r="4" cx="${X(n - 1).toFixed(1)}" cy="${Y(pts[n - 1][1]).toFixed(1)}" fill="${color}" id="end"/></svg><div class="stamp" id="stamp" hidden></div>`;
+  for (const b of $("ranges").querySelectorAll("button")) { b.style.setProperty("--c", color); b.setAttribute("aria-pressed", String(b.dataset.r === S.range)); }
+  const xs = pts.map((_, i) => X(i));
+  const at = cx => { const r = box.getBoundingClientRect(), x = (cx - r.left) / r.width * W; let lo2 = 0, hi2 = n - 1;
+    while (hi2 - lo2 > 1) { const m = (lo2 + hi2) >> 1; if (xs[m] < x) lo2 = m; else hi2 = m; }
+    return Math.abs(xs[lo2] - x) <= Math.abs(xs[hi2] - x) ? lo2 : hi2; };
+  const show = i => { S.hover = i; const cur = $("cur"), dot = $("dot"), st = $("stamp"), end = $("end");
+    if (i == null) { cur.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); st.hidden = true; end.setAttribute("visibility", "visible"); }
+    else { const x = xs[i], y = Y(pts[i][1]);
+      cur.setAttribute("x1", x); cur.setAttribute("x2", x); cur.setAttribute("visibility", "visible");
+      dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.setAttribute("visibility", "visible"); end.setAttribute("visibility", "hidden");
+      st.hidden = false; st.textContent = stamp(pts[i][0], d);
+      const w = box.clientWidth, px = x / W * w, half = st.offsetWidth / 2; st.style.left = Math.max(half, Math.min(w - half, px)) + "px"; }
+    paintPrice(); };
+  box.onpointermove = e => show(at(e.clientX));
+  box.onpointerdown = e => show(at(e.clientX));
+  box.onpointerleave = () => show(null);
+  box.onpointercancel = () => show(null);
+  S.hover = null;
+  $("pxsrc").innerHTML = `${esc(d.source || "")} prices, may be delayed${d.as_of ? ` &middot; as of ${esc(when(Date.parse(d.as_of), d.timezone, {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}))} ET` : ""} &middot; context, never a source for a figure`;
+  paintPrice();
+}
+async function loadRange(r, fresh) {
+  if (S.charts[r] && !fresh) return S.charts[r];
+  try { S.charts[r] = await getJSON(`/api/market/chart?ticker=${encodeURIComponent(T)}&range=${r}`); }
+  catch (e) { S.charts[r] = {range: r, points: [], error: /403|local/i.test(e.message) ? "Prices are shown on the Crawler on your Mac (localhost)." : e.message}; }
+  if (r === "1D" && !(S.charts[r].points || []).length) S.gone.price = true;
+  if (r === S.range) drawChart();
+  return S.charts[r];
+}
+$("ranges").addEventListener("click", e => { const b = e.target.closest("button[data-r]"); if (!b) return;
+  S.range = b.dataset.r; S.hover = null;
+  for (const x of $("ranges").querySelectorAll("button")) x.setAttribute("aria-pressed", String(x === b));
+  if (S.charts[S.range]) drawChart(); else { $("chart").classList.add("busy"); loadRange(S.range); } });
+let rz = 0; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if (S.charts[S.range]) drawChart(); drawBars(); }, 120); });
+
+// ------------------------------------------------------------------ who it is
+function identity() {
+  if (!$("nm")) return;                              // the page was replaced by "no company found"
+  const r = S.report, p = S.profile, s = S.snap, c = S.charts["1D"];
+  S.name = String((r && r.name) || (p && p.name) || (c && c.name) || (s && s.name) || T).replace(/^(.*\S)\s*\(The\)$/i, "The $1");
+  $("nm").textContent = S.name;
+  document.title = `${S.name} (${T}) | BMG Capital`;
+  const cl = r && r.classification, ex = (p && (p.more || []).find(m => m.key === "exchange") || {}).value || (s && s.exchange) || (c && c.exchange) || "";
+  const bits = [esc(T)];
+  if (ex) bits.push(esc(ex));
+  if (cl) bits.push(`<a href="/desk/brain/?sector=${encodeURIComponent(cl.sector_slug)}&sub=${encodeURIComponent(cl.industry_slug)}" title="Show this sub-industry on the brain's map">${esc(cl.industry)}</a>`);
+  else if (s && s.sic_description) bits.push(esc(String(s.sic_description).toLowerCase().replace(/\b[a-z]/g, m => m.toUpperCase())));
+  const er = S.er && S.er.by && S.er.by[T];
+  $("sub").innerHTML = bits.join(" &middot; ") + (er ? `<span class="tag" title="The next report date on the calendar. Confirm on the company's investor-relations page.">Reports ${esc(erLabel(er))}</span>` : "");
+}
+function logo() {
+  const img = new Image();
+  img.alt = "";
+  img.onload = () => { const el = $("logo"); if (el && img.naturalWidth > 1) { el.classList.remove("none"); el.textContent = ""; el.appendChild(img); } };
+  img.src = `/api/company-logo?ticker=${encodeURIComponent(T)}`;
 }
 
-function history_(h) {
-  const el = document.getElementById("hist");
-  if (!h.length) { el.innerHTML = `<div class="mute">The brain holds no yearly figures for this company yet.</div>`; return; }
-  const years = [...new Set(h.flatMap(s => s.points.map(p => p.period)))].sort().slice(-5);
-  el.innerHTML = `<table class="t"><thead><tr><th>Measure</th><th></th>${years.map(y => `<th class="n">FY ${esc(y.slice(0, 4))}</th>`).join("")}</tr></thead><tbody>${h.map(s => {
+// ------------------------------------------------------------------ About
+function factCell(f) {
+  const v = f.value == null ? `<div class="v na" title="${esc(f.note || "No source gave this.")}">Not found</div>`
+    : `<div class="v">${f.href ? `<a href="${esc(f.href)}" target="_blank" rel="noopener">${esc(f.value)}</a>` : esc(f.value)}</div>`;
+  let s = "";
+  if (f.value != null) {
+    const label = f.page ? `${(f.source || "").split(",")[0]} p.${f.page}` : f.basis === "MAP" ? "S&P / GICS" : /SEC EDGAR/.test(f.source || "") ? "SEC record" : (f.source || "").replace(/^the brain's map.*/, "S&P 500 list");
+    const tip = [f.quote ? `"${f.quote}"` : "", f.source || "", f.as_of ? `as of ${f.as_of}` : "", f.note || ""].filter(Boolean).join(" | ");
+    s = `<div class="s" title="${esc(tip)}">${cite(f, label)}${f.basis === "SECONDARY" ? `<span class="sec2" title="Secondary source: context, never a source for a note or a model.">secondary</span>` : ""}${f.since ? ` &middot; since ${esc(String(f.since).slice(0, 4))}` : ""}</div>`;
+  }
+  return `<div class="fact"><div class="k">${esc(f.label)}</div>${v}${s}</div>`;
+}
+function about() {
+  const p = S.profile, r = S.report, box = $("about-box");
+  if (!box) return;
+  const skel = k => `<div class="fact"><div class="k">${k}</div><div class="v"><span class="skel"></span></div></div>`;
+  let body;
+  if (!p) {
+    const hq = r && r.hq ? `<div class="fact"><div class="k">Headquarters</div><div class="v">${esc(r.hq)}</div></div>` : skel("Headquarters");
+    body = `<p class="lead"><span class="skel" style="width:90%"></span><br><span class="skel" style="width:70%"></span></p><div class="facts">${skel("CEO")}${skel("Founded")}${skel("Employees")}${hq}</div>`;
+    if (S.gone.profile) body = `<div class="empty"><b>No company record found</b>${esc(S.gone.profile)}</div>`;
+  } else {
+    const d = p.description, w = p.wikipedia, f = p.filing || {};
+    const lead = d ? d.text : w ? w.text : "";
+    const leadSrc = d ? `In the company's own words, from its ${esc(f.form || "10-K")} ${cite(d, d.page ? `p.${d.page}` : "on SEC EDGAR")}${d.trimmed ? " (bracketed name definitions and footnote marks left out)" : ""}` : w ? `From <a class="cite" href="${esc(w.url || "#")}" target="_blank" rel="noopener">Wikipedia</a><span class="sec2">secondary</span>` : "";
+    const extra = d && w ? `<p class="wiki" id="wiki" hidden>${esc(w.text)} <a class="cite" href="${esc(w.url || "#")}" target="_blank" rel="noopener">Wikipedia</a><span class="sec2">secondary</span></p>` : "";
+    body = (lead ? `<p class="lead clamp" id="lead">${esc(lead)}</p><button type="button" class="more" id="more" hidden>Show more</button>${extra}<p class="note" style="margin-top:6px">${leadSrc}</p>` : `<p class="note">No description found${f.error ? `: ${esc(f.error)}` : "."}</p>`)
+      + `<div class="facts">${p.facts.map(factCell).join("")}${(p.more || []).map(factCell).join("")}</div>`
+      + `<p class="note">${f.form && !f.error ? `Read from the ${esc(f.form)} for the ${esc(periodWords(f.period, f.period_end))}${f.filed ? `, filed ${esc(day(f.filed))}` : ""}. ` : ""}${f.older_read ? `The Crawler's saved read is an older filing; the facts above come from the newer one on SEC EDGAR. ` : ""}${p.wikidata && p.wikidata.found === null ? `Wikidata did not answer just now, so a fact only it has may be missing; it is asked again later. ` : ""}Hover a source to see the words it was read from.</p>`;
+  }
+  box.innerHTML = sec("about", `About ${esc(S.name)}`, "", body);
+  const lead = $("lead"), more = $("more"), wiki = $("wiki");
+  if (lead && more) {
+    const long = lead.scrollHeight > lead.clientHeight + 2;
+    more.hidden = !(long || wiki);
+    more.onclick = () => { const open = lead.classList.toggle("clamp") === false; if (wiki) wiki.hidden = !open; more.textContent = open ? "Show less" : "Show more"; };
+  }
+}
+
+// ------------------------------------------------------------------ key statistics
+function stats() {
+  const st = S.stats || {}, sn = S.snap || {}, val = sn.valuation || {}, q = S.quote || {}, box = $("stats-box");
+  if (!box) return;
+  const wait = (S.stats === null && !S.gone.stats) || (S.snap === null && !S.gone.snap);
+  const cell = (k, v, tip, src) => `<div class="fact" title="${esc(tip || "")}"><div class="k">${k}</div><div class="v${v ? "" : " na"}">${v || (wait ? `<span class="skel"></span>` : "n/a")}</div>${src && v ? `<div class="s">${src}</div>` : ""}</div>`;
+  const price = num(q.price) ? q.price : st.price;
+  const mc = num(sn.market_cap) ? money(sn.market_cap * 1e6) : "";
+  const dy = num(val.div_yield) ? (val.div_yield > 0 ? (val.div_yield * 100).toFixed(2) + "%" : "None") : "";
+  const lo = st.week52_low, hi = st.week52_high;
+  const pos = num(lo) && num(hi) && hi > lo && num(price) ? Math.max(0, Math.min(1, (price - lo) / (hi - lo))) : null;
+  const body = `<div class="facts" style="margin-top:0">
+      ${cell("Market cap", mc, "Price times diluted shares, the latest the company reported to the SEC.", "price x SEC shares")}
+      ${cell("Price-earnings ratio", num(val.pe_ttm) && val.pe_ttm > 0 ? val.pe_ttm.toFixed(2) : "", num(val.pe_ttm) && val.pe_ttm <= 0 ? "No ratio: earnings per share over the last four quarters were negative." : "Price divided by the last four quarters of diluted earnings per share (SEC XBRL).", "trailing 12 months")}
+      ${cell("Dividend yield", dy, "The last four quarters of dividends per share divided by the price (SEC XBRL).", dy && dy !== "None" ? "trailing 12 months" : "")}
+      ${cell("Average volume", num(st.avg_volume) ? compact(st.avg_volume) : "", "The mean daily volume of the whole trading days in the last three months.", "3 months")}
+      ${cell("High today", usd(st.high))}${cell("Low today", usd(st.low))}${cell("Open price", usd(st.open))}${cell("Volume", num(st.volume) ? compact(st.volume) : "")}
+      ${cell("52 week high", usd(hi))}${cell("52 week low", usd(lo))}
+      ${cell("Earnings per share", num(sn.ttm_eps) ? usd(sn.ttm_eps) : "", "Diluted earnings per share over the last four quarters (SEC XBRL).", "trailing 12 months")}
+      ${cell("Price to book", num(val.pb) ? val.pb.toFixed(2) : "", "Price divided by shareholders' equity per diluted share (SEC XBRL).")}
+      ${pos != null ? `<div class="range52"><div class="k" style="color:var(--soft);font-size:13px;font-weight:600">Where the price sits in its 52 week range</div><div class="rail"><i style="left:${(pos * 100).toFixed(1)}%"></i></div><div class="ends"><span>${usd(lo)}</span><span>${usd(hi)}</span></div></div>` : ""}
+    </div><p class="note">Day figures and the 52 week range: ${esc(st.source || "the price source")} (may be delayed). Market cap and the ratios: the latest price and the company's own SEC XBRL data. All SECONDARY context, not a rating and never a source for a figure.${st.error ? ` ${esc(st.error)}` : ""}</p>`;
+  box.innerHTML = sec("stats", "Key statistics", st.as_of ? `as of ${esc(when(Date.parse(st.as_of), "America/New_York", {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}))} ET` : "", body);
+}
+
+// ------------------------------------------------------------------ the brain: takeaways, financials, health, risks, peers, filings
+const METRIC_HELP = {eps_diluted: "per share"};
+function seriesList() {
+  const r = S.report, sn = S.snap, out = {brain: {FY: [], Q: []}, sec: {FY: [], Q: []}};
+  if (r) { out.brain.FY = (r.history || []).filter(s => s.points.length); out.brain.Q = (r.quarters || []).filter(s => s.points.length); }
+  // ten years from the company's own XBRL filings: the Crawler's ten-year history (reader/history.py: the latest filed
+  // figure for each fiscal year, whatever tag the company used that year, each with the filing it comes from). Dollar
+  // totals only: a per-share figure in an older filing is not restated for a later share split, so ten years of them
+  // are not one series (NVIDIA's diluted EPS reads 6.63, 1.13, 3.85, 0.17 across its two splits).
+  const h = S.hist;
+  if (h && (h.years || []).length) {
+    const filing = accn => h.cik && accn ? `https://www.sec.gov/Archives/edgar/data/${encodeURIComponent(h.cik)}/${String(accn).replace(/-/g, "")}/${accn}-index.htm` : "";
+    const take = (key, label, from) => {
+      const one = (from || []).find(x => x.key === key); if (!one) return;
+      const pts = one.points.filter(x => x && num(x.value)).map(x => ({period: x.end, value: x.value, display: money(x.value), label: `FY${String(x.end).slice(0, 4)}`, url: filing(x.accn || ((x.inputs || [])[0] || {}).accn),
+        xbrl: true, form: x.form || "", filed: x.filed || "", calc: x.calc || "", first: x.first_reported && num(x.first_reported.value) ? money(x.first_reported.value) : ""}));
+      if (pts.length) out.sec.FY.push({metric: key, label, unit: "USD", points: pts});
+    };
+    for (const [k, label] of [["revenue", "Revenue"], ["gross_profit", "Gross profit"], ["operating_income", "Operating income"], ["net_income", "Net income"], ["cfo", "Cash from operations"]]) take(k, label, h.series);
+    take("fcf", "Free cash flow", h.calcs);
+  } else if (sn && (sn.fy_series || []).length) {            // the history did not load: the snapshot's own years, dollar totals only
+    const link = sn.cik ? `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${encodeURIComponent(sn.cik)}&type=10-K` : "";
+    for (const [k, label] of [["revenue", "Revenue"], ["net_income", "Net income"], ["cfo", "Cash from operations"]]) {
+      const pts = sn.fy_series.filter(x => num(x[k])).slice(-10).map(x => ({period: String(x.year), value: x[k] * 1e6, display: money(x[k] * 1e6), label: `FY${x.year}`, url: link, xbrl: true}));
+      if (pts.length) out.sec.FY.push({metric: k, label, unit: "USD", points: pts});
+    }
+  }
+  return out;
+}
+const periodLabel = (p, span) => {
+  const m = /FY\s?(\d{4})/.exec(p.label || "");
+  if (span === "FY") return m ? `FY${m[1].slice(2)}` : `FY${String(p.period).slice(2, 4)}`;
+  const d = /^(\d{4})-(\d\d)/.exec(p.period || ""); return d ? `${MON[+d[2] - 1]} '${d[1].slice(2)}` : String(p.period);
+};
+function growth(pts, i, span) {
+  const cur = pts[i]; if (!num(cur.value)) return null;
+  const t = Date.parse(cur.period + (cur.period.length === 4 ? "-12-31" : ""));
+  const prev = pts.slice(0, i).reverse().find(p => { const u = Date.parse(p.period + (p.period.length === 4 ? "-12-31" : "")); const dd = (t - u) / 864e5; return dd > 330 && dd < 400; });
+  if (!prev || !num(prev.value) || prev.value <= 0) return null;
+  return (cur.value - prev.value) / Math.abs(prev.value) * 100;
+}
+function drawBars() {
+  const box = $("bars"); if (!box) return;
+  const all = seriesList(), list = (all[S.src] || {})[S.span] || [], s = list.find(x => x.metric === S.metric) || list[0];
+  if (!s) { box.innerHTML = `<div class="note" style="padding:30px 0">No figures to chart.</div>`; return; }
+  const pts = s.points.slice(S.span === "Q" ? -8 : -10), n = pts.length, all2 = s.points;
+  const W = Math.max(300, box.clientWidth), H = box.clientHeight || 250, top = 26, bot = 44;
+  const vals = pts.map(p => num(p.value) ? p.value : 0), mx = Math.max(0, ...vals), mn = Math.min(0, ...vals), span = (mx - mn) || 1;
+  const Y = v => top + (1 - (v - mn) / span) * (H - top - bot), zero = Y(0);
+  const slot = W / n, bw = Math.min(72, slot * 0.62);
+  let g = "";
+  pts.forEach((p, i) => {
+    const x = slot * i + (slot - bw) / 2, v = num(p.value) ? p.value : 0, y = Math.min(Y(v), zero), h = Math.max(2, Math.abs(Y(v) - zero));
+    const gr = growth(all2, all2.indexOf(p), S.span);
+    const href = p.read ? `/desk/read/#src=${encodeURIComponent(p.read)}&p=${encodeURIComponent(p.pdf_page || p.page || "")}&t=${encodeURIComponent(T)}` : p.url || "";
+    const tip = `${s.label}, ${p.label || p.period}: ${p.display || ""}${p.page ? ` (${p.form || "filing"} p.${p.page})` : p.xbrl ? ` (SEC XBRL${p.calc ? `, ${p.calc}` : ""}${p.form ? `, ${p.form}${p.filed ? ` filed ${day(p.filed)}` : ""}` : ""}${p.first && p.first !== p.display ? `; first reported as ${p.first}` : ""})` : ""}`;
+    const bar = `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="5" fill="${v < 0 ? "var(--dn)" : "var(--amber)"}"><title>${esc(tip)}</title></rect>`;
+    g += (href ? `<a href="${esc(href)}" target="_blank" rel="noopener">${bar}</a>` : bar)
+      + `<text class="v" x="${(x + bw / 2).toFixed(1)}" y="${(v < 0 ? y + h + 16 : y - 7).toFixed(1)}" text-anchor="middle">${esc(p.display || "")}</text>`
+      + `<text class="p" x="${(x + bw / 2).toFixed(1)}" y="${H - 22}" text-anchor="middle">${esc(periodLabel(p, S.span))}</text>`
+      + (gr != null ? `<text class="g" x="${(x + bw / 2).toFixed(1)}" y="${H - 5}" text-anchor="middle" fill="${gr >= 0 ? "var(--up)" : "var(--dn)"}">${gr >= 0 ? "+" : ""}${gr.toFixed(Math.abs(gr) >= 100 ? 0 : 1)}%</text>` : "");
+  });
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(s.label)} by ${S.span === "FY" ? "fiscal year" : "quarter"}"><line x1="0" x2="${W}" y1="${zero.toFixed(1)}" y2="${zero.toFixed(1)}" stroke="var(--hair2)"/>${g}</svg>`;
+}
+function finTable(list, span) {
+  const periods = [...new Set(list.flatMap(s => s.points.map(p => p.period)))].sort().slice(-10);
+  if (!periods.length) return "";
+  const head = periods.map(pd => { const any = list.map(s => s.points.find(p => p.period === pd)).find(Boolean); return `<th class="n">${esc(any ? periodLabel(any, span) : pd)}</th>`; }).join("");
+  return `<div class="scroll"><table class="tbl"><thead><tr><th>Measure</th>${head}</tr></thead><tbody>${list.map(s => {
     const by = Object.fromEntries(s.points.map(p => [p.period, p]));
-    const vals = years.map(y => by[y] ? by[y].value : null), mx = Math.max(...vals.filter(v => v != null).map(Math.abs), 1);
-    const bars = `<span class="bars">${vals.map(v => v == null ? `<span style="height:1px;opacity:.2"></span>` : `<span class="${v < 0 ? "neg" : ""}" style="height:${Math.max(2, Math.round(Math.abs(v) / mx * 22))}px"></span>`).join("")}</span>`;
-    return `<tr><td>${esc(s.label)}</td><td>${bars}</td>${years.map(y => by[y] ? `<td class="n">${esc(by[y].display || "")} ${pg(by[y].page, by[y].url)}</td>` : `<td class="n na">.</td>`).join("")}</tr>`;
-  }).join("")}</tbody></table>`;
+    return `<tr><td>${esc(s.label)}</td>${periods.map(pd => by[pd] ? `<td class="n">${esc(by[pd].display || "")}${by[pd].page ? cite(by[pd]) : ""}</td>` : `<td class="n" style="color:var(--faint)">.</td>`).join("")}</tr>`; }).join("")}</tbody></table></div>`;
 }
-
-async function compare(peers) {
-  const out = document.getElementById("cmp-out");
-  if (!peers.length) { out.textContent = "Pick a comp."; return; }
-  out.innerHTML = `<span class="mute">Lining up the figures...</span>`;
+function financials() {
+  const all = seriesList(), r = S.report;
+  const hasBrain = all.brain.FY.length || all.brain.Q.length, hasSec = all.sec.FY.length;
+  if (!hasBrain && !hasSec) return (S.snap === null && !S.gone.snap) || (S.hist === null && !S.gone.hist) ? sec("fin", "Financials", "", `<div class="card"><span class="skel" style="width:40%"></span></div>`) : "";
+  const years = all.brain.FY.some(x => x.points.length >= 2);
+  // the figures read from filings lead once they hold two fiscal years of something; before that the SEC's ten years do (either can be picked)
+  S.src = S.srcPick && (S.srcPick === "brain" ? hasBrain : hasSec) ? S.srcPick : (years || !hasSec) ? "brain" : "sec";
+  if (!all[S.src][S.span].length) S.span = S.span === "FY" ? "Q" : "FY";
+  if (!all[S.src][S.span].length) { S.src = S.src === "brain" ? "sec" : "brain"; S.span = all[S.src].FY.length ? "FY" : "Q"; }
+  const list = all[S.src][S.span];
+  if (!list.find(s => s.metric === S.metric)) S.metric = (list[0] || {}).metric;
+  const pills = list.map(s => `<button type="button" data-m="${esc(s.metric)}" aria-pressed="${s.metric === S.metric}">${esc(s.label)}</button>`).join("");
+  const srcSeg = hasBrain && hasSec ? `<div class="seg" role="group" aria-label="Where the figures come from"><button type="button" data-src="brain" aria-pressed="${S.src === "brain"}" title="The figures the Crawler read, each with its filing page">Filings read</button><button type="button" data-src="sec" aria-pressed="${S.src === "sec"}" title="Up to ten years of the company's own SEC XBRL data (no page numbers)">SEC data, 10 years</button></div>` : "";
+  const spanSeg = `<div class="seg" role="group" aria-label="Annual or quarterly"><button type="button" data-span="FY" aria-pressed="${S.span === "FY"}" ${all[S.src].FY.length ? "" : "disabled title=\"No annual figures here yet\""}>Annual</button><button type="button" data-span="Q" aria-pressed="${S.span === "Q"}" ${all[S.src].Q.length ? "" : "disabled title=\"No quarterly figures here\""}>Quarterly</button></div>`;
+  const small = S.src === "brain" ? "the filings' own figures, each with its page" : "the company's own XBRL data filed with the SEC: the latest filed figure for each year, no page numbers";
+  // a per-share figure is as its filing printed it: across two filings a share split makes them not comparable, and the page says so
+  const cur = list.find(x => x.metric === S.metric), perShare = cur && /share/i.test(cur.unit || "") || (cur && cur.metric === "eps_diluted");
+  const mixed = perShare && new Set(cur.points.map(x => x.url || x.read || "")).size > 1;
+  const under = S.src === "brain" ? ` Click a bar to open its page.${mixed ? " Per-share figures are as each filing printed them: a share split between two filings makes them not comparable." : ""}`
+    : " Click a bar to open the filing it comes from. Per-share figures are left out of this view: an older filing is not restated for a later share split.";
+  const bal = r && r.balance ? `<h2 style="margin-top:26px">Balance sheet <small>as of ${esc(day(r.balance.as_of))}</small></h2><div class="tiles">${r.balance.rows.map(x => `<div class="tile"><div class="k">${esc(x.label)}</div><div class="v">${esc(x.display || "")}</div><div class="s">${cite(x, `${x.form || "filing"} p.${x.page || ""}`)}</div></div>`).join("")}</div>` : "";
+  const gd = r && r.guidance && r.guidance.lines.length ? `<h2 style="margin-top:26px">What the company said it expects <small>${esc(r.guidance.given_in.form || "")} ${esc(shortPeriod(r.guidance.given_in.period || ""))}</small></h2>
+      <div class="card"><ul class="guide">${r.guidance.lines.map(g => `<li><span class="tp">${esc(g.topic || "")}${g.covers ? `<br><span style="font-weight:400">${esc(g.covers)}</span>` : ""}</span><span>${esc(g.text)}</span><span>${cite(g, g.page ? `${g.form || "filing"} p.${g.page}` : "source")}</span></li>`).join("")}</ul>
+      <p class="note">The company's own outlook, quoted from its filing: a check, never a target.${r.guidance.more ? ` ${r.guidance.more} more line${r.guidance.more > 1 ? "s" : ""} in the brain.` : ""}</p></div>` : "";
+  return sec("fin", "Financials", small, `<div class="card"><div class="finhead"><div class="pills" id="pills">${pills}</div><span class="sp"></span>${srcSeg}${spanSeg}</div><div class="bars" id="bars"></div>
+      <p class="note">Under each bar: the change from the same period a year earlier, worked out here from the two figures shown.${under}</p>
+      <details class="fold"><summary>All figures in a table</summary>${finTable(list, S.span)}</details></div>${bal}${gd}`);
+}
+const ZONE = z => !num(z) ? "" : z > 2.99 ? "safe zone" : z >= 1.81 ? "grey zone" : "distress zone";
+function health() {
+  const r = S.report, f = r && r.filing, sc = r && r.brain && r.brain.scores;
+  if (!f && !sc) return "";
+  const tiles = sc ? `<div class="tiles" style="grid-template-columns:repeat(3,1fr)">
+      <div class="tile"><div class="k">Altman Z</div><div class="v">${sc.altman == null ? "n/a" : esc(sc.altman)}</div><div class="s">${num(sc.altman) ? `In the model's ${ZONE(sc.altman)}. ` : ""}The published zones: above 2.99 safe, 1.81 to 2.99 grey, below 1.81 distress.</div></div>
+      <div class="tile"><div class="k">Piotroski F</div><div class="v">${esc(sc.piotroski == null ? "n/a" : sc.piotroski)}</div><div class="s">Tests passed, of the ones the filing's figures allow (profit, cash, leverage, liquidity, margins, turnover).</div></div>
+      <div class="tile"><div class="k">Beneish M</div><div class="v">${sc.beneish == null ? "n/a" : esc(sc.beneish)}</div><div class="s">${num(sc.beneish) ? (sc.beneish > -1.78 ? "Above -1.78, the paper's flag: a reason to read the notes, not a finding." : "At or below -1.78: not flagged by the paper's cutoff.") : ""}</div></div>
+    </div><p class="note">Worked out by the Crawler from the filing's own figures for the fiscal year ending ${esc(day(sc.period_end))}; each input and its page is in the Crawler's Scores tab.</p>` : "";
+  const flags = f ? (f.red_flags || []) : [], hit = flags.filter(x => x.status !== "none");
+  const fl = f ? `<h2 style="margin-top:26px">Red-flag checks <small>${flags.length - hit.length} of ${flags.length} checks found nothing</small></h2><div class="card">${hit.map(x => {
+      const q = (x.quotes || [])[0] || {};
+      return `<div class="flag"><span class="chip2 ${x.status === "reported" ? "rd" : x.status === "clear" ? "gr" : "am"}">${esc(String(x.status || "").replace(/^./, m => m.toUpperCase()))}</span><div><b>${esc(x.title)}</b>${q.text || q.quote ? `<q>"${esc(String(q.text || q.quote).slice(0, 260))}" ${cite({page: q.printed_page || q.page, pdf_page: q.pdf_page || q.page, read: f.sha256})}</q>` : ""}</div></div>`; }).join("") || `<div style="color:var(--soft)">None of the checks found anything in this filing.</div>`}</div>` : "";
+  return sec("health", "Health checks", f ? `from the ${esc(f.form || "annual filing")}, ${esc(shortPeriod(f.period))}` : "", tiles + fl);
+}
+function risks() {
+  const f = S.report && S.report.filing; if (!f || (!(f.risks || []).length && !f.maturities)) return "";
+  const rk = (f.risks || []).length ? `<div class="card"><div class="scroll"><table class="tbl"><thead><tr><th>Risk factor (Item 1A, the first ${f.risks.length})</th><th>Kind</th><th class="n">Page</th></tr></thead><tbody>${f.risks.map(x =>
+      `<tr><td>${esc(x.title)}</td><td style="color:var(--soft);white-space:nowrap">${esc(x.category || "")}</td><td class="n">${cite({page: x.page, pdf_page: x.page, read: f.sha256})}</td></tr>`).join("")}</tbody></table></div></div>` : "";
+  const mt = f.maturities ? `<h2 style="margin-top:26px">Debt coming due <small>${cite({page: f.maturities.page, pdf_page: f.maturities.page, read: f.sha256})}</small></h2><div class="card tnum" style="line-height:1.9">${esc(f.maturities.text).replace(/; /g, "<br>")}</div>` : "";
+  return sec("risks", "Risks", "what the company itself lists", rk + mt);
+}
+function peers() {
+  const r = S.report; if (!r) return "";
+  const rows = (r.comps || []).map(c => `<tr class="peer ${c.outside ? "" : "click"}" data-t="${esc(c.ticker)}"><td class="co"><span class="t">${esc(c.ticker)}</span><div class="nm2">${esc(c.name)}${c.outside ? " (not on the map)" : ""}</div></td><td>${esc(c.why || c.business || "")}</td><td class="n" data-px="${esc(c.ticker)}"></td><td class="n" data-ch="${esc(c.ticker)}"></td></tr>`).join("");
+  const opts = (r.comps || []).filter(c => !c.outside).map(c => `<option value="${esc(c.ticker)}">${esc(c.ticker)} ${esc(c.name)}</option>`).join("") + (r.same_industry || []).filter(t => !(r.comps || []).some(c => c.ticker === t)).map(t => `<option value="${esc(t)}">${esc(t)} (same sub-industry)</option>`).join("");
+  const chips = l => l.map(t => `<a class="tk" href="?t=${encodeURIComponent(t)}">${esc(t)}</a>`).join("");
+  return sec("peers", "Peers", "the comp set is BMG judgment", `<div class="card">${rows ? `<div class="scroll"><table class="tbl" id="comps"><thead><tr><th>Company</th><th>Why it is a comp</th><th class="n">Last</th><th class="n">Today</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div style="color:var(--soft)">No comp set on file.</div>`}
+      ${(r.comped_by || []).length ? `<p class="note" style="margin:14px 0 6px">In the comp set of</p>${chips(r.comped_by)}` : ""}
+      ${(r.same_industry || []).length ? `<p class="note" style="margin:10px 0 6px">Same sub-industry</p>${chips(r.same_industry)}` : ""}</div>
+    <h2 style="margin-top:26px">Side by side <small>the latest figures the brain holds</small></h2><div class="card">
+      <div class="cmpbar">Compare ${esc(r.ticker)} with <select id="cmp-with"><option value="">pick a company</option>${opts}</select> or <button type="button" class="act" style="margin:0" id="cmp-all">the whole comp set</button></div>
+      <div id="cmp-out" class="note" style="margin:0">A rank shows only where both companies define the measure the same way (M03).</div></div>
+    <p class="note">${esc(r.note || "")}</p>`);
+}
+function filings() {
+  const r = S.report, sn = S.snap, rd = r ? (r.reads || []) : [];
+  const read = rd.length ? `<div class="card"><div class="scroll"><table class="tbl"><thead><tr><th>Filing</th><th>Period</th><th>Read by the Crawler</th><th class="n">Pages</th><th></th></tr></thead><tbody>${rd.map(x =>
+      `<tr><td><b>${esc(x.form || (x.kind === "release" ? "Earnings release" : "Filing"))}</b></td><td>${esc(shortPeriod(x.period || ""))}</td><td style="color:var(--soft)">${esc(day(x.read_at))}</td><td class="n">${esc(x.pages || "")}</td>
+        <td class="go">${x.read ? `<a class="cite" href="/desk/read/#src=${encodeURIComponent(x.read)}&t=${encodeURIComponent(T)}" target="_blank" rel="noopener">Open in the Crawler</a>` : ""}${x.url ? `<a class="cite" href="${esc(x.url)}" target="_blank" rel="noopener">SEC EDGAR</a>` : ""}</td></tr>`).join("")}</tbody></table></div></div>` : "";
+  // the newest filings: SEC EDGAR's own list (10-K, 10-Q and the 8-Ks that carry an earnings release), else the snapshot's
+  const list = S.edgar && S.edgar.length ? S.edgar : ((sn && sn.filings) || []).slice(0, 8);
+  const held = new Map(rd.filter(x => x.read && x.url).map(x => [x.url, x.read]));       // a filing the Crawler holds opens there
+  const latest = list.length ? `<h2 style="margin-top:26px">Latest on SEC EDGAR</h2><div class="card"><div class="scroll"><table class="tbl"><thead><tr><th>Filing</th><th>Period</th><th>Filed</th><th></th></tr></thead><tbody>${list.map(x =>
+      `<tr><td><b>${esc(x.form)}</b></td><td>${esc(x.period ? day(x.period) : "")}</td><td style="color:var(--soft)">${esc(day(x.filed))}</td>
+        <td class="go">${held.has(x.url) ? `<a class="cite" href="/desk/read/#src=${encodeURIComponent(held.get(x.url))}&t=${encodeURIComponent(T)}" target="_blank" rel="noopener">Open in the Crawler</a>` : ""}<a class="cite" href="${esc(x.url)}" target="_blank" rel="noopener">Open on SEC EDGAR</a></td></tr>`).join("")}</tbody></table></div></div>` : "";
+  const qs = r && (r.questions || []).length ? `<h2 style="margin-top:26px">Questions the Crawler left open</h2><div class="card"><ul style="margin:0;padding-left:18px">${r.questions.map(x => `<li style="margin:4px 0">${esc(x.q)} <span class="cite">${esc(x.form || "")} ${esc(shortPeriod(x.raised_in || ""))}</span></li>`).join("")}</ul></div>` : "";
+  if (!read && !latest && !qs) return "";
+  return sec("filings", "Filings", rd.length ? `${rd.length} read into the brain` : "", read + latest + qs);
+}
+function found() {
+  const r = S.report, f = r && r.filing;
+  if (!r) return "";
+  if (!f) {
+    const any = (r.brain || {}).reads;
+    return sec("found", "The Crawler's read", "", `<div class="empty"><b>${any ? "No annual filing read yet" : "Not read yet"}</b>The Crawler has not read ${esc(S.name)}'s annual report on this computer${any ? `, though the brain holds ${any} other read${any > 1 ? "s" : ""} of it` : ""}. Once it has, this page shows the takeaways, the figures with their pages, the red-flag checks and the risks.
+      <div class="acts"><button type="button" class="act main" id="learn">Read ${esc(T)}'s latest 10-K now</button><a class="act" href="/desk/read/">Open the Crawler</a></div><div class="note" id="learn-st" aria-live="polite"></div></div>`);
+  }
+  const takes = (f.takeaways || []).map(x => `<div class="take ${x.tone === "+" ? "pos" : x.tone === "-" ? "neg" : ""}"><b>${esc(x.title)}</b>${x.detail ? `<p>${esc(x.detail)}</p>` : ""}${x.means ? `<p>${esc(x.means)}</p>` : ""}${x.watch ? `<p class="w">Watch: ${esc(x.watch)}</p>` : ""}</div>`).join("");
+  return sec("found", "The Crawler's read", `of the ${esc(f.form || "annual filing")}, ${esc(shortPeriod(f.period))}`, `${f.headline ? `<p class="headline">${esc(f.headline)}</p>` : ""}<div class="takes">${takes}</div>
+    <div class="acts"><a class="act" href="/desk/read/#src=${encodeURIComponent(f.sha256 || "")}&t=${encodeURIComponent(T)}" target="_blank" rel="noopener">Open this read in the Crawler</a><a class="act" href="/desk/brain/mastermind/?t=${encodeURIComponent(T)}">Ask Mastermind about ${esc(T)}</a><a class="act" href="/desk/brain/?t=${encodeURIComponent(T)}">Show on the brain's map</a>${S.obs ? `<a class="act" href="${esc(S.obs)}">Open in Obsidian</a>` : ""}</div>`);
+}
+function brain() {
+  const box = $("brain-box"), r = S.report;
+  if (!box) return;
+  let html = "";
+  if (!r && S.gone.report) html += S.gone.offmap ? `<div class="wrap sec"><div class="empty"><b>Not on the brain's map</b>${esc(T)} is not one of the companies on the brain's map (the S&amp;P 500 and the others it holds), so there is no comp set or Crawler read to show. The price, the About box and the SEC figures on this page still work for it.<div class="acts"><a class="act" href="/desk/read/">Read one of its filings in the Crawler</a></div></div></div>` : `<div class="wrap sec"><div class="empty"><b>The brain did not load</b>${esc(S.gone.report)}</div></div>`;
+  html += found() + financials() + health() + risks() + peers() + filings();
+  box.innerHTML = html;
+  drawBars();
+  wireBrain();
+  const have = new Set([...document.querySelectorAll("main section[id]")].map(s => s.id));
+  for (const a of $("tabs").querySelectorAll("a")) a.hidden = !have.has(a.dataset.s);
+  spy();
+  $("foot").innerHTML = `Figures marked with a page are the filings' own, read by the Crawler; the page opens in the Crawler when this computer has the saved read. The comp set is BMG judgment: it says who to compare with, never that two figures are comparable (M03). The brain is not a source (M39): cite the filing and its page. Prices, market cap, ratios and report dates are secondary context. Nothing here is a rating or a recommendation.`;
+}
+function wireBrain() {
+  const pills = $("pills");
+  if (pills) pills.onclick = e => { const b = e.target.closest("button[data-m]"); if (!b) return; S.metric = b.dataset.m; for (const x of pills.querySelectorAll("button")) x.setAttribute("aria-pressed", String(x === b)); drawBars(); };
+  for (const b of document.querySelectorAll("#fin .seg button[data-span]")) b.onclick = () => { if (b.disabled) return; S.span = b.dataset.span; keepScroll(brain); };
+  for (const b of document.querySelectorAll("#fin .seg button[data-src]")) b.onclick = () => { S.srcPick = b.dataset.src; keepScroll(brain); };
+  for (const tr of document.querySelectorAll("#comps tr.click")) tr.onclick = () => go(tr.dataset.t);
+  const sel = $("cmp-with"), allb = $("cmp-all"), r = S.report;
+  if (sel) sel.onchange = e => compare(e.target.value ? [e.target.value] : []);
+  if (allb) allb.onclick = () => compare((r.comps || []).filter(c => !c.outside).map(c => c.ticker));
+  const learn = $("learn"); if (learn) learn.onclick = () => readNow(learn);
+  if (r && (r.comps || []).length) quotes(r.comps.map(c => c.ticker)).then(q => { for (const c of r.comps) { const x = q[c.ticker]; if (!x) continue;
+    const a = document.querySelector(`[data-px="${CSS.escape(c.ticker)}"]`), b = document.querySelector(`[data-ch="${CSS.escape(c.ticker)}"]`);
+    if (a) a.textContent = usd(x.price); if (b) { b.textContent = pct(x.change_pct); b.className = "n " + cls(x.change_pct); } } });
+}
+function keepScroll(fn) { const y = scrollY; fn(); scrollTo({top: y, behavior: "instant"}); }      // a redraw never moves the page under the reader
+async function compare(list) {
+  const out = $("cmp-out"); if (!out) return;
+  if (!list.length) { out.textContent = "Pick a company."; return; }
+  out.innerHTML = `<span class="skel" style="width:50%"></span>`;
   try {
-    const d = await getJSON(`/api/brain/${encodeURIComponent(T)}/peers?peers=${encodeURIComponent(peers.join(","))}`);
+    const d = await getJSON(`/api/brain/${encodeURIComponent(S.report.ticker)}/peers?peers=${encodeURIComponent(list.join(","))}`);
     const cos = [d.ticker, ...(d.peers || [])];
-    if (!(d.rows || []).length) { out.innerHTML = `<span class="mute">${esc(d.note || "No figures to line up.")}${(d.not_in_brain || []).length ? ` Not read yet: ${d.not_in_brain.map(esc).join(", ")}.` : ""}</span>`; return; }
-    out.innerHTML = `<table class="t"><thead><tr><th>Measure</th>${cos.map(t => `<th class="n">${esc(t)}</th>`).join("")}</tr></thead><tbody>${d.rows.map(row => {
+    if (!(d.rows || []).length) { out.textContent = (d.note || "No figures to line up.") + ((d.not_in_brain || []).length ? ` Not read yet: ${d.not_in_brain.join(", ")}.` : ""); return; }
+    out.innerHTML = `<div class="scroll"><table class="tbl"><thead><tr><th>Measure</th>${cos.map(t => `<th class="n">${esc(t)}</th>`).join("")}</tr></thead><tbody>${d.rows.map(row => {
       const by = Object.fromEntries((row.cells || []).map(c => [c.ticker, c]));
-      return `<tr><td>${esc(row.measure)}${row.note ? `<div class="mute" style="font-size:11px">${esc(row.note)}</div>` : ""}</td>${cos.map(t => { const c = by[t];
-        return c ? `<td class="n">${esc(c.display || "")}${c.rank ? ` <span class="mute" style="font-size:10.5px">#${esc(c.rank.split(" ")[0])}</span>` : ""} ${pg((c.src || {}).printed_page || (c.src || {}).pdf_page, (c.src || {}).url)}</td>` : `<td class="n na">.</td>`; }).join("")}</tr>`;
-    }).join("")}</tbody></table>${(d.not_in_brain || []).length ? `<p class="mute" style="font-size:12px">Not read yet: ${d.not_in_brain.map(esc).join(", ")}.</p>` : ""}<p class="src-note">${esc(d.note || "")}</p>`;
+      return `<tr><td>${esc(row.measure)}${row.note ? `<div class="cite" style="white-space:normal">${esc(row.note)}</div>` : ""}</td>${cos.map(t => { const c = by[t], s = (c && c.src) || {};
+        return c ? `<td class="n">${esc(c.display || "")}${c.rank ? ` <span class="cite">#${esc(String(c.rank).split(" ")[0])}</span>` : ""}${cite({page: s.printed_page || s.pdf_page, url: s.url})}</td>` : `<td class="n" style="color:var(--faint)">.</td>`; }).join("")}</tr>`;
+    }).join("")}</tbody></table></div>${(d.not_in_brain || []).length ? `<p class="note">Not read yet: ${d.not_in_brain.map(esc).join(", ")}.</p>` : ""}<p class="note">${esc(d.note || "")}</p>`;
   } catch (e) { out.textContent = e.message; }
 }
-load();
+// the one request that is not a read: ask the Crawler to read the company's latest 10-K (it files the read in the brain itself)
+async function readNow(btn) {
+  const st = $("learn-st"); btn.disabled = true; st.textContent = "Asking the Crawler...";
+  try {
+    const r = await fetch("/api/brain-learn", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({tickers: [T], forms: "10-K", per: 1})});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok && !(r.status === 409 && j.running)) { st.textContent = j.error || `The Crawler answered ${r.status}.`; btn.disabled = false; return; }
+    const poll = async () => {
+      let d; try { d = await getJSON("/api/brain-learn"); } catch (e) { st.textContent = e.message; btn.disabled = false; return; }
+      const it = (d.items || []).find(i => i.ticker === T);
+      st.textContent = it ? `${it.state}${it.error ? `: ${it.error}` : ""}` : d.running ? "The Crawler is reading another company first..." : "";
+      if (d.running) { setTimeout(poll, 3000); return; }
+      if (it && it.state === "done") { st.textContent = "Read. Loading what it found..."; S.report = null; loadReport(); } else btn.disabled = false;
+    };
+    poll();
+  } catch (e) { st.textContent = "Could not reach the Crawler."; btn.disabled = false; }
+}
+
+// ------------------------------------------------------------------ the section tabs follow the page
+// The tab of the section whose heading has reached the top of the view is lit (the last section at the page's end).
+// On a bar too narrow for every tab the strip scrolls: the lit tab is brought into sight when it changes or the strip's
+// width does (never while the reader is scrolling the strip by hand), and the cut edge fades out.
+function tabsEdge() { const strip = $("tabs"); strip.classList.toggle("more", strip.scrollWidth - strip.clientWidth - strip.scrollLeft > 2); }
+function keepLit() {
+  const strip = $("tabs"), a = strip.querySelector("a.on");
+  if (a) { const sr = strip.getBoundingClientRect(), ar = a.getBoundingClientRect();
+    if (ar.width && (ar.left < sr.left || ar.right > sr.right)) strip.scrollLeft += ar.left - sr.left - 12; }
+  tabsEdge();
+}
+function spy() {
+  const tabs = [...$("tabs").querySelectorAll("a")], secs = [...document.querySelectorAll("main section[id]")];
+  let cur = secs[0], moved = false;
+  for (const s of secs) if (s.getBoundingClientRect().top <= 140) cur = s;
+  if (secs.length && innerHeight + scrollY >= document.documentElement.scrollHeight - 4) cur = secs[secs.length - 1];
+  for (const a of tabs) { const on = !!cur && a.dataset.s === cur.id; if (on !== a.classList.contains("on")) { a.classList.toggle("on", on); moved = true; } }
+  if (moved) keepLit(); else tabsEdge();
+}
+let spyT = 0;
+addEventListener("scroll", () => { if (!spyT) spyT = requestAnimationFrame(() => { spyT = 0; spy(); }); }, {passive: true});
+$("tabs").addEventListener("scroll", tabsEdge, {passive: true});
+addEventListener("resize", keepLit);
+// the small name and price join the bar once the big price has scrolled under it, and the tabs lose that width
+new IntersectionObserver(es => { $("bar").classList.toggle("past", !es[0].isIntersecting); keepLit(); }, {rootMargin: "-100px 0px 0px 0px"}).observe($("px"));
+
+// ------------------------------------------------------------------ load: everything at once, each part drawn as it arrives
+async function loadReport() {
+  try { S.report = await getJSON(`/api/brain/${encodeURIComponent(T)}/report`); S.gone.report = ""; }
+  catch (e) { S.report = null; S.gone.report = /403|local Crawler/i.test(e.message) ? "This page works on the Crawler on your Mac (localhost), where the vault is." : e.message; S.gone.offmap = /not on the brain's map/.test(e.message); }
+  identity(); about(); brain();
+}
+// nothing answers for this ticker (SEC has no such filer, the brain has no such company, no price): say so and offer the nearest names
+async function missing() {
+  if (S.report || S.profile || S.snap || !S.gone.profile || !/No SEC filer|Not a ticker/i.test(S.gone.profile) || (S.charts["1D"] && (S.charts["1D"].points || []).length)) return;
+  const near = merge(merge(matches(await universe(), T), await others(T)), matches(await universe(), T.slice(0, 3))).slice(0, 6);
+  $("bar").hidden = true;
+  main.innerHTML = `<div class="wrap landing"><h1>No company found for "${esc(T)}"</h1><p>No SEC filer has that ticker and it is not on the brain's map. Check the ticker, or search by name.</p>
+    <div class="find"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="q2" type="search" placeholder="Search a company or ticker" autocomplete="off" spellcheck="false" aria-label="Search a company or ticker" autofocus><ul id="hits2"></ul></div>
+    ${near.length ? `<p style="margin-top:26px">Did you mean</p><div>${near.map(c => `<a class="tk" href="?t=${encodeURIComponent(c.t)}">${esc(c.t)} ${esc(c.name)}</a>`).join("")}</div>` : ""}</div>`;
+  wireSearch($("q2"), $("hits2"));
+  document.title = `${T} not found | BMG Capital`;
+}
+async function refreshQuote() { const q = await quotes([T]); if (q[T]) { S.quote = q[T]; paintPrice(); stats(); } }
+function start() {
+  about(); stats(); brain(); drawChart(); logo();
+  const all = [];
+  all.push(getJSON(`/api/brain/${encodeURIComponent(T)}/profile`).then(p => { S.profile = p; }).catch(e => { S.gone.profile = e.message; }).finally(() => { identity(); about(); spy(); }));
+  all.push(getJSON(`/api/snapshot?ticker=${encodeURIComponent(T)}`).then(s => { S.snap = s; }).catch(e => { S.snap = null; S.gone.snap = e.message; }).finally(() => { identity(); stats(); keepScroll(brain); }));
+  all.push(loadReport(), loadRange("1D").then(identity));
+  Promise.all(all).then(missing);
+  getJSON(`/api/read/history?ticker=${encodeURIComponent(T)}&years=10`).then(h => { S.hist = h; }).catch(e => { S.hist = null; S.gone.hist = e.message || "no history"; }).finally(() => keepScroll(brain));
+  getJSON(`/api/edgar/filings?ticker=${encodeURIComponent(T)}&earnings=1&limit=8`).then(d => { S.edgar = d.filings || []; }).catch(() => { S.edgar = null; }).finally(() => keepScroll(brain));
+  getJSON(`/api/market/stats?ticker=${encodeURIComponent(T)}`).then(s => { S.stats = s; }).catch(e => { S.stats = null; S.gone.stats = e.message; }).finally(stats);
+  refreshQuote();
+  earnings(30).then(e => { S.er = e; identity(); });
+  getJSON("/api/brain").then(b => { const v = (b.brain_vault || b.vault || "").split(/[\\/]/).filter(Boolean).pop() || "";
+    if (v) { S.obs = `obsidian://open?vault=${encodeURIComponent(v)}&file=${encodeURIComponent(`brain/companies/${T}/${T}`)}`; if (S.report) keepScroll(brain); } }).catch(() => {});
+  setInterval(() => { if (document.hidden) return; refreshQuote(); if (S.range === "1D" && S.hover == null) loadRange("1D", true); }, 60000);
+}
+S.stats = null; S.snap = null;
+start();
 })();
 </script>
 </body>
