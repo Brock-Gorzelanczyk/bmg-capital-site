@@ -1738,7 +1738,11 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   function camera(){
     // The page scrolls under the spider at a steady pace (reference clip),
     // independent of where the spider is. A manual scroll wins for 2.5 s.
-    const now = performance.now();
+    // The camera runs on the frame's own time (state.frameAt: the timestamp the browser gives a frame's callbacks,
+    // which the crawl loop's walk already runs on). A frame is shown one whole frame after the frame before it,
+    // however late in it this code runs, so the clock read here moved the page a short step in one frame and a long
+    // one in the next under frames that were shown evenly.
+    const now = state.frameAt || performance.now();
     const dt = Math.min(0.05, (now - (state.camT || now)) / 1000);
     state.camT = now;
     if (state.userScrolledAt && now - state.userScrolledAt < 2500){ if (TL.replay) tlStop(); state.scrollPos = null; return; }
@@ -1880,7 +1884,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   // camera first: scrolling while the layout is still clean avoids a forced
   // re-layout of the whole document every frame
   function drawSpider(){
-    const start = performance.now(); state.drawnAt = start;
+    const start = performance.now();
     if (renderProfile){
       renderProfile.phases = {};
       for (const fn of [camera, sizeSvg, drawSilk, drawLegs, redrawThreads, drawBeams, drawEye, drawZaps, drawBody]){
@@ -2073,6 +2077,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   // reads further down the script is not there yet, which stops the whole script)
   (function crawl(now){
     requestAnimationFrame(crawl);
+    state.frameAt = now;      // this frame's own time, for the camera (see camera)
     profileFrame(now);
     const dt = Math.min(0.05, (now - (state.lastCrawl || now)) / 1000);
     state.lastCrawl = now;
@@ -2121,7 +2126,14 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       fxTick(now, dt);
     }
     advanceLegs(now);
-    if (now - (state.drawnAt || 0) > 12) drawSpider();
+    // One draw a frame; on a screen faster than 60 Hz, one every 12 ms or more. Both are judged on the frames' own
+    // timestamps. Judged against the clock time of the last draw (as it was), a draw that began more than 4.67 ms
+    // into its frame (16.67 less 12) made the next frame skip its draw: the page and the spider stood still for that
+    // frame and moved two frames' worth in the one after, at a frame rate that still read 60. Chipotle's 8-K,
+    // 2026-11-11, one take: 97 of 2,329 frames; 384 with the machine half as fast (frame rate 59.3). A frame not
+    // drawn is counted (state.drawSkips) for the take's lag log.
+    if (now - (state.drawnFrame || 0) > 12){ state.drawnFrame = now; drawSpider(); }
+    else state.drawSkips = (state.drawSkips || 0) + 1;
   })(performance.now());
 
   // Element centers in .doc space are scroll-invariant, so they are cached
@@ -5169,7 +5181,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     if (e.origin !== location.origin || !e.data || e.data.type !== "bmg-lag" || !e.data.summary || document.body.classList.contains("rec")) return;
     const sm = e.data.summary, n = document.createElement("div"); n.id = "lag-note"; n.setAttribute("role", "status");
     n.textContent = `Last take: ${sm.fps} fps while reading, ${sm.over50} frames over 50 ms, ${sm.over100} over 100 ms (longest ${Math.round(sm.worst)} ms)`
-      + (sm.capture ? `; video gaps over 100 ms: ${sm.capture.gaps100}` : "") + (sm.saved ? `. Lag log: ${sm.saved}` : "");
+      + (sm.notDrawn && sm.p50 > 12 ? `; frames not drawn: ${sm.notDrawn}` : "")
+      + (sm.capture ? `; video while reading: ${sm.capture.gaps25 || 0} frames missed, ${sm.capture.gaps100} gaps over 100 ms` : "") + (sm.saved ? `. Lag log: ${sm.saved}` : "");
     document.getElementById("lag-note")?.remove(); document.body.appendChild(n); setTimeout(() => n.remove(), 15000);
   });
   addEventListener("message", e => {
@@ -6793,7 +6806,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // the code that ran in it (long-animation-frame entries), gaps in the captured video, and the recorder's chunks.
     // Nothing on screen or in the video changes. When the take ends it goes to the local server, which keeps it in the
     // vault's site/server/lag-logs/, and one line of it shows under the finished take (after the recording stops).
-    const lag = state.lag = {on: false, done: false, t0: 0, last: 0, iv: [], pos: [], loaf: [], cap: {n: 0, last: 0, gaps: []}, chunks: [], env: null};
+    const lag = state.lag = {on: false, done: false, t0: 0, last: 0, iv: [], pos: [], loaf: [], cap: {n: 0, last: 0, g25: 0, gaps: []}, chunks: [], env: null};
     const lagBusy = () => window.bmgRec && window.bmgRec.phase === "busy" && walking() && !state.paused && !document.hidden
       && !document.getElementById("rec-curtain") && !document.getElementById("rec-end");
     const lagEnv = () => ({at: new Date().toISOString(), ua: navigator.userAgent, dpr: window.devicePixelRatio || 1, win: [innerWidth, innerHeight],
@@ -6803,7 +6816,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       if (lag.done) return;
       if (lagBusy()){
         if (!lag.on){
-          lag.on = true; lag.t0 = t;
+          lag.on = true; lag.t0 = t; lag.skip0 = state.drawSkips || 0;
           setTimeout(() => {                                       // read the machine's details outside the frame
             lag.env = lagEnv();
             if (navigator.getBattery) navigator.getBattery().then(b => { lag.battery = {charging: b.charging, level: b.level}; }).catch(() => {});
@@ -6844,10 +6857,13 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         row.n++; row.ms += x; if (x > 33.5) row.o33++; if (x > 50) row.o50++; if (x > 100) row.o100++;
       }
       const g = lag.cap.gaps;
+      // frames the crawl loop did not draw while the spider read: none on a 60 Hz screen; on a faster screen the
+      // draw keeps to one every 12 ms or more, so there it is every other frame by design
       return {secs: +(tot / 1000).toFixed(1), frames: n, fps: +(1000 * n / tot).toFixed(1), p50: q(.5), p95: q(.95), p99: q(.99), worst: s[n - 1],
+        notDrawn: Math.max(0, (state.drawSkips || 0) - (lag.skip0 || 0)),
         over25: v.filter(x => x > 25).length, over33: v.filter(x => x > 33.5).length, over50: v.filter(x => x > 50).length, over100: v.filter(x => x > 100).length,
         per10s: per.map(r => [r.b * 10, +(1000 * r.n / r.ms).toFixed(1), r.o33, r.o50, r.o100]), longFrames: lag.loaf.length,
-        capture: lag.cap.n ? {frames: lag.cap.n, gaps50: g.length, gaps100: g.filter(x => x[1] > 100).length, worst: g.reduce((m, x) => Math.max(m, x[1]), 0)} : null};
+        capture: lag.cap.n ? {frames: lag.cap.n, gaps25: lag.cap.g25, gaps50: g.length, gaps100: g.filter(x => x[1] > 100).length, worst: g.reduce((m, x) => Math.max(m, x[1]), 0)} : null};
     }
     // the finished take's log to the local server; resolves to the summary (or null), never throws
     async function lagSend(meta){
@@ -6875,6 +6891,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     }
     // The capture's own frames too: a gap in them while the spider reads is a still in the video, whatever its cause
     // (the page, or the capture falling behind, which the page cannot see). Read from a copy of the captured track.
+    // Counted only while the spider reads: the ending's screens stand still, so the capture sends about a frame a
+    // second there and every take read "video gaps over 100 ms: 10". A gap over 25 ms is one frame the capture did not
+    // get (frames come 16.7 ms apart at 60 a second): counted, and each gap over 50 ms is listed as before.
     async function captureWatch(){
       const tr = stream && stream.getVideoTracks()[0];
       if (!tr || !window.MediaStreamTrackProcessor) return;
@@ -6885,7 +6904,15 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           const {value: f, done} = await reader.read();
           if (done) break;
           const ts = f.timestamp / 1000; f.close();
-          if (lag.on && !lag.done){ lag.cap.n++; if (lag.cap.last && ts - lag.cap.last > 50 && lag.cap.gaps.length < 600) lag.cap.gaps.push([Math.round(performance.now() - lag.t0), Math.round(ts - lag.cap.last)]); lag.cap.last = ts; }
+          if (lag.on && !lag.done){
+            if (lagBusy()){
+              lag.cap.n++;
+              const gap = lag.cap.last ? ts - lag.cap.last : 0;
+              if (gap > 25) lag.cap.g25++;
+              if (gap > 50 && lag.cap.gaps.length < 600) lag.cap.gaps.push([Math.round(performance.now() - lag.t0), Math.round(gap)]);
+              lag.cap.last = ts;
+            } else lag.cap.last = 0;
+          }
           if (!rec || rec.state === "inactive") break;
           const reading = rec.state === "recording" && walking() && !state.paused;
           if (last && reading && ts - last > 50){ const e = takeNow(); freezes.push([Math.max(0, e - (ts - last)) / 1000, e / 1000]); }
@@ -7177,7 +7204,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           if (!bar.isConnected) return;
           const ln = document.createElement("small"); ln.className = "rf-lag"; ln.style.display = "block";
           ln.textContent = `Smoothness while reading: ${sm.fps} fps, ${sm.over50} frames over 50 ms, ${sm.over100} over 100 ms (longest ${Math.round(sm.worst)} ms)`
-            + (sm.capture ? `; video gaps over 100 ms: ${sm.capture.gaps100}` : "") + (sm.saved ? ` \u00b7 lag log saved: ${sm.saved}` : "");
+            + (sm.notDrawn && sm.p50 > 12 ? `; frames not drawn: ${sm.notDrawn}` : "")
+            + (sm.capture ? `; video while reading: ${sm.capture.gaps25 || 0} frames missed, ${sm.capture.gaps100} gaps over 100 ms` : "") + (sm.saved ? ` \u00b7 lag log saved: ${sm.saved}` : "");
           bar.appendChild(ln);
         });
       if (pl){
