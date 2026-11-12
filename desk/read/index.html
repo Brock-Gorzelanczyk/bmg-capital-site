@@ -1452,6 +1452,432 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   else root.LiveReportModel = LiveReportModel;
 })(typeof window !== "undefined" ? window : this);
 </script>
+<script id="crawler-sounds-engine">
+/* Crawler sounds, rebuilt to match Brock's reference (TikTok @everything.bends, a VCV Rack patch).
+   Everything is generated live with Web Audio (no audio files). Seven parts:
+     1. Melody: soft sine notes in B minor that ring and fade over a few seconds, with a slight warble
+        and a wide stereo image. The first 20 s play the reference's own notes
+        (B5 G5 B5 D6 B5 A5 G5 D6 F#5 A5 G5), then new notes are picked the same way.
+     2. Blips: short sine plucks in B minor from E3 to B7, instant attack, about 0.1 s long,
+        quieter in the top two octaves, spread across the stereo field, about 6 to 8 a second.
+     3. Halo: once the read builds, each low blip leaves a soft note ringing for a few seconds,
+        so the low end fills with the notes that were played.
+     4. Ticks: 6 ms clicks of bright hiss on a 60 a second grid: some centered, some hard left,
+        some hard right. The grid fills up through the read, from about 1 slot in 6 to nearly all.
+     5. Wash: a soft band of noise (170 to 550 Hz) that fades in from a quarter of the way through
+        the read and is full by about two thirds.
+     6. Rumble: a faint, fluttering low noise (35 to 150 Hz) under everything, rising with the read.
+     7. Space: a long, dark reverb on the melody and blips. Ticks, halo, wash and rumble stay dry.
+   Levels, rates, timing and stereo width were tuned by measuring the reference and renders of
+   this file the same way.
+
+   Use:
+     var s = new CrawlerSounds(audioContext, outputNode);   // outputNode defaults to the context destination
+     s.start();          when the spider starts reading
+     s.setProgress(p);   0 to 1, how far through the filing (drives the build-up)
+     s.step();           each spider step (a tick on the next free grid slot)
+     s.read();           each word or line it reads (a blip)
+     s.found();          each figure it pulls out (a brighter blip)
+     s.stop();           when the read ends (1.2 s fade)
+   Options (third argument): { volume: 1, seed: number for a repeatable take }.
+   Ticks and blips fill in on their own up to the reference's rates, so it sounds right even if the
+   hooks fire rarely, and hook calls beyond those rates are skipped. In an OfflineAudioContext there
+   is no timer: call s.pump(untilTime) yourself. */
+(function (root) {
+  "use strict";
+
+  var PC = { C: 0, "C#": 1, D: 2, "D#": 3, E: 4, F: 5, "F#": 6, G: 7, "G#": 8, A: 9, "A#": 10, B: 11 };
+  var BLIP_PC = [["F#", 28], ["A", 26], ["B", 22], ["D", 22], ["G", 10], ["C#", 9], ["E", 7]];
+  var BLIP_OCT = [[3, 30], [4, 32], [5, 48], [6, 12], [7, 24]];
+  var OCT_DB = { 3: -4, 4: 0, 5: 0, 6: -11, 7: -17 };
+  var TICK_HZ = 60;
+  // Share of grid slots that tick in each channel, against progress, measured on the reference.
+  var TICK_FILL = [[0, 0.1], [0.15, 0.12], [0.35, 0.2], [0.5, 0.3], [0.65, 0.48], [0.8, 0.66], [0.9, 0.77], [1, 0.82]];
+  // Wash and halo levels in dB against progress, measured on the reference.
+  var WASH_DB = [[0, -32], [0.25, -14], [0.35, -8], [0.45, -3.5], [0.55, -1.5], [0.7, 0], [1, 0]];
+  var HALO_DB = [[0, -40], [0.15, -14], [0.3, -4], [0.45, 0], [1, 0]];
+  var RUMBLE_DB = [[0, -20], [0.3, -12], [0.5, -4], [0.7, 0], [1, 0]];
+  // The reference melody: [seconds after start, note, octave].
+  var MELODY = [[0.0, "B", 5], [3.5, "G", 5], [6.95, "B", 5], [8.85, "D", 6], [11.1, "B", 5], [12.2, "A", 5],
+                [12.9, "G", 5], [14.1, "D", 6], [15.5, "F#", 5], [16.35, "A", 5], [19.35, "G", 5]];
+  var MELODY_GAPS = [3.5, 3.45, 1.9, 2.25, 1.1, 0.7, 1.2, 1.4, 0.85, 3.0];
+  var MELODY_NOTES = [[["B", 5], 3], [["G", 5], 2], [["D", 6], 2], [["A", 5], 2], [["F#", 5], 1]];
+
+  var LEVEL = { master: 1.05, melody: 0.08, blip: 0.05, tick: 0.088, wash: 0.165, halo: 0.025, rumble: 0.06, verb: 0.85, melodyVerb: 0.3 };
+
+  function hz(pc, oct) { return 440 * Math.pow(2, (PC[pc] + 12 * (oct + 1) - 69) / 12); }
+  function weighted(list, r) {
+    var tot = 0, i, x;
+    for (i = 0; i < list.length; i++) tot += list[i][1];
+    x = r * tot;
+    for (i = 0; i < list.length; i++) { x -= list[i][1]; if (x <= 0) return list[i][0]; }
+    return list[list.length - 1][0];
+  }
+  function interp(table, p) {
+    if (p <= table[0][0]) return table[0][1];
+    for (var i = 1; i < table.length; i++) {
+      if (p <= table[i][0]) {
+        var a = table[i - 1], b = table[i];
+        return a[1] + (b[1] - a[1]) * (p - a[0]) / (b[0] - a[0]);
+      }
+    }
+    return table[table.length - 1][1];
+  }
+  function xorshift(seed) {
+    var s = (seed >>> 0) || 1;
+    return function () { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; };
+  }
+
+  function CrawlerSounds(ctx, out, opts) {
+    opts = opts || {};
+    this.ctx = ctx;
+    this.rand = opts.seed != null ? xorshift(opts.seed) : Math.random;
+    this.L = {};
+    for (var k in LEVEL) this.L[k] = opts.levels && opts.levels[k] != null ? opts.levels[k] : LEVEL[k];
+    this.auto = opts.auto !== false;
+    this.offline = typeof ctx.startRendering === "function";
+    this.progress = 0;
+    this.running = false;
+    this.timer = null;
+    this.recent = { step: [], read: [] };
+    this.volume = opts.volume == null ? 1 : opts.volume;
+
+    this.master = ctx.createGain();
+    this.master.gain.value = 0;
+    var comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -8; comp.knee.value = 6; comp.ratio.value = 3;
+    comp.attack.value = 0.003; comp.release.value = 0.25;
+    this.master.connect(comp);
+    comp.connect(out || ctx.destination);
+
+    this.bus = ctx.createGain();
+    this.bus.connect(this.master);
+
+    // long, dark reverb for the melody and blips
+    this.send = ctx.createGain();
+    var verb = ctx.createConvolver();
+    verb.normalize = true;
+    verb.buffer = this._impulse(8);
+    var wet = ctx.createGain();
+    wet.gain.value = this.L.verb;
+    this.send.connect(verb); verb.connect(wet); wet.connect(this.master);
+    this.melSend = ctx.createGain();
+    this.melSend.gain.value = this.L.melodyVerb;
+    this.melSend.connect(this.send);
+
+    this.noiseTick = [this._noise(2, 1), this._noise(2, 1), this._noise(2, 1)];
+    this.noiseWash = this._noise(4, 0.3);
+    this.noiseRumble = this._noise(4, 0.3);
+    this.wobble = this._wobbleBuffer(6);
+  }
+
+  // Noise buffer. corr = how alike left and right are (1 = mono).
+  CrawlerSounds.prototype._noise = function (sec, corr) {
+    var ctx = this.ctx, n = Math.floor(sec * ctx.sampleRate), stereo = corr < 1;
+    var b = ctx.createBuffer(stereo ? 2 : 1, n, ctx.sampleRate);
+    var Lc = b.getChannelData(0), Rc = stereo ? b.getChannelData(1) : null, k = Math.sqrt(1 - corr * corr);
+    for (var i = 0; i < n; i++) {
+      var a = this.rand() * 2 - 1;
+      Lc[i] = a;
+      if (Rc) Rc[i] = corr * a + k * (this.rand() * 2 - 1);
+    }
+    return b;
+  };
+
+  // Smooth random wobble (mostly 3 to 12 Hz, nothing slow), -1 to 1, two independent channels.
+  CrawlerSounds.prototype._wobbleBuffer = function (sec) {
+    var ctx = this.ctx, n = Math.floor(sec * ctx.sampleRate), b = ctx.createBuffer(2, n, ctx.sampleRate);
+    var a = Math.exp(-2 * Math.PI * 9 / ctx.sampleRate), a2 = Math.exp(-2 * Math.PI * 2 / ctx.sampleRate);
+    for (var c = 0; c < 2; c++) {
+      var d = b.getChannelData(c), y1 = 0, y2 = 0, y3 = 0, mx = 1e-9, i;
+      for (i = 0; i < n; i++) { y1 = a * y1 + (1 - a) * (this.rand() * 2 - 1); y2 = a * y2 + (1 - a) * y1; y3 = a2 * y3 + (1 - a2) * y2; d[i] = y2 - y3; }
+      for (i = 0; i < n; i++) mx = Math.max(mx, Math.abs(d[i]));
+      for (i = 0; i < n; i++) d[i] /= mx;
+    }
+    return b;
+  };
+
+  // Reverb impulse: decaying noise whose top end dies away faster than its low end
+  // (rt60 is the low-end ring time; highs fade within a few seconds).
+  CrawlerSounds.prototype._impulse = function (rt60) {
+    var ctx = this.ctx, sr = ctx.sampleRate, len = Math.floor(rt60 * 0.7 * sr), pre = Math.floor(0.015 * sr);
+    var b = ctx.createBuffer(2, len, sr);
+    for (var c = 0; c < 2; c++) {
+      var d = b.getChannelData(c), y1 = 0, y2 = 0;
+      for (var i = pre; i < len; i++) {
+        var t = (i - pre) / sr, fc = 6000 * Math.exp(-t / 1.2) + 300, k = 1 - Math.exp(-2 * Math.PI * fc / sr);
+        y1 += k * ((this.rand() * 2 - 1) - y1);
+        y2 += k * (y1 - y2);
+        d[i] = y2 * Math.exp(-6.9 * t / rt60) * Math.min(1, (i - pre) / (0.01 * sr));
+      }
+    }
+    return b;
+  };
+
+  CrawlerSounds.prototype.start = function (when) {
+    if (this.running) return;
+    var ctx = this.ctx, t = Math.max(when || 0, ctx.currentTime);
+    if (ctx.state === "suspended" && ctx.resume) ctx.resume();
+    this.running = true;
+    this.t0 = t;
+    this.slots = {};
+    this.next = { slot: 1, blip: t + 0.05, melody: 0, melodyAt: t, lastNote: null };
+    this.master.gain.cancelScheduledValues(t);
+    this.master.gain.setValueAtTime(0, t);
+    this.master.gain.linearRampToValueAtTime(this.L.master * this.volume, t + 0.05);
+    this._startBeds(t);
+    this.pump(t + 0.35);
+    if (!this.offline) {
+      var self = this;
+      this.timer = setInterval(function () { self.pump(self.ctx.currentTime + 0.35); }, 50);
+    }
+  };
+
+  CrawlerSounds.prototype.stop = function (when) {
+    if (!this.running) return;
+    var ctx = this.ctx, t = Math.max(when || 0, ctx.currentTime);
+    this.running = false;
+    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+    this.master.gain.cancelScheduledValues(t);
+    this.master.gain.setValueAtTime(this.master.gain.value, t);
+    this.master.gain.linearRampToValueAtTime(0, t + 1.2);
+    if (this.beds) { for (var i = 0; i < this.beds.srcs.length; i++) this.beds.srcs[i].stop(t + 1.3); this.beds = null; }
+  };
+
+  CrawlerSounds.prototype.setProgress = function (p) {
+    this.progress = Math.max(0, Math.min(1, p || 0));
+    if (this.beds) {
+      this.beds.wash.gain.setTargetAtTime(this._washLevel(), this.ctx.currentTime, 0.4);
+      this.beds.rumble.gain.setTargetAtTime(this._rumbleLevel(), this.ctx.currentTime, 0.4);
+    }
+  };
+
+  // A spider step: a tick on the next free grid slot at least 5 ms ahead.
+  CrawlerSounds.prototype.step = function () {
+    if (!this.running) return;
+    var now = this.ctx.currentTime;
+    if (this._busy(this.recent.step, now, this._tickRate())) return;
+    var k = Math.ceil((now + 0.005 - this.t0) * TICK_HZ);
+    for (var j = 0; j < 3; j++, k++) {
+      var s = this.slots[k];
+      if (!s) {
+        s = s === undefined && this.rand() < 0.4 ? "C" : (this.rand() < 0.5 ? "L" : "R");
+        this.slots[k] = s;
+        this.recent.step.push(now);
+        this._tick(this.t0 + k / TICK_HZ, s);
+        return;
+      }
+    }
+  };
+
+  CrawlerSounds.prototype.read = function (when) {
+    if (!this.running) return;
+    var now = this.ctx.currentTime, t = Math.max(when || 0, now);
+    if (this._busy(this.recent.read, now, this._blipRate())) return;
+    this.recent.read.push(t);
+    this._blip(t, false);
+  };
+
+  CrawlerSounds.prototype.found = function (when) {
+    if (!this.running) return;
+    var t = Math.max(when || 0, this.ctx.currentTime);
+    this.recent.read.push(t);
+    this._blip(t, true);
+  };
+
+  // Schedule the self-running parts up to `until` (seconds on the context clock).
+  CrawlerSounds.prototype.pump = function (until) {
+    if (!this.running) return;
+    var now = this.ctx.currentTime;
+    if (this.auto) {
+      // never schedule into the past (the page may have stalled)
+      var first = Math.ceil((now + 0.005 - this.t0) * TICK_HZ);
+      if (this.next.slot < first) this.next.slot = first;
+      if (this.next.blip < now) this.next.blip = now + 0.01;
+      var q = Math.min(1, this._fill(this._tickRate(), this.recent.step, now) / (2 * TICK_HZ));
+      for (var k = this.next.slot; this.t0 + k / TICK_HZ < until; k++) {
+        if (this.slots[k] === undefined) {
+          this.slots[k] = this._pickSide(q);
+          if (this.slots[k]) this._tick(this.t0 + k / TICK_HZ, this.slots[k]);
+        }
+        delete this.slots[k - 400];
+        this.next.slot = k + 1;
+      }
+      var blipRate = this._fill(this._blipRate(), this.recent.read, now);
+      while (this.next.blip < until) { this._blip(this.next.blip, false); this.next.blip += this._gap(blipRate, 0.03); }
+    }
+    while (this.next.melodyAt < until) {
+      var m = this.next.melody, pc, oct, at;
+      if (m < MELODY.length) {
+        at = this.t0 + MELODY[m][0]; pc = MELODY[m][1]; oct = MELODY[m][2];
+      } else {
+        at = this.next.melodyAt;
+        do { var nt = weighted(MELODY_NOTES, this.rand()); pc = nt[0]; oct = nt[1]; } while (pc === this.next.lastNote);
+      }
+      if (at > now - 0.5) this._melody(Math.max(at, now), hz(pc, oct));
+      this.next.lastNote = pc;
+      this.next.melody = m + 1;
+      this.next.melodyAt = m + 1 < MELODY.length ? this.t0 + MELODY[m + 1][0]
+        : at + MELODY_GAPS[Math.floor(this.rand() * MELODY_GAPS.length)] * (0.9 + 0.2 * this.rand());
+    }
+  };
+
+  // What a grid slot plays, given q = share of slots ticking in each channel:
+  // "C" centered, "L" or "R" hard to one side, "" nothing.
+  CrawlerSounds.prototype._pickSide = function (q) {
+    var e = q / 0.7, both = e <= 1 ? 0.4 * e : 2 * q - 1, one = e <= 1 ? 0.3 * e : 1 - q, u = this.rand();
+    return u < both ? "C" : u < both + one ? "L" : u < both + 2 * one ? "R" : "";
+  };
+
+  // Ticks per second, both channels together.
+  CrawlerSounds.prototype._tickRate = function () { return 2 * TICK_HZ * interp(TICK_FILL, this.progress); };
+  CrawlerSounds.prototype._blipRate = function () { return 6.5 + 1.5 * this.progress; };
+
+  // Rate left for the self-running layer after the hook-driven events of the last 2 s.
+  CrawlerSounds.prototype._fill = function (target, list, now) {
+    while (list.length && list[0] < now - 2) list.shift();
+    return Math.max(target * 0.15, target - list.length / 2);
+  };
+  CrawlerSounds.prototype._busy = function (list, now, rate) {
+    while (list.length && list[0] < now - 2) list.shift();
+    return list.length >= rate * 2;
+  };
+
+  CrawlerSounds.prototype._gap = function (rate, min) {
+    return Math.max(min, -Math.log(1 - this.rand()) / rate);
+  };
+
+  // One tick on a persistent voice: L hard left, R hard right, C centered (nudged a little either way).
+  CrawlerSounds.prototype._tick = function (t, side) {
+    if (!this.beds) return;
+    var v = this.beds.ticks[side], amp = this.L.tick * (0.55 + 0.45 * this.rand()) * (side === "C" ? 1.2 : 1);
+    if (side === "C") v.pan.pan.setValueAtTime((this.rand() * 2 - 1) * 0.35, t);
+    v.gain.gain.setValueAtTime(0, t);
+    v.gain.gain.linearRampToValueAtTime(amp, t + 0.0012);
+    v.gain.gain.setTargetAtTime(0, t + 0.0012, 0.0024);
+  };
+
+  CrawlerSounds.prototype._blip = function (t, bright) {
+    var pc = weighted(BLIP_PC, this.rand()), oct = weighted(BLIP_OCT, this.rand());
+    if (bright && (oct < 5 || oct > 6)) oct = this.rand() < 0.6 ? 5 : 6;
+    if (hz(pc, oct) < 160) oct++;
+    var amp = this.L.blip * (0.55 + 0.45 * this.rand()) * Math.pow(10, OCT_DB[oct] / 20) * (bright ? 1.5 : 1);
+    var u = this.rand() * 2 - 1, f = hz(pc, oct), panPos = (u < 0 ? -1 : 1) * Math.sqrt(Math.abs(u)) * (oct >= 6 ? 0.5 : 0.8);
+    this._blipAt(t, f, amp, panPos, oct >= 6 ? oct - 5 : 0);
+    if (f < 700) this._halo(t, f, panPos);
+  };
+
+  // ring: 0 short pluck, 1 a little longer (octave 6), 2 longest (octave 7)
+  CrawlerSounds.prototype._blipAt = function (t, f, amp, panPos, ring) {
+    var ctx = this.ctx, o = ctx.createOscillator();
+    o.type = "sine"; o.frequency.value = f;
+    var g = ctx.createGain(), hold, tau;
+    if (ring === 2) { hold = 0.08 + 0.12 * this.rand(); tau = 0.05 + 0.05 * this.rand(); }
+    else if (ring === 1) { hold = 0.04 + 0.06 * this.rand(); tau = 0.035 + 0.025 * this.rand(); }
+    else { hold = 0.02 + 0.04 * this.rand(); tau = 0.025 + 0.015 * this.rand(); }
+    g.gain.value = 0;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(amp, t + 0.002);
+    g.gain.setValueAtTime(amp, t + 0.002 + hold);
+    g.gain.setTargetAtTime(0, t + 0.002 + hold, tau);
+    var pan = ctx.createStereoPanner(); pan.pan.value = panPos;
+    o.connect(g); g.connect(pan); pan.connect(this.bus); pan.connect(this.send);
+    o.start(t);
+    o.stop(t + 0.002 + hold + tau * 8);
+  };
+
+  // A low blip leaves a soft note ringing for a few seconds; louder as the read builds.
+  CrawlerSounds.prototype._halo = function (t, f, panPos) {
+    var lvl = this.L.halo * Math.pow(10, interp(HALO_DB, this.progress) / 20) * (0.6 + 0.4 * this.rand());
+    if (lvl < 0.001) return;
+    var ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+    var atk = 0.4 + 0.4 * this.rand(), tau = 2.5 + 1.5 * this.rand();
+    o.type = "sine"; o.frequency.value = f;
+    g.gain.value = 0;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(lvl, t + atk);
+    g.gain.setTargetAtTime(0, t + atk, tau);
+    var pan = ctx.createStereoPanner(); pan.pan.value = panPos;
+    o.connect(g); g.connect(pan); pan.connect(this.bus);
+    o.start(t);
+    o.stop(t + atk + tau * 4.5);
+  };
+
+  // One melody note: a warbling voice on each side plus a quiet steady one in the middle.
+  CrawlerSounds.prototype._melody = function (t, f) {
+    var ctx = this.ctx, hold = 0.1 + 0.25 * this.rand(), tau = 1.2 + 0.4 * this.rand(), end = t + 0.03 + hold + tau * 6;
+    var env = ctx.createGain(), a = this.L.melody;
+    env.gain.value = 0;
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(a, t + 0.03);
+    env.gain.setValueAtTime(a, t + 0.03 + hold);
+    env.gain.setTargetAtTime(0, t + 0.03 + hold, tau);
+    env.connect(this.bus); env.connect(this.melSend);
+    var self = this;
+    [[-1, 0, 0.65, 0], [1, 0, 0.65, 1], [0, 2, 0.4, null]].forEach(function (v) {
+      var o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f; o.detune.value = v[1];
+      if (v[3] !== null && self.beds) self.beds.wob[v[3]].connect(o.detune);
+      var g = ctx.createGain(); g.gain.value = v[2];
+      var pan = ctx.createStereoPanner(); pan.pan.value = v[0];
+      o.connect(g); g.connect(pan); pan.connect(env);
+      o.start(t); o.stop(end);
+    });
+  };
+
+  CrawlerSounds.prototype._washLevel = function () {
+    return this.L.wash * Math.pow(10, interp(WASH_DB, this.progress) / 20);
+  };
+  CrawlerSounds.prototype._rumbleLevel = function () {
+    return this.L.rumble * Math.pow(10, interp(RUMBLE_DB, this.progress) / 20);
+  };
+
+  CrawlerSounds.prototype._startBeds = function (t) {
+    var ctx = this.ctx, srcs = [], self = this;
+    // wash: wide noise, 170 to 550 Hz
+    var src = ctx.createBufferSource(); src.buffer = this.noiseWash; src.loop = true;
+    var hp1 = ctx.createBiquadFilter(); hp1.type = "highpass"; hp1.frequency.value = 170; hp1.Q.value = 0.7;
+    var hp2 = ctx.createBiquadFilter(); hp2.type = "highpass"; hp2.frequency.value = 170; hp2.Q.value = 0.7;
+    var lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 550; lp.Q.value = 0.7;
+    var wash = ctx.createGain(); wash.gain.value = this._washLevel();
+    src.connect(hp1); hp1.connect(hp2); hp2.connect(lp); lp.connect(wash); wash.connect(this.bus);
+    src.start(t, this.rand() * 3); srcs.push(src);
+    // rumble: wide low noise, 35 to 150 Hz, fluttering at a few Hz
+    var rs = ctx.createBufferSource(); rs.buffer = this.noiseRumble; rs.loop = true;
+    var rhp = ctx.createBiquadFilter(); rhp.type = "highpass"; rhp.frequency.value = 35; rhp.Q.value = 0.7;
+    var rlp = ctx.createBiquadFilter(); rlp.type = "lowpass"; rlp.frequency.value = 150; rlp.Q.value = 0.7;
+    var flutter = ctx.createGain(); flutter.gain.value = 1;
+    var rumble = ctx.createGain(); rumble.gain.value = this._rumbleLevel();
+    rs.connect(rhp); rhp.connect(rlp); rlp.connect(flutter); flutter.connect(rumble); rumble.connect(this.bus);
+    rs.start(t, this.rand() * 3); srcs.push(rs);
+    var fw = ctx.createBufferSource(); fw.buffer = this.wobble; fw.loop = true; fw.playbackRate.value = 0.6;
+    var fsplit = ctx.createChannelSplitter(2), fdepth = ctx.createGain(); fdepth.gain.value = 0.8;
+    fw.connect(fsplit); fsplit.connect(fdepth, 0); fdepth.connect(flutter.gain);
+    fw.start(t, this.rand() * 5); srcs.push(fw);
+    // three tick voices (left, right, center): looping noise, bright filter, a gain that each tick opens briefly
+    var ticks = {};
+    [["L", -1], ["R", 1], ["C", 0]].forEach(function (v, i) {
+      var n = ctx.createBufferSource(); n.buffer = self.noiseTick[i]; n.loop = true;
+      var hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 7000; hp.Q.value = 0.7;
+      var sh = ctx.createBiquadFilter(); sh.type = "highshelf"; sh.frequency.value = 10000; sh.gain.value = 4;
+      var g = ctx.createGain(); g.gain.value = 0;
+      var pan = ctx.createStereoPanner(); pan.pan.value = v[1];
+      n.connect(hp); hp.connect(sh); sh.connect(g); g.connect(pan); pan.connect(self.bus);
+      n.start(t, self.rand() * 1.9); srcs.push(n);
+      ticks[v[0]] = { gain: g, pan: pan };
+    });
+    // warble for the side voices of the melody: plus or minus 10 cents, independent left and right
+    var w = ctx.createBufferSource(); w.buffer = this.wobble; w.loop = true;
+    var split = ctx.createChannelSplitter(2), wob = [ctx.createGain(), ctx.createGain()];
+    w.connect(split);
+    wob.forEach(function (g, i) { g.gain.value = 10; split.connect(g, i); });
+    w.start(t, this.rand() * 5); srcs.push(w);
+    this.beds = { srcs: srcs, wash: wash, rumble: rumble, wob: wob, ticks: ticks };
+  };
+
+  if (typeof module !== "undefined" && module.exports) module.exports = CrawlerSounds;
+  else root.CrawlerSounds = CrawlerSounds;
+})(typeof window !== "undefined" ? window : this);
+</script>
 <script>
 (() => {
   if (window.BMG_COMPARE) return;                     // ?compare=1: the two halves are readers of their own (below)
@@ -1902,101 +2328,98 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     return d >= MIN_REACH && d <= HI_REACH * 1.7 && sectorIndex(bx, by, c.x, c.y) === i;
   }
   // ---- Crawler sounds (optional; off unless ticked in Make a clip or in Record mode's settings). Sound only listens:
-  // a foot landing, a figure lighting up, a chip landing in the report and the end of the crawl each tell it, and the
-  // crawl never reads anything back from it. While it is off no sound object exists (state.snd is null) and each of
-  // those places costs one test. Every sound is made here, from oscillators and filtered noise: nothing is recorded or
-  // copied from anywhere. It keeps its own random numbers (Math.random belongs to the crawl, and the gait check seeds
-  // it) and schedules on the audio clock alone, no timers, while a crawl runs.
-  function crawlerSound(volume){
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return null;
+  // a foot landing, a figure lighting up, a chip landing in the report and the start and end of the crawl each tell
+  // it, and the crawl never reads anything back from it. While it is off no sound object exists (state.snd is null)
+  // and each of those places costs one test. The sound itself is the CrawlerSounds engine in the script block above
+  // (crawler-sounds.js, matched by measurement to Brock's reference; kept word for word, not tuned here): a foot is
+  // its step(), a figure its found(), a chip its read(), and it is told how far through the filing the read is.
+  // It is given its own random numbers (Math.random belongs to the crawl, and the gait check seeds it).
+  // The settings' volume is the engine's own level at 60% (where the slider starts), so 100% is 4.4 dB above it.
+  const SOUND_REF = 0.6;
+  function crawlerSound(volume, progress){
+    const AC = window.AudioContext || window.webkitAudioContext, Engine = window.CrawlerSounds;
+    if (!AC || !Engine) return null;
     let ctx = null;
     try { ctx = new AC({latencyHint: "interactive"}); } catch (e) { return null; }
     const clamp01 = v => Math.max(0, Math.min(1, +v || 0));
-    const out = ctx.createGain(), lim = ctx.createDynamicsCompressor();
-    out.gain.value = clamp01(volume == null ? 0.6 : volume);
-    lim.threshold.value = -12; lim.knee.value = 8; lim.ratio.value = 8; lim.attack.value = 0.002; lim.release.value = 0.1;
-    out.connect(lim); lim.connect(ctx.destination);
+    const out = ctx.createGain();
+    out.connect(ctx.destination);
     let tape = null;                                 // the recording hears the same mix, straight from here: no microphone, no system sound
-    try { tape = ctx.createMediaStreamDestination(); lim.connect(tape); } catch (e) { tape = null; }
-    let seed = 0x9e3779b9;
-    const rnd = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return (seed >>> 0) / 4294967296; };
-    const hiss = ctx.createBuffer(1, Math.round(ctx.sampleRate * 0.5), ctx.sampleRate), hd = hiss.getChannelData(0);
-    for (let k = 0; k < hd.length; k++) hd[k] = rnd() * 2 - 1;
-    // every sound rises from and falls back to silence, so none starts or ends on a step (no pops)
-    const swell = (g, t, peak, attack, decay) => { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay); };
-    const place = (node, pan) => { if (!pan || !ctx.createStereoPanner){ node.connect(out); return; } const sp = ctx.createStereoPanner(); sp.pan.value = pan; node.connect(sp); sp.connect(out); };
-    // a short burst of noise through a narrow band: the body of a tap or a snap
-    const burst = (t, freq, q, peak, decay, pan) => {
-      const src = ctx.createBufferSource(), band = ctx.createBiquadFilter(), g = ctx.createGain();
-      src.buffer = hiss; band.type = "bandpass"; band.frequency.value = freq; band.Q.value = q;
-      swell(g, t, peak, 0.0015, decay);
-      src.connect(band); band.connect(g); place(g, pan);
-      src.start(t, rnd() * 0.3, decay + 0.03);
+    try { tape = ctx.createMediaStreamDestination(); out.connect(tape); } catch (e) { tape = null; }
+    let eng = null;
+    try { eng = new Engine(ctx, out, {volume: clamp01(volume == null ? SOUND_REF : volume) / SOUND_REF, seed: ((Date.now() % 2147483647) ^ 0x9e3779b9) >>> 0}); }
+    catch (e) { try { ctx.close(); } catch (e2) {} return null; }
+    let live = true, quiet = false, held = false, fedAt = -1;
+    const count = {tap: 0, collect: 0, land: 0, done: 0};       // what the engine was told, for the take's own record and the checks
+    const level = () => eng.L.master * eng.volume;
+    const master = (v, at, tc) => { try { eng.master.gain.cancelScheduledValues(at); eng.master.gain.setTargetAtTime(v, at, tc); } catch (e) {} };
+    // how far through the filing the read is, a few times a second (asked for only when the crawl tells of something)
+    const feed = () => {
+      const t = ctx.currentTime;
+      if (!progress || t - fedAt < 0.25) return;
+      fedAt = t;
+      let p = 0; try { p = +progress() || 0; } catch (e) {}
+      eng.setProgress(p);
     };
-    // a short note that slides from one pitch to another: the tick in a tap, the ring in a click
-    const note = (t, from, to, peak, decay, type, pan) => {
-      const osc = ctx.createOscillator(), g = ctx.createGain();
-      osc.type = type || "sine"; osc.frequency.setValueAtTime(from, t); osc.frequency.exponentialRampToValueAtTime(Math.max(20, to), t + decay);
-      swell(g, t, peak, 0.002, decay);
-      osc.connect(g); place(g, pan);
-      osc.start(t); osc.stop(t + decay + 0.03);
-    };
-    let lastTap = -1, live = true, quiet = false, held = false, openAt = 0;
-    const count = {tap: 0, collect: 0, land: 0, done: 0};       // what was sounded, for the take's own record and the checks
-    const at = d => ctx.currentTime + (d || 0) + 0.005;
+    const open = () => live && eng.running && !quiet && !held && ctx.currentTime >= eng.t0;
     return {
       track: tape ? tape.stream.getAudioTracks()[0] || null : null,
       count,
       running: () => live && ctx.state === "running",
       wake(){ if (live && ctx.state === "suspended") ctx.resume().catch(() => {}); },
-      volume(v){ if (live) out.gain.setTargetAtTime(clamp01(v), ctx.currentTime, 0.02); },
-      // quiet while the page is not the crawl (the black opening, the ending): the end's own sound still plays. With a
-      // lead (seconds), the crawl's sounds begin that long after the call: a recorder takes a moment to roll, and a
-      // sound begun in that moment is cut by the file's first sample (a 10-K take's sound began 11% of full scale
-      // into a tap). Judged on the audio clock, no timer.
-      hush(on, lead){ quiet = !!on; if (!on && lead > 0) openAt = Math.max(openAt, ctx.currentTime + lead); },
-      // the recording holds (a pause or a rewind by hand): nothing new sounds until it rolls again, a lead after it does
-      hold(on, lead){ held = !!on; if (!on && lead > 0) openAt = Math.max(openAt, ctx.currentTime + lead); },
-      // a foot lands (leg i of 8: 0 to 3 down one side, 4 to 7 down the other). Feet land in bursts at speed: at most
-      // one tap every 30 ms is sounded, so a fast crawl ticks along instead of buzzing
-      tap(i, delay){
-        if (!live || quiet || held) return;
-        const t = at(delay);
-        if (t < openAt || t - lastTap < 0.03) return;
-        lastTap = t; count.tap++;
-        const row = (i | 0) % 4, side = (i | 0) < 4 ? -1 : 1, f = 2300 - row * 230 + (rnd() - 0.5) * 160, loud = 0.2 + rnd() * 0.08;
-        burst(t, f, 7, loud, 0.02, side * 0.22);
-        note(t, f * 0.52, f * 0.34, loud * 0.5, 0.014, "sine", side * 0.22);
+      volume(v){ if (!live) return; eng.volume = clamp01(v) / SOUND_REF; if (eng.running && !held) master(level(), ctx.currentTime, 0.02); },
+      // quiet while the page is not the crawl (the black opening, the ending). Lifting it starts the engine, a lead
+      // (seconds) after the call: a recorder takes a moment to roll, and sound begun in that moment is cut by the
+      // file's first sample. Setting it once the engine runs is the end of the read: the engine's own 1.2 s fade.
+      hush(on, lead){
+        quiet = !!on;
+        if (!live) return;
+        if (!on && !eng.running){ fedAt = -1; eng.start(ctx.currentTime + (lead > 0 ? lead : 0)); }
+        else if (on && eng.running){ eng.stop(); count.done++; }
       },
+      // the recording holds (a pause or a rewind by hand): down to silence, and back a lead after it rolls again
+      hold(on, lead){
+        held = !!on;
+        if (!live || !eng.running) return;
+        if (on) master(0, ctx.currentTime, 0.01); else master(level(), ctx.currentTime + (lead > 0 ? lead : 0), 0.03);
+      },
+      // a foot lands: a step for the engine (it keeps to its own rate and skips what is beyond it)
+      tap(i){ if (!open()) return; count.tap++; feed(); eng.step(); },
       // a figure lights up on the page as the spider collects it
-      collect(delay){ if (!live || quiet || held) return; const t = at(delay); if (t < openAt) return; count.collect++; note(t, 1320, 1980, 0.3, 0.05, "triangle", 0); burst(t, 4200, 3, 0.2, 0.016, 0); },
+      collect(){ if (!open()) return; count.collect++; feed(); eng.found(); },
       // its chip lands in the report
-      land(delay){ if (!live || quiet || held) return; const t = at(delay); if (t < openAt) return; count.land++; burst(t, 1100, 2.4, 0.42, 0.04, 0); note(t, 560, 190, 0.34, 0.07, "sine", 0); },
-      // the crawl is over
-      done(delay){ if (!live) return; const t = at(delay); count.done++; [[784, 0], [1047, 0.09], [1568, 0.18]].forEach(([f, d]) => note(t + d, f, f, 0.2, 0.55, "triangle", 0)); },
+      land(){ if (!open()) return; count.land++; feed(); eng.read(); },
+      // the crawl is over: nothing of its own in this engine (the read's end is the fade that hush starts)
+      done(){},
       // the take is about to stop: down to silence over its last hundredths of a second, so the file never ends in the
-      // middle of a sound; nothing new sounds after this
-      fade(){ if (!live) return; quiet = true; try { out.gain.setTargetAtTime(0, ctx.currentTime, 0.015); } catch (e) {} },
+      // middle of a sound
+      fade(){ if (!live) return; quiet = true; master(0, ctx.currentTime, 0.015); },
+      // a few seconds of it for the Preview button: the read's build-up, start to full
+      demo(secs){
+        if (!live || eng.running) return;
+        const t0 = ctx.currentTime; eng.start();
+        const tick = setInterval(() => { const p = (ctx.currentTime - t0) / secs; if (p >= 1 || !live){ clearInterval(tick); if (live && eng.running) eng.stop(); } else eng.setProgress(p); }, 100);
+      },
       // fades to nothing in a few hundredths of a second, then lets go of the audio device
       stop(){
         if (!live) return;
         live = false;
-        try { out.gain.setTargetAtTime(0, ctx.currentTime, 0.012); } catch (e) {}
+        try { if (eng.running) eng.stop(); } catch (e) {}
+        master(0, ctx.currentTime, 0.012);
         setTimeout(() => { try { ctx.close(); } catch (e) {} }, 140);
       }
     };
   }
-  // Preview sound (Make a clip, Record mode's settings): a few steps, a figure collected, its chip landing, the end
+  // Preview sound (Make a clip, Record mode's settings): six seconds of the read's sound, building from start to full
   function crawlerSoundPreview(volume){
-    const snd = crawlerSound(volume);
+    const snd = crawlerSound(volume, null);
     if (!snd) return false;
-    snd.wake();
-    [0, 0.07, 0.15, 0.22, 0.31, 0.38, 0.47, 0.54].forEach((d, k) => snd.tap([0, 5, 2, 7, 1, 4, 3, 6][k], d));
-    snd.collect(0.72); snd.land(1.02); snd.done(1.4);
-    setTimeout(() => snd.stop(), 2300);
+    snd.wake(); snd.demo(6);
+    setTimeout(() => snd.stop(), 7600);
     return true;
   }
+  // how far through the filing the read is, 0 to 1: the camera's place over the distance it can scroll
+  const crawlProgress = () => { const max = docGeo().sh - V.h(); return max > 0 ? Math.max(0, Math.min(1, (state.scrollPos == null ? state.sy : state.scrollPos) / max)) : 0; };
   function startLegStep(i, to, now){
     const from = state.feet[i] || {x: state.body.x, y: state.body.y};
     state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 180 / (state.speedMul || 1)};
@@ -8331,7 +8754,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       // Crawler sounds, when ticked: made here, inside the click, so the browser lets them play; quiet until the crawl shows
       soundOff();
       const snd = soundWanted();
-      if (snd.on){ state.snd = crawlerSound(snd.vol); if (state.snd){ state.snd.wake(); state.snd.hush(true); } }
+      if (snd.on){ state.snd = crawlerSound(snd.vol, crawlProgress); if (state.snd){ state.snd.wake(); state.snd.hush(true); } }
       if (window.bmgRec) window.bmgRec.sound = state.snd ? {on: true, vol: snd.vol, track: !!state.snd.track, count: state.snd.count} : {on: false};   // for checks
       recPhase("busy");                                             // a take is under way: the Crawler window will not reload this one
       if (capture && capture.checked) await askCapture();          // asked first, while the click still counts as a user gesture
