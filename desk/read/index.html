@@ -1531,7 +1531,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   function CrawlerSounds(ctx, out, opts) {
     opts = opts || {};
     this.ctx = ctx;
-    this.rand = opts.seed != null ? xorshift(opts.seed) : Math.random;
+    // its own random numbers, never the page's (the Crawler's gait check seeds the page's)
+    this.rand = xorshift(opts.seed != null ? opts.seed : (Date.now() ^ 0x5bd1e995));
     this.L = {};
     for (var k in LEVEL) this.L[k] = opts.levels && opts.levels[k] != null ? opts.levels[k] : LEVEL[k];
     this.auto = opts.auto !== false;
@@ -1628,20 +1629,29 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     this._startBeds(t);
     this.pump(t + 0.35);
     if (!this.offline) {
+      // schedule 0.35 s ahead; further when the page is hidden or its timers run late, so a throttled
+      // tab never leaves a hole in the sound
       var self = this;
-      this.timer = setInterval(function () { self.pump(self.ctx.currentTime + 0.35); }, 50);
+      this.lastPump = ctx.currentTime;
+      this.timer = setInterval(function () {
+        var now = self.ctx.currentTime, gap = now - self.lastPump;
+        self.lastPump = now;
+        var hidden = typeof document !== "undefined" && document.hidden;
+        self.pump(now + (hidden ? 1.6 : Math.min(1.6, Math.max(0.35, gap * 1.6))));
+      }, 50);
     }
   };
 
-  CrawlerSounds.prototype.stop = function (when) {
+  // fade: seconds to fade out (default 1.2); the reverb rings on underneath it.
+  CrawlerSounds.prototype.stop = function (when, fade) {
     if (!this.running) return;
-    var ctx = this.ctx, t = Math.max(when || 0, ctx.currentTime);
+    var ctx = this.ctx, t = Math.max(when || 0, ctx.currentTime), f = fade > 0 ? fade : 1.2;
     this.running = false;
     if (this.timer) { clearInterval(this.timer); this.timer = null; }
     this.master.gain.cancelScheduledValues(t);
     this.master.gain.setValueAtTime(this.master.gain.value, t);
-    this.master.gain.linearRampToValueAtTime(0, t + 1.2);
-    if (this.beds) { for (var i = 0; i < this.beds.srcs.length; i++) this.beds.srcs[i].stop(t + 1.3); this.beds = null; }
+    this.master.gain.linearRampToValueAtTime(0, t + f);
+    if (this.beds) { for (var i = 0; i < this.beds.srcs.length; i++) this.beds.srcs[i].stop(t + f + 0.1); this.beds = null; }
   };
 
   CrawlerSounds.prototype.setProgress = function (p) {
@@ -1664,6 +1674,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         s = s === undefined && this.rand() < 0.4 ? "C" : (this.rand() < 0.5 ? "L" : "R");
         this.slots[k] = s;
         this.recent.step.push(now);
+        if (s === "C") this.recent.step.push(now);   // a centered tick sounds in both channels
         this._tick(this.t0 + k / TICK_HZ, s);
         return;
       }
@@ -1733,14 +1744,18 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   CrawlerSounds.prototype._tickRate = function () { return 2 * TICK_HZ * interp(TICK_FILL, this.progress); };
   CrawlerSounds.prototype._blipRate = function () { return 6.5 + 1.5 * this.progress; };
 
-  // Rate left for the self-running layer after the hook-driven events of the last 2 s.
+  // Rate left for the self-running layer after the hook-driven events of the last 2 s
+  // (for ticks, counted per channel: a centered tick counts twice).
   CrawlerSounds.prototype._fill = function (target, list, now) {
     while (list.length && list[0] < now - 2) list.shift();
     return Math.max(target * 0.15, target - list.length / 2);
   };
+  // Hook calls beyond about 85% of the target rate in the last second are skipped (feet land in bursts).
   CrawlerSounds.prototype._busy = function (list, now, rate) {
     while (list.length && list[0] < now - 2) list.shift();
-    return list.length >= rate * 2;
+    var n = 0;
+    for (var i = list.length - 1; i >= 0 && list[i] > now - 1; i--) n++;
+    return n >= rate * 0.85;
   };
 
   CrawlerSounds.prototype._gap = function (rate, min) {
@@ -2336,7 +2351,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
   // It is given its own random numbers (Math.random belongs to the crawl, and the gait check seeds it).
   // The settings' volume is the engine's own level at 60% (where the slider starts), so 100% is 4.4 dB above it.
   const SOUND_REF = 0.6;
-  function crawlerSound(volume, progress){
+  // buildSecs: how long the build-up takes, on the take's own clock (the take's planned length; 12 to 45 s, 20 s when
+  // not known). The reference builds over its 20 s from sparse ticks to a dense crackle, a noise wash and ringing
+  // low notes; tying the build to the scroll instead left long filings stuck at the start.
+  function crawlerSound(volume, buildSecs){
     const AC = window.AudioContext || window.webkitAudioContext, Engine = window.CrawlerSounds;
     if (!AC || !Engine) return null;
     let ctx = null;
@@ -2349,17 +2367,17 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     let eng = null;
     try { eng = new Engine(ctx, out, {volume: clamp01(volume == null ? SOUND_REF : volume) / SOUND_REF, seed: ((Date.now() % 2147483647) ^ 0x9e3779b9) >>> 0}); }
     catch (e) { try { ctx.close(); } catch (e2) {} return null; }
-    let live = true, quiet = false, held = false, fedAt = -1;
+    let live = true, quiet = false, held = false, fedAt = -1, heldAt = 0, pausedFor = 0, feeder = null;
+    // the build-up follows the take's own clock, as in the reference: sparse at the start, full after B seconds
+    const B = buildSecs > 0 ? Math.max(12, Math.min(45, +buildSecs)) : 20;
     const count = {tap: 0, collect: 0, land: 0, done: 0};       // what the engine was told, for the take's own record and the checks
     const level = () => eng.L.master * eng.volume;
     const master = (v, at, tc) => { try { eng.master.gain.cancelScheduledValues(at); eng.master.gain.setTargetAtTime(v, at, tc); } catch (e) {} };
-    // how far through the filing the read is, a few times a second (asked for only when the crawl tells of something)
     const feed = () => {
       const t = ctx.currentTime;
-      if (!progress || t - fedAt < 0.25) return;
+      if (!eng.running || held || t - fedAt < 0.2) return;
       fedAt = t;
-      let p = 0; try { p = +progress() || 0; } catch (e) {}
-      eng.setProgress(p);
+      eng.setProgress((t - eng.t0 - pausedFor) / B);
     };
     const open = () => live && eng.running && !quiet && !held && ctx.currentTime >= eng.t0;
     return {
@@ -2368,42 +2386,31 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       running: () => live && ctx.state === "running",
       wake(){ if (live && ctx.state === "suspended") ctx.resume().catch(() => {}); },
       volume(v){ if (!live) return; eng.volume = clamp01(v) / SOUND_REF; if (eng.running && !held) master(level(), ctx.currentTime, 0.02); },
-      // quiet while the page is not the crawl (the black opening, the ending). Lifting it starts the engine, a lead
-      // (seconds) after the call: a recorder takes a moment to roll, and sound begun in that moment is cut by the
-      // file's first sample. Setting it once the engine runs is the end of the read: the engine's own 1.2 s fade.
       hush(on, lead){
         quiet = !!on;
         if (!live) return;
-        if (!on && !eng.running){ fedAt = -1; eng.start(ctx.currentTime + (lead > 0 ? lead : 0)); }
-        else if (on && eng.running){ eng.stop(); count.done++; }
+        if (!on && !eng.running){ fedAt = -1; pausedFor = 0; eng.start(ctx.currentTime + (lead > 0 ? lead : 0)); if (!feeder) feeder = setInterval(feed, 250); }
+        else if (on && eng.running){ eng.stop(); count.done++; if (feeder){ clearInterval(feeder); feeder = null; } }
       },
-      // the recording holds (a pause or a rewind by hand): down to silence, and back a lead after it rolls again
       hold(on, lead){
-        held = !!on;
-        if (!live || !eng.running) return;
-        if (on) master(0, ctx.currentTime, 0.01); else master(level(), ctx.currentTime + (lead > 0 ? lead : 0), 0.03);
+        if (!live || !eng.running){ held = !!on; return; }
+        if (on && !held){ held = true; heldAt = ctx.currentTime; master(0, ctx.currentTime, 0.01); }
+        else if (!on && held){ held = false; pausedFor += ctx.currentTime - heldAt; master(level(), ctx.currentTime + (lead > 0 ? lead : 0), 0.03); }
       },
-      // a foot lands: a step for the engine (it keeps to its own rate and skips what is beyond it)
       tap(i){ if (!open()) return; count.tap++; feed(); eng.step(); },
-      // a figure lights up on the page as the spider collects it
       collect(){ if (!open()) return; count.collect++; feed(); eng.found(); },
-      // its chip lands in the report
       land(){ if (!open()) return; count.land++; feed(); eng.read(); },
-      // the crawl is over: nothing of its own in this engine (the read's end is the fade that hush starts)
       done(){},
-      // the take is about to stop: down to silence over its last hundredths of a second, so the file never ends in the
-      // middle of a sound
       fade(){ if (!live) return; quiet = true; master(0, ctx.currentTime, 0.015); },
-      // a few seconds of it for the Preview button: the read's build-up, start to full
       demo(secs){
         if (!live || eng.running) return;
         const t0 = ctx.currentTime; eng.start();
         const tick = setInterval(() => { const p = (ctx.currentTime - t0) / secs; if (p >= 1 || !live){ clearInterval(tick); if (live && eng.running) eng.stop(); } else eng.setProgress(p); }, 100);
       },
-      // fades to nothing in a few hundredths of a second, then lets go of the audio device
       stop(){
         if (!live) return;
         live = false;
+        if (feeder){ clearInterval(feeder); feeder = null; }
         try { if (eng.running) eng.stop(); } catch (e) {}
         master(0, ctx.currentTime, 0.012);
         setTimeout(() => { try { ctx.close(); } catch (e) {} }, 140);
@@ -2418,8 +2425,6 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     setTimeout(() => snd.stop(), 7600);
     return true;
   }
-  // how far through the filing the read is, 0 to 1: the camera's place over the distance it can scroll
-  const crawlProgress = () => { const max = docGeo().sh - V.h(); return max > 0 ? Math.max(0, Math.min(1, (state.scrollPos == null ? state.sy : state.scrollPos) / max)) : 0; };
   function startLegStep(i, to, now){
     const from = state.feet[i] || {x: state.body.x, y: state.body.y};
     state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 180 / (state.speedMul || 1)};
@@ -8754,7 +8759,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       // Crawler sounds, when ticked: made here, inside the click, so the browser lets them play; quiet until the crawl shows
       soundOff();
       const snd = soundWanted();
-      if (snd.on){ state.snd = crawlerSound(snd.vol, crawlProgress); if (state.snd){ state.snd.wake(); state.snd.hush(true); } }
+      if (snd.on){ state.snd = crawlerSound(snd.vol, clip ? clip.secs : (planned && planned.length !== "whole" ? planCrawlSecs() : 0)); if (state.snd){ state.snd.wake(); state.snd.hush(true); } }
       if (window.bmgRec) window.bmgRec.sound = state.snd ? {on: true, vol: snd.vol, track: !!state.snd.track, count: state.snd.count} : {on: false};   // for checks
       recPhase("busy");                                             // a take is under way: the Crawler window will not reload this one
       if (capture && capture.checked) await askCapture();          // asked first, while the click still counts as a user gesture
