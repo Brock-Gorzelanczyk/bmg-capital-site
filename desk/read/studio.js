@@ -222,6 +222,12 @@ function curveAt(c, e){
   return c[c.length - 1][1];
 }
 // base: the audio clock's time at edit time 0; from: the edit time the sound starts at
+// A kept part of the take's own sound comes in and goes out over a few thousandths of a second, so a cut that falls
+// in the middle of a sound (a take recorded with Crawler sounds, a clip with speech) does not click: [time, volume].
+function partFades(len, vol){
+  const f = Math.min(0.006, len / 4);
+  return len > 0 ? [[0, 0], [f, vol], [len - f, vol], [len, 0]] : [[0, 0]];
+}
 function applyCurve(param, c, base, from, now){
   param.cancelScheduledValues(0);
   param.setValueAtTime(curveAt(c, from), now);
@@ -2989,9 +2995,13 @@ function mount(root, opts){
       if (buf){
         let e0 = 0;
         for (const s of P.segs){
-          const src = oc.createBufferSource(), gn = oc.createGain(); src.buffer = buf; gn.gain.value = P.origVol;
-          src.connect(gn).connect(oc.destination);
-          if (s.in < buf.duration) src.start(e0, s.in, Math.max(0, Math.min(s.out, buf.duration) - s.in));
+          const len = Math.max(0, Math.min(s.out, buf.duration) - s.in);
+          if (s.in < buf.duration && len > 0){
+            const src = oc.createBufferSource(), gn = oc.createGain(); src.buffer = buf;
+            applyCurve(gn.gain, partFades(len, P.origVol), e0, 0, e0);
+            src.connect(gn).connect(oc.destination);
+            src.start(e0, s.in, len);
+          }
           e0 += s.out - s.in;
         }
       }
@@ -3450,5 +3460,5 @@ function mount(root, opts){
 }
 
 // parts: the pure pieces, for the tests (site/server/tests/test_studio.py)
-window.BMGStudio = {mount, version: 1, parts: {gainCurve, curveAt, videoFill, videoRect, linkKind, mp4File, fixWebmDuration, pickType, describeType, aiffDecode, fpsFor, qualityNote, shrinkImage, highlightEdit}};
+window.BMGStudio = {mount, version: 1, parts: {gainCurve, curveAt, partFades, videoFill, videoRect, linkKind, mp4File, fixWebmDuration, pickType, describeType, aiffDecode, fpsFor, qualityNote, shrinkImage, highlightEdit}};
 })();

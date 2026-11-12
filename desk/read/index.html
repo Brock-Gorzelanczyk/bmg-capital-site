@@ -1901,6 +1901,102 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const c = docSpaceCenter(f.el), d = Math.hypot(c.x - bx, c.y - by);
     return d >= MIN_REACH && d <= HI_REACH * 1.7 && sectorIndex(bx, by, c.x, c.y) === i;
   }
+  // ---- Crawler sounds (optional; off unless ticked in Make a clip or in Record mode's settings). Sound only listens:
+  // a foot landing, a figure lighting up, a chip landing in the report and the end of the crawl each tell it, and the
+  // crawl never reads anything back from it. While it is off no sound object exists (state.snd is null) and each of
+  // those places costs one test. Every sound is made here, from oscillators and filtered noise: nothing is recorded or
+  // copied from anywhere. It keeps its own random numbers (Math.random belongs to the crawl, and the gait check seeds
+  // it) and schedules on the audio clock alone, no timers, while a crawl runs.
+  function crawlerSound(volume){
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    let ctx = null;
+    try { ctx = new AC({latencyHint: "interactive"}); } catch (e) { return null; }
+    const clamp01 = v => Math.max(0, Math.min(1, +v || 0));
+    const out = ctx.createGain(), lim = ctx.createDynamicsCompressor();
+    out.gain.value = clamp01(volume == null ? 0.6 : volume);
+    lim.threshold.value = -12; lim.knee.value = 8; lim.ratio.value = 8; lim.attack.value = 0.002; lim.release.value = 0.1;
+    out.connect(lim); lim.connect(ctx.destination);
+    let tape = null;                                 // the recording hears the same mix, straight from here: no microphone, no system sound
+    try { tape = ctx.createMediaStreamDestination(); lim.connect(tape); } catch (e) { tape = null; }
+    let seed = 0x9e3779b9;
+    const rnd = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return (seed >>> 0) / 4294967296; };
+    const hiss = ctx.createBuffer(1, Math.round(ctx.sampleRate * 0.5), ctx.sampleRate), hd = hiss.getChannelData(0);
+    for (let k = 0; k < hd.length; k++) hd[k] = rnd() * 2 - 1;
+    // every sound rises from and falls back to silence, so none starts or ends on a step (no pops)
+    const swell = (g, t, peak, attack, decay) => { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay); };
+    const place = (node, pan) => { if (!pan || !ctx.createStereoPanner){ node.connect(out); return; } const sp = ctx.createStereoPanner(); sp.pan.value = pan; node.connect(sp); sp.connect(out); };
+    // a short burst of noise through a narrow band: the body of a tap or a snap
+    const burst = (t, freq, q, peak, decay, pan) => {
+      const src = ctx.createBufferSource(), band = ctx.createBiquadFilter(), g = ctx.createGain();
+      src.buffer = hiss; band.type = "bandpass"; band.frequency.value = freq; band.Q.value = q;
+      swell(g, t, peak, 0.0015, decay);
+      src.connect(band); band.connect(g); place(g, pan);
+      src.start(t, rnd() * 0.3, decay + 0.03);
+    };
+    // a short note that slides from one pitch to another: the tick in a tap, the ring in a click
+    const note = (t, from, to, peak, decay, type, pan) => {
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.type = type || "sine"; osc.frequency.setValueAtTime(from, t); osc.frequency.exponentialRampToValueAtTime(Math.max(20, to), t + decay);
+      swell(g, t, peak, 0.002, decay);
+      osc.connect(g); place(g, pan);
+      osc.start(t); osc.stop(t + decay + 0.03);
+    };
+    let lastTap = -1, live = true, quiet = false, held = false, openAt = 0;
+    const count = {tap: 0, collect: 0, land: 0, done: 0};       // what was sounded, for the take's own record and the checks
+    const at = d => ctx.currentTime + (d || 0) + 0.005;
+    return {
+      track: tape ? tape.stream.getAudioTracks()[0] || null : null,
+      count,
+      running: () => live && ctx.state === "running",
+      wake(){ if (live && ctx.state === "suspended") ctx.resume().catch(() => {}); },
+      volume(v){ if (live) out.gain.setTargetAtTime(clamp01(v), ctx.currentTime, 0.02); },
+      // quiet while the page is not the crawl (the black opening, the ending): the end's own sound still plays. With a
+      // lead (seconds), the crawl's sounds begin that long after the call: a recorder takes a moment to roll, and a
+      // sound begun in that moment is cut by the file's first sample (a 10-K take's sound began 11% of full scale
+      // into a tap). Judged on the audio clock, no timer.
+      hush(on, lead){ quiet = !!on; if (!on && lead > 0) openAt = Math.max(openAt, ctx.currentTime + lead); },
+      // the recording holds (a pause or a rewind by hand): nothing new sounds until it rolls again, a lead after it does
+      hold(on, lead){ held = !!on; if (!on && lead > 0) openAt = Math.max(openAt, ctx.currentTime + lead); },
+      // a foot lands (leg i of 8: 0 to 3 down one side, 4 to 7 down the other). Feet land in bursts at speed: at most
+      // one tap every 30 ms is sounded, so a fast crawl ticks along instead of buzzing
+      tap(i, delay){
+        if (!live || quiet || held) return;
+        const t = at(delay);
+        if (t < openAt || t - lastTap < 0.03) return;
+        lastTap = t; count.tap++;
+        const row = (i | 0) % 4, side = (i | 0) < 4 ? -1 : 1, f = 2300 - row * 230 + (rnd() - 0.5) * 160, loud = 0.2 + rnd() * 0.08;
+        burst(t, f, 7, loud, 0.02, side * 0.22);
+        note(t, f * 0.52, f * 0.34, loud * 0.5, 0.014, "sine", side * 0.22);
+      },
+      // a figure lights up on the page as the spider collects it
+      collect(delay){ if (!live || quiet || held) return; const t = at(delay); if (t < openAt) return; count.collect++; note(t, 1320, 1980, 0.3, 0.05, "triangle", 0); burst(t, 4200, 3, 0.2, 0.016, 0); },
+      // its chip lands in the report
+      land(delay){ if (!live || quiet || held) return; const t = at(delay); if (t < openAt) return; count.land++; burst(t, 1100, 2.4, 0.42, 0.04, 0); note(t, 560, 190, 0.34, 0.07, "sine", 0); },
+      // the crawl is over
+      done(delay){ if (!live) return; const t = at(delay); count.done++; [[784, 0], [1047, 0.09], [1568, 0.18]].forEach(([f, d]) => note(t + d, f, f, 0.2, 0.55, "triangle", 0)); },
+      // the take is about to stop: down to silence over its last hundredths of a second, so the file never ends in the
+      // middle of a sound; nothing new sounds after this
+      fade(){ if (!live) return; quiet = true; try { out.gain.setTargetAtTime(0, ctx.currentTime, 0.015); } catch (e) {} },
+      // fades to nothing in a few hundredths of a second, then lets go of the audio device
+      stop(){
+        if (!live) return;
+        live = false;
+        try { out.gain.setTargetAtTime(0, ctx.currentTime, 0.012); } catch (e) {}
+        setTimeout(() => { try { ctx.close(); } catch (e) {} }, 140);
+      }
+    };
+  }
+  // Preview sound (Make a clip, Record mode's settings): a few steps, a figure collected, its chip landing, the end
+  function crawlerSoundPreview(volume){
+    const snd = crawlerSound(volume);
+    if (!snd) return false;
+    snd.wake();
+    [0, 0.07, 0.15, 0.22, 0.31, 0.38, 0.47, 0.54].forEach((d, k) => snd.tap([0, 5, 2, 7, 1, 4, 3, 6][k], d));
+    snd.collect(0.72); snd.land(1.02); snd.done(1.4);
+    setTimeout(() => snd.stop(), 2300);
+    return true;
+  }
   function startLegStep(i, to, now){
     const from = state.feet[i] || {x: state.body.x, y: state.body.y};
     state.legAnim[i] = {from: {x: from.x, y: from.y}, to, start: now, dur: 180 / (state.speedMul || 1)};
@@ -1909,7 +2005,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     for (const k of Object.keys(state.legAnim)){
       const a = state.legAnim[k], i = +k;
       const t = Math.min(1, (now - a.start) / a.dur), s = t * t * (3 - 2 * t);
-      if (t >= 1){ state.feet[i] = {x: a.to.x, y: a.to.y, el: null}; delete state.legAnim[k]; if (a.to.el) landFeet([a.to]); continue; }
+      if (t >= 1){ state.feet[i] = {x: a.to.x, y: a.to.y, el: null}; delete state.legAnim[k]; if (state.snd && !state.paused) state.snd.tap(i); if (a.to.el) landFeet([a.to]); continue; }
       // smooth start and finish, small side arc in the page plane
       const ddx = a.to.x - a.from.x, ddy = a.to.y - a.from.y, dl = Math.hypot(ddx, ddy) || 1;
       const arc = Math.min(6 * U, dl * 0.12) * Math.sin(Math.PI * t);
@@ -5253,6 +5349,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     const planCrawlSecs = () => plan.scope ? Math.max(5, plan.length - (plan.ending ? PLAN_ENDING : 0) - PLAN_HOLD - (plan.featured ? PLAN_FEAT * (1 - PLAN_FEAT_PACE) : 0))
       : Math.max(5, plan.length - (plan.ending ? PLAN_ENDING : 0) - 1.6);
     const leave = () => {
+      if (state.snd){ state.snd.stop(); state.snd = null; }          // (Crawler sounds) nothing left sounding
       if (window.opener && !window.opener.closed){ window.close(); return; }
       location.href = location.pathname;                            // this page without ?mode=rec, wherever the site is served
     };
@@ -5334,6 +5431,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       ${canRecord ? `<label class="opt">Video quality <select id="rec-quality"><option value="high" selected>High Quality · 1080 × 1920 / 60 fps</option><option value="standard">Standard · 30 fps</option></select></label><p>High Quality requests portrait Full HD at 32 Mbps. Chrome may supply a lower resolution or frame rate. Actual capture details appear with the download.</p>` : ""}
       ${canRecord ? `<label class="opt">Record this window (downloads a video) <input type="checkbox" id="rec-capture" checked></label>` : ""}
       ${canRecord && window.showSaveFilePicker ? `<label class="opt">Save to disk while recording (long takes use no extra memory) <input type="checkbox" id="rec-disk" checked></label>` : ""}
+      <label class="opt">Crawler sounds (soft taps as the spider walks, a click for each figure it collects; recorded into the video itself) <input type="checkbox" id="rec-sound"></label>
+      <label class="opt">Sound volume <span><input type="range" id="rec-sound-vol" min="0" max="100" step="5" value="60" aria-label="Crawler sounds volume"> <button type="button" id="rec-sound-try">Preview sound</button></span></label>
       <button id="rec-start" type="button" disabled>Start</button>
       <p>Space pauses and &larr; &rarr; go back or forward 10 seconds: the recording waits while it is paused or going back, then goes on where it left off. Esc leaves record mode. Highlight clips include a two-second logo opening. Custom clips start when the black screen lifts on the first financial statement.</p>`;
     const fileIn = document.getElementById("read-file"), startBtn = setup.querySelector("#rec-start");
@@ -5456,6 +5555,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         el.dispatchEvent(new Event("change"));
       };
       set("rec-palette", lk.palette); set("rec-dark", lk.dark); set("rec-cards", !!lk.pops); set("rec-big", !!lk.pops); set("rec-quality", lk.quality); set("rec-disk", lk.disk); set("rec-capture", true);
+      set("rec-sound", !!lk.sound); set("rec-sound-vol", lk.soundVol == null ? 60 : lk.soundVol);     // Crawler sounds: as Make a clip has them (off unless ticked there)
       const opt = document.createElement("option"); opt.value = "plan"; opt.textContent = "Planned in Posting (Make a clip)";
       format.appendChild(opt); format.value = "plan"; format.dispatchEvent(new Event("change"));
       const secs = s => s < 60 ? `${s} seconds` : s % 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s / 60} minute${s === 60 ? "" : "s"}`;
@@ -5474,6 +5574,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           ${bp ? `<dt>Branding</dt><dd id="pl-brand"></dd>` : ""}
           ${plan.autoEdit ? `<dt>Then</dt><dd>Auto-edit highlights: the Studio makes a highlight edit of ${plan.length !== "whole" && +plan.length <= plan.autoEdit.secs ? "at most this take's own length" : `about ${esc(String(plan.autoEdit.secs))} seconds`} from this take, and keeps the take</dd>` : ""}
           ${plan.selfEdit ? `<dt>Edit</dt><dd>Edit it like my TikToks: the Studio puts the hook on the whole video in TikTok's Classic text, and keeps the take</dd>` : ""}
+          ${lk.sound ? `<dt>Sound</dt><dd>Crawler sounds at ${esc(String(lk.soundVol == null ? 60 : lk.soundVol))}%, recorded into the video itself (no microphone)</dd>` : ""}
           <dt>Video</dt><dd id="pl-video"></dd></dl>
         <p class="pl-st" id="pl-st" role="status"></p>
         <div class="pl-check"><button type="button" id="pl-check">Check the frame</button><span id="pl-clean" role="status"></span></div>
@@ -6323,6 +6424,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       setTimeout(() => { zapBusy = false; pumpZaps(); }, zapQ.length > 4 ? 90 : 180);
       el.classList.add("hl-zap"); setTimeout(() => el.classList.remove("hl-zap"), 1100);
       if (state.ae) state.ae.src("zap", f.id, el, ZAP_LAND / 1000);      // (Auto-edit) zapped on screen; its chip leaves next
+      if (state.snd) state.snd.collect();                             // (Crawler sounds) a figure collected
       launch(() => {
         const plan = state.live && state.live.plan;
         const isCell = ch => ch.kind !== "signal" && ch.op === "show" && ch.state !== "withdrawn" && plan && plan.cells[ch.id] &&
@@ -6373,7 +6475,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         }
         flyFrom(q.el, visLiveDest(q.dest), q.text, q.obs);
         if (state.ae) state.ae.fly(q.el);                 // (Auto-edit) a chip in the air: it leaves now, it lands below
-        setTimeout(() => { if (state.flightLock && state.flightLock.el === q.dest) state.flightLock = null; q.land(); pumpFlights(); }, FLY_MS - 60);
+        setTimeout(() => { if (state.flightLock && state.flightLock.el === q.dest) state.flightLock = null; if (state.snd) state.snd.land(); q.land(); pumpFlights(); }, FLY_MS - 60);
       }
     }
     const obsQ = [];
@@ -6636,6 +6738,19 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (say && k.dataset.k === "keep") say.textContent = (say.className === "pl-dirty" ? say.textContent + " " : "") + "The tab stays shared: Start recording records it without asking again.";
       });
     }
+    // -- Crawler sounds for this take (optional): asked for by the Record mode setting (a Make a clip plan sets it)
+    const soundWanted = () => { const c = setup.querySelector("#rec-sound"), v = setup.querySelector("#rec-sound-vol"); return {on: !!(c && c.checked), vol: v ? Math.max(0, Math.min(100, +v.value || 0)) / 100 : 0.6}; };
+    function soundOff(){ if (state.snd){ state.snd.stop(); state.snd = null; } }
+    // (the reader's own view of this panel keeps only its colors and page settings: the boxes are there in Record mode alone)
+    const sndBox = setup.querySelector("#rec-sound"), sndVol = setup.querySelector("#rec-sound-vol"), sndTry = setup.querySelector("#rec-sound-try");
+    if (sndBox && sndVol){
+      try { const kept = JSON.parse(localStorage.getItem("bmg-rec-sound") || "null"); if (kept){ sndBox.checked = !!kept.on; sndVol.value = String(Math.max(0, Math.min(100, +kept.vol || 0))); } } catch (e) {}
+      for (const el of [sndBox, sndVol]) el.addEventListener("change", e => {
+        if (state.snd) state.snd.volume(soundWanted().vol);
+        if (e.isTrusted){ const w = soundWanted(); try { localStorage.setItem("bmg-rec-sound", JSON.stringify({on: w.on, vol: Math.round(w.vol * 100)})); } catch (err) {} }   // a choice made here is kept; a plan's is Make a clip's to keep
+      });
+    }
+    if (sndTry) sndTry.addEventListener("click", () => crawlerSoundPreview(soundWanted().vol));
     // -- recording this tab (optional)
     let rec = null, chunks = [], recType = "", stream = null, captureDetails = "", previewStream = null;
     // Save to disk while recording (Chrome's file system access): each half-second of video is written to the file
@@ -6701,7 +6816,11 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       // 245,760 macroblocks a second and 25 Mbps in High), as the Studio's export asks above 30 fps. The level only
       // names the stream: Chrome's recorder hands its encoder the profile alone (media_recorder_encoder_wrapper.cc), so
       // it changes neither speed nor which encoder runs (lag audit, 2026-10-23).
-      recType = [...(high ? ["video/mp4;codecs=avc1.64002a"] : []), "video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
+      // Crawler sounds: the take carries their track (made by the page itself), so the file type names a sound codec too
+      const voice = state.snd && state.snd.track ? state.snd.track : null;
+      const sounded = voice ? [...(high ? ["video/mp4;codecs=avc1.64002a,mp4a.40.2"] : []), "video/mp4;codecs=avc1.640028,mp4a.40.2", ...(high ? ["video/mp4;codecs=avc1.64002a,opus"] : []), "video/mp4;codecs=avc1.640028,opus",
+        "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus"] : [];
+      recType = [...sounded, ...(high ? ["video/mp4;codecs=avc1.64002a"] : []), "video/mp4;codecs=avc1.640028", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) || "";
       await askDiskFile(/mp4/.test(recType) ? "mp4" : "webm");     // first, while the click still counts as a user gesture
       // Chrome shares a tab only within a few seconds of a click: when loading the filing or choosing where to save
       // took longer, one more click (it used to go on without sharing, and the take recorded nothing)
@@ -6715,6 +6834,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         return false;
       }
       await keepPortrait();                          // 9:16 again before anything is recorded
+      if (voice){ try { stream.addTrack(voice); } catch (e) {} }     // the page's own sound beside the picture: nothing from a microphone or the system
+      const heard = voice && stream.getAudioTracks().length ? {audioBitsPerSecond: 128000} : {};
       chunks = [];
       const bitrate = high ? 32e6 : 12e6;
       // A key frame every second. Chrome's MP4 recorder (H.264 on the Mac) hands over data only at a key frame and
@@ -6723,10 +6844,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       // Measured here with MP4 recording: chunks every 3.56 s (2.6 MB) by default, every 1.02 s with this.
       const KEY_MS = 1000;
       try {
-        rec = new MediaRecorder(stream, recType ? {mimeType: recType, videoBitsPerSecond: bitrate, videoKeyFrameIntervalDuration: KEY_MS} : {videoBitsPerSecond: bitrate, videoKeyFrameIntervalDuration: KEY_MS});
+        rec = new MediaRecorder(stream, recType ? {mimeType: recType, videoBitsPerSecond: bitrate, videoKeyFrameIntervalDuration: KEY_MS, ...heard} : {videoBitsPerSecond: bitrate, videoKeyFrameIntervalDuration: KEY_MS, ...heard});
       } catch (e) {
         // If this encoder rejects the requested bitrate/container, use its supported default.
-        try { rec = new MediaRecorder(stream, {videoBitsPerSecond: 12e6, videoKeyFrameIntervalDuration: KEY_MS}); recType = rec.mimeType || ""; }
+        try { rec = new MediaRecorder(stream, {videoBitsPerSecond: 12e6, videoKeyFrameIntervalDuration: KEY_MS, ...heard}); recType = rec.mimeType || ""; }
         catch (fallbackError) { stream.getTracks().forEach(t => t.stop()); stream = null; rec = null; return false; }
       }
       const chosenType = rec.mimeType || recType || "video/webm";
@@ -6743,6 +6864,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       const rate = rec.videoBitsPerSecond ? `${Math.round(rec.videoBitsPerSecond / 1e6)} Mbps encoder target` : "encoder bitrate unavailable";
       captureDetails = `${high ? "High Quality" : "Standard"}: ${size} · ${fps} · ${rate}`;
       state.captureQuality = {...actual, requestedQuality: high ? "high" : "standard", encoderBitsPerSecond: rec.videoBitsPerSecond || null};
+      if (voice) state.captureQuality.sound = stream.getAudioTracks().length > 0;       // (Crawler sounds) the take carries the page's own sound
       rec.ondataavailable = e => {
         if (!e.data || !e.data.size) return;
         if (state.lag && state.lag.on && state.lag.chunks.length < 3000) state.lag.chunks.push([Math.round(performance.now() - state.lag.t0), e.data.size]);
@@ -6774,12 +6896,15 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         measured: f ? await probeVideo(f).catch(() => ({})) : {}};
     }
     async function stopCapture(){
+      if (state.snd) state.snd.fade();               // (Crawler sounds) silent by the take's last frame, about a tenth of a second on
       await lastFrame();
       return new Promise(res => {
+        if (state.snd && (!rec || rec.state === "inactive")){ state.snd.stop(); state.snd = null; }   // (Crawler sounds) nothing was recording: let go now
         if (!rec || rec.state === "inactive"){ res(null); return; }
         rec.onstop = async () => {
           refreshCaptureDetails();
           stream.getTracks().forEach(t => t.stop());
+          if (state.snd){ state.snd.stop(); state.snd = null; }     // (Crawler sounds) let go, after the recorder has its last of them
           if (diskWriter){
             await diskChain;
             try { await diskWriter.close(); } catch (e) { diskError = diskError || e; }
@@ -7063,6 +7188,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       B.appendChild(end);
       fitEnd(end, end.querySelector(".rk-keys"));
       if (state.ae) state.ae.log("end", visEnd ? "live" : ins ? "insider" : specialized ? "document" : "report");    // (Auto-edit) the report ending is on screen
+      if (state.snd && (highlights || keySecs + oneSecs >= 1)) state.snd.done();     // (Crawler sounds) the end's own sound, as the report comes up (an ending held under a second had it as the crawl ended)
       return (async () => {
         const items = [...end.querySelectorAll(".rk-keys li")];
         // the first card comes in with the screen (the crawl cuts straight to it; drawn hidden first, so it still
@@ -7266,14 +7392,15 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         if (settling){ clearTimeout(settleTimer); settling = false; state.paused = false; }
         if (state.ae) state.ae.log("hold", why);        // (Auto-edit) the video goes on from here after the hold
         holdCapture(true); brandHold(true);
+        if (state.snd) state.snd.hold(true);              // (Crawler sounds) nothing new sounds while the recording holds
       }
       drawRwStrip();
       if (!holds.size && was){
-        if (!rec || rec.state === "inactive"){ brandHold(false); return; }
+        if (!rec || rec.state === "inactive"){ brandHold(false); if (state.snd) state.snd.hold(false); return; }
         // The capture re-sends a still page now and then, so for a moment it can still hold a frame with the strip:
         // the crawl waits a third of a second with the strip gone, then the crawl and the recording go on together.
         settling = true; state.paused = true;
-        settleTimer = setTimeout(() => { settling = false; state.paused = false; if (!holds.size){ holdCapture(false); brandHold(false); } }, 350);
+        settleTimer = setTimeout(() => { settling = false; state.paused = false; if (!holds.size){ holdCapture(false); brandHold(false); } if (state.snd && !holds.size) state.snd.hold(false, 0.12); }, 350);
       }
     }
     function drawRwStrip(){
@@ -8201,6 +8328,11 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         catch (e){ st.classList.add("err"); st.textContent = e.message || "Could not load the filing."; startBtn.disabled = false; return; }
         st.textContent = "";
       }
+      // Crawler sounds, when ticked: made here, inside the click, so the browser lets them play; quiet until the crawl shows
+      soundOff();
+      const snd = soundWanted();
+      if (snd.on){ state.snd = crawlerSound(snd.vol); if (state.snd){ state.snd.wake(); state.snd.hush(true); } }
+      if (window.bmgRec) window.bmgRec.sound = state.snd ? {on: true, vol: snd.vol, track: !!state.snd.track, count: state.snd.count} : {on: false};   // for checks
       recPhase("busy");                                             // a take is under way: the Crawler window will not reload this one
       if (capture && capture.checked) await askCapture();          // asked first, while the click still counts as a user gesture
       setup.remove();
@@ -8284,12 +8416,13 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         aeStart(planned);                                           // Auto-edit highlights: this take's moments from here (only when the plan asks)
         state.tlMark();                                             // a rewind goes back no further than this
         if (planned) brandStart();                                  // the company branding, from the take's first frame
-        if (holds.size) holdCapture(true);                          // paused under the curtain: the recording waits too
+        if (holds.size){ holdCapture(true); if (state.snd) state.snd.hold(true); }   // paused under the curtain: the recording waits too (and the sounds with it)
         if (pics.length){ drawPics(); picLayer.hidden = false; }
         if (highlights){ await sleep(2000); startHighlights(pace); }
         if (planned) planCrawl(planHits);
         if (renderProfile){ renderProfile.frames = []; renderProfile.draws = []; renderProfile.last = 0; }
         curtain.classList.add("out"); setTimeout(() => curtain.remove(), 400);
+        if (state.snd) state.snd.hush(false, rec ? 0.5 : 0);        // (Crawler sounds) the crawl is on screen from here; its sounds begin once the recording rolls
         if (state.ae) setTimeout(() => state.ae.log("crawl"), 400);  // the curtain is gone: the crawl alone on screen
         if (planned){ state.paused = false; clipWatch = planWatch(planHits); }
         if (intro){
@@ -8334,6 +8467,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           return left <= 0 || tail <= 0 || before <= 0 || (read && !reportMoving());
         }, 40, Infinity);
         if (state.ae) state.ae.log("crawled");                    // (Auto-edit) the crawl is over: the ending, or the end, comes next
+        // (Crawler sounds) nothing more from the crawl. The end's own sound comes with the ending when there is one (the
+        // report coming up, which an Auto-edit keeps whole), and here when the take ends on the crawl itself
+        if (state.snd){ state.snd.hush(true); if (planned ? !planned.ending : clip || !(highlights || keySecs + oneSecs >= 1)) state.snd.done(); }
         state.recordCamera = null;
         clearInterval(clipWatch);
         if (clip || (planned && !planned.ending)){
@@ -12184,7 +12320,11 @@ Who is the auditor?</textarea>
           <p class="mk-lbl" style="margin-top:14px">Logos <small>small, in the report's header</small></p><div id="mk-logos"></div>
           <div class="mk-row" style="margin-top:14px"><label><input type="checkbox" id="mk-pops"> Pop-ups: a big number card for each figure, and words that grow on the page</label></div>
           <div class="mk-row" style="margin-top:8px"><label>Video <select id="mk-q"><option value="high">High Quality · asks for 1080 &times; 1920 at 60 fps</option><option value="standard">Standard · asks for 30 fps</option></select></label>
-            ${window.showSaveFilePicker ? `<label><input type="checkbox" id="mk-disk"> Save to disk while recording (long clips use no extra memory)</label>` : ""}</div></li>
+            ${window.showSaveFilePicker ? `<label><input type="checkbox" id="mk-disk"> Save to disk while recording (long clips use no extra memory)</label>` : ""}</div>
+          <div class="mk-row mk-snd" style="margin-top:8px"><label><input type="checkbox" id="mk-snd"> Crawler sounds <small>optional: soft taps as the spider walks, a click for each figure it collects, a snap as it lands in the report</small></label>
+            <label>Volume <input type="range" id="mk-snd-vol" min="0" max="100" step="5" aria-label="Crawler sounds volume"> <span id="mk-snd-pct"></span></label>
+            <button type="button" class="av-chip" id="mk-snd-try">Preview sound</button></div>
+          <p class="mk-note" id="mk-snd-note" role="status"></p></li>
         <li class="mk-step"><h3><b>6</b>Preview and record</h3>
           <div class="mk-pvw"><div id="mk-pv"></div>
             <div class="mk-pvs"><div class="av-chips mk-pvph" id="mk-pvph" role="radiogroup" aria-label="The moment the preview shows" hidden></div><p class="mk-lbl">Filing</p><p class="mk-note" id="mk-filing"></p><p class="mk-lbl">What the clip shows</p><p class="mk-note" id="mk-scope"></p>
@@ -12197,7 +12337,14 @@ Who is the auditor?</textarea>
       // the look: spider colors and the page are tiles, pop-ups (number cards, enlarged words) are off unless ticked
       const L = mk.look = {palette: palNow, dark: lk.dark !== false, pops: !!lk.pops, quality: lk.quality === "standard" ? "standard" : "high", disk: lk.disk !== false,
         live: MK_STYLES.some(([id]) => id && id === lk.live) ? lk.live : ""};
+      L.sound = lk.sound === true; L.soundVol = lk.soundVol == null ? 60 : Math.max(0, Math.min(100, Math.round(+lk.soundVol) || 0));     // Crawler sounds: off unless ticked
       $m("mk-pops").checked = L.pops; $m("mk-q").value = L.quality; if ($m("mk-disk")) $m("mk-disk").checked = L.disk;
+      $m("mk-snd").checked = L.sound; $m("mk-snd-vol").value = String(L.soundVol);
+      const canSound = !!(window.AudioContext || window.webkitAudioContext);
+      const drawSound = () => {
+        $m("mk-snd-pct").textContent = L.soundVol + "%"; $m("mk-snd-vol").disabled = !canSound; $m("mk-snd").disabled = !canSound; $m("mk-snd-try").disabled = !canSound;
+        $m("mk-snd-note").textContent = !canSound ? "This browser cannot make sound here." : L.sound ? "On: the sounds are recorded into the video itself (no microphone, no system sound). The spider moves exactly as it does without them." : "Off: the video has no sound track.";
+      };
       const drawLook = () => {
         $m("mk-pals").classList.toggle("light", !L.dark);
         $m("mk-pals").querySelectorAll("[data-pal]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.pal === L.palette)));
@@ -12206,7 +12353,8 @@ Who is the auditor?</textarea>
         $m("mk-rs-note").textContent = (MK_STYLES.find(([id]) => id === (L.live || "")) || [])[2] || "";
         drawPreview();
       };
-      const look = () => { L.pops = $m("mk-pops").checked; L.quality = $m("mk-q").value; L.disk = $m("mk-disk") ? $m("mk-disk").checked : false; saveMk(); };
+      const look = () => { L.pops = $m("mk-pops").checked; L.quality = $m("mk-q").value; L.disk = $m("mk-disk") ? $m("mk-disk").checked : false;
+        L.sound = $m("mk-snd").checked; L.soundVol = Math.max(0, Math.min(100, Math.round(+$m("mk-snd-vol").value) || 0)); drawSound(); saveMk(); };
       look(); drawLook();
       $m("mk-pals").addEventListener("click", e => { const b = e.target.closest("[data-pal]"); if (!b) return; L.palette = b.dataset.pal; saveMk(); drawLook(); });
       body.querySelector(".mk-pgs").addEventListener("click", e => { const b = e.target.closest("[data-dark]"); if (!b) return; L.dark = b.dataset.dark === "1"; saveMk(); drawLook(); });
@@ -12310,7 +12458,9 @@ Who is the auditor?</textarea>
       $m("mk-b-all").addEventListener("click", () => { mk.brand = {intro: true, mini: true, report: true}; pvPhase = "open"; saveMk(); drawBrand(); drawPreview(); });
       $m("mk-b-off").addEventListener("click", () => { mk.brand = {intro: false, mini: false, report: false}; saveMk(); drawBrand(); drawPreview(); });
       $m("mk-pvph").addEventListener("click", e => { const b = e.target.closest("[data-ph]"); if (!b) return; pvPhase = b.dataset.ph; drawPreview(); });
-      for (const id of ["mk-pops", "mk-q", "mk-disk"]) if ($m(id)) $m(id).addEventListener("change", look);
+      for (const id of ["mk-pops", "mk-q", "mk-disk", "mk-snd", "mk-snd-vol"]) if ($m(id)) $m(id).addEventListener("change", look);
+      $m("mk-snd-vol").addEventListener("input", () => { $m("mk-snd-pct").textContent = Math.round(+$m("mk-snd-vol").value) + "%"; });
+      $m("mk-snd-try").addEventListener("click", () => { if (!crawlerSoundPreview(L.soundVol / 100)) $m("mk-snd-note").textContent = "This browser cannot make sound here."; });
       $m("mk-record").addEventListener("click", makeRecord);
       // Posting > Visuals > Live crawl: Make a clip's own plan for the filing picked there, and Record with a copy of
       // it whose only change is look.live. A look alone ({live}) records the current pick the same way.
