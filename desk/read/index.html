@@ -5479,6 +5479,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       brainCam.ball = ball; brainCam.ticker = String(plan.ticker).toUpperCase();
     } catch (e){
       console.warn("The brain is off for this take:", e.message || e);
+      const ps = document.getElementById("pl-style"); if (ps) ps.textContent = "Crawler read: the brain could not be shown (" + (e.message || e) + ")";
       fr.remove(); document.body.classList.remove("brain-cam", "brain-" + mode); Object.assign(brainCam, {on: false, frame: null, ball: null});
     }
   }
@@ -6087,7 +6088,8 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       card.innerHTML = `<b class="pl-k">Make a clip</b>
         <h3>${esc(plan.company || plan.ticker || plan.customName || "Your document")}${plan.form ? ` <span>${esc(plan.form)}</span>` : ""}</h3>
         <p class="pl-sub">${esc(plan.when || plan.customName || "")}${plan.accession ? ` · accession ${esc(plan.accession)}` : ""}</p>
-        <dl><dt>Covers</dt><dd>${excerpt ? `An excerpt, not the whole filing: ${sc.keys.length} of the report's ${sc.total} ${sc.total === 1 ? noun[0] : noun[1]}${(plan.find || []).length ? ", and each Find request (with any figures on the way to it)" : ""}`
+        <dl><dt>Style</dt><dd id="pl-style">${lk.brain === "split" ? "Crawler + brain + report: the report on the left, the brain ball on the right; then the dive into " + esc(plan.ticker || "the company") : lk.brain === "ball" ? "Crawler + brain: the brain ball below the read; then the dive into " + esc(plan.ticker || "the company") : "Crawler read"}</dd>
+          <dt>Covers</dt><dd>${excerpt ? `An excerpt, not the whole filing: ${sc.keys.length} of the report's ${sc.total} ${sc.total === 1 ? noun[0] : noun[1]}${(plan.find || []).length ? ", and each Find request (with any figures on the way to it)" : ""}`
             : `The entire ${plan.source === "custom" ? "document" : "filing"}: every page, cover to final line`}</dd>
           <dt>Length</dt><dd>${plan.length === "whole" ? (plan.ramp ? `As long as it takes: ${plan.ramp.from}x for the first ${plan.ramp.secs} seconds, then speeding up to ${plan.speed}x` : `As long as it takes, at ${plan.speed && plan.speed !== 1 ? plan.speed + "x " : ""}reading speed`)
             : excerpt ? `${secs(plan.length)}: the excerpt, then 2 seconds on the report` : `${secs(plan.length)}: the spider's speed is set so it covers every page in this time`}</dd>
@@ -12932,7 +12934,7 @@ Who is the auditor?</textarea>
     let brainSet = undefined;             // undefined: not read yet; null: no map here; a Set: the map's tickers
     function drawVS(){
       const box = body.querySelector("#mk-vs"); if (!box) return;
-      const L = mk.look, tk = String((mk.file ? mk.ticker : mk.list && mk.list.ticker) || "").toUpperCase();
+      const L = mk.look, tk = String((mk.file ? mk.ticker : (mk.list && mk.list.ticker) || mk.ticker) || "").toUpperCase();
       if (brainSet === undefined){ Promise.resolve(loadBrainMap()).then(m => { brainSet = m; drawVS(); }); }
       const ok = !!(tk && brainSet && brainSet.has(tk)), form = mk.list && mk.pick != null && mk.list.items[mk.pick] ? mk.list.items[mk.pick].form : "";
       box.querySelectorAll("[data-vs]").forEach(b => { b.setAttribute("aria-checked", String(b.dataset.vs === (L.brain || ""))); if (b.dataset.vs) b.disabled = !ok; });
@@ -12942,11 +12944,12 @@ Who is the auditor?</textarea>
       note.textContent = brainSet === undefined && tk ? "Looking for " + tk + " on the brain..."
         : !tk ? "The brain styles need a company: find a ticker's forms, or give your document a ticker."
         : brainSet === null ? "The brain is not available here (it runs on the Crawler on your Mac): Crawler read only."
-        : !ok ? `${tk} is not on the brain's map (the S&P 500), so the take is a Crawler read.`
+        : !ok ? `${tk} is not on the brain's map (the S&P 500), so the take is a Crawler read.` + (L.brain ? " Pick Crawler read, or a company on the map." : "")
         : L.brain ? `${tk} glows on the brain from the first frame. At the end the band opens to the whole frame: the camera dives into ${tk}, the report's figures ring it, then it pulls back out (about 13 seconds, after the read).`
           + (/^(4|13F)/.test(form) ? " A Form 4 or 13F report has no figure rows, so the ring may be empty." : "") + " The report style is Classic with a brain style."
         : "Plain Crawler read, as your posts have it.";
-      if (L.brain && !ok && brainSet !== undefined){ L.brain = ""; saveMk(); drawVS(); }
+      // the choice is never undone here: while a ticker's forms load, or the map is read, the company is not known yet
+      // (it used to be cleared at that moment, so a take recorded as a plain read); a company the map lacks says so above
     }
     // Make a clip: the style picked in the Editing Menu, shown above step 1
     function drawStyle(){
