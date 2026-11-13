@@ -277,13 +277,27 @@ function build(u) {
   const homeLook = () => C0;
   const home = {x: 0, y: R * 0.2, z: R * 1.75};
   let framed = false, moved = false;
-  G.onEngineStop(() => {
-    if (framed) return; framed = true;
+  // home frames the whole ball in the view whatever the window's shape: the distance comes from the farthest company
+  // (the ball turns, so every side must fit) plus room for the sector labels above, and the narrower field of view
+  function frameHome(){
     const k = nodes.length || 1; C0 = {x: 0, y: 0, z: 0};
     for (const n of nodes) { C0.x += n.x / k; C0.y += n.y / k; C0.z += n.z / k; }
-    const ds = nodes.map(n => Math.hypot(n.x - C0.x, n.y - C0.y, n.z - C0.z)).sort((a, b) => a - b), r = ds[Math.floor(ds.length * 0.95)] || R;
-    Object.assign(home, {x: C0.x, y: C0.y + r * 0.35, z: C0.z + r * 2.7});
-    if (!moved && !level.sec && !selected) fly(home, C0, 800);
+    let r = 0; for (const n of nodes) r = Math.max(r, Math.hypot(n.x - C0.x, n.y - C0.y, n.z - C0.z));
+    r = (r || R) * 1.1 + 45;
+    const w = el.clientWidth || innerWidth, h = el.clientHeight || innerHeight, vf = G.camera().fov * Math.PI / 180;
+    // on a phone the panel covers the top of the view: fit the ball in the open space below it, centered there
+    const pr = innerWidth <= 760 ? $("panel").getBoundingClientRect() : null, top = pr ? Math.max(0, pr.bottom - el.getBoundingClientRect().top) : 0;
+    const hf = h - top, fy = 2 * Math.atan(Math.tan(vf / 2) * hf / h), f = Math.min(fy, 2 * Math.atan(Math.tan(vf / 2) * w / h)), D = r / Math.sin(f / 2);
+    const lift = (top / 2) * 2 * D * Math.tan(vf / 2) / h;      // world units that move the ball down by half the covered band
+    const m = Math.hypot(0, 0.3, 1);
+    C0 = {x: C0.x, y: C0.y + lift, z: C0.z};
+    Object.assign(home, {x: C0.x, y: C0.y + 0.3 / m * D, z: C0.z + 1 / m * D});
+  }
+  const atHome = () => !moved && !level.sec && !selected;
+  frameHome();
+  G.onEngineStop(() => {
+    if (framed) return; framed = true;
+    frameHome(); if (atHome()) fly(home, C0, 800);
   });
   G.cameraPosition(home, homeLook(), 0);
   const ctl = G.controls();
@@ -504,7 +518,7 @@ function build(u) {
     if (erOn && !(ER.events || []).length) { $("b-er").textContent = "Earnings..."; ER = await earnings(14); $("b-er").textContent = "Earnings"; }
     restyle(); panel();
   };
-  window.addEventListener("resize", () => G.width(innerWidth - SIDE()).height(H()));
+  window.addEventListener("resize", () => { G.width(innerWidth - SIDE()).height(H()); frameHome(); if (atHome()) fly(home, C0, 0); });
   earnings(14).then(e => { ER = e; panel(); });
 
   // ?sector=financials&sub=consumer-finance opens a level; ?t=AXP a company (links from the report page and for videos)
