@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brain ball | BMG Capital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+/* The brain ball inside a clip's record window (Make a clip, Video style: Crawler + brain, or Crawler + brain + report).
+   The record page puts this page in a frame at the bottom of the take and drives it through window.ball: the read
+   company glows cream with its comp lines, each figure the spider collects lands in its dot, and at the end of the
+   read the camera dives into the company and rings it with what the read put in the report, then pulls back out.
+   The map is /api/brain/universe (the same map and look as /desk/brain/). Read only: it draws, it never writes. */
+html, body { margin: 0; height: 100%; overflow: hidden; background: #05070b; }
+#graph { position: fixed; inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 196, 140, 0.07) 0, rgba(120, 140, 255, 0.035) 32%, rgba(0, 0, 0, 0) 60%), #05070b; }
+#o { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+</style>
+</head>
+<body>
+<div id="graph" aria-hidden="true"></div>
+<canvas id="o" aria-hidden="true"></canvas>
+<script src="vendor/3d-force-graph-1.77.0.min.js"></script>
+<script>
+(() => {
+"use strict";
+// the brain-ball palette, one bright color per GICS sector (as /desk/brain/)
+const COLORS = {
+  "Information Technology": "#ff4d3d", "Health Care": "#ff5fa2", "Financials": "#4d8dff", "Consumer Discretionary": "#ffd23f",
+  "Communication Services": "#3fe0c5", "Industrials": "#ff7a1a", "Consumer Staples": "#6fdc6f", "Energy": "#ff9e2c",
+  "Utilities": "#7fc8ff", "Real Estate": "#c45cff", "Materials": "#ffab6b",
+};
+const HOT = "#fff0c8", CREAM = "#fff0c8", LIME = "#b7ff3c", R = 560;
+const CARD_C = ["#b7ff3c", "#6ff4ff", "#ffd23f", "#ff5fa2"];
+const MONO = '"IBM Plex Mono", Menlo, monospace', SANS = '"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif';
+const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+const hash = s => { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return ((h >>> 0) % 10000) / 10000; };
+const ease = x => { x = Math.max(0, Math.min(1, x)); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const seg = (t, a, b) => ease((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function sphere(n, r, c) {
+  const out = [], g = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < n; i++) {
+    const y = n === 1 ? 0 : 1 - (i / (n - 1)) * 2, rad = Math.sqrt(Math.max(0, 1 - y * y)), th = g * i;
+    out.push({x: (c ? c.x : 0) + Math.cos(th) * rad * r, y: (c ? c.y : 0) + y * r, z: (c ? c.z : 0) + Math.sin(th) * rad * r});
+  }
+  return out;
+}
+
+let resolveReady, rejectReady;
+const ready = new Promise((a, b) => { resolveReady = a; rejectReady = b; });
+const api = window.ball = {ready, found: false, count: 0};
+
+async function main() {
+  if (typeof ForceGraph3D !== "function") { rejectReady(new Error("The 3D library did not load")); return; }
+  let u;
+  try { const r = await fetch("/api/brain/universe", {cache: "no-cache"}); if (!r.ok) throw new Error("HTTP " + r.status); u = await r.json(); }
+  catch (e) { rejectReady(e); return; }
+  build(u);
+}
+
+function build(u) {
+  const sectors = (u.sectors || []).filter(s => (s.sub_industries || []).some(x => (x.companies || []).length));
+  const anchors = sphere(sectors.length, R * 0.42);
+  const nodes = [], byId = new Map(), subs = [];
+  sectors.forEach((s, i) => {
+    const A = anchors[i], color = COLORS[s.sector] || "#9D9D9D";
+    const subList = s.sub_industries.filter(x => (x.companies || []).length);
+    const rs = 60 + 19 * Math.sqrt(subList.length);
+    const subPts = sphere(subList.length, subList.length === 1 ? 0 : rs, A);
+    subList.forEach((x, j) => {
+      const P = subPts[j], sub = {nodes: []}; subs.push(sub);
+      x.companies.forEach(c => {
+        if (byId.has(c.ticker)) return;
+        const b = c.brain || {};
+        const n = {id: c.ticker, name: c.name || c.ticker, sector: s.sector, color, comps: c.comps || [], rev: b.revenue ? b.revenue.value : null,
+                   ax: P.x, ay: P.y, az: P.z, x: P.x + (hash(c.ticker) - 0.5) * 30, y: P.y + (hash(c.ticker + "y") - 0.5) * 30, z: P.z + (hash(c.ticker + "z") - 0.5) * 30};
+        nodes.push(n); byId.set(n.id, n); sub.nodes.push(n);
+      });
+    });
+  });
+  const links = [], seen = new Set();
+  for (const x of subs) for (let i = 1; i < x.nodes.length; i++) links.push({source: x.nodes[0].id, target: x.nodes[i].id, web: true});
+  for (const n of nodes) for (const t of n.comps) {
+    const m = byId.get(t); if (!m || m === n) continue;
+    const k = n.id < m.id ? n.id + "|" + m.id : m.id + "|" + n.id;
+    if (seen.has(k)) continue; seen.add(k);
+    links.push({source: n.id, target: m.id, cross: n.sector !== m.sector});
+  }
+  let sel = null;
+  const nodeOf = x => typeof x === "object" ? x : byId.get(x);
+  const hot = l => sel && !l.web && (nodeOf(l.source) === sel || nodeOf(l.target) === sel);
+  const el = document.getElementById("graph"), oc = document.getElementById("o"), ctx = oc.getContext("2d");
+  const G = ForceGraph3D({controlType: "orbit"})(el)
+    .width(innerWidth).height(innerHeight)
+    .backgroundColor("rgba(0,0,0,0)").showNavInfo(false).enableNavigationControls(false).enablePointerInteraction(false)
+    .nodeId("id").nodeRelSize(2.6).nodeResolution(8).nodeOpacity(1)
+    .nodeVal(n => n === sel ? 9 : n.rev ? Math.max(0.6, Math.min(18, Math.sqrt(n.rev / 1e9) * 1.15)) : 0.55)
+    .nodeColor(n => n === sel ? HOT : hexA(n.color, 0.85))
+    .linkColor(l => hot(l) ? HOT : l.web ? hexA(nodeOf(l.source).color, 0.5) : l.cross ? "rgba(220,200,240,0.22)" : hexA(nodeOf(l.source).color, 0.45))
+    .linkOpacity(1).linkWidth(l => hot(l) ? 0.9 : 0)
+    .warmupTicks(220).cooldownTicks(0)
+    .graphData({nodes, links});
+  G.d3Force("center", null);
+  G.d3Force("charge").strength(-14).distanceMax(260);
+  G.d3Force("link").distance(l => l.web ? 26 : l.cross ? 300 : 110).strength(l => l.web ? 0.3 : l.cross ? 0.004 : 0.02);
+  G.d3Force("cluster", alpha => { const k = 0.3 * alpha; for (const n of nodes) { n.vx += (n.ax - n.x) * k; n.vy += (n.ay - n.y) * k; n.vz += (n.az - n.z) * k; } });
+  // the layout is settled once (warm-up ticks, no cooling after), so the take never pays for the physics; the
+  // library's own loop is paused once it has placed everything, and this page draws its own frames (frame() below)
+  const cam = G.camera(), ren = G.renderer(), scene = G.scene();
+  const kick = () => { G.resumeAnimation(); setTimeout(() => G.pauseAnimation(), 150); };     // a restyle places its new lines
+
+  // ---- geometry: the ball's center and radius, the distance that fits it in the frame whatever its shape
+  let C0 = {x: 0, y: 0, z: 0}, rad = R;
+  function measure() {
+    const k = nodes.length || 1; C0 = {x: 0, y: 0, z: 0};
+    for (const n of nodes) { C0.x += n.x / k; C0.y += n.y / k; C0.z += n.z / k; }
+    rad = 0; for (const n of nodes) rad = Math.max(rad, Math.hypot(n.x - C0.x, n.y - C0.y, n.z - C0.z));
+    rad = (rad || R) * 1.02;
+  }
+  const fitD = (w, h, fill) => {
+    const vf = cam.fov * Math.PI / 180, f = Math.min(vf, 2 * Math.atan(Math.tan(vf / 2) * w / h));
+    return rad / Math.sin(f / 2) / (fill || 0.92);
+  };
+  let W = 0, H = 0, dpr = 1;
+  // the ball is drawn at one pixel per CSS pixel and its overlay at the screen's: the lines glow either way, and the
+  // record window's own frames (the spider, the page) keep the GPU time they had before
+  function size() {
+    W = innerWidth; H = innerHeight; dpr = Math.min(2, devicePixelRatio || 1);
+    // sized here, not through the library: its resize lands a moment after a frame is drawn and blanks it, so a frame
+    // that grows (the band opening at the end) would show nothing while it moves
+    ren.setPixelRatio(1); ren.setSize(W, H); cam.aspect = W / H; cam.updateProjectionMatrix(); oc.width = Math.round(W * dpr); oc.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  G.width(innerWidth).height(innerHeight);
+  size();
+  addEventListener("resize", () => { size(); draw(performance.now()); });
+
+  const glowLines = () => { for (const l of links) { const m = l.__lineObj && l.__lineObj.material; if (m && m.blending !== 2) { m.blending = 2; m.transparent = true; m.depthWrite = false; m.needsUpdate = true; } } };
+  const restyle = () => G.nodeVal(G.nodeVal()).nodeColor(G.nodeColor()).linkColor(G.linkColor()).linkWidth(G.linkWidth());
+  const V = new (cam.position.constructor)();
+  const screen = p => { V.set(p.x, p.y, p.z).project(cam); return {x: (V.x + 1) / 2 * W, y: (1 - V.y) / 2 * H}; };
+
+  // ---- the camera: a slow turn around the ball (th grows with time); in the ending it dives to the company and back
+  const t0 = performance.now(); let th0 = 0;
+  const orbit = (th, D) => ({pos: {x: C0.x + Math.sin(th) * D, y: C0.y + D * 0.22, z: C0.z + Math.cos(th) * D}, look: C0});
+  let shot = null;                       // the ending's camera, when it runs
+  function place(s) { cam.position.set(s.pos.x, s.pos.y, s.pos.z); cam.lookAt(s.look.x, s.look.y, s.look.z); cam.updateMatrixWorld(); }
+
+  // ---- what the overlay draws: the company's tag, the landing glow, the counts, the ending's cards
+  let pulse = 0, label = "", note = "", ring = null, endPin = null, title = null, fade = 1;
+  function txt(x, y, s, font, color, align) { ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align || "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(s, x, y); }
+  function tag(x, y, s, px) {
+    ctx.font = `700 ${px}px ${MONO}`; const w = ctx.measureText(s).width + px * 0.9, h = px * 1.55;
+    x = Math.max(4, Math.min(W - w - 4, x)); y = Math.max(h + 2, y);
+    ctx.fillStyle = CREAM; ctx.beginPath(); ctx.roundRect(x, y - h, w, h, 5); ctx.fill();
+    txt(x + px * 0.45, y - h * 0.3, s, `700 ${px}px ${MONO}`, "#1a1408");
+  }
+  function glowAt(p, r, a) {
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+    g.addColorStop(0, `rgba(255,240,200,${0.9 * a})`); g.addColorStop(0.25, `rgba(255,220,150,${0.45 * a})`); g.addColorStop(1, "rgba(255,200,120,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  function card(x, y, c, i, a, s) {
+    const w = 168 * s, h = 64 * s, col = CARD_C[i % CARD_C.length];
+    ctx.save(); ctx.globalAlpha = a;
+    ctx.fillStyle = "rgba(8,10,14,0.92)"; ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, 8 * s); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = col; ctx.fillRect(x - w / 2, y - h / 2 + 6 * s, 3 * s, h - 12 * s);
+    const lab = c.label.length > 24 ? c.label.slice(0, 23) + "…" : c.label;
+    txt(x - w / 2 + 12 * s, y - h / 2 + 19 * s, lab, `600 ${Math.round(11.5 * s)}px ${SANS}`, "#c9d3de");
+    txt(x - w / 2 + 12 * s, y - h / 2 + 43 * s, c.value, `700 ${Math.round(21 * s)}px ${MONO}`, "#fff");
+    if (c.page) txt(x + w / 2 - 10 * s, y - h / 2 + 19 * s, "p." + c.page, `500 ${Math.round(10 * s)}px ${MONO}`, "#8fa3b8", "right");
+    ctx.restore();
+  }
+  function overlay(now) {
+    ctx.clearRect(0, 0, W, H);
+    if (!sel) return;
+    const p = screen(sel), s = Math.max(0.7, Math.min(1.25, Math.min(W, H) / 420));
+    const big = shot ? shot.zoom : 0;
+    glowAt(p, (26 + 30 * pulse + 40 * big) * s, 0.55 + 0.45 * pulse);
+    if (ring) {
+      const {cards, t} = ring, n = cards.length, cs = s * 0.85, rx = Math.max(60, W / 2 - 84 * cs - 10), ry = Math.min(H * 0.3, 300 * s);
+      cards.forEach((c, i) => {
+        const a = seg(t, 0.4 + i * 0.32, 0.9 + i * 0.32) * ring.out; if (a <= 0) return;
+        const ang = -Math.PI / 2 + i * 2 * Math.PI / n + 0.035 * t;
+        const x = p.x + Math.cos(ang) * rx * lerp(0.6, 1, a), y = p.y + Math.sin(ang) * ry * lerp(0.6, 1, a);
+        ctx.save(); ctx.globalAlpha = 0.35 * a; ctx.strokeStyle = CARD_C[i % CARD_C.length]; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(x, y); ctx.stroke(); ctx.restore();
+        card(x, y, c, i, a, cs);
+      });
+    }
+    if (title && title.a > 0) {
+      ctx.save(); ctx.globalAlpha = title.a;
+      txt(W / 2, Math.max(70, H * 0.12), title.main, `700 ${Math.round(22 * s)}px ${SANS}`, "#fff", "center");
+      txt(W / 2, Math.max(70, H * 0.12) + 26 * s, title.sub, `500 ${Math.round(12 * s)}px ${MONO}`, "#8fa3b8", "center");
+      ctx.restore();
+    }
+    if (endPin && endPin.a > 0) {
+      ctx.save(); ctx.globalAlpha = endPin.a;
+      ctx.font = `700 ${Math.round(16 * s)}px ${SANS}`; const w = Math.max(ctx.measureText(endPin.main).width, 140) + 28 * s, h = 52 * s;
+      const x = Math.max(8, Math.min(W - w - 8, p.x - w / 2)), y = Math.max(8, p.y - 90 * s - h);
+      ctx.fillStyle = "rgba(8,10,14,0.9)"; ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.roundRect(x, y, w, h, 7 * s); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.beginPath(); ctx.moveTo(p.x, y + h); ctx.lineTo(p.x, p.y - 14 * s); ctx.stroke();
+      txt(x + 14 * s, y + 22 * s, endPin.main, `700 ${Math.round(16 * s)}px ${SANS}`, "#fff");
+      txt(x + 14 * s, y + 40 * s, endPin.sub, `500 ${Math.round(10.5 * s)}px ${MONO}`, "#c9d3de");
+      ctx.restore();
+    }
+    if (!ring && !(endPin && endPin.a > 0.5)) tag(p.x + 12 * s, p.y - 14 * s, label, Math.round(13 * s));
+    if (note && fade > 0) {
+      ctx.save(); ctx.globalAlpha = fade;
+      txt(12, H - 12, "Brain · " + nodes.length + " companies", `500 ${Math.round(11 * Math.min(1.2, s))}px ${MONO}`, "#8fa3b8");
+      txt(W - 12, H - 12, note, `600 ${Math.round(11 * Math.min(1.2, s))}px ${MONO}`, CREAM, "right");
+      ctx.restore();
+    }
+  }
+
+  // ---- the frame loop: 25 frames a second is enough for a slow turn, and leaves the page's own frames to the spider
+  let last = 0, framesLeft = 0, tickN = 0, ready_ = false;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (now - last < (shot ? 0 : 40) && !framesLeft) return;          // the ending runs at full rate: the crawl is over
+    draw(now);
+  }
+  function draw(now) {
+    if (!ready_) return;
+    last = now; if (framesLeft) framesLeft--;
+    const t = (now - t0) / 1000;
+    pulse = Math.max(0, pulse - 0.06);
+    if (shot) place(shot.state(now)); else place(orbit(th0 + 0.12 * t, fitD(W, H)));
+    if (framesLeft || (tickN++ % 30) === 0) glowLines();
+    ren.render(scene, cam);
+    overlay(now);
+  }
+
+  // ---- the record page's calls
+  Object.assign(api, {
+    companies: nodes.length,
+    focus(ticker) {
+      sel = byId.get(String(ticker || "").toUpperCase()) || null; api.found = !!sel;
+      label = sel ? sel.id : ""; restyle(); kick(); framesLeft = 2;
+      if (sel) { const v = {x: sel.x - C0.x, z: sel.z - C0.z}; th0 = Math.atan2(v.x, v.z) - 0.35; }   // the company starts on the near side
+      return api.found;
+    },
+    // where the company's dot is in this frame (CSS px), for a chip on its way in
+    target() { return sel ? screen(sel) : {x: W / 2, y: H / 2}; },
+    land() { api.count++; pulse = 1; note = "+" + api.count + " into " + (sel ? sel.id : "the brain"); },
+    // the ending: the camera dives into the company, the figures ring it, then it pulls back out (about 12.5 s)
+    async ending(o) {
+      if (!sel) return;
+      o = o || {}; const cards = (o.cards || []).slice(0, 8);
+      const tS = performance.now();
+      const thE = th0 + 0.12 * (tS - t0) / 1000;
+      const near = D => { const v = {x: sel.x - C0.x, y: sel.y - C0.y, z: sel.z - C0.z}, m = Math.hypot(v.x, v.y, v.z) || 1;
+        return {pos: {x: sel.x + v.x / m * D, y: sel.y + v.y / m * D + D * 0.15, z: sel.z + v.z / m * D}, look: {x: sel.x, y: sel.y, z: sel.z}}; };
+      const mix = (a, b, k) => ({pos: {x: lerp(a.pos.x, b.pos.x, k), y: lerp(a.pos.y, b.pos.y, k), z: lerp(a.pos.z, b.pos.z, k)},
+                                 look: {x: lerp(a.look.x, b.look.x, k), y: lerp(a.look.y, b.look.y, k), z: lerp(a.look.z, b.look.z, k)}});
+      title = {main: o.title || "", sub: o.sub || "", a: 0}; endPin = {main: o.pin || "", sub: o.pinSub || "", a: 0};
+      shot = {zoom: 0, state(now) {
+        const u = (now - tS) / 1000, th = thE + 0.05 * u, wide = orbit(th, fitD(W, H)), dive = seg(u, 2.2, 3.8), back = seg(u, 9.6, 11);
+        this.zoom = dive * (1 - back);
+        title.a = seg(u, 3.4, 3.9) * (1 - seg(u, 9.3, 9.7)); endPin.a = seg(u, 10.8, 11.3); fade = 1 - seg(u, 0, 0.6);
+        if (ring) { ring.t = u - 3.4; ring.out = 1 - seg(u, 9.2, 9.7); if (u > 9.8) ring = null; }
+        else if (u > 3.4 && u < 9.8) ring = {cards, t: u - 3.4, out: 1};
+        return mix(mix(wide, near(150), dive), wide, back);
+      }};
+      await sleep(12500);
+    },
+  });
+  // ready once the layout has settled and the library has drawn it twice
+  let settled = false;
+  G.onEngineStop(() => {
+    if (settled) return; settled = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => { G.pauseAnimation(); measure(); size(); glowLines(); ready_ = true; requestAnimationFrame(frame); resolveReady(api); }));
+  });
+}
+main();
+})();
+</script>
+</body>
+</html>

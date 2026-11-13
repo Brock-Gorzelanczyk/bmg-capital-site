@@ -265,6 +265,12 @@ body.recmode .read-grid{display:block!important}body.recmode .stage{border:none!
 body.recmode .doc{margin-bottom:36vh!important;max-width:none!important}   /* full page width: zooming in clipped wide statement columns */
 body.recmode{--rec-h:28vh;overflow-x:hidden!important}html.recmode-root{overflow-x:hidden}   /* a class, not html:has(body.recmode): a :has() at the root restyled the whole page whenever a finding was added */
 body.recmode .read-side{box-sizing:border-box;padding:6px 12px 0!important;box-shadow:0 -8px 24px rgba(0,0,0,.18)!important;border-radius:16px 16px 0 0!important}
+/* Make a clip, Video style: the Crawler brain as a ball in the report band (brain/ball.html in a frame). Crawler + brain:
+   the ball covers the band; Crawler + brain + report: the report keeps the left half, the ball takes the right. At the
+   end of the read the band opens to the whole frame for the dive into the company. */
+body.brain-cam #brain-cam{position:absolute;top:0;left:0;width:100%;height:100%;border:0;z-index:6;background:#05070b;display:block;transition:left .9s cubic-bezier(.65,0,.35,1),width .9s cubic-bezier(.65,0,.35,1)}
+body.brain-split #brain-cam{left:50%;width:50%;box-shadow:-1px 0 0 #1d242d}body.brain-split .read-side{padding-right:calc(50% + 8px)!important}
+body.brain-end .read-side{height:100%!important;border-radius:0!important;z-index:2147483000!important;transition:height .9s cubic-bezier(.65,0,.35,1)}body.brain-done #brain-cam{display:none}body.brain-end #brain-cam{left:0;width:100%;box-shadow:none}
 body.recmode .lr-v{font-size:15px}body.recmode .lr-t td{padding:3px 5px}body.recmode .lr h4{margin:8px 0 3px}
 body.recmode.rec-dark,body.recmode.rec-dark main.read-page,body.recmode.rec-dark .read-grid,body.recmode.rec-dark .stage,body.recmode.rec-dark .doc,body.recmode.rec-dark #doc,body.recmode.rec-dark #docbody{background:#000!important}
 body.recmode.rec-dark .pdfpage{background:#000!important;box-shadow:none!important}
@@ -1114,6 +1120,14 @@ body.av-open{overflow:hidden}
 .mk-pals{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin:0 0 10px}
 .mk-pal{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 6px 7px;border:1px solid #c9cfca;border-radius:10px;background:#fff;cursor:pointer;font:12px/1.2 'IBM Plex Sans',sans-serif;color:#3a3a3a;text-align:center}
 .mk-pal:hover{border-color:#0f7d47}.mk-pal[aria-checked=true]{border-color:#0f7d47;box-shadow:0 0 0 2px #0f7d47;background:#f3fbf6}
+/* step 2, Video style: three pictures of a take, one per style */
+.mk-vs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:560px}
+.mk-vs-t{display:flex;flex-direction:column;gap:4px;padding:7px 7px 9px;border:1px solid #c9cfca;border-radius:12px;background:#fff;cursor:pointer;font:12px/1.3 'IBM Plex Sans',sans-serif;color:#3a3a3a;text-align:left}
+.mk-vs-t img{width:100%;height:auto;aspect-ratio:9/16;object-fit:cover;border-radius:8px;display:block;background:#05070b;margin-bottom:3px}
+.mk-vs-t b{font:700 14px/1.2 'IBM Plex Sans',sans-serif;color:#1d1d1d}.mk-vs-t small{font-size:12px;color:#5d6560}
+.mk-vs-t:hover:not(:disabled){border-color:#0f7d47}.mk-vs-t[aria-checked=true]{border-color:#0f7d47;box-shadow:0 0 0 2px #0f7d47;background:#f3fbf6}
+.mk-vs-t:disabled{opacity:.45;cursor:default}
+@media (max-width:560px){.mk-vs{gap:7px}.mk-vs-t b{font-size:12px}.mk-vs-t small{display:none}}
 .mk-sw{display:block;width:100%;height:52px;border-radius:7px;background:#05070c}.mk-sw svg{display:block;width:100%;height:100%;padding:5px 0;box-sizing:border-box}
 .mk-pals.light .mk-sw{background:#fff;box-shadow:inset 0 0 0 1px #e3e3dc}
 html[data-theme="dark"] .mk-sw{filter:invert(1) hue-rotate(180deg)}   /* the view is inverted in dark mode: the colors shown are the real ones */
@@ -5443,6 +5457,62 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
         source: {pdf_page: v && v.dataset.page ? +v.dataset.page : null}});
     });
   }
+  // ---- Make a clip, Video style (opt-in, plan.look.brain): the Crawler brain as a ball in the take's report band.
+  // "ball": the ball fills the band (the report keeps filling underneath, unseen, for the ending); "split": the report
+  // on the left half, the ball on the right. The read company glows on the ball; every chip the spider sends to the
+  // report also flies into the company's dot. At the end of the read the band opens to the whole frame and the camera
+  // dives into the company, ringed by the figures the report shows, then pulls back out (brain/ball.html draws it).
+  // Without the choice none of this runs and the page is exactly as before.
+  const brainCam = {on: false, mode: "", frame: null, ball: null, landed: 0};
+  async function brainStart(mode, plan){
+    if (brainCam.on || !liveEl || !plan.ticker) return;
+    const side = liveEl.closest(".read-side") || liveEl.parentNode;
+    const fr = document.createElement("iframe"); fr.id = "brain-cam"; fr.title = "The Crawler brain"; fr.setAttribute("aria-hidden", "true"); fr.tabIndex = -1;
+    fr.src = "/desk/brain/ball.html";
+    Object.assign(brainCam, {on: true, mode, frame: fr});
+    document.body.classList.add("brain-cam", "brain-" + mode);
+    side.appendChild(fr);
+    try {
+      await new Promise((ok, no) => { fr.addEventListener("load", ok, {once: true}); setTimeout(() => no(new Error("the brain page did not load")), 20000); });
+      const ball = await fr.contentWindow.ball.ready;
+      if (!ball.focus(plan.ticker)) throw new Error(plan.ticker + " is not on the brain's map");
+      brainCam.ball = ball; brainCam.ticker = String(plan.ticker).toUpperCase();
+    } catch (e){
+      console.warn("The brain is off for this take:", e.message || e);
+      fr.remove(); document.body.classList.remove("brain-cam", "brain-" + mode); Object.assign(brainCam, {on: false, frame: null, ball: null});
+    }
+  }
+  // where a chip lands on the ball: the company's dot, in this page's coordinates (read on every frame of the flight)
+  const brainSpot = {isConnected: true, getBoundingClientRect(){
+    const r = brainCam.frame.getBoundingClientRect(), p = brainCam.ball ? brainCam.ball.target() : {x: r.width / 2, y: r.height / 2};
+    return {left: r.left + p.x - 1, top: r.top + p.y + 7, width: 2, height: 2, right: r.left + p.x + 1, bottom: r.top + p.y + 9};
+  }};
+  // a flight's destination with the brain on: the ball alone shows the dot; split sends the report's chip on as usual
+  const brainDest = dest => brainCam.ball && brainCam.mode === "ball" ? brainSpot : dest;
+  function brainLanded(){ if (brainCam.ball){ brainCam.landed++; brainCam.ball.land(); } }
+  // the ring's cards: the figures the report shows, as it shows them (label, value, page), the featured row first
+  function brainCards(){
+    const out = [], seen = new Set(), cells = state.live ? state.live.plan.cells : {};
+    const rows = [...liveEl.querySelectorAll("td.lr-c[data-cell]")].filter(td => !td.classList.contains("is-w") && td.querySelector(".lr-v"));
+    rows.sort((a, b) => (b.closest("tr.feat") ? 1 : 0) - (a.closest("tr.feat") ? 1 : 0));
+    for (const td of rows){
+      const row = td.closest("tr"), label = row && row.cells[0] ? row.cells[0].textContent.trim() : "", v = td.querySelector(".lr-v");
+      const value = ((v.firstChild || {}).textContent || "").trim(), c = cells[td.dataset.cell] || {};
+      if (!label || !value || seen.has(label)) continue;
+      seen.add(label); out.push({label, value, page: c.page || (c.input_pages || [])[0] || ""});
+      if (out.length === 8) break;
+    }
+    return out;
+  }
+  async function brainEnding(co){
+    if (!brainCam.ball) return;
+    const cards = brainCards(), tk = brainCam.ticker, form = co.form || "filing";
+    document.body.classList.add("brain-end");
+    await new Promise(r => setTimeout(r, 900));                // the band opens to the whole frame
+    await brainCam.ball.ending({cards, title: `What ${tk}'s ${form} added to the brain`, sub: [co.period, "as the Crawler read it"].filter(Boolean).join(" · "),
+      pin: cards.length ? `+${cards.length} figures from the ${form}` : `${tk} read into the brain`, pinSub: `${tk} · now in the brain`});
+    document.body.classList.add("brain-done"); document.body.classList.remove("brain-end");    // the report's own ending, when there is one, comes next
+  }
   function liveCellHTML(id, st){
     const c = state.live.plan.cells[id];
     if (st.state === "withdrawn") return `<span class="lr-w" title="${esc(st.reason || "")}">withdrawn</span>`;
@@ -6000,6 +6070,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       });
       const q = id => setup.querySelector("#" + id), lk = plan.look || {};
       if (lk.live) visLiveStart(String(lk.live), plan);
+      if (lk.brain === "ball" || lk.brain === "split") brainStart(lk.brain, plan);
       const set = (id, v) => {
         const el = q(id); if (!el || v == null) return;
         if (el.type === "checkbox") el.checked = !!v;
@@ -6841,9 +6912,9 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
     // a chip leaves ZAP_LAND after its zap: until then it is on its way too (the end of a take waits for it)
     let launching = 0;
     const launch = fn => { launching++; setTimeout(() => { launching--; fn(); }, ZAP_LAND); };
-    function flyFrom(el, td, text, obs){
+    function flyFrom(el, td, text, obs, ghost){
       const s0 = el.getBoundingClientRect();
-      const chip = document.createElement("div"); chip.className = "rec-fly" + (obs ? " obs" : "");
+      const chip = document.createElement("div"); chip.className = "rec-fly" + (obs ? " obs" : "") + (ghost ? " ghost" : "");
       chip.textContent = text;
       chip.style.left = s0.left + "px"; chip.style.top = s0.top + "px";
       chip.style.transition = "none";
@@ -6925,9 +6996,10 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           state.flightLock = {el: q.dest, until: now + FLY_MS + 150};
           liveFollow(q.dest);
         }
-        flyFrom(q.el, visLiveDest(q.dest), q.text, q.obs);
+        flyFrom(q.el, brainDest(visLiveDest(q.dest)), q.text, q.obs);
+        if (brainCam.ball && brainCam.mode === "split") flyFrom(q.el, brainSpot, q.text, q.obs, true);   // (Video style) and into the company's dot
         if (state.ae) state.ae.fly(q.el);                 // (Auto-edit) a chip in the air: it leaves now, it lands below
-        setTimeout(() => { if (state.flightLock && state.flightLock.el === q.dest) state.flightLock = null; if (state.snd) state.snd.land(); q.land(); pumpFlights(); }, FLY_MS - 60);
+        setTimeout(() => { if (state.flightLock && state.flightLock.el === q.dest) state.flightLock = null; if (state.snd) state.snd.land(); brainLanded(); q.land(); pumpFlights(); }, FLY_MS - 60);
       }
     }
     const obsQ = [];
@@ -7805,6 +7877,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
       await wait(() => state.readRes && state.readRes.report, 100, 30000);
       // The ending reads the completed server report. Filling every underlying
       // report row first can freeze the last crawler frame inside the video.
+      if (brainCam.ball) await brainEnding((state.readRes && state.readRes.report && state.readRes.report.company) || {});    // (Video style) the dive into the company
       const end = await ending(keySecs, oneSecs, highlights);
       const blob = await stopCapture();
       finalControls(end, blob);
@@ -8928,6 +9001,7 @@ html[data-theme="dark"] #app-view,html[data-theme="dark"] #grid-pop .gp-box{filt
           // an idea clip (and a planned one without the ending) ends on the crawl itself: no findings or summary screens
           clearInterval(hudTimer); state.hudTick = null;
           state.paused = true;
+          if (brainCam.ball) await brainEnding((state.readRes && state.readRes.report && state.readRes.report.company) || {});    // (Video style) the dive into the company
           const blob = await stopCapture();
           const end = document.createElement("div"); end.id = "rec-end"; B.appendChild(end);
           finalControls(end, blob);
@@ -12151,6 +12225,7 @@ Who is the auditor?</textarea>
     }
     function drawForms(){
       const box = body.querySelector("#mk-forms"); if (!box || view !== "make") return;
+      drawVS();
       if (mk.file){
         box.innerHTML = `<p class="mk-picked">Your document: <b>${esc(mk.file.name)}</b> (${mbOf(mk.file.size)})</p>
           <p class="mk-note">${mk.ticker ? `It is read as ${esc(mk.ticker)}'s, so the report names the company. ` : ""}<button type="button" class="av-chip" data-clearfile>Use a filing instead</button></p>`;
@@ -12202,7 +12277,7 @@ Who is the auditor?</textarea>
       const hook = String(mk.hook || "").trim();
       body.querySelector("#mk-self-note").textContent = !mk.self.on ? "Off: the hook goes on as the Studio's usual title."
         : (hook ? `In the Studio, "${hook}" goes on the video from the first frame to the last, the report ending included, in TikTok's own Classic text (TikTok Sans, white with a black outline, near the top), as you typed it.`
-          : "Type a hook in step 3: it goes on the video from the first frame to the last, in TikTok's own Classic text.")
+          : "Type a hook in step 4: it goes on the video from the first frame to the last, in TikTok's own Classic text.")
           + " It is an ordinary text item: move, change or delete it there. The take is recorded the same and kept whole. Add the sound in TikTok.";
     }
     // Auto-edit highlights: what the finished video will be. The take itself is recorded as set above, whole, and kept.
@@ -12465,8 +12540,8 @@ Who is the auditor?</textarea>
     let mkLiveLook = null;                // Posting > Visuals > Live crawl sets this for one Record (window.bmgOpenRecord)
     function makeRecord(){
       const f = !mk.file && mk.list && mk.pick != null ? mk.list.items[mk.pick] : null;
-      if (!mk.file && !f){ mkSay("mk-rst", mk.list ? "Pick a form in step 2 first." : "Find a ticker's forms in step 1, or use your own document.", true); return; }
-      if (recLen() !== "whole" && !(mk.length >= 10)){ mkSay("mk-rst", "Choose how long the clip is in step 4.", true); return; }
+      if (!mk.file && !f){ mkSay("mk-rst", mk.list ? "Pick a form in step 1 first." : "Find a ticker's forms in step 1, or use your own document.", true); return; }
+      if (recLen() !== "whole" && !(mk.length >= 10)){ mkSay("mk-rst", "Choose how long the clip is in step 5.", true); return; }
       if (mk.found && mk.found.state === "loading"){ mkSay("mk-rst", "The filing is still being read for its findings: a moment.", true); return; }
       if (mk.scope === "specific" && !mk.file && !clipScope()){ mkSay("mk-rst", "Specific findings needs the filing's findings: wait for its read, or choose Entire filing.", true); return; }
       if (brandOn() && coLogo.state === "loading"){ mkSay("mk-rst", "The company's logo is still being looked up: a moment.", true); return; }
@@ -12642,9 +12717,9 @@ Who is the auditor?</textarea>
           notes.push(`Without one, ${B.intro ? (hook ? "the opening shows the hook alone, " : "there is no opening, ") : ""}${B.mini || B.report ? "the small and report logos are left out, " : ""}and the clip records normally.`);
         }
       }
-      if (B.intro && lg) notes.push(hook ? `Opening: the logo above your hook for the first ${LOGO_OPEN_S} seconds; then the hook fades (the Studio adds no second hook).` : "No hook in step 3: the opening shows the logo alone.");
+      if (B.intro && lg) notes.push(hook ? `Opening: the logo above your hook for the first ${LOGO_OPEN_S} seconds; then the hook fades (the Studio adds no second hook).` : "No hook in step 4: the opening shows the logo alone.");
       if (B.mini && lg && !B.intro && hook) notes.push("The hook sits under the small logo and leaves with it when the report appears.");
-      if (B.report && !mk.ending) notes.push("The report logo needs the clip to end on the report (step 4).");
+      if (B.report && !mk.ending) notes.push("The report logo needs the clip to end on the report (step 5).");
       $b("mk-b-note").textContent = notes.join(" ");
       $b("mk-b-note").classList.toggle("err", brandOn() && !lg && coLogo.state !== "loading");
     }
@@ -12841,12 +12916,44 @@ Who is the auditor?</textarea>
         saveMk(); show("make");
       });
     }
+    // Make a clip, step 2 Video style: the Crawler read as it is, or with the Crawler brain in the report band (the
+    // ball alone, or the report and the ball side by side). The record window draws the ball (brainStart); the
+    // pictures are frames of an AMZN 10-Q take in each style. The brain styles need a company on the brain's map.
+    const VSTYLES = [["", "Crawler read", "The spider reads; the report builds in the band below.", "read.jpg"],
+      ["ball", "Crawler + brain", "The brain ball below: each figure flies into the company's dot.", "brain.jpg"],
+      ["split", "Crawler + brain + report", "The report on the left, the brain on the right: each figure goes to both.", "split.jpg"]];
+    let brainMap = null;                  // the tickers on the brain's map, read once (/api/brain/universe)
+    function loadBrainMap(){
+      if (brainMap) return brainMap;
+      return brainMap = fetch("/api/brain/universe", {cache: "no-cache"}).then(r => r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)))
+        .then(u => new Set((u.sectors || []).flatMap(x => (x.sub_industries || []).flatMap(y => (y.companies || []).map(c => String(c.ticker).toUpperCase())))))
+        .catch(() => null);
+    }
+    let brainSet = undefined;             // undefined: not read yet; null: no map here; a Set: the map's tickers
+    function drawVS(){
+      const box = body.querySelector("#mk-vs"); if (!box) return;
+      const L = mk.look, tk = String((mk.file ? mk.ticker : mk.list && mk.list.ticker) || "").toUpperCase();
+      if (brainSet === undefined){ Promise.resolve(loadBrainMap()).then(m => { brainSet = m; drawVS(); }); }
+      const ok = !!(tk && brainSet && brainSet.has(tk)), form = mk.list && mk.pick != null && mk.list.items[mk.pick] ? mk.list.items[mk.pick].form : "";
+      box.querySelectorAll("[data-vs]").forEach(b => { b.setAttribute("aria-checked", String(b.dataset.vs === (L.brain || ""))); if (b.dataset.vs) b.disabled = !ok; });
+      const rs = body.querySelector("#mk-rs"); if (rs) rs.querySelectorAll("[data-rs]").forEach(b => { b.disabled = !!L.brain && !!b.dataset.rs; });
+      const note = body.querySelector("#mk-vs-note");
+      note.classList.toggle("err", !!L.brain && !ok);
+      note.textContent = brainSet === undefined && tk ? "Looking for " + tk + " on the brain..."
+        : !tk ? "The brain styles need a company: find a ticker's forms, or give your document a ticker."
+        : brainSet === null ? "The brain is not available here (it runs on the Crawler on your Mac): Crawler read only."
+        : !ok ? `${tk} is not on the brain's map (the S&P 500), so the take is a Crawler read.`
+        : L.brain ? `${tk} glows on the brain from the first frame. At the end the band opens to the whole frame: the camera dives into ${tk}, the report's figures ring it, then it pulls back out (about 13 seconds, after the read).`
+          + (/^(4|13F)/.test(form) ? " A Form 4 or 13F report has no figure rows, so the ring may be empty." : "") + " The report style is Classic with a brain style."
+        : "Plain Crawler read, as your posts have it.";
+      if (L.brain && !ok && brainSet !== undefined){ L.brain = ""; saveMk(); drawVS(); }
+    }
     // Make a clip: the style picked in the Editing Menu, shown above step 1
     function drawStyle(){
       const box = body.querySelector("#mk-es"); if (!box) return;
       const s = EDIT_STYLES.find(x => x.id === mk.editStyle);
       box.hidden = !s; if (!s) return;
-      const what = s.id === "tiktok" ? (mk.self.on ? "Edit it like my TikToks is ticked in step 4: the Studio puts your hook on the whole video." : "Tick Edit it like my TikToks in step 4 to use it.")
+      const what = s.id === "tiktok" ? (mk.self.on ? "Edit it like my TikToks is ticked in step 5: the Studio puts your hook on the whole video." : "Tick Edit it like my TikToks in step 5 to use it.")
         : "Not built yet: this clip records as usual for now. This style's edit is added in a later step.";
       box.innerHTML = `<p><b>Editing style: ${esc(s.name)}</b> <small>from the Editing Menu</small><button type="button" class="av-chip" data-pview="menu">Change</button><button type="button" class="av-chip" id="mk-es-clear">Clear</button></p><p class="mk-note">${esc(what)}</p>`;
     }
@@ -12867,7 +12974,10 @@ Who is the auditor?</textarea>
           <p class="mk-st" id="mk-st1" role="status"></p>
           <div class="mk-cl" id="mk-cologo" hidden></div>
           <div id="mk-forms"></div></li>
-        <li class="mk-step"><h3><b>2</b>Finding <small>what the clip covers, from the filing itself</small></h3>
+        <li class="mk-step"><h3><b>2</b>Video style <small>pick one; the spider reads the same way in all three</small></h3>
+          <div class="mk-vs" id="mk-vs" role="radiogroup" aria-label="Video style">${VSTYLES.map(([id, n, line, img]) => `<button type="button" role="radio" class="mk-vs-t" data-vs="${id}"><img src="styles/${img}" alt="" width="135" height="240" loading="lazy"><b>${esc(n)}</b><small>${esc(line)}</small></button>`).join("")}</div>
+          <p class="mk-note" id="mk-vs-note" role="status"></p></li>
+        <li class="mk-step"><h3><b>3</b>Finding <small>what the clip covers, from the filing itself</small></h3>
           <div class="av-chips mk-scope" role="radiogroup" aria-label="What the clip covers"><button type="button" role="radio" class="av-seg" data-scope="entire">Entire filing</button><button type="button" role="radio" class="av-seg" data-scope="specific">Specific findings</button></div>
           <p class="mk-note" id="mk-scope-note"></p>
           <div id="mk-found"></div>
@@ -12875,11 +12985,11 @@ Who is the auditor?</textarea>
           <textarea id="mk-find" rows="3" aria-label="What else should the spider find? One per line" placeholder="One per line, for example:&#10;data center revenue&#10;how much cash do they have"></textarea>
           <div class="av-chips mk-quick">${QUICK.map(t => `<button type="button" class="av-chip" data-add="${esc(t)}">+ ${esc(t)}</button>`).join("")}</div>
           <p class="mk-note">The spider lights each one up as it reaches it. With Entire filing it still reads every page; with Specific findings the clip goes to each one. Answers come only from this filing (the Crawler's Ask): anything not in it is listed as not found, on the record window's last screen and in the Studio.</p></details></li>
-        <li class="mk-step"><h3><b>3</b>Title / hook <small>the line on screen from the first frame; yours to edit</small></h3>
+        <li class="mk-step"><h3><b>4</b>Title / hook <small>the line on screen from the first frame; yours to edit</small></h3>
           <input id="mk-hook" type="text" maxlength="90" autocomplete="off" aria-label="Hook" placeholder="Pick a filing first: a plain line about it is suggested here">
           <button type="button" class="av-chip" id="mk-hook-auto" hidden style="margin-top:6px">Use the suggested hook</button>
           <p class="mk-note">It goes on the video as a text item in the Studio, at the top, where you can still change it. A number in it should be the featured finding's, as the filing prints it. A Form 4 sale or purchase is a disclosed trade, often under a 10b5-1 plan set up in advance: it says nothing on its own about why.</p></li>
-        <li class="mk-step"><h3><b>4</b>Length</h3>
+        <li class="mk-step"><h3><b>5</b>Length</h3>
           <div class="av-chips mk-len" role="radiogroup" aria-label="Clip length"><button type="button" role="radio" class="av-seg" data-len="${SHORT}">Short · ${SHORT} s</button>${LENS.map(s => `<button type="button" role="radio" class="av-seg" data-len="${s}">${s < 60 ? s + " s" : lenLabel(s)}</button>`).join("")}<label class="mk-custom">Other <input type="number" id="mk-secs" min="10" max="900" step="1" inputmode="numeric" aria-label="Clip length in seconds"> s</label><button type="button" role="radio" class="av-seg" data-len="whole">Reading speed · as long as it takes</button></div>
           <p class="mk-note" id="mk-len-note"></p>
           <div class="mk-row" style="margin-top:10px"><label id="mk-speed-l">Reading speed <select id="mk-speed">${[1, 1.5, 2, 3, 4].map(v => `<option value="${v}">${v}x</option>`).join("")}</select></label>
@@ -12892,7 +13002,7 @@ Who is the auditor?</textarea>
             <p class="mk-note" id="mk-auto-note"></p></div>
           <div class="mk-auto mk-self"><label><input type="checkbox" id="mk-self"> Edit it like my TikToks <small>optional: the Studio puts your hook on the whole video the way your posts have it</small></label>
             <p class="mk-note" id="mk-self-note"></p></div></li>
-        <li class="mk-step"><h3><b>5</b>Look</h3>
+        <li class="mk-step"><h3><b>6</b>Look</h3>
           <p class="mk-lbl">Spider colors</p>
           <div class="mk-pals" id="mk-pals" role="radiogroup" aria-label="Spider colors">${Object.entries(pal).map(([k, p]) => `<button type="button" role="radio" class="mk-pal" data-pal="${esc(k)}" title="${esc(p.name)}">${spiderSwatch(p)}<small>${esc(p.name.replace(/ \(default\)$/, ""))}</small></button>`).join("")}</div>
           <p class="mk-lbl">Page</p>
@@ -12915,7 +13025,7 @@ Who is the auditor?</textarea>
             <label>Volume <input type="range" id="mk-snd-vol" min="0" max="100" step="5" aria-label="Crawler sounds volume"> <span id="mk-snd-pct"></span></label>
             <button type="button" class="av-chip" id="mk-snd-try">Preview sound</button></div>
           <p class="mk-note" id="mk-snd-note" role="status"></p></li>
-        <li class="mk-step"><h3><b>6</b>Preview and record</h3>
+        <li class="mk-step"><h3><b>7</b>Preview and record</h3>
           <div class="mk-pvw"><div id="mk-pv"></div>
             <div class="mk-pvs"><div class="av-chips mk-pvph" id="mk-pvph" role="radiogroup" aria-label="The moment the preview shows" hidden></div><p class="mk-lbl">Filing</p><p class="mk-note" id="mk-filing"></p><p class="mk-lbl">What the clip shows</p><p class="mk-note" id="mk-scope"></p>
               <label class="mk-safe"><input type="checkbox" id="mk-safe"> TikTok safe area (here only, never in the video)</label>
@@ -12926,7 +13036,8 @@ Who is the auditor?</textarea>
       $m("mk-speed").value = String(mk.speed); $m("mk-ramp").checked = mk.ramp.on; $m("mk-ramp-from").value = String(mk.ramp.from); $m("mk-ramp-secs").value = String(mk.ramp.secs); $m("mk-ending").checked = !!mk.ending; $m("mk-find").value = mk.find || ""; $m("mk-safe").checked = !!mk.safe;
       // the look: spider colors and the page are tiles, pop-ups (number cards, enlarged words) are off unless ticked
       const L = mk.look = {palette: palNow, dark: lk.dark !== false, pops: !!lk.pops, quality: lk.quality === "standard" ? "standard" : "high", disk: lk.disk !== false,
-        live: MK_STYLES.some(([id]) => id && id === lk.live) ? lk.live : ""};
+        live: MK_STYLES.some(([id]) => id && id === lk.live) ? lk.live : "", brain: lk.brain === "ball" || lk.brain === "split" ? lk.brain : ""};
+      if (L.brain) L.live = "";                                      // a brain style keeps the Classic report
       L.sound = lk.sound === true; L.soundVol = lk.soundVol == null ? 60 : Math.max(0, Math.min(100, Math.round(+lk.soundVol) || 0));     // Crawler sounds: off unless ticked
       $m("mk-pops").checked = L.pops; $m("mk-q").value = L.quality; if ($m("mk-disk")) $m("mk-disk").checked = L.disk;
       $m("mk-snd").checked = L.sound; $m("mk-snd-vol").value = String(L.soundVol);
@@ -12945,10 +13056,11 @@ Who is the auditor?</textarea>
       };
       const look = () => { L.pops = $m("mk-pops").checked; L.quality = $m("mk-q").value; L.disk = $m("mk-disk") ? $m("mk-disk").checked : false;
         L.sound = $m("mk-snd").checked; L.soundVol = Math.max(0, Math.min(100, Math.round(+$m("mk-snd-vol").value) || 0)); drawSound(); saveMk(); };
-      look(); drawLook();
+      look(); drawLook(); drawVS();
+      $m("mk-vs").addEventListener("click", e => { const b = e.target.closest("[data-vs]"); if (!b || b.disabled) return; L.brain = b.dataset.vs; if (L.brain) L.live = ""; saveMk(); drawLook(); drawVS(); });
       $m("mk-pals").addEventListener("click", e => { const b = e.target.closest("[data-pal]"); if (!b) return; L.palette = b.dataset.pal; saveMk(); drawLook(); });
       body.querySelector(".mk-pgs").addEventListener("click", e => { const b = e.target.closest("[data-dark]"); if (!b) return; L.dark = b.dataset.dark === "1"; saveMk(); drawLook(); });
-      $m("mk-rs").addEventListener("click", e => { const b = e.target.closest("[data-rs]"); if (!b) return; L.live = b.dataset.rs; saveMk(); drawLook(); });
+      $m("mk-rs").addEventListener("click", e => { const b = e.target.closest("[data-rs]"); if (!b || b.disabled) return; L.live = b.dataset.rs; saveMk(); drawLook(); });
       $m("mk-tk").addEventListener("submit", e => { e.preventDefault(); findForms($m("mk-ticker").value); });
       $m("mk-fund-quarters").addEventListener("click", () => findFundReports($m("mk-fund-pick").value));
       $m("mk-fund-search").addEventListener("submit", e => { e.preventDefault(); loadFundManagers($m("mk-fund-q").value.trim()); });
