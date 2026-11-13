@@ -1120,6 +1120,30 @@ html[data-theme="dark"] .mk-sw{filter:invert(1) hue-rotate(180deg)}   /* the vie
 .mk-pgs .av-seg[aria-checked=true]{background:#141414;border-color:#141414;color:#fff}
 @media (max-width:520px){.mk-pals{grid-template-columns:repeat(3,1fr);gap:6px}.mk-sw{height:40px}.mk-pal small{font-size:11px}}
 .mk-go{height:44px;padding:0 26px;font-size:16px}
+/* Posting, Editing Menu: one card per editing style (a 9:16 thumbnail, what it does, Use this style, Copy prompt).
+   A style without a test export yet shows a drawn layout of itself, labelled Placeholder. */
+.em-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(360px,100%),1fr));gap:12px;margin:14px 0 0}
+.em-card{display:flex;gap:14px;background:#fff;border:1px solid #e3e3dc;border-radius:14px;padding:14px}
+.em-th{position:relative;flex:0 0 108px;width:108px;height:192px;border-radius:10px;overflow:hidden;background:#20262e}
+.em-th img{display:block;width:100%;height:100%;object-fit:cover}
+.em-ph{position:absolute;left:6px;bottom:6px;padding:2px 6px;border-radius:5px;background:rgba(20,20,20,.78);color:#fff;font:600 9.5px 'IBM Plex Sans',sans-serif;z-index:5}
+.em-scr{position:absolute;background:#f4f3ee repeating-linear-gradient(180deg,transparent 0 7px,#c9cfca 7px 9px,transparent 9px 13px);background-clip:content-box;padding:10px 8px;box-sizing:border-box}
+.em-scr.dk{background:#0b0f14 repeating-linear-gradient(180deg,transparent 0 7px,#2c3a48 7px 9px,transparent 9px 13px);background-clip:content-box}
+.em-me{position:absolute;overflow:hidden;background:linear-gradient(180deg,#8c7a6b,#5d5148)}
+.em-me i{position:absolute;left:50%;bottom:0;width:70%;height:42%;transform:translateX(-50%);border-radius:45% 45% 0 0;background:#2b3440}
+.em-me b{position:absolute;left:50%;bottom:36%;width:34%;aspect-ratio:1;transform:translateX(-50%);border-radius:50%;background:#e2b796}
+.em-me.cut{background:none}
+.em-me.cam{border:2px solid #fff;border-radius:7px;box-shadow:0 3px 8px rgba(0,0,0,.35)}
+.em-hk{position:absolute;left:8%;right:8%;text-align:center;color:#fff;font:600 10.5px/1.12 'IBM Plex Sans',sans-serif;text-shadow:-1px -1px 0 #141414,1px -1px 0 #141414,-1px 1px 0 #141414,1px 1px 0 #141414}
+.em-pop{position:absolute;display:grid;place-items:center;background:#fff;border-radius:5px;box-shadow:0 3px 8px rgba(0,0,0,.35);font:700 8px 'IBM Plex Mono',monospace;color:#0f7d47}
+.em-div{position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-1px;background:#141414}
+.em-tx{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
+.em-tx h3{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0 0 6px;font:700 17px 'IBM Plex Sans',sans-serif}
+.em-n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#141414;color:#fff;font:700 12px 'IBM Plex Mono',monospace}
+.em-st{padding:2px 7px;border-radius:6px;font:600 11px 'IBM Plex Sans',sans-serif;border:1px solid #c9cfca;color:#6b6f76}.em-st.ready{border-color:#0f7d47;color:#0f7d47}
+.em-tx p{margin:0;font-size:13.5px;line-height:1.45;color:#3a3a3a}.em-tx .em-for{margin-top:6px;font-size:12.5px;color:#6b6f76}
+.em-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:12px}.em-act .av-chip{height:36px}
+.mk-es{margin:14px 0 12px}.mk-es[hidden]{display:none}.mk-es p{margin:0}.mk-es .av-chip{margin-left:8px}
 /* Make a clip: the featured finding, the hook, the logos and the 9:16 preview */
 .mk-fnd{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:8px;max-height:420px;overflow:auto}
 .mk-fnd button{width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;border:1px solid #c9cfca;border-radius:10px;background:#fff;padding:9px 12px;cursor:pointer;font:13px/1.35 'IBM Plex Sans',sans-serif;color:#3a3a3a}
@@ -11769,7 +11793,7 @@ Who is the auditor?</textarea>
     document.body.appendChild(pane);
     const body = pane.querySelector(".av-body"), scroller = pane.querySelector(".av-scroll");
     const pressed = v => document.querySelectorAll(".app-tabs button[data-app]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.app === v)));
-    document.addEventListener("bmg-local", () => { tabs.hidden = false; const h = location.hash.slice(1); if (/^(news|posting|studio|make|posts|visuals)$/.test(h)) show(h); });
+    document.addEventListener("bmg-local", () => { tabs.hidden = false; const h = location.hash.slice(1); if (/^(news|posting|studio|make|posts|visuals|menu)$/.test(h)) show(h); });
     function show(v){
       if (v === "posting") v = "make";      // Posting is the clip workflow; today's written drafts are at #posts
       if (v === "crawler"){
@@ -11781,20 +11805,20 @@ Who is the auditor?</textarea>
           if (state.recPhase === "busy" && state.recWin && !state.recWin.closed) state.pausedForRec = true;   // goes on when the take ends
           else { const pb = document.getElementById("ctl-pause"); if (pb && state.paused && !pb.disabled) pb.click(); }
         }
-        if (/^#(news|posting|studio|make|posts|visuals)$/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
+        if (/^#(news|posting|studio|make|posts|visuals|menu)$/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
         return;
       }
       // the crawl waits while another view is open, and goes on when the Crawler is back
       if (walking() && !state.paused){ const pb = document.getElementById("ctl-pause"); if (pb && !pb.disabled){ pb.click(); pausedByMe = true; } }
       const again = view === v && !pane.hidden;
-      view = v; pane.hidden = false; document.body.classList.add("av-open"); pressed(v === "studio" || v === "make" || v === "posts" || v === "visuals" ? "posting" : v);
+      view = v; pane.hidden = false; document.body.classList.add("av-open"); pressed(v === "studio" || v === "make" || v === "posts" || v === "visuals" || v === "menu" ? "posting" : v);
       history.replaceState(null, "", location.pathname + location.search + "#" + v);
       if (again) return;
       if (studio && v !== "studio") studio.hide();
       if (visuals && v !== "visuals") visuals.hide();
       body.classList.toggle("wide", v === "studio" || v === "visuals");
       scroller.scrollTop = 0;
-      if (v === "news") renderNews(false); else if (v === "studio") renderStudio(); else if (v === "visuals") renderVisuals(); else if (v === "make") renderMake(); else renderPosting(false);
+      if (v === "news") renderNews(false); else if (v === "studio") renderStudio(); else if (v === "visuals") renderVisuals(); else if (v === "make") renderMake(); else if (v === "menu") renderMenu(); else renderPosting(false);
     }
     state.showApp = show;
     document.addEventListener("click", e => { const b = e.target.closest(".app-tabs button[data-app]"); if (b){ e.preventDefault(); show(b.dataset.app); } });
@@ -11884,7 +11908,7 @@ Who is the auditor?</textarea>
 
     // ---------------- Posting: Today's posts, and the Studio (the editor for Record mode takes)
     let takeWaiting = false;                 // a take arrived while the Studio was not on screen
-    const postingTabs = sel => `<div class="ps-views" role="tablist" aria-label="Posting"><button type="button" role="tab" class="av-seg" data-pview="make" aria-selected="${sel === "make"}">Make a clip</button><button type="button" role="tab" class="av-seg" data-pview="studio" aria-selected="${sel === "studio"}">Studio${takeWaiting && sel !== "studio" ? ' <i class="ps-dot" title="A new take is waiting"></i>' : ""}</button><button type="button" role="tab" class="av-seg" data-pview="visuals" aria-selected="${sel === "visuals"}">Visuals</button></div>`;
+    const postingTabs = sel => `<div class="ps-views" role="tablist" aria-label="Posting"><button type="button" role="tab" class="av-seg" data-pview="make" aria-selected="${sel === "make"}">Make a clip</button><button type="button" role="tab" class="av-seg" data-pview="studio" aria-selected="${sel === "studio"}">Studio${takeWaiting && sel !== "studio" ? ' <i class="ps-dot" title="A new take is waiting"></i>' : ""}</button><button type="button" role="tab" class="av-seg" data-pview="visuals" aria-selected="${sel === "visuals"}">Visuals</button><button type="button" role="tab" class="av-seg" data-pview="menu" aria-selected="${sel === "menu"}">Editing Menu</button></div>`;
     // The Studio (studio.js) loads the first time it opens. It is fetched past the browser's year-long cache of
     // static scripts, so a new version is used as soon as the server has it.
     let studio = null, studioEl = null, studioP = null;
@@ -12025,7 +12049,7 @@ Who is the auditor?</textarea>
     const mk = {ticker: "", fundCik: "", scope: "entire", length: "whole", lenBy: {entire: "whole", specific: 60}, speed: 1, ending: true, find: "", look: {}, list: null, pick: null, pickKey: null, file: null, all: false, recording: false,
       found: null, feat: null, featBy: {}, hook: "", hookBy: {}, hookMine: {}, logos: {built: "", scan: {}}, safe: true, ramp: {on: false, from: 1, secs: 10},
       brand: {intro: false, mini: false, report: false}, coLogo: {}, auto: {on: false, secs: 40}};
-    const MK_KEEP = ["ticker", "fundCik", "lenBy", "speed", "ramp", "ending", "find", "look", "pickKey", "featBy", "hookBy", "hookMine", "logos", "safe", "brand", "coLogo", "auto", "self"];
+    const MK_KEEP = ["ticker", "fundCik", "lenBy", "speed", "ramp", "ending", "find", "look", "pickKey", "featBy", "hookBy", "hookMine", "logos", "safe", "brand", "coLogo", "auto", "self", "editStyle"];
     // Auto-edit highlights (optional, off unless ticked): the Studio cuts the take down to its busiest moments, at one of these lengths
     const AUTO_SECS = [20, 30, 40, 60];
     // a length either scope can run at: the entire filing at reading speed ("whole") or a set time; an excerpt a set time
@@ -12041,6 +12065,7 @@ Who is the auditor?</textarea>
     mk.ramp = {on: !!(mk.ramp && mk.ramp.on), from: RAMP_FROM.includes(+(mk.ramp || {}).from) ? +mk.ramp.from : 1, secs: RAMP_SECS.includes(+(mk.ramp || {}).secs) ? +mk.ramp.secs : 10};
     mk.auto = {on: !!(mk.auto && mk.auto.on === true), secs: AUTO_SECS.includes(+(mk.auto || {}).secs) ? +mk.auto.secs : 40};
     mk.self = {on: !!(mk.self && mk.self.on === true)};      // Edit it like my TikToks: off unless ticked
+    mk.editStyle = typeof mk.editStyle === "string" ? mk.editStyle : "";     // the Editing Menu's pick (none until one is used)
     const saveMk = () => {
       const k = mk.found && mk.found.key;
       if (k){ if (mk.feat) mk.featBy[k] = mk.feat; mk.hookBy[k] = mk.hook; }
@@ -12689,12 +12714,149 @@ Who is the auditor?</textarea>
       if (fl) fl.textContent = filingWords(filingOf(f)) || "Pick a filing in step 1.";
       drawHook(); drawBrand();
     }
+    // ---------------- Posting: Editing Menu. One card per editing style for a talking-head clip (or, for TikTok
+    // Classic, the Crawler take). Use this style opens Make a clip with the style chosen (mk.editStyle); TikTok
+    // Classic is the existing "Edit it like my TikToks" (social/edit-style.md), ticked for you and otherwise untouched.
+    // Copy prompt gives a brief that works in a fresh Claude chat: every size is a share of the 1080 x 1920 frame.
+    // ready: the Studio makes it today. thumb: a frame from the style's approved test export (none yet: a drawn
+    // layout of the style, labelled Placeholder).
+    const ES_TEXT = "Text, wherever this style has any: TikTok Sans SemiBold (free, SIL Open Font License, github.com/tiktok/TikTokSans), white #FFFFFF fill, #141414 outline 19% of the font size wide, no box, no shadow, centered. Font size 6.49% of the frame width (70 px at 1080), line height 1.11 (78 px), wrapped inside 84% of the frame width (907 px), at most 2 lines, Title Case exactly as I type it.";
+    const ES_TALK = [
+      "Output: a vertical 9:16 MP4, 1080 x 1920 px, H.264 video, AAC audio, at the frame rate of my talking-head clip, exactly as long as my talking-head clip.",
+      "Sound: the audio of my talking-head clip exactly as recorded: no music, no volume change, no noise reduction, no cuts. Any screen recording is muted.",
+      "Leave alone: no speed change, no jump cuts, no zoom punch-ins, no color grading, no filters, no captions, no stickers, no emoji, no watermark. My clip is only scaled and cropped as written below.",
+      "Handheld clips (I held the camera): before anything else, stabilize my clip with ffmpeg's free deshake filter (ffmpeg -i in.mp4 -vf deshake -c:a copy stable.mp4) and use the stable file. A clip shot sitting down on a tripod is not stabilized.",
+      "Face position, wherever a value below uses it: find my face with MediaPipe Face Detector (free, runs locally) on every frame and use the median face box over the whole clip, so nothing that depends on it moves or jitters."
+    ];
+    const ES_END = [
+      "Tools: free only (ffmpeg, MediaPipe, Python with Pillow or OpenCV). No paid apps, no paid APIs, no trial tools that add a watermark. If a step cannot be done well for free, stop and tell me instead of faking it.",
+      "Positions are a share of the 1080 x 1920 frame: x from the left edge, y from the top edge.",
+      "Before you start, ask me for the files listed under Inputs. When it is done, give me the MP4 and 3 still frames from it (at 10%, 50% and 90% of its length) so I can check it."
+    ];
+    const EDIT_STYLES = [
+      {id: "facecam", n: 1, name: "Face cam corner", ready: false, thumb: "",
+        desc: "You in a small rounded box in a top corner, over a screen recording of the Crawler or a filing.",
+        who: "Sitting or handheld (handheld is stabilized first)",
+        inputs: ["My talking-head clip.", "A screen recording of the Crawler or a filing (any size; it is cropped to fill)."],
+        layout: [
+          "Background: the screen recording, scaled to cover the full 1080 x 1920 frame (scale until both sides fill, then crop the overflow equally from both sides). If it is shorter than my clip, hold its last frame to the end; if longer, cut it at my clip's length.",
+          "Face cam box: a 3:4 portrait box 38% of the frame width (410 x 547 px), in the top-right corner: its right edge 4% of the frame width (43 px) in from the right side, its top edge at 10% of the frame height (192 px).",
+          "Inside the box: my clip scaled to cover the box, cropped so the center of my face sits 50% across and 40% down the box.",
+          "Box look: corner radius 6% of the box width (25 px), a 6 px white #FFFFFF border, and a soft shadow (black at 35% opacity, 24 px blur, 8 px down).",
+          "Timing: the box is on from the first frame to the last.",
+          "No text in this style."
+        ]},
+      {id: "hook", n: 2, name: "Hook above head", ready: false, thumb: "",
+        desc: "Full-frame talking head with a big 2-line hook in TikTok Classic text right above your head.",
+        who: "Sitting or handheld (handheld is stabilized first)",
+        inputs: ["My talking-head clip.", "The hook text (at most 2 lines, about 8 words)."],
+        layout: [
+          "My clip scaled to cover the full 1080 x 1920 frame, center crop. No other zoom.",
+          "Hook: in the text style below. Place the 2-line block so its bottom edge is 3% of the frame height (58 px) above the top of my head. Top of my head = the top of the median face box minus 25% of the face box's height (for hair).",
+          "Limit: the block's top never goes above 12.5% of the frame height (240 px), so TikTok's top bar does not cover it. If there is not enough room above my head, the top sits at 12.5% and the text may touch my hair: tell me when that happens.",
+          "Timing: on from the first frame to the last frame, no fade, no animation."
+        ]},
+      {id: "behind", n: 3, name: "Visuals behind me", ready: false, thumb: "",
+        desc: "You cut out of your background, with the Crawler, a filing or a logo behind you.",
+        who: "Sitting or handheld (handheld is stabilized first)",
+        inputs: ["My talking-head clip.", "The visual for behind me: a screen recording of the Crawler, a picture of a filing page, or a logo (PNG)."],
+        layout: [
+          "Cut-out: MediaPipe Image Segmenter with its selfie segmentation model (free, runs locally) on every frame. Me = mask confidence 0.5 or higher. Feather the mask edge by 2 px (Gaussian blur on the mask) so there is no hard halo, and blend each frame's mask 70% with 30% of the previous frame's so edges do not flicker.",
+          "Me: my clip's own framing, scaled to cover the full 1080 x 1920 frame, center crop. I am not moved or resized.",
+          "Behind me: a screen recording or filing picture scaled to cover the full frame, center crop (a screen recording holds its last frame if it is shorter than my clip). A logo instead sits on a #0B0F14 background, 60% of the frame width, centered at x 50% and y 30% (576 px).",
+          "Darken the visual behind me with black at 15% opacity (under me, not over me) so I stand out.",
+          "No text in this style.",
+          "Check the hair and hand edges on the 3 frames. If they look bad, say so and show me the frame; do not hide it with blur or a border."
+        ]},
+      {id: "split", n: 4, name: "Split screen", ready: false, thumb: "",
+        desc: "You on the top half, a screen recording of the Crawler or a filing on the bottom half.",
+        who: "Sitting or handheld (handheld is stabilized first)",
+        inputs: ["My talking-head clip.", "A screen recording of the Crawler or a filing."],
+        layout: [
+          "Top half, y 0% to 50% (1080 x 960 px): my clip scaled to cover this area, cropped so the center of my face sits 50% across and 45% down the half.",
+          "Bottom half, y 50% to 100% (1080 x 960 px): the screen recording scaled to cover this area, center crop. If it is shorter than my clip, hold its last frame to the end; if longer, cut it at my clip's length.",
+          "Divider: a 6 px #141414 line across the full width, centered on y 50% (rows 957 to 962).",
+          "Timing: both halves on from the first frame to the last.",
+          "No text in this style."
+        ]},
+      {id: "popups", n: 5, name: "Pop-up visuals", ready: false, thumb: "",
+        desc: "Full-frame talking head with a company logo, a chart or a filing snippet popping up beside you while you talk.",
+        who: "Sitting or handheld (handheld is stabilized first)",
+        inputs: ["My talking-head clip.", "Each visual as a PNG or JPG (company logo, chart, filing snippet).", "For each visual: the second it appears and the second it leaves, or the words I say when it should appear."],
+        layout: [
+          "My clip scaled to cover the full 1080 x 1920 frame, center crop. No other zoom.",
+          "Side: each visual goes on the side away from my face. If the center of my face is left of x 50%, the card's center is at x 73%; otherwise at x 27%. Its center is at y 40% (768 px).",
+          "Card: 42% of the frame width (454 px) wide; its height follows the picture's own shape, at most 30% of the frame height (576 px) (scale the picture down to fit). A white #FFFFFF card behind the picture with 18 px padding, corner radius 24 px, and a shadow (black at 35% opacity, 24 px blur, 8 px down).",
+          "Pop in: scale 60% to 108% in 0.18 s (ease-out), then to 100% in 0.08 s; opacity 0 to 1 over the first 0.10 s. Pop out: scale 100% to 70% and opacity 1 to 0 in 0.15 s.",
+          "Timing: each visual stays 3.0 s unless I give times. One visual on screen at a time, at least 0.5 s between two, and none in the first 1.0 s.",
+          "No text in this style."
+        ]},
+      {id: "tiktok", n: 6, name: "TikTok Classic", ready: true, thumb: "menu/tiktok-classic.jpg",     // viral post (social/video/reference), top 78%: the extension badge left out
+        desc: "Your posted Crawler look: the hook in TikTok Classic text on the whole video, nothing else added.",
+        who: "Crawler takes from Make a clip",
+        prompt: ["Edit my video in my \"TikTok Classic\" style. Everything you need is below; ask me only for the files.",
+          "", "Inputs:", "- My Crawler video (a 9:16 screen recording of my web crawler reading a filing, ending on its report).", "- The hook text (2 lines, Title Case).",
+          "", "Exact values:",
+          "- Output: the same video, 9:16, 1080 x 1920 px, H.264 MP4, same frame rate and length as the input.",
+          "- Leave the video alone: no zoom, crop, speed change, cuts, intro, scrim, held frame, stickers, emoji, logo or end screen. It opens already moving at frame 1.",
+          "- Sound: none added and the input's sound untouched (I add a TikTok library sound in the TikTok app).",
+          "- Hook: the only edit. " + ES_TEXT,
+          "- Hook position: centered, the top of the text block at 12.5% of the frame height (240 px). If the video shows a small company logo at the top, the top of the block is at 14.5% (278 px) instead, under the logo.",
+          "- Hook timing: on from the first frame to the last frame, the report ending included, no fade, no animation.",
+          "- No other text or captions.",
+          "- Tools: free only (ffmpeg with the drawtext filter and the TikTok Sans SemiBold font file, or Python with Pillow). No paid apps.",
+          "- Before you start, ask me for the video and the hook. When it is done, give me the MP4 and 3 still frames from it (at 10%, 50% and 90% of its length)."].join("\n")}
+    ];
+    // a card's brief: the style's own values, then what every talking-head style shares
+    function stylePrompt(s){
+      if (s.prompt) return s.prompt;
+      return [`Edit my talking-head video in the "${s.name}" style: ${s.desc} Everything you need is below; ask me only for the files.`,
+        "", "Inputs:", ...s.inputs.map(x => "- " + x),
+        "", "Layout and timing (exact values):", ...s.layout.map(x => "- " + x),
+        "", "For every part of this edit:", ...ES_TALK.map(x => "- " + x), "- " + ES_TEXT, ...ES_END.map(x => "- " + x)].join("\n");
+    }
+    // a drawn 9:16 layout of the style, until its test export gives a real frame (all sizes are shares of the frame)
+    function styleSketch(id){
+      const me = (cls, css) => `<div class="em-me ${cls}" style="${css}"><i></i><b></b></div>`;
+      if (id === "facecam") return `<div class="em-scr" style="inset:0"></div>${me("cam", "right:4%;top:10%;width:38%;height:28.5%")}`;
+      if (id === "split") return `${me("", "left:0;top:0;width:100%;height:50%")}<div class="em-scr" style="left:0;top:50%;width:100%;height:50%"></div><div class="em-div"></div>`;
+      if (id === "hook") return `${me("", "inset:0")}<div class="em-hk" style="top:14%">Your Hook Goes<br>Right Here</div>`;
+      if (id === "popups") return `${me("", "inset:0")}<div class="em-pop" style="left:52%;top:28%;width:42%;height:18%">LOGO</div>`;
+      if (id === "behind") return `<div class="em-scr dk" style="inset:0"></div>${me("cut", "inset:0")}`;
+      return `<div class="em-scr dk" style="inset:0"></div><div class="em-hk" style="top:12.5%">Worlds First<br>Wall Street Web Crawler</div>`;
+    }
+    function renderMenu(){
+      body.innerHTML = `<div class="ps em">${postingTabs("menu")}
+        <div class="av-h"><h2>Editing Menu</h2><span class="av-st">Pick how your clip is edited. Use this style opens Make a clip with it chosen. Copy prompt copies the full recipe, with every size and time, to paste into a fresh Claude chat.</span></div>
+        <div class="em-grid">${EDIT_STYLES.map(s => `<article class="em-card" data-es="${s.id}">
+          <div class="em-th">${s.thumb ? `<img src="${esc(s.thumb)}" alt="A frame from the ${esc(s.name)} test video">` : `${styleSketch(s.id)}<span class="em-ph">Placeholder</span>`}</div>
+          <div class="em-tx"><h3><span class="em-n">${s.n}</span>${esc(s.name)} <span class="em-st${s.ready ? " ready" : ""}">${s.ready ? "Ready" : "Not built yet"}</span></h3>
+            <p>${esc(s.desc)}</p><p class="em-for">${esc(s.who)}</p>
+            <div class="em-act"><button type="button" class="av-btn" data-es-use="${s.id}">Use this style</button><button type="button" class="av-chip" data-es-copy="${s.id}">Copy prompt</button></div></div></article>`).join("")}</div></div>`;
+      body.querySelector(".em-grid").addEventListener("click", e => {
+        const c = e.target.closest("[data-es-copy]"); if (c){ copyText(stylePrompt(EDIT_STYLES.find(s => s.id === c.dataset.esCopy)), c); return; }
+        const u = e.target.closest("[data-es-use]"); if (!u) return;
+        mk.editStyle = u.dataset.esUse;
+        if (mk.editStyle === "tiktok") mk.self = {on: true};      // TikTok Classic is Edit it like my TikToks, as it is
+        saveMk(); show("make");
+      });
+    }
+    // Make a clip: the style picked in the Editing Menu, shown above step 1
+    function drawStyle(){
+      const box = body.querySelector("#mk-es"); if (!box) return;
+      const s = EDIT_STYLES.find(x => x.id === mk.editStyle);
+      box.hidden = !s; if (!s) return;
+      const what = s.id === "tiktok" ? (mk.self.on ? "Edit it like my TikToks is ticked in step 4: the Studio puts your hook on the whole video." : "Tick Edit it like my TikToks in step 4 to use it.")
+        : "Not built yet: this clip records as usual for now. This style's edit is added in a later step.";
+      box.innerHTML = `<p><b>Editing style: ${esc(s.name)}</b> <small>from the Editing Menu</small><button type="button" class="av-chip" data-pview="menu">Change</button><button type="button" class="av-chip" id="mk-es-clear">Clear</button></p><p class="mk-note">${esc(what)}</p>`;
+    }
     function renderMake(){
       const lk = mk.look, pal = state.recPalettes || {};
       let palNow = lk.palette; try { palNow = palNow || localStorage.getItem("bmg-crawler-palette") || "default"; } catch (e) { palNow = palNow || "default"; }
       if (!pal[palNow]) palNow = "default";
       body.innerHTML = `<div class="ps mk">${postingTabs("make")}
         <div class="av-h"><h2>Make a clip</h2><span class="av-st">Pick a company and filing, type your title, then turn on Auto-edit highlights to make your post: opening title, crawler action, final report. Preview and download in the Studio.</span></div>
+        <div class="mk-auto mk-es" id="mk-es" hidden></div>
         <ol class="mk-steps">
         <li class="mk-step"><h3><b>1</b>Company and filing</h3>
           <form class="mk-row" id="mk-tk"><input id="mk-ticker" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="Ticker, for example NVDA" aria-label="Ticker" value="${esc(mk.ticker)}"><button type="submit" class="av-btn">Find its forms</button>
@@ -12835,7 +12997,8 @@ Who is the auditor?</textarea>
       $m("mk-ramp-from").addEventListener("change", e => { mk.ramp.from = +e.target.value || 1; mk.ramp.on = true; $m("mk-ramp").checked = true; saveMk(); drawLen(); drawAuto(); drawPreview(); });
       $m("mk-ramp-secs").addEventListener("change", e => { mk.ramp.secs = +e.target.value || 10; mk.ramp.on = true; $m("mk-ramp").checked = true; saveMk(); drawLen(); drawAuto(); drawPreview(); });
       $m("mk-ending").addEventListener("change", e => { mk.ending = e.target.checked; saveMk(); drawLen(); drawAuto(); drawPreview(); });
-      $m("mk-self").addEventListener("change", e => { mk.self = {on: e.target.checked}; saveMk(); drawSelf(); drawAuto(); drawPreview(); });
+      $m("mk-self").addEventListener("change", e => { mk.self = {on: e.target.checked}; saveMk(); drawSelf(); drawAuto(); drawStyle(); drawPreview(); });
+      $m("mk-es").addEventListener("click", e => { if (!e.target.closest("#mk-es-clear")) return; mk.editStyle = ""; saveMk(); drawStyle(); });
       $m("mk-auto").addEventListener("change", e => { mk.auto = {...mk.auto, on: e.target.checked}; saveMk(); drawLen(); drawAuto(); drawPreview(); });
       $m("mk-auto-len").addEventListener("click", e => { const b = e.target.closest("[data-asecs]"); if (!b) return; mk.auto = {...mk.auto, secs: +b.dataset.asecs}; saveMk(); drawLen(); drawAuto(); drawPreview(); });
       $m("mk-find").addEventListener("input", e => { mk.find = e.target.value; saveMk(); });
@@ -12903,7 +13066,7 @@ Who is the auditor?</textarea>
         if (opened.busy) throw new Error("Record mode is in the middle of a take: it is in front now. Finish that take, then press Record again.");
         mk.recording = true; recStatus("setup");
       };
-      drawForms(); drawFinding(); drawHook(); drawLen(); drawAuto(); drawSelf(); drawLogos(); drawPreview(); loadQuickPics();
+      drawForms(); drawFinding(); drawHook(); drawLen(); drawAuto(); drawSelf(); drawStyle(); drawLogos(); drawPreview(); loadQuickPics();
       if (coLogo.tk !== logoTk() || coLogo.state === "none") resolveCoLogo(); else { drawCoLogo(); drawBrand(); }
       if (mk.recording && recOpen()) recStatus(state.recPhase || "setup"); else mk.recording = false;
       if (mk.fundCik){ $m("mk-fund-pick").dataset.loaded = "1"; loadFundManagers(""); }
