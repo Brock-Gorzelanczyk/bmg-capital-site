@@ -12,9 +12,12 @@
 /* The Crawler brain in 3D: every company on the brain's map (brain/universe.json) as a dot sized by its latest 10-K
    revenue, grouped by GICS sector and sub-industry, with comp-set lines (brain/comp-sets.json, BMG judgment). The panel
    drills down: all sectors, one sector's sub-industries, one sub-industry's companies; a company opens its report page.
-   It reads /api/brain/universe each time the page loads, so a refresh shows what the Crawler has read since. Read only. */
+   It reads /api/brain/universe each time the page loads, so a refresh shows what the Crawler has read since. Read only.
+   The look is the glowing ball from the brain-ball video concept (2026-11-12): a tight sphere, every company tied to its
+   sub-industry with a faint line, all lines added together so dense clusters glow, warm sector colors on near black. */
 html, body { height: 100%; overflow: hidden; }
-#graph { position: fixed; top: var(--top); bottom: var(--tape); left: 0; right: 0; }
+#graph { position: fixed; top: var(--top); bottom: var(--tape); left: 0; right: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 196, 140, 0.07) 0, rgba(120, 140, 255, 0.035) 32%, rgba(0, 0, 0, 0) 60%), #05070b; }
 #vignette { position: fixed; top: var(--top); bottom: var(--tape); left: 0; right: 0; pointer-events: none; z-index: 1;
   background: radial-gradient(ellipse at 55% 45%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.6) 100%); }
 #scan { position: fixed; top: var(--top); bottom: var(--tape); left: 0; right: 0; pointer-events: none; z-index: 1; opacity: 0.18;
@@ -128,12 +131,13 @@ html, body { height: 100%; overflow: hidden; }
 (() => {
 "use strict";
 const {esc, getJSON, money, pct, cls, nav, tape, quotes, earnings, erLabel} = window.BMG;
-// One color per GICS sector, the same as the Obsidian graph (scripts/local/brain_obsidian_graph.py SECTOR_COLORS).
+// One bright color per GICS sector, the brain-ball palette (the video concept), so the lines glow on black.
 const COLORS = {
-  "Information Technology": "#4E79A7", "Health Care": "#59A14F", "Financials": "#F28E2B", "Consumer Discretionary": "#E15759",
-  "Communication Services": "#B07AA1", "Industrials": "#76B7B2", "Consumer Staples": "#FF9DA7", "Energy": "#9C755F",
-  "Utilities": "#BAB0AC", "Real Estate": "#8CD17D", "Materials": "#D37295",
+  "Information Technology": "#ff4d3d", "Health Care": "#ff5fa2", "Financials": "#4d8dff", "Consumer Discretionary": "#ffd23f",
+  "Communication Services": "#3fe0c5", "Industrials": "#ff7a1a", "Consumer Staples": "#6fdc6f", "Energy": "#ff9e2c",
+  "Utilities": "#7fc8ff", "Real Estate": "#c45cff", "Materials": "#ffab6b",
 };
+const HOT = "#fff0c8";       // the selected company and its comp lines: cream, as in the video
 const CODES = {"Information Technology": "INFT", "Health Care": "HLTH", "Financials": "FINL", "Consumer Discretionary": "COND",
   "Communication Services": "COMM", "Industrials": "INDU", "Consumer Staples": "CONS", "Energy": "ENRS", "Utilities": "UTIL",
   "Real Estate": "REAL", "Materials": "MATR"};
@@ -169,12 +173,12 @@ async function main() {
 
 function build(u) {
   const sectors = (u.sectors || []).filter(s => (s.sub_industries || []).some(x => (x.companies || []).length));
-  const anchors = sphere(sectors.length, R);
+  const anchors = sphere(sectors.length, R * 0.42);
   const nodes = [], byId = new Map(), secs = [], subs = [];
   sectors.forEach((s, i) => {
     const A = anchors[i], color = COLORS[s.sector] || "#9D9D9D";
     const subList = s.sub_industries.filter(x => (x.companies || []).length);
-    const rs = 34 + 13 * Math.sqrt(subList.length);
+    const rs = 60 + 19 * Math.sqrt(subList.length);
     const subPts = sphere(subList.length, subList.length === 1 ? 0 : rs, A);
     const sec = {name: s.sector, slug: s.slug, code: CODES[s.sector] || s.sector.slice(0, 4).toUpperCase(), color, A, rs, count: 0, read: 0, subs: []};
     subList.forEach((x, j) => {
@@ -194,6 +198,8 @@ function build(u) {
     secs.push(sec);
   });
   const links = [], seen = new Set();
+  // the web: each company tied to the first company of its sub-industry (structure only, not a comp set)
+  for (const x of subs) for (let i = 1; i < x.nodes.length; i++) links.push({source: x.nodes[0].id, target: x.nodes[i].id, web: true});
   for (const n of nodes) for (const t of n.comps) {
     const m = byId.get(t); if (!m || m === n) continue;
     m.by.push(n.id);
@@ -201,10 +207,11 @@ function build(u) {
     if (seen.has(k)) continue; seen.add(k);
     links.push({source: n.id, target: m.id, cross: n.sector !== m.sector});
   }
+  const comps = links.filter(l => !l.web);
   const nRead = nodes.filter(n => n.reads).length, nRev = nodes.filter(n => n.rev).length;
-  $("stats").innerHTML = `<b>${secs.length}</b> SECTORS &middot; <b>${nodes.length}</b> COS &middot; <b>${nRead}</b> READ &middot; <b>${links.length}</b> COMP LINES`;
+  $("stats").innerHTML = `<b>${secs.length}</b> SECTORS &middot; <b>${nodes.length}</b> COS &middot; <b>${nRead}</b> READ &middot; <b>${comps.length}</b> COMP LINES`;
   const ab = u.about || {}, ua = ab.universe || {}, ca = ab.comp_sets || {};
-  $("key").innerHTML = `Dot size: latest 10-K revenue (${nRev} of ${nodes.length} known; unknown are small). Bright: read by the Crawler. Map ${esc(ua.as_of || "?")}: GICS (SECONDARY). Comp sets ${esc(ca.as_of || "?")}: BMG judgment. Prices and report dates: SECONDARY context. Not a source for a figure (M39).`;
+  $("key").innerHTML = `Dot size: latest 10-K revenue (${nRev} of ${nodes.length} known; unknown are small). Bright: read by the Crawler. Faint web: same sub-industry. Map ${esc(ua.as_of || "?")}: GICS (SECONDARY). Comp sets ${esc(ca.as_of || "?")}: BMG judgment. Prices and report dates: SECONDARY context. Not a source for a figure (M39).`;
 
   // ------------------------------------------------------------------ view state
   let level = {sec: null, sub: null};
@@ -216,34 +223,43 @@ function build(u) {
   const erSoon = n => ER.by[n.id];
   const val = n => (erOn && erSoon(n)) ? Math.max(4, sizeRev && n.rev ? Math.sqrt(n.rev / 1e9) * 1.15 : 4) : sizeRev ? (n.rev ? Math.max(0.6, Math.min(18, Math.sqrt(n.rev / 1e9) * 1.15)) : 0.55) : (n.reads ? 3 + Math.min(n.reads, 6) : 1.2);
   const color = n => {
-    if (n === selected) return "#ffffff";
+    if (n === selected) return HOT;
     if (erOn && erSoon(n)) return lit(n) ? "#ffb000" : "rgba(255,176,0,0.35)";
-    if (!lit(n)) return hexA(n.color, erOn ? 0.05 : 0.07);
+    if (!lit(n)) return hexA(n.color, erOn ? 0.05 : 0.08);
     if (erOn) return hexA(n.color, 0.22);
-    return hexA(n.color, n.reads || focus ? 0.95 : 0.4);
+    return hexA(n.color, n.reads || focus ? 1 : 0.6);
+  };
+  const hot = l => selected && (nodeOf(l.source) === selected || nodeOf(l.target) === selected) && !l.web;
+  const lineColor = l => {
+    const s = nodeOf(l.source);
+    if (hot(l)) return HOT;
+    if (focus && !focus.links.has(lidOf(l))) return hexA(s.color, 0.12);     // the rest of the ball stays, faint
+    if (focus) return hexA(s.color, l.web ? 0.55 : selected ? 0.9 : 0.6);
+    if (l.web) return hexA(s.color, 0.5);
+    return l.cross ? "rgba(220,200,240,0.22)" : hexA(s.color, 0.45);
   };
 
   const el = $("graph");
   const G = ForceGraph3D({controlType: "orbit"})(el)
     .width(innerWidth - SIDE()).height(H())
-    .backgroundColor("#020304")
+    .backgroundColor("rgba(0,0,0,0)")
     .showNavInfo(false)
     .nodeId("id")
-    .nodeRelSize(3.2)
+    .nodeRelSize(2.6)
     .nodeResolution(14)
     .nodeOpacity(1)
     .nodeVal(val)
     .nodeColor(color)
     .nodeVisibility(shown)
     .nodeLabel(n => `<div class="tip"><b>${esc(n.id)}</b> ${esc(n.name)}<br>${esc(n.sub.name)}<br>${n.revD ? `10-K revenue ${esc(n.revD)}` : "Revenue not read yet"}${erSoon(n) ? `<br>REPORTS ${esc(erLabel(erSoon(n)))}` : ""}</div>`)
-    .linkVisibility(l => showLines && (!focus || focus.links.has(lidOf(l))) && shown(nodeOf(l.source)) && shown(nodeOf(l.target)))
-    .linkColor(l => { const s = nodeOf(l.source); if (focus) return hexA(s.color, selected ? 0.9 : 0.5); return l.cross ? "rgba(170,185,215,0.06)" : hexA(s.color, 0.15); })
+    .linkVisibility(l => (l.web || (showLines && (!focus || focus.links.has(lidOf(l))))) && shown(nodeOf(l.source)) && shown(nodeOf(l.target)))
+    .linkColor(lineColor)
     .linkOpacity(1)
-    .linkWidth(() => (focus && selected) ? 0.9 : 0)
-    .linkDirectionalParticles(() => (focus && selected) ? 3 : 0)
+    .linkWidth(l => hot(l) ? 0.9 : 0)
+    .linkDirectionalParticles(l => hot(l) ? 3 : 0)
     .linkDirectionalParticleWidth(1.8)
     .linkDirectionalParticleSpeed(0.007)
-    .linkDirectionalParticleColor(() => "#ffb000")
+    .linkDirectionalParticleColor(() => HOT)
     .onNodeClick(n => select(n))
     .onBackgroundClick(() => select(null))
     .onNodeHover(n => { el.style.cursor = n ? "pointer" : ""; })
@@ -252,21 +268,31 @@ function build(u) {
     .d3AlphaDecay(0.028)
     .graphData({nodes, links});
   G.d3Force("center", null);
-  G.d3Force("charge").strength(-10).distanceMax(160);
-  G.d3Force("link").distance(l => l.cross ? 200 : 30).strength(l => l.cross ? 0.002 : 0.02);
+  G.d3Force("charge").strength(-14).distanceMax(260);
+  G.d3Force("link").distance(l => l.web ? 26 : l.cross ? 300 : 110).strength(l => l.web ? 0.3 : l.cross ? 0.004 : 0.02);
   G.d3Force("cluster", alpha => { const k = 0.3 * alpha; for (const n of nodes) { n.vx += (n.ax - n.x) * k; n.vy += (n.ay - n.y) * k; n.vz += (n.az - n.z) * k; } });
   const restyle = () => G.nodeVal(G.nodeVal()).nodeColor(G.nodeColor()).nodeVisibility(G.nodeVisibility()).linkVisibility(G.linkVisibility())
     .linkColor(G.linkColor()).linkWidth(G.linkWidth()).linkDirectionalParticles(G.linkDirectionalParticles());
-  const homeLook = () => ({x: 0, y: 0, z: 0});
-  const home = {x: 0, y: R * 0.35, z: R * 2.9};
+  let C0 = {x: 0, y: 0, z: 0};
+  const homeLook = () => C0;
+  const home = {x: 0, y: R * 0.2, z: R * 1.75};
+  let framed = false, moved = false;
+  G.onEngineStop(() => {
+    if (framed) return; framed = true;
+    const k = nodes.length || 1; C0 = {x: 0, y: 0, z: 0};
+    for (const n of nodes) { C0.x += n.x / k; C0.y += n.y / k; C0.z += n.z / k; }
+    const ds = nodes.map(n => Math.hypot(n.x - C0.x, n.y - C0.y, n.z - C0.z)).sort((a, b) => a - b), r = ds[Math.floor(ds.length * 0.95)] || R;
+    Object.assign(home, {x: C0.x, y: C0.y + r * 0.35, z: C0.z + r * 2.7});
+    if (!moved && !level.sec && !selected) fly(home, C0, 800);
+  });
   G.cameraPosition(home, homeLook(), 0);
   const ctl = G.controls();
   let spin = !REDUCE;
   ctl.autoRotate = spin; ctl.autoRotateSpeed = 0.5; ctl.enableDamping = true; ctl.dampingFactor = 0.08;
   const setSpin = v => { spin = v; ctl.autoRotate = v; $("b-spin").setAttribute("aria-pressed", String(v)); };
   setSpin(spin);
-  el.addEventListener("pointerdown", () => { if (spin) setSpin(false); });
-  el.addEventListener("wheel", () => { if (spin) setSpin(false); }, {passive: true});
+  el.addEventListener("pointerdown", () => { moved = true; if (spin) setSpin(false); });
+  el.addEventListener("wheel", () => { moved = true; if (spin) setSpin(false); }, {passive: true});
   const fly = (to, look, ms) => G.cameraPosition(to, look, REDUCE ? 0 : ms);
 
   // ------------------------------------------------------------------ labels over the clusters
@@ -312,14 +338,20 @@ function build(u) {
     for (const s of secs) if (s._n) s.L = at(s, 30);
     for (const x of subs) if (x._n) x.L = at(x, 10);
   }
+  function glow() {
+    for (const l of links) for (const o of [l.__lineObj, l.__photonsObj]) {
+      const m = o && o.material;
+      if (m && m.blending !== 2) { m.blending = 2; m.transparent = true; m.depthWrite = false; m.needsUpdate = true; }
+    }
+  }
   (function frame() {
-    if (tick++ % 8 === 0) centers();
+    if (tick++ % 8 === 0) { centers(); glow(); }
     for (const s of secs) {
-      const d = put(s.el, s.L, 0.5, 1.5, 1300);
+      const d = put(s.el, s.L, 0.4, 1, 720);
       if (d) s.el.style.opacity = level.sec ? (level.sec === s ? "1" : "0.18") : (selected && selected.sector !== s ? "0.18" : "1");
     }
-    for (const x of subs) if (x.el.style.display !== "none") put(x.el, x.L, 0.7, 1.25, 700);
-    for (const c of coLabels) put(c.el, {x: c.n.x, y: c.n.y + 8, z: c.n.z}, 0.75, 1.2, 500);
+    for (const x of subs) if (x.el.style.display !== "none") put(x.el, x.L, 0.6, 1.1, 480);
+    for (const c of coLabels) put(c.el, {x: c.n.x, y: c.n.y + 8, z: c.n.z}, 0.7, 1.1, 380);
     requestAnimationFrame(frame);
   })();
 
@@ -339,7 +371,7 @@ function build(u) {
       setSpin(false);
       if (sub) { const c = sub.L && sub._n ? {x: sub._x / sub._n, y: sub._y / sub._n, z: sub._z / sub._n} : sub.P;
         const d = Math.hypot(c.x, c.y, c.z) || 1, f = 1 + 230 / d; fly({x: c.x * f, y: c.y * f + 30, z: c.z * f}, c, 1100); }
-      else if (sec) { const f = 1 + (sec.rs + 260) / R; fly({x: sec.A.x * f, y: sec.A.y * f + 40, z: sec.A.z * f}, sec.A, 1100); }
+      else if (sec) { const f = 1 + (sec.rs + 260) / (R * 0.42); fly({x: sec.A.x * f, y: sec.A.y * f + 40, z: sec.A.z * f}, sec.A, 1100); }
       else fly(home, homeLook(), 1100);
     }
     const qs = new URLSearchParams();
@@ -407,9 +439,9 @@ function build(u) {
     if (!n) { $("card").hidden = true; go(level.sec, level.sub, false); return; }
     setSpin(false);
     const near = new Set([n.id, ...n.comps.filter(t => byId.has(t)), ...n.by]);
-    focus = {nodes: near, links: new Set(links.filter(l => nodeOf(l.source).id === n.id || nodeOf(l.target).id === n.id).map(lidOf))};
+    focus = {nodes: near, links: new Set(links.filter(l => !l.web && (nodeOf(l.source).id === n.id || nodeOf(l.target).id === n.id)).map(lidOf))};
     restyle();
-    const d = Math.hypot(n.x, n.y, n.z) || 1, f = 1 + 300 / d;
+    const d = Math.hypot(n.x, n.y, n.z) || 1, f = 1 + 420 / d;
     fly({x: n.x * f, y: n.y * f, z: n.z * f}, {x: n.x, y: n.y, z: n.z}, fromSearch ? 1300 : 900);
     card(n);
   }
@@ -483,7 +515,7 @@ function build(u) {
   panel();
   setTimeout(() => { if (t0) pick(t0); else if (s0) go(s0, x0 || null, true); }, 1200);
   if (!location.search && innerWidth > 760) q.focus();      // straight to typing a ticker (a link to a level or a company keeps the view clean)
-  window.__brain3d = {nodes: nodes.length, read: nRead, revenue: nRev, links: links.length,
+  window.__brain3d = {nodes: nodes.length, read: nRead, revenue: nRev, links: comps.length, web: links.length - comps.length,
     sectors: secs.map(s => ({name: s.name, count: s.count, read: s.read, subs: s.subs.length})),
     level: () => ({sector: level.sec && level.sec.name, sub: level.sub && level.sub.name}), go: (s, x) => go(secs.find(a => a.slug === s) || null, null, true), select: t => pick(byId.get(t)), graph: G};
 }
