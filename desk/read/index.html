@@ -12924,11 +12924,13 @@ Who is the auditor?</textarea>
     const VSTYLES = [["", "Crawler read", "The spider reads; the report builds in the band below.", "read.jpg"],
       ["ball", "Crawler + brain", "The brain ball below: each figure flies into the company's dot.", "brain.jpg"],
       ["split", "Crawler + brain + report", "The report on the left, the brain on the right: each figure goes to both.", "split.jpg"]];
+    // a share class finds its company's dot: GOOG is on the map as Alphabet (GOOGL), BRK.B as BRK-B
+    const brainKey = t => String(t || "").toUpperCase().replace(/\./g, "-");
     let brainMap = null;                  // the tickers on the brain's map, read once (/api/brain/universe)
     function loadBrainMap(){
       if (brainMap) return brainMap;
       return brainMap = fetch("/api/brain/universe", {cache: "no-cache"}).then(r => r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status)))
-        .then(u => new Set((u.sectors || []).flatMap(x => (x.sub_industries || []).flatMap(y => (y.companies || []).map(c => String(c.ticker).toUpperCase())))))
+        .then(u => new Set((u.sectors || []).flatMap(x => (x.sub_industries || []).flatMap(y => (y.companies || []).flatMap(c => [c.ticker, ...(c.tickers || [])].map(brainKey))))))
         .catch(() => null);
     }
     let brainSet = undefined;             // undefined: not read yet; null: no map here; a Set: the map's tickers
@@ -12936,7 +12938,7 @@ Who is the auditor?</textarea>
       const box = body.querySelector("#mk-vs"); if (!box) return;
       const L = mk.look, tk = String((mk.file ? mk.ticker : (mk.list && mk.list.ticker) || mk.ticker) || "").toUpperCase();
       if (brainSet === undefined){ Promise.resolve(loadBrainMap()).then(m => { brainSet = m; drawVS(); }); }
-      const ok = !!(tk && brainSet && brainSet.has(tk)), form = mk.list && mk.pick != null && mk.list.items[mk.pick] ? mk.list.items[mk.pick].form : "";
+      const ok = !!(tk && brainSet && brainSet.has(brainKey(tk))), form = mk.list && mk.pick != null && mk.list.items[mk.pick] ? mk.list.items[mk.pick].form : "";
       box.querySelectorAll("[data-vs]").forEach(b => { b.setAttribute("aria-checked", String(b.dataset.vs === (L.brain || ""))); if (b.dataset.vs) b.disabled = !ok; });
       const rs = body.querySelector("#mk-rs"); if (rs) rs.querySelectorAll("[data-rs]").forEach(b => { b.disabled = !!L.brain && !!b.dataset.rs; });
       const note = body.querySelector("#mk-vs-note");

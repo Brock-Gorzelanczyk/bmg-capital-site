@@ -79,6 +79,8 @@ function build(u) {
         const n = {id: c.ticker, name: c.name || c.ticker, sector: s.sector, color, comps: c.comps || [], rev: b.revenue ? b.revenue.value : null,
                    ax: P.x, ay: P.y, az: P.z, x: P.x + (hash(c.ticker) - 0.5) * 30, y: P.y + (hash(c.ticker + "y") - 0.5) * 30, z: P.z + (hash(c.ticker + "z") - 0.5) * 30};
         nodes.push(n); byId.set(n.id, n); sub.nodes.push(n);
+        // every share class the map lists finds the same dot (GOOG is Alphabet's GOOGL dot; BRK.B is BRK-B)
+        (c.tickers || []).forEach(t => { const k = String(t).toUpperCase().replace(/\./g, "-"); if (!byId.has(k)) byId.set(k, n); });
       });
     });
   });
@@ -241,7 +243,7 @@ function build(u) {
   Object.assign(api, {
     companies: nodes.length,
     focus(ticker) {
-      sel = byId.get(String(ticker || "").toUpperCase()) || null; api.found = !!sel;
+      sel = byId.get(String(ticker || "").toUpperCase().replace(/\./g, "-")) || null; api.found = !!sel;
       label = sel ? sel.id : ""; restyle(); kick(); framesLeft = 2;
       if (sel) { const v = {x: sel.x - C0.x, z: sel.z - C0.z}; th0 = Math.atan2(v.x, v.z) - 0.35; }   // the company starts on the near side
       return api.found;
